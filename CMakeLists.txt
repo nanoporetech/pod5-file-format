@@ -8,4 +8,10 @@ project(MKR
     VERSION ${MKR_NUMERIC_VERSION}
 )
 
+# Enable finding conan modules:
+set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}")
+include_directories("third_party/include")
+
+enable_testing()
+
 add_subdirectory(c++)

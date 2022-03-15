@@ -1,0 +1,38 @@
+# Structure:
+# <name (use correct capitalisation, spaces, etc - quote if necessary)>:
+#     version: "<what version is included>"
+#     license: "<path to a file in the licenses dir>"
+#     files:
+#         - shell-style globs of files in include
+#
+# This information is both useful to developers and used to build third-party software information
+# documents to include in our distributions (many open source licenses require this, and it's
+# generally a good thing to do regardless).
+#
+# The license file should ideally be copied directly from the source distribution.
+#
+# The "files" field is used by the CI jobs to check that this file has been assembled correctly, and
+# we didn't forget any licenses.
+---
+Catch2:
+    description: >
+        Unit testing framework. Nicer to use than most other C++ unit testing frameworks.
+    # Omitted from third-party license files because it's not in any shipped code
+    omit: True
+    version: "2.13.7"
+    url: https://github.com/catchorg/Catch2
+    license: licenses/catch2.txt
+    files:
+        - include/catch2/catch.hpp
+GSL Lite:
+    description: >
+        Functions and types suggested for use by the C++ Core Guidelines
+        <https://github.com/isocpp/CppCoreGuidelines>. In the future we may want to switch to
+        Microsoft's implementation <https://github.com/microsoft/gsl>, but that doesn't support
+        GCC 4.8.
+    version: "0.38.1"
+    url: https://github.com/martinmoene/gsl-lite
+    license: licenses/gsl-lite.txt
+    files:
+        - include/gsl.h
+        - include/gsl

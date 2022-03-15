@@ -1,0 +1,55 @@
+These instructions provide details on how to re-create the third party support libraries from source.
+
+For each library, see software_version.yaml for download links, versions and license information.
+
+These instructions all assume you have set the THIRD_PARTY_LIBS env var:
+
+THIRD_PARTY_LIBS=/path/to/bass/third_party
+mkdir -p $THIRD_PARTY_LIBS/include
+
+
+Catch2
+======
+
+Download catch.hpp from the release and put it in $THIRD_PARTY_LIBS/include/catch2
+
+
+GSL Lite
+========
+
+Download and extract tarball. From a bash prompt, cd into the directory and run:
+
+Apply the gsl patches in $THIRD_PARTY_LIBS:
+    for p in $THIRD_PARTY_LIBS/gsl-*.patch; do
+        patch -Np1 -i $p
+    done
+
+Copy the headers:
+    rm -rf $THIRD_PARTY_LIBS/include/gsl $THIRD_PARTY_LIBS/include/gsl.h
+    cp -r include/* $THIRD_PARTY_LIBS/include/
+
+
+jsoncons
+========
+
+Download and extract the release tarball to a working folder.
+
+Apply the jsoncons patches in $THIRD_PARTY_LIBS:
+    for p in $THIRD_PARTY_LIBS/jsoncons-*.patch; do
+        patch -Np1 -i $p
+    done
+
+Copy the headers:
+    rm -rf $THIRD_PARTY_LIBS/include/jsoncons*
+    cp -a include/* $THIRD_PARTY_LIBS/include/
+
+
+toml11
+======
+
+Download a source release and extract it.
+
+Copy the headers:
+    rm -rf $THIRD_PARTY_LIBS/include/toml11
+    mkdir $THIRD_PARTY_LIBS/include/toml11
+    cp -a toml toml.hpp $THIRD_PARTY_LIBS/include/toml11/

@@ -1,1 +1,1 @@
-set(MKRVersion "0.0.1")
+set(MKR_NUMERIC_VERSION "0.0.1")
