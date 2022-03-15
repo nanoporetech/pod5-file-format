@@ -2,11 +2,14 @@
   script:
     - mkdir build
     - cd build
-    - cmake ..
+    - conan install --profile ${CONAN_PROFILE} ..
+    - cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
     - make -j
 
-gcc9-build:
+gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
   extends: [".build"]
   tags:
       - linux
+  variables:
+    CONAN_PROFILE: "linux-x86_64-gcc9-release"
