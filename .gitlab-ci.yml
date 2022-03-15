@@ -1,0 +1,12 @@
+.build:
+  script:
+    - mkdir build
+    - cd build
+    - cmake ..
+    - make -j
+
+gcc9-build:
+  image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
+  extends: [".build"]
+  tags:
+      - linux
