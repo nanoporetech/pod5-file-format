@@ -1,0 +1,9 @@
+#pragma once
+
+#include <string>
+
+namespace mkr {
+
+std::string const MkrVersion = "@MKR_NUMERIC_VERSION@";
+
+}

@@ -1,7 +1,12 @@
 
 add_executable(mkr_unit_test
     main.cpp
-    mkr_test.cpp
+    signal_table_tests.cpp
+)
+
+target_link_libraries(mkr_unit_test
+    PUBLIC
+        mkr_format
 )
 
 add_test(

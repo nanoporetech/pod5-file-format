@@ -1,4 +1,24 @@
+stages:
+  - pre-flight
+  - build
+
+pre-commit checks:
+    image: python:3.9
+    stage: pre-flight
+    tags:
+        - linux
+    script:
+        - pip install pre-commit
+          # if any of the hooks wanted to modify files, this will have a non-zero exit
+        - pre-commit run --all-files
+    variables:
+        PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+    cache:
+        paths:
+            - ${PRE_COMMIT_HOME}
+
 .build:
+  stage: build
   script:
     - mkdir build
     - cd build
