@@ -40,8 +40,8 @@ SignalTableWriter::~SignalTableWriter() {
     close();
 }
 
-Result<std::size_t> SignalTableWriter::add_read(boost::uuids::uuid const& read_id,
-                                                gsl::span<std::int16_t> const& signal) {
+Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read_id,
+                                                  gsl::span<std::int16_t> const& signal) {
     if (!m_writer) {
         return Status::IOError("Writer terminated");
     }

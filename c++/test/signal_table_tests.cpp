@@ -55,9 +55,9 @@ SCENARIO("Signal table Writer Tests") {
             REQUIRE(writer.ok());
 
             WHEN("Writing a read") {
-                auto row_1 = writer->add_read(read_id_1, gsl::make_span(signal_1));
+                auto row_1 = writer->add_signal(read_id_1, gsl::make_span(signal_1));
 
-                auto row_2 = writer->add_read(read_id_2, gsl::make_span(signal_2));
+                auto row_2 = writer->add_signal(read_id_2, gsl::make_span(signal_2));
 
                 REQUIRE(writer->flush().ok());
                 REQUIRE(writer->close().ok());

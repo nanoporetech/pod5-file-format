@@ -32,17 +32,37 @@ public:
     SignalTableWriter& operator=(SignalTableWriter const&) = delete;
     ~SignalTableWriter();
 
-    /// \brief Add an array of reads to the signal table, as a batch.
+    /// \brief Add a read to the signal table, adding to the current batch.
+    ///        The batch is not flushed to disk until #flush is called.
     /// \param read_id The read id for the read entry
     /// \param signal The signal for the read entry
-    Result<std::size_t> add_read(boost::uuids::uuid const& read_id,
-                                 gsl::span<std::int16_t> const& signal);
+    /// \returns The row index of the inserted signal, or a status on failure.
+    Result<std::size_t> add_signal(boost::uuids::uuid const& read_id,
+                                   gsl::span<std::int16_t> const& signal);
+
+    /// \brief Add a pre-compressed read to the signal table, adding to the current batch.
+    ///        The batch is not flushed to disk until #flush is called.
+    ///
+    ///        The user should call #compress_signal on *this* writer to compress the signal prior
+    ///        to calling this method, to ensure the signal is compressed correctly for the table.
+    ///
+    /// \param read_id The read id for the read entry
+    /// \param signal The signal for the read entry
+    /// \returns The row index of the inserted signal, or a status on failure.
+    Result<std::size_t> add_pre_compressed_signal(boost::uuids::uuid const& read_id,
+                                                  gsl::span<std::uint8_t> const& signal_compressed);
 
     /// \brief Flush buffered data into the writer as a record batch.
     Status flush();
 
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();
+
+    /// \brief Compress the signal, intended for use with #add_pre_compressed_read
+    /// \param signal The input signal to be compressed.
+    /// \param[out] compressed_signal The compressed signal
+    Status compress_signal(gsl::span<std::int16_t> const& signal,
+                           std::vector<std::uint8_t> const& compressed_signal);
 
 private:
     arrow::MemoryPool* m_pool = nullptr;

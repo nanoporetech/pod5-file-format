@@ -7,7 +7,7 @@ configure_file(
     mkr_format/version.h
 )
 
-add_library(mkr_format
+add_library(mkr_format SHARED
     mkr_format/mkr.cpp
     mkr_format/mkr.h
     mkr_format/schema_metadata.cpp
@@ -19,6 +19,9 @@ add_library(mkr_format
     mkr_format/signal_table_reader.h
     mkr_format/signal_table_schema.cpp
     mkr_format/signal_table_schema.h
+
+    mkr_format/c_api.cpp
+    mkr_format/c_api.h
 
     mkr_format/errors.cpp
     mkr_format/errors.h
