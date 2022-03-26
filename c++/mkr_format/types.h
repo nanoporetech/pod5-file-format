@@ -5,6 +5,7 @@
 #include <arrow/extension_type.h>
 #include <arrow/stl_iterator.h>
 #include <boost/uuid/uuid.hpp>
+#include <gsl/gsl-lite.hpp>
 
 namespace mkr {
 
@@ -43,6 +44,29 @@ public:
             const std::string &serialized_data) const override;
 };
 
+class MKR_FORMAT_EXPORT VbzSignalArray : public arrow::ExtensionArray {
+public:
+    using IteratorType = arrow::stl::ArrayIterator<VbzSignalArray>;
+
+    gsl::span<std::uint8_t const> Value(int64_t i) const;
+
+    using ExtensionArray::ExtensionArray;
+};
+
+class MKR_FORMAT_EXPORT VbzSignalType : public arrow::ExtensionType {
+public:
+    VbzSignalType() : ExtensionType(arrow::large_binary()) {}
+
+    std::string extension_name() const override { return "minknow.vbz"; }
+    bool ExtensionEquals(const ExtensionType &other) const override;
+    std::shared_ptr<arrow::Array> MakeArray(std::shared_ptr<arrow::ArrayData> data) const override;
+    std::string Serialize() const override;
+    arrow::Result<std::shared_ptr<arrow::DataType>> Deserialize(
+            std::shared_ptr<arrow::DataType> storage_type,
+            const std::string &serialized_data) const override;
+};
+
+std::shared_ptr<VbzSignalType> vbz_signal();
 std::shared_ptr<UuidType> uuid();
 
 /// \brief Register all required extension types, lifetime

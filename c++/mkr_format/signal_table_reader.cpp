@@ -22,9 +22,13 @@ std::shared_ptr<UuidArray> SignalTableRecordBatch::read_id_column() const {
     return std::static_pointer_cast<UuidArray>(m_batch->column(m_field_locations.read_id));
 }
 
-std::shared_ptr<arrow::LargeListArray> SignalTableRecordBatch::signal_column() const {
+std::shared_ptr<arrow::LargeListArray> SignalTableRecordBatch::uncompressed_signal_column() const {
     return std::static_pointer_cast<arrow::LargeListArray>(
             m_batch->column(m_field_locations.signal));
+}
+
+std::shared_ptr<VbzSignalArray> SignalTableRecordBatch::vbz_signal_column() const {
+    return std::static_pointer_cast<VbzSignalArray>(m_batch->column(m_field_locations.signal));
 }
 
 std::shared_ptr<arrow::UInt32Array> SignalTableRecordBatch::samples_column() const {

@@ -6,6 +6,7 @@
 
 #include <arrow/io/type_fwd.h>
 #include <boost/uuid/uuid.hpp>
+#include <boost/variant/variant.hpp>
 #include <gsl/gsl-lite.hpp>
 
 namespace arrow {
@@ -20,10 +21,22 @@ class RecordBatchWriter;
 
 namespace mkr {
 
+struct UncompressedSignalBuilder {
+    std::shared_ptr<arrow::Int16Builder> signal_data_builder;
+    std::unique_ptr<arrow::LargeListBuilder> signal_builder;
+};
+
+struct VbzSignalBuilder {
+    std::shared_ptr<arrow::LargeBinaryBuilder> signal_builder;
+};
+
 class MKR_FORMAT_EXPORT SignalTableWriter {
 public:
+    using SignalBuilderVariant = boost::variant<UncompressedSignalBuilder, VbzSignalBuilder>;
+
     SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&& writer,
                       std::shared_ptr<arrow::Schema>&& schema,
+                      SignalBuilderVariant&& signal_builder,
                       SignalTableSchemaDescription const& field_locations,
                       arrow::MemoryPool* pool);
     SignalTableWriter(SignalTableWriter&&);
@@ -73,8 +86,7 @@ private:
     std::shared_ptr<arrow::ipc::RecordBatchWriter> m_writer;
 
     std::unique_ptr<arrow::FixedSizeBinaryBuilder> m_read_id_builder;
-    std::shared_ptr<arrow::Int16Builder> m_signal_data_builder;
-    std::unique_ptr<arrow::LargeListBuilder> m_signal_builder;
+    SignalBuilderVariant m_signal_builder;
     std::unique_ptr<arrow::UInt32Builder> m_samples_builder;
 
     std::size_t m_flushed_row_count = 0;
@@ -89,6 +101,7 @@ private:
 Result<SignalTableWriter> make_signal_table_writer(
         std::shared_ptr<arrow::io::OutputStream> const& sink,
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
+        SignalType compression_type,
         arrow::MemoryPool* pool);
 
 }  // namespace mkr

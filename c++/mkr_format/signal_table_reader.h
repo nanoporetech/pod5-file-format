@@ -36,7 +36,8 @@ public:
     std::size_t num_rows() const;
 
     std::shared_ptr<UuidArray> read_id_column() const;
-    std::shared_ptr<arrow::LargeListArray> signal_column() const;
+    std::shared_ptr<arrow::LargeListArray> uncompressed_signal_column() const;
+    std::shared_ptr<VbzSignalArray> vbz_signal_column() const;
     std::shared_ptr<arrow::UInt32Array> samples_column() const;
 
 private:

@@ -45,13 +45,16 @@ SCENARIO("Signal table Writer Tests") {
 
         auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
 
+        auto signal_type = GENERATE(SignalType::UncompressedSignal, SignalType::VbzSignal);
+
         {
             auto schema_metadata =
                     make_schema_key_value_metadata({file_identifier, "test_software", MkrVersion});
             REQUIRE(schema_metadata.ok());
             REQUIRE(file_out.ok());
 
-            auto writer = mkr::make_signal_table_writer(*file_out, *schema_metadata, pool);
+            auto writer =
+                    mkr::make_signal_table_writer(*file_out, *schema_metadata, signal_type, pool);
             REQUIRE(writer.ok());
 
             WHEN("Writing a read") {
@@ -94,20 +97,35 @@ SCENARIO("Signal table Writer Tests") {
             CHECK(read_id->Value(0) == read_id_1);
             CHECK(read_id->Value(1) == read_id_2);
 
-            auto signal = record_batch_0->signal_column();
-            CHECK(signal->length() == 2);
-            auto signal_1_read =
-                    std::static_pointer_cast<arrow::Int16Array>(signal->value_slice(0));
-            std::vector<std::int16_t> stored_values_1(
-                    signal_1_read->raw_values(),
-                    signal_1_read->raw_values() + signal_1_read->length());
-            CHECK(stored_values_1 == signal_1);
-            auto signal_2_read =
-                    std::static_pointer_cast<arrow::Int16Array>(signal->value_slice(1));
-            std::vector<std::int16_t> stored_values_2(
-                    signal_2_read->raw_values(),
-                    signal_2_read->raw_values() + signal_2_read->length());
-            CHECK(stored_values_2 == signal_2);
+            if (signal_type == SignalType::VbzSignal) {
+                auto signal = record_batch_0->vbz_signal_column();
+                CHECK(signal->length() == 2);
+
+                auto signal_typed = std::static_pointer_cast<VbzSignalArray>(signal);
+                auto signal_1_read = signal_typed->Value(0);
+                CHECK(gsl::as_bytes(signal_1_read) == gsl::as_bytes(gsl::make_span(signal_1)));
+
+                auto signal_2_read = signal_typed->Value(1);
+                CHECK(gsl::as_bytes(signal_2_read) == gsl::as_bytes(gsl::make_span(signal_2)));
+            } else if (signal_type == SignalType::UncompressedSignal) {
+                auto signal = record_batch_0->uncompressed_signal_column();
+                CHECK(signal->length() == 2);
+
+                auto signal_1_read =
+                        std::static_pointer_cast<arrow::Int16Array>(signal->value_slice(0));
+                std::vector<std::int16_t> stored_values_1(
+                        signal_1_read->raw_values(),
+                        signal_1_read->raw_values() + signal_1_read->length());
+                CHECK(stored_values_1 == signal_1);
+                auto signal_2_read =
+                        std::static_pointer_cast<arrow::Int16Array>(signal->value_slice(1));
+                std::vector<std::int16_t> stored_values_2(
+                        signal_2_read->raw_values(),
+                        signal_2_read->raw_values() + signal_2_read->length());
+                CHECK(stored_values_2 == signal_2);
+            } else {
+                FAIL("Unknown signal type");
+            }
 
             auto samples = record_batch_0->samples_column();
             CHECK(samples->length() == 2);
