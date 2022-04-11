@@ -27,29 +27,3 @@ Apply the gsl patches in $THIRD_PARTY_LIBS:
 Copy the headers:
     rm -rf $THIRD_PARTY_LIBS/include/gsl $THIRD_PARTY_LIBS/include/gsl.h
     cp -r include/* $THIRD_PARTY_LIBS/include/
-
-
-jsoncons
-========
-
-Download and extract the release tarball to a working folder.
-
-Apply the jsoncons patches in $THIRD_PARTY_LIBS:
-    for p in $THIRD_PARTY_LIBS/jsoncons-*.patch; do
-        patch -Np1 -i $p
-    done
-
-Copy the headers:
-    rm -rf $THIRD_PARTY_LIBS/include/jsoncons*
-    cp -a include/* $THIRD_PARTY_LIBS/include/
-
-
-toml11
-======
-
-Download a source release and extract it.
-
-Copy the headers:
-    rm -rf $THIRD_PARTY_LIBS/include/toml11
-    mkdir $THIRD_PARTY_LIBS/include/toml11
-    cp -a toml toml.hpp $THIRD_PARTY_LIBS/include/toml11/

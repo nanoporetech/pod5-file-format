@@ -4,3 +4,6 @@ arrow/7.0.0@nanopore/stable
 
 [generators]
 cmake_find_package_multi
+
+[options]
+arrow:with_boost=True

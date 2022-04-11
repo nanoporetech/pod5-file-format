@@ -1,12 +1,36 @@
+stages:
+  - pre-flight
+  - build
+
+pre-commit checks:
+    image: python:3.9
+    stage: pre-flight
+    tags:
+        - linux
+    script:
+        - pip install pre-commit
+          # if any of the hooks wanted to modify files, this will have a non-zero exit
+        - pre-commit run --all-files
+    variables:
+        PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
+    cache:
+        paths:
+            - ${PRE_COMMIT_HOME}
+
 .build:
+  stage: build
   script:
     - mkdir build
     - cd build
-    - cmake ..
+    - conan install --profile ${CONAN_PROFILE} ..
+    - cmake -DCMAKE_BUILD_TYPE=Release ..
     - make -j
+    - ctest
 
-gcc9-build:
+gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
   extends: [".build"]
   tags:
       - linux
+  variables:
+    CONAN_PROFILE: "linux-x86_64-gcc9-release"
