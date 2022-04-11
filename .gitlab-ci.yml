@@ -23,8 +23,9 @@ pre-commit checks:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+    - cmake -DCMAKE_BUILD_TYPE=Release ..
     - make -j
+    - ctest
 
 gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
