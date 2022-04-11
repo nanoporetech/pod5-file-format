@@ -1,5 +1,6 @@
 #include "mkr_format/signal_table_schema.h"
 
+#include "mkr_format/schema_utils.h"
 #include "mkr_format/types.h"
 
 #include <arrow/type.h>
@@ -40,57 +41,26 @@ std::shared_ptr<arrow::Schema> make_signal_table_schema(
 
 Result<SignalTableSchemaDescription> read_signal_table_schema(
         std::shared_ptr<arrow::Schema> const& schema) {
-    auto read_id_field_idx = schema->GetFieldIndex("read_id");
-    {
-        if (read_id_field_idx == -1) {
-            return Status::TypeError("Schema missing field 'read_id'");
-        }
-        auto read_id_field = schema->field(read_id_field_idx);
-        auto read_id_type = read_id_field->type();
-        if (read_id_type->id() != arrow::Type::EXTENSION) {
-            return Status::TypeError("Schema field 'read_id' is incorrect type: '",
-                                     read_id_type->name(), "'");
-        }
-        auto read_id_extension_field = static_cast<arrow::ExtensionType*>(read_id_type.get());
-        if (read_id_extension_field->extension_name() != uuid()->extension_name()) {
-            return Status::TypeError("Schema field 'read_id' is incorrect extension type");
-        }
-    }
+    ARROW_ASSIGN_OR_RAISE(auto read_id_field_idx, find_field(schema, "read_id", uuid()));
+    ARROW_ASSIGN_OR_RAISE(auto samples_field_idx, find_field(schema, "samples", arrow::uint32()));
 
-    auto signal_field_idx = schema->GetFieldIndex("signal");
+    ARROW_ASSIGN_OR_RAISE(auto signal_field_idx, find_field_untyped(schema, "signal"));
     SignalType signal_type = SignalType::UncompressedSignal;
     {
-        if (signal_field_idx == -1) {
-            return Status::TypeError("Schema missing field 'signal'");
-        }
-        auto signal_field = schema->field(signal_field_idx);
-        auto signal_type = signal_field->type();
-        if (signal_type->id() == arrow::Type::LARGE_LIST) {
-            auto signal_list_field = static_cast<arrow::LargeListType*>(signal_field->type().get());
+        auto const signal_field = schema->field(signal_field_idx);
+
+        auto const signal_arrow_type = signal_field->type();
+        if (signal_arrow_type->id() == arrow::Type::LARGE_LIST) {
+            auto const signal_list_field =
+                    static_cast<arrow::LargeListType*>(signal_field->type().get());
             if (signal_list_field->value_type()->id() != arrow::Type::INT16) {
                 return Status::TypeError("Schema field 'signal' list value type is incorrect type");
             }
-        } else if (signal_type->id() == arrow::Type::EXTENSION) {
-            auto signal_list_field = static_cast<arrow::ExtensionType*>(signal_field->type().get());
-            if (signal_list_field->extension_name() != vbz_signal()->extension_name()) {
-                return Status::TypeError("Schema field 'signal' is incorrect extension type");
-            }
+        } else if (signal_arrow_type->Equals(vbz_signal())) {
+            signal_type = SignalType::VbzSignal;
         } else {
             return Status::TypeError("Schema field 'signal' is incorrect type: '",
-                                     signal_type->name(), "'");
-        }
-    }
-
-    auto samples_field_idx = schema->GetFieldIndex("samples");
-    {
-        if (samples_field_idx == -1) {
-            return Status::TypeError("Schema missing field 'samples'");
-        }
-        auto samples_field = schema->field(samples_field_idx);
-        auto samples_type = samples_field->type();
-        if (samples_field->type()->id() != arrow::Type::UINT32) {
-            return Status::TypeError("Schema field 'samples' is incorrect type: '",
-                                     samples_type->name(), "'");
+                                     signal_arrow_type->name(), "'");
         }
     }
 

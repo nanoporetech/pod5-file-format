@@ -8,17 +8,32 @@ configure_file(
 )
 
 add_library(mkr_format SHARED
-    mkr_format/mkr.cpp
-    mkr_format/mkr.h
+    mkr_format/file_writer.cpp
+    mkr_format/file_writer.h
+    mkr_format/file_reader.cpp
+    mkr_format/file_reader.h
+
     mkr_format/schema_metadata.cpp
     mkr_format/schema_metadata.h
-    mkr_format/signal_table_writer.cpp
-    mkr_format/signal_table_writer.cpp
-    mkr_format/signal_table_writer.h
+
+    mkr_format/read_table_reader.cpp
+    mkr_format/read_table_reader.h
+    mkr_format/read_table_schema.cpp
+    mkr_format/read_table_schema.h
+    mkr_format/read_table_writer.cpp
+    mkr_format/read_table_writer.h
+    mkr_format/read_table_writer_utils.cpp
+    mkr_format/read_table_writer_utils.h
+    mkr_format/read_table_utils.h
+
     mkr_format/signal_table_reader.cpp
     mkr_format/signal_table_reader.h
     mkr_format/signal_table_schema.cpp
     mkr_format/signal_table_schema.h
+    mkr_format/signal_table_writer.cpp
+    mkr_format/signal_table_writer.h
+    mkr_format/signal_table_utils.h
+    
 
     mkr_format/c_api.cpp
     mkr_format/c_api.h
@@ -26,6 +41,8 @@ add_library(mkr_format SHARED
     mkr_format/errors.cpp
     mkr_format/errors.h
     mkr_format/result.h
+    mkr_format/table_reader.cpp
+    mkr_format/table_reader.h
     mkr_format/types.cpp
     mkr_format/types.h
 )

@@ -2,6 +2,7 @@
 
 #include "mkr_format/mkr_format_export.h"
 #include "mkr_format/result.h"
+#include "mkr_format/signal_table_utils.h"
 
 #include <memory>
 
@@ -11,11 +12,6 @@ class Schema;
 }  // namespace arrow
 
 namespace mkr {
-
-enum class SignalType {
-    UncompressedSignal,
-    VbzSignal,
-};
 
 struct SignalTableSchemaDescription {
     SignalType signal_type;

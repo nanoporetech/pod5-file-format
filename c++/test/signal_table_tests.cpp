@@ -3,6 +3,7 @@
 #include "mkr_format/signal_table_writer.h"
 #include "mkr_format/types.h"
 #include "mkr_format/version.h"
+#include "utils.h"
 
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
@@ -10,21 +11,9 @@
 #include <arrow/memory_pool.h>
 #include <arrow/record_batch.h>
 #include <boost/uuid/random_generator.hpp>
-
-#include <iostream>
-
-template <typename T>
-std::ostream& operator<<(std::ostream& str, arrow::Result<T> const& res) {
-    if (res.ok()) {
-        return str << "{ok}";
-    } else {
-        return str << res.status().ToString();
-    }
-}
-
 #include <catch2/catch.hpp>
 
-SCENARIO("Signal table Writer Tests") {
+SCENARIO("Signal table Tests") {
     using namespace mkr;
 
     auto types = register_extension_types();
