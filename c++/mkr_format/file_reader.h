@@ -46,4 +46,8 @@ MKR_FORMAT_EXPORT mkr::Result<std::unique_ptr<FileReader>> open_split_file_reade
         boost::filesystem::path const& reads_path,
         FileReaderOptions const& options);
 
+MKR_FORMAT_EXPORT mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
+        boost::filesystem::path const& path,
+        FileReaderOptions const& options);
+
 }  // namespace mkr

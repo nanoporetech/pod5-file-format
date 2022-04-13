@@ -1,6 +1,6 @@
 #include "mkr_format/read_table_schema.h"
 
-#include "mkr_format/schema_utils.h"
+#include "mkr_format/internal/schema_utils.h"
 #include "mkr_format/types.h"
 
 #include <arrow/type.h>

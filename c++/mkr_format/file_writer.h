@@ -41,30 +41,35 @@ private:
     SignalType m_signal_type;
 };
 
+class FileWriterImpl;
 class MKR_FORMAT_EXPORT FileWriter {
 public:
-    virtual ~FileWriter() = default;
-    /*
-    virtual arrow::Status add_complete_read(
-        ReadData const& read_data,
-        gsl::span<SignalTableRowIndex> const& signal
-    ) = 0;
-*/
+    FileWriter(std::unique_ptr<FileWriterImpl>&& impl);
+    ~FileWriter();
 
-    virtual arrow::Status add_complete_read(ReadData const& read_data,
-                                            gsl::span<std::int16_t> const& signal) = 0;
+    arrow::Status close();
 
-    virtual mkr::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data) = 0;
-    virtual mkr::Result<CalibrationDictionaryIndex> add_calibration(
-            CalibrationData const& calibration_data) = 0;
-    virtual mkr::Result<EndReasonDictionaryIndex> add_end_reason(
-            EndReasonData const& end_reason_data) = 0;
-    virtual mkr::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data) = 0;
+    arrow::Status add_complete_read(ReadData const& read_data,
+                                    gsl::span<std::int16_t> const& signal);
+
+    mkr::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data);
+    mkr::Result<CalibrationDictionaryIndex> add_calibration(
+            CalibrationData const& calibration_data);
+    mkr::Result<EndReasonDictionaryIndex> add_end_reason(EndReasonData const& end_reason_data);
+    mkr::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data);
+
+private:
+    std::unique_ptr<FileWriterImpl> m_impl;
 };
 
 MKR_FORMAT_EXPORT mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
         boost::filesystem::path const& signal_path,
         boost::filesystem::path const& reads_path,
+        std::string const& writing_software_name,
+        FileWriterOptions const& options);
+
+MKR_FORMAT_EXPORT mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
+        boost::filesystem::path const& path,
         std::string const& writing_software_name,
         FileWriterOptions const& options);
 
