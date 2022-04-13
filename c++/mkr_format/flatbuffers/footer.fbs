@@ -1,0 +1,40 @@
+namespace Minknow.ReadsFormat;
+ 
+enum ContentType:short {
+    // The Reads table (an Arrow table)
+    ReadsTable,
+    // The Signal table (an Arrow table)
+    SignalTable,
+    // An index for looking up data in the ReadsTable by read_id
+    ReadIdIndex,
+    // An index based on other columns and/or tables (it will need to be opened to find out what it indexes)
+    OtherIndex,
+}
+ 
+enum Format:short {
+    // The Apache Feather V2 format, also known as the Apache Arrow IPC File format.
+    FeatherV2,
+}
+ 
+// Describes an embedded file.
+table EmbeddedFile {
+    // The start of the embedded file
+    offset: int64;
+    // The length of the embedded file (excluding any padding)
+    length: int64;
+    // The format of the file
+    format: Format;
+    // What contents should be expected in the file
+    content_type: ContentType;
+}
+ 
+table Footer {
+    // Must match the "MINKNOW:file_identifier" custom metadata entry in the schemas of the bundled tables.
+    file_identifier: string;
+    // A free-form description of the software that wrote the file, intended to help pin down the source of files that violate the specification.
+    software: string;
+    // The version of this specification that the table schemas are based on (1.0.0).
+    mkr_version: string;
+    // The Apache Arrow tables stored in the file.
+    contents: [ EmbeddedFile ];
+}
