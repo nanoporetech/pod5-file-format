@@ -1,6 +1,7 @@
 
 add_executable(mkr_unit_tests
     main.cpp
+    c_api_tests.cpp
     file_reader_writer_tests.cpp
     read_table_writer_utils_tests.cpp
     read_table_tests.cpp
