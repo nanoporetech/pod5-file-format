@@ -35,15 +35,15 @@ public:
              std::uint64_t start_sample,
              float median_before,
              EndReasonDictionaryIndex end_reason,
-             RunInfoDictionaryIndex run_info) :
-            read_id(read_id),
-            pore(pore),
-            calibration(calibration),
-            read_number(read_number),
-            start_sample(start_sample),
-            median_before(median_before),
-            end_reason(end_reason),
-            run_info(run_info) {}
+             RunInfoDictionaryIndex run_info)
+            : read_id(read_id),
+              pore(pore),
+              calibration(calibration),
+              read_number(read_number),
+              start_sample(start_sample),
+              median_before(median_before),
+              end_reason(end_reason),
+              run_info(run_info) {}
 
     boost::uuids::uuid read_id;
     PoreDictionaryIndex pore;
@@ -76,27 +76,27 @@ public:
                 std::string software,
                 std::string system_name,
                 std::string system_type,
-                std::map<std::string, std::string> tracking_id) :
-            acquisition_id(acquisition_id),
-            acquisition_start_time(acquisition_start_time),
-            adc_max(adc_max),
-            adc_min(adc_min),
-            context_tags(context_tags),
-            experiment_name(experiment_name),
-            flow_cell_id(flow_cell_id),
-            flow_cell_product_code(flow_cell_product_code),
-            protocol_name(protocol_name),
-            protocol_run_id(protocol_run_id),
-            protocol_start_time(protocol_start_time),
-            sample_id(sample_id),
-            sample_rate(sample_rate),
-            sequencing_kit(sequencing_kit),
-            sequencer_position(sequencer_position),
-            sequencer_position_type(sequencer_position_type),
-            software(software),
-            system_name(system_name),
-            system_type(system_type),
-            tracking_id(tracking_id) {}
+                std::map<std::string, std::string> tracking_id)
+            : acquisition_id(acquisition_id),
+              acquisition_start_time(acquisition_start_time),
+              adc_max(adc_max),
+              adc_min(adc_min),
+              context_tags(context_tags),
+              experiment_name(experiment_name),
+              flow_cell_id(flow_cell_id),
+              flow_cell_product_code(flow_cell_product_code),
+              protocol_name(protocol_name),
+              protocol_run_id(protocol_run_id),
+              protocol_start_time(protocol_start_time),
+              sample_id(sample_id),
+              sample_rate(sample_rate),
+              sequencing_kit(sequencing_kit),
+              sequencer_position(sequencer_position),
+              sequencer_position_type(sequencer_position_type),
+              software(software),
+              system_name(system_name),
+              system_type(system_type),
+              tracking_id(tracking_id) {}
 
     std::string acquisition_id;
     std::chrono::steady_clock::time_point acquisition_start_time;
@@ -122,8 +122,8 @@ public:
 
 class PoreData {
 public:
-    PoreData(std::uint16_t channel, std::uint8_t well, char const* pore_type) :
-            channel(channel), well(well), pore_type(pore_type) {}
+    PoreData(std::uint16_t channel, std::uint8_t well, char const* pore_type)
+            : channel(channel), well(well), pore_type(pore_type) {}
 
     std::uint16_t channel;
     std::uint8_t well;

@@ -51,12 +51,12 @@ SignalTableWriter::SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWrit
                                      std::shared_ptr<arrow::Schema>&& schema,
                                      SignalBuilderVariant&& signal_builder,
                                      SignalTableSchemaDescription const& field_locations,
-                                     arrow::MemoryPool* pool) :
-        m_pool(pool),
-        m_schema(schema),
-        m_field_locations(field_locations),
-        m_writer(std::move(writer)),
-        m_signal_builder(std::move(signal_builder)) {
+                                     arrow::MemoryPool* pool)
+        : m_pool(pool),
+          m_schema(schema),
+          m_field_locations(field_locations),
+          m_writer(std::move(writer)),
+          m_signal_builder(std::move(signal_builder)) {
     auto uuid_type = m_schema->field(m_field_locations.read_id)->type();
     assert(uuid_type->id() == arrow::Type::EXTENSION);
     auto uuid_extension = static_cast<arrow::ExtensionType*>(uuid_type.get());

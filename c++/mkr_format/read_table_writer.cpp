@@ -19,15 +19,15 @@ ReadTableWriter::ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&
                                  std::shared_ptr<CalibrationWriter> const& calibration_writer,
                                  std::shared_ptr<EndReasonWriter> const& end_reason_writer,
                                  std::shared_ptr<RunInfoWriter> const& run_info_writer,
-                                 arrow::MemoryPool* pool) :
-        m_pool(pool),
-        m_schema(schema),
-        m_field_locations(field_locations),
-        m_writer(std::move(writer)),
-        m_pore_writer(pore_writer),
-        m_calibration_writer(calibration_writer),
-        m_end_reason_writer(end_reason_writer),
-        m_run_info_writer(run_info_writer) {
+                                 arrow::MemoryPool* pool)
+        : m_pool(pool),
+          m_schema(schema),
+          m_field_locations(field_locations),
+          m_writer(std::move(writer)),
+          m_pore_writer(pore_writer),
+          m_calibration_writer(calibration_writer),
+          m_end_reason_writer(end_reason_writer),
+          m_run_info_writer(run_info_writer) {
     auto uuid_type = m_schema->field(m_field_locations.read_id)->type();
     assert(uuid_type->id() == arrow::Type::EXTENSION);
     auto uuid_extension = static_cast<arrow::ExtensionType*>(uuid_type.get());
