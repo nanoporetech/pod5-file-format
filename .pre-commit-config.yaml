@@ -25,7 +25,6 @@ repos:
       - id: black
         args:
           - '--target-version=py37'
-        exclude: '(syntax_error_script.py|bad_malformed_python.py)$'
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: 'v13.0.1'
     hooks:

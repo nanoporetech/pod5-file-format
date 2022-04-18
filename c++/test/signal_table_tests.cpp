@@ -16,7 +16,8 @@
 SCENARIO("Signal table Tests") {
     using namespace mkr;
 
-    auto types = register_extension_types();
+    mkr::register_extension_types();
+    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
 

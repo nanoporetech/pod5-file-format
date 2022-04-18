@@ -18,7 +18,8 @@ public:
 };
 
 void run_file_reader_writer_tests(FileInterface& file_ifc) {
-    auto types = mkr::register_extension_types();
+    mkr::register_extension_types();
+    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
 
     auto const run_info_data = get_test_run_info_data("_run_info");
     auto const end_reason_data = get_test_end_reason_data();

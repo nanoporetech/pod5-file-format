@@ -50,7 +50,7 @@ public:
     arrow::Status close();
 
     arrow::Status add_complete_read(ReadData const& read_data,
-                                    gsl::span<std::int16_t> const& signal);
+                                    gsl::span<std::int16_t const> const& signal);
 
     mkr::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data);
     mkr::Result<CalibrationDictionaryIndex> add_calibration(

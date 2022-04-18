@@ -51,7 +51,7 @@ public:
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.
     Result<std::size_t> add_signal(boost::uuids::uuid const& read_id,
-                                   gsl::span<std::int16_t> const& signal);
+                                   gsl::span<std::int16_t const> const& signal);
 
     /// \brief Add a pre-compressed read to the signal table, adding to the current batch.
     ///        The batch is not flushed to disk until #flush is called.

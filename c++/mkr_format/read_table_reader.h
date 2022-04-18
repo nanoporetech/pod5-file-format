@@ -23,10 +23,15 @@ class RecordBatchFileReader;
 
 namespace mkr {
 
+class CalibrationData;
+class EndReasonData;
+class PoreData;
+class RunInfoData;
+
 class MKR_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
 public:
     ReadTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
-                         ReadTableSchemaDescription field_locations);
+                         std::shared_ptr<ReadTableSchemaDescription> const& field_locations);
 
     std::shared_ptr<UuidArray> read_id_column() const;
     std::shared_ptr<arrow::ListArray> signal_column() const;
@@ -38,22 +43,27 @@ public:
     std::shared_ptr<arrow::DictionaryArray> end_reason_column() const;
     std::shared_ptr<arrow::DictionaryArray> run_info_column() const;
 
+    PoreData get_pore(std::int16_t pore_index) const;
+    CalibrationData get_calibration(std::int16_t calibration_index) const;
+    EndReasonData get_end_reason(std::int16_t end_reason_index) const;
+    RunInfoData get_run_info(std::int16_t run_info_index) const;
+
 private:
-    ReadTableSchemaDescription m_field_locations;
+    std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
 };
 
 class MKR_FORMAT_EXPORT ReadTableReader : public TableReader {
 public:
     ReadTableReader(std::shared_ptr<void>&& input_source,
                     std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-                    ReadTableSchemaDescription field_locations,
+                    std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
                     SchemaMetadataDescription&& schema_metadata,
                     arrow::MemoryPool* pool);
 
     Result<ReadTableRecordBatch> read_record_batch(std::size_t i) const;
 
 private:
-    ReadTableSchemaDescription m_field_locations;
+    std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
 };
 
 Result<ReadTableReader> make_read_table_reader(

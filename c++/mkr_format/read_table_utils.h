@@ -58,7 +58,7 @@ public:
 class RunInfoData {
 public:
     RunInfoData(std::string acquisition_id,
-                std::chrono::steady_clock::time_point acquisition_start_time,
+                std::chrono::system_clock::time_point acquisition_start_time,
                 std::int16_t adc_max,
                 std::int16_t adc_min,
                 std::map<std::string, std::string> context_tags,
@@ -67,7 +67,7 @@ public:
                 std::string flow_cell_product_code,
                 std::string protocol_name,
                 std::string protocol_run_id,
-                std::chrono::steady_clock::time_point protocol_start_time,
+                std::chrono::system_clock::time_point protocol_start_time,
                 std::string sample_id,
                 std::uint16_t sample_rate,
                 std::string sequencing_kit,
@@ -99,7 +99,7 @@ public:
               tracking_id(tracking_id) {}
 
     std::string acquisition_id;
-    std::chrono::steady_clock::time_point acquisition_start_time;
+    std::chrono::system_clock::time_point acquisition_start_time;
     std::int16_t adc_max;
     std::int16_t adc_min;
     std::map<std::string, std::string> context_tags;
@@ -108,7 +108,7 @@ public:
     std::string flow_cell_product_code;
     std::string protocol_name;
     std::string protocol_run_id;
-    std::chrono::steady_clock::time_point protocol_start_time;
+    std::chrono::system_clock::time_point protocol_start_time;
     std::string sample_id;
     std::uint16_t sample_rate;
     std::string sequencing_kit;
@@ -124,6 +124,9 @@ class PoreData {
 public:
     PoreData(std::uint16_t channel, std::uint8_t well, char const* pore_type)
             : channel(channel), well(well), pore_type(pore_type) {}
+
+    PoreData(std::uint16_t channel, std::uint8_t well, std::string&& pore_type)
+            : channel(channel), well(well), pore_type(std::move(pore_type)) {}
 
     std::uint16_t channel;
     std::uint8_t well;
@@ -149,10 +152,12 @@ public:
         signal_negative
     };
 
-    EndReasonData(ReadEndReason end_reason, bool forced) : end_reason(end_reason), forced(forced) {}
+    EndReasonData(ReadEndReason end_reason, bool forced)
+            : end_reason(end_reason_as_string(end_reason)), forced(forced) {}
+    EndReasonData(std::string&& end_reason, bool forced) : end_reason(end_reason), forced(forced) {}
 
-    char const* end_reason_as_string() const {
-        switch (end_reason) {
+    static char const* end_reason_as_string(ReadEndReason reason) {
+        switch (reason) {
         case ReadEndReason::mux_change:
             return "mux_change";
         case ReadEndReason::unblock_mux_change:
@@ -169,7 +174,7 @@ public:
         return "unknown";
     }
 
-    ReadEndReason end_reason;
+    std::string end_reason;
     bool forced;
 };
 

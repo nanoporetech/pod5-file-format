@@ -16,7 +16,7 @@ namespace {
 namespace visitors {
 class append_signal : boost::static_visitor<Status> {
 public:
-    append_signal(gsl::span<std::int16_t> const& signal) : m_signal(signal) {}
+    append_signal(gsl::span<std::int16_t const> const& signal) : m_signal(signal) {}
 
     Status operator()(UncompressedSignalBuilder& builder) const {
         ARROW_RETURN_NOT_OK(builder.signal_builder->Append());  // start new slot
@@ -29,7 +29,7 @@ public:
                 reinterpret_cast<unsigned char const*>(signal_bytes.data()), signal_bytes.size());
     }
 
-    gsl::span<std::int16_t> m_signal;
+    gsl::span<std::int16_t const> m_signal;
 };
 
 class finish_column : boost::static_visitor<Status> {
@@ -75,7 +75,7 @@ SignalTableWriter::~SignalTableWriter() {
 }
 
 Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read_id,
-                                                  gsl::span<std::int16_t> const& signal) {
+                                                  gsl::span<std::int16_t const> const& signal) {
     if (!m_writer) {
         return Status::IOError("Writer terminated");
     }

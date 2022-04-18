@@ -61,7 +61,7 @@ public:
     }
 
     arrow::Status add_complete_read(ReadData const& read_data,
-                                    gsl::span<std::int16_t> const& signal) {
+                                    gsl::span<std::int16_t const> const& signal) {
         if (!m_signal_table_writer || !m_read_table_writer) {
             return arrow::Status::Invalid("File writer closed, cannot write further data");
         }
@@ -208,7 +208,7 @@ FileWriter::~FileWriter() { close(); }
 arrow::Status FileWriter::close() { return m_impl->close(); }
 
 arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
-                                            gsl::span<std::int16_t> const& signal) {
+                                            gsl::span<std::int16_t const> const& signal) {
     return m_impl->add_complete_read(read_data, signal);
 }
 

@@ -6,6 +6,7 @@ add_executable(mkr_unit_tests
     read_table_writer_utils_tests.cpp
     read_table_tests.cpp
     signal_table_tests.cpp
+    svb16_basic_tests.cpp
     utils.h
 )
 

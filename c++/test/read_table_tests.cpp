@@ -31,7 +31,8 @@ bool operator==(std::shared_ptr<arrow::UInt64Array> const& array,
 SCENARIO("Read table Tests") {
     using namespace mkr;
 
-    auto types = register_extension_types();
+    mkr::register_extension_types();
+    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
 
@@ -151,12 +152,21 @@ SCENARIO("Read table Tests") {
             CHECK(pore_indices->Value(0) == 0);
             CHECK(pore_indices->Value(1) == 0);
 
+            auto pore_data = record_batch_0->get_pore(0);
+            CHECK(pore_data.channel == 12);
+            CHECK(pore_data.well == 2);
+            CHECK(pore_data.pore_type == "Well Type");
+
             auto calibration = record_batch_0->calibration_column();
             CHECK(calibration->length() == 2);
             auto calibration_indices =
                     std::static_pointer_cast<arrow::Int16Array>(calibration->indices());
             CHECK(calibration_indices->Value(0) == 0);
             CHECK(calibration_indices->Value(1) == 0);
+
+            auto calibration_data = record_batch_0->get_calibration(0);
+            CHECK(calibration_data.offset == 100.0f);
+            CHECK(calibration_data.scale == 0.5f);
 
             auto read_number = record_batch_0->read_number_column();
             CHECK(read_number->length() == 2);
@@ -180,12 +190,40 @@ SCENARIO("Read table Tests") {
             CHECK(end_reason_indices->Value(0) == 0);
             CHECK(end_reason_indices->Value(1) == 0);
 
+            auto end_reason_data = record_batch_0->get_end_reason(0);
+            CHECK(end_reason_data.end_reason == "mux_change");
+            CHECK(end_reason_data.forced == false);
+
             auto run_info = record_batch_0->run_info_column();
             CHECK(run_info->length() == 2);
             auto run_info_indices =
                     std::static_pointer_cast<arrow::Int16Array>(run_info->indices());
             CHECK(run_info_indices->Value(0) == 0);
             CHECK(run_info_indices->Value(1) == 1);
+
+            auto run_info_data = record_batch_0->get_run_info(0);
+            CHECK(run_info_data.acquisition_id == "acquisition_id");
+            //CHECK(run_info_data.acquisition_start_time == {});
+            CHECK(run_info_data.adc_max == 4095);
+            CHECK(run_info_data.adc_min == -4096);
+            CHECK(run_info_data.context_tags ==
+                  std::map<std::string, std::string>{{"context", "tags"}, {"other", "tagz"}});
+            CHECK(run_info_data.experiment_name == "experiment_name");
+            CHECK(run_info_data.flow_cell_id == "flow_cell_id");
+            CHECK(run_info_data.flow_cell_product_code == "flow_cell_product_code");
+            CHECK(run_info_data.protocol_name == "protocol_name");
+            CHECK(run_info_data.protocol_run_id == "protocol_run_id");
+            //CHECK(run_info_data.protocol_start_time == "protocol_start_time");
+            CHECK(run_info_data.sample_id == "sample_id");
+            CHECK(run_info_data.sample_rate == 4000);
+            CHECK(run_info_data.sequencing_kit == "sequencing_kit");
+            CHECK(run_info_data.sequencer_position == "sequencer_position");
+            CHECK(run_info_data.sequencer_position_type == "sequencer_position_type");
+            CHECK(run_info_data.software == "software");
+            CHECK(run_info_data.system_name == "system_name");
+            CHECK(run_info_data.system_type == "system_type");
+            CHECK(run_info_data.tracking_id ==
+                  std::map<std::string, std::string>{{"tracking", "id"}});
         }
     }
 }

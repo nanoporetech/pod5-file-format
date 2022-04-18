@@ -69,8 +69,10 @@ public:
 std::shared_ptr<VbzSignalType> vbz_signal();
 std::shared_ptr<UuidType> uuid();
 
-/// \brief Register all required extension types, lifetime
-///        of types is maintained by the returned shared pointer.
-MKR_FORMAT_EXPORT std::shared_ptr<void> register_extension_types();
+/// \brief Register all required extension types.
+MKR_FORMAT_EXPORT void register_extension_types();
+
+/// \brief Unregister all required extension types.
+MKR_FORMAT_EXPORT void unregister_extension_types();
 
 }  // namespace mkr

@@ -66,7 +66,7 @@ void check_field(std::size_t index,
 void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
-                 std::chrono::steady_clock::time_point data) {
+                 std::chrono::system_clock::time_point data) {
     auto field = get_field<arrow::TimestampArray>(struct_array, name);
     std::int64_t milliseconds_since_epoch = data.time_since_epoch() / std::chrono::milliseconds(1);
     CHECK((*field)[index] == milliseconds_since_epoch);
