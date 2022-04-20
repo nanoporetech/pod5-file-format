@@ -273,6 +273,7 @@ mkr_error_t mkr_get_pore(MkrReadRecordBatch* batch,
     *well = pore_data.well;
     assert(false);
     //*pore_type = pore_data.pore_type.;
+    return MKR_OK;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -505,6 +506,16 @@ mkr_error_t mkr_add_read(MkrFileWriter* file,
             mkr::ReadData{read_id_uuid, pore, calibration, read_number, start_sample, median_before,
                           end_reason, run_info},
             gsl::make_span(signal, signal_size)));
+    return MKR_OK;
+}
+
+mkr_error_t mkr_flush_signal_table(MkrFileWriter* file) {
+    MKR_C_RETURN_NOT_OK(file->writer->flush_signal_table());
+    return MKR_OK;
+}
+
+mkr_error_t mkr_flush_reads_table(MkrFileWriter* file) {
+    MKR_C_RETURN_NOT_OK(file->writer->flush_reads_table());
     return MKR_OK;
 }
 }

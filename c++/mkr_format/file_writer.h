@@ -19,7 +19,7 @@ namespace mkr {
 class MKR_FORMAT_EXPORT FileWriterOptions {
 public:
     /// \brief Default chunk size for signal table entries
-    static constexpr std::uint32_t DEFAULT_SIGNAL_CHUNK_SIZE = 20'480;
+    static constexpr std::uint32_t DEFAULT_SIGNAL_CHUNK_SIZE = 102'400;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
 
     FileWriterOptions();
@@ -57,6 +57,9 @@ public:
             CalibrationData const& calibration_data);
     mkr::Result<EndReasonDictionaryIndex> add_end_reason(EndReasonData const& end_reason_data);
     mkr::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data);
+
+    mkr::Status flush_signal_table();
+    mkr::Status flush_reads_table();
 
 private:
     std::unique_ptr<FileWriterImpl> m_impl;

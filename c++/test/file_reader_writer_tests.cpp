@@ -12,7 +12,8 @@
 
 class FileInterface {
 public:
-    virtual mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file() = 0;
+    virtual mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
+            mkr::FileWriterOptions const& options) = 0;
 
     virtual mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() = 0;
 };
@@ -38,7 +39,10 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
 
     // Write a file:
     {
-        auto writer = file_ifc.create_file();
+        mkr::FileWriterOptions options;
+        options.set_max_signal_chunk_size(20'480);
+
+        auto writer = file_ifc.create_file(options);
         REQUIRE(writer.ok());
 
         auto run_info = (*writer)->add_run_info(run_info_data);
@@ -96,9 +100,10 @@ SCENARIO("Split File Reader Writer Tests") {
 
     class SplitFileInterface : public FileInterface {
     public:
-        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file() override {
+        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
+                mkr::FileWriterOptions const& options) override {
             return mkr::create_split_file_writer(split_file_signal, split_file_reads,
-                                                 "test_software", {});
+                                                 "test_software", options);
         }
 
         mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() override {
@@ -115,8 +120,9 @@ SCENARIO("Combined File Reader Writer Tests") {
 
     class CombinedFileInterface : public FileInterface {
     public:
-        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file() override {
-            return mkr::create_combined_file_writer(combined_file, "test_software", {});
+        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
+                mkr::FileWriterOptions const& options) override {
+            return mkr::create_combined_file_writer(combined_file, "test_software", options);
         }
 
         mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() override {

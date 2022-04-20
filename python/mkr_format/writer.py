@@ -29,11 +29,11 @@ def tuple_to_char_arrays(tup: typing.Tuple[str, str]):
 
 
 class EndReason(Enum):
-    UNKNOWN = (0,)
-    MUX_CHANGE = (1,)
-    UNBLOCK_MUX_CHANGE = (2,)
-    DATA_SERVICE_UNBLOCK_MUX_CHANGE = (3,)
-    SIGNAL_POSITIVE = (4,)
+    UNKNOWN = 0
+    MUX_CHANGE = 1
+    UNBLOCK_MUX_CHANGE = 2
+    DATA_SERVICE_UNBLOCK_MUX_CHANGE = 3
+    SIGNAL_POSITIVE = 4
     SIGNAL_NEGATIVE = 5
 
 
@@ -69,34 +69,42 @@ class FileWriter:
         )
         data = (offset, scale)
         if data in self._calibration_types:
-            return self._calibration_types[data], false
+            return self._calibration_types[data], False
 
-        return self.add_calibration(offset, scale), True
+        added_idx = self.add_calibration(offset, scale)
+        self._calibration_types[data] = added_idx
+        return added_idx, True
 
     def find_pore(
         self, channel: int, well: int, pore_type: str
     ) -> typing.Tuple[ctypes.c_short, bool]:
         data = (channel, well, pore_type)
         if data in self._pore_types:
-            return self._pore_types[data], false
+            return self._pore_types[data], False
 
-        return self.add_pore(channel, well, pore_type), True
+        added_idx = self.add_pore(channel, well, pore_type)
+        self._pore_types[data] = added_idx
+        return added_idx, True
 
     def find_end_reason(
-        self, end_reason: EndReason, forced: bool
+        self, name: EndReason, forced: bool
     ) -> typing.Tuple[ctypes.c_short, bool]:
-        data = (end_reason, forced)
+        data = (name, forced)
         if data in self._end_reason_types:
-            return self._end_reason_types[data], false
+            return self._end_reason_types[data], False
 
-        return self.add_end_reason(end_reason, forced), True
+        added_idx = self.add_end_reason(name, forced)
+        self._end_reason_types[data] = added_idx
+        return added_idx, True
 
-    def find_run_info(self, *args) -> typing.Tuple[ctypes.c_short, bool]:
-        data = args
+    def find_run_info(self, **args) -> typing.Tuple[ctypes.c_short, bool]:
+        data = tuple(args.values())
         if data in self._run_info_types:
-            return self._run_info_types[data], false
+            return self._run_info_types[data], False
 
-        return self.add_run_info(*args), True
+        added_idx = self.add_run_info(**args)
+        self._run_info_types[data] = added_idx
+        return added_idx, True
 
     def add_read(
         self,
@@ -125,6 +133,10 @@ class FileWriter:
                 signal.shape[0],
             )
         )
+
+    def flush(self):
+        check_error(c_api.mkr_flush_reads_table(self._writer))
+        check_error(c_api.mkr_flush_signal_table(self._writer))
 
     def add_pore(self, channel: int, well: int, pore_type: str) -> ctypes.c_short:
         index_out = ctypes.c_short()
@@ -158,11 +170,11 @@ class FileWriter:
         )
         return index_out
 
-    def add_end_reason(self, end_reason: EndReason, forced: bool) -> ctypes.c_short:
+    def add_end_reason(self, name: EndReason, forced: bool) -> ctypes.c_short:
         index_out = ctypes.c_short()
         check_error(
             c_api.mkr_add_end_reason(
-                ctypes.byref(index_out), self._writer, end_reason.value[0], forced
+                ctypes.byref(index_out), self._writer, name.value, forced
             )
         )
         return index_out

@@ -1,4 +1,5 @@
 #include "mkr_format/schema_metadata.h"
+#include "mkr_format/signal_compression.h"
 #include "mkr_format/signal_table_reader.h"
 #include "mkr_format/signal_table_writer.h"
 #include "mkr_format/types.h"
@@ -91,12 +92,23 @@ SCENARIO("Signal table Tests") {
                 auto signal = record_batch_0->vbz_signal_column();
                 CHECK(signal->length() == 2);
 
-                auto signal_typed = std::static_pointer_cast<VbzSignalArray>(signal);
-                auto signal_1_read = signal_typed->Value(0);
-                CHECK(gsl::as_bytes(signal_1_read) == gsl::as_bytes(gsl::make_span(signal_1)));
+                auto compare_compressed_signal =
+                        [&](gsl::span<std::uint8_t const> compressed_actual,
+                            std::vector<std::int16_t> const& expected) {
+                            auto decompressed = mkr::decompress_signal(compressed_actual,
+                                                                       expected.size(), pool);
+                            CAPTURE(decompressed);
+                            REQUIRE(decompressed.ok());
 
-                auto signal_2_read = signal_typed->Value(1);
-                CHECK(gsl::as_bytes(signal_2_read) == gsl::as_bytes(gsl::make_span(signal_2)));
+                            auto actual =
+                                    gsl::make_span((*decompressed)->data(), (*decompressed)->size())
+                                            .as_span<std::int16_t const>();
+                            CHECK(actual == gsl::make_span(expected));
+                        };
+
+                auto signal_typed = std::static_pointer_cast<VbzSignalArray>(signal);
+                compare_compressed_signal(signal_typed->Value(0), signal_1);
+                compare_compressed_signal(signal_typed->Value(1), signal_2);
             } else if (signal_type == SignalType::UncompressedSignal) {
                 auto signal = record_batch_0->uncompressed_signal_column();
                 CHECK(signal->length() == 2);

@@ -2,6 +2,7 @@
 find_package(Arrow REQUIRED CONFIG)
 find_package(Boost REQUIRED CONFIG)
 find_package(Flatbuffers REQUIRED CONFIG)
+find_package(zstd REQUIRED CONFIG)
 
 find_program(
     FLATBUFFERS_FLATC_EXECUTABLE
@@ -33,6 +34,8 @@ add_library(mkr_format SHARED
     mkr_format/read_table_writer_utils.h
     mkr_format/read_table_utils.h
 
+    mkr_format/signal_compression.cpp
+    mkr_format/signal_compression.h
     mkr_format/signal_table_reader.cpp
     mkr_format/signal_table_reader.h
     mkr_format/signal_table_schema.cpp
@@ -52,6 +55,19 @@ add_library(mkr_format SHARED
     mkr_format/table_reader.h
     mkr_format/types.cpp
     mkr_format/types.h
+
+    mkr_format/svb16/common.hpp
+    mkr_format/svb16/decode.hpp
+    mkr_format/svb16/decode_scalar.hpp
+    mkr_format/svb16/decode_x64.hpp
+    mkr_format/svb16/encode.hpp
+    mkr_format/svb16/encode_scalar.hpp
+    mkr_format/svb16/encode_x64.hpp
+    mkr_format/svb16/intrinsics.hpp
+    mkr_format/svb16/shuffle_tables.hpp
+    mkr_format/svb16/simd_detect_x64.hpp
+    mkr_format/svb16/svb16.c
+    mkr_format/svb16/svb16.h
 )
 
 flatbuffers_generate_headers(
@@ -75,8 +91,10 @@ target_link_libraries(mkr_format
         Boost::headers
     PRIVATE
         mkr_flatbuffers
+        zstd::zstd
 )
 
+#target_compile_options(mkr_format PRIVATE -Wall -Werror)
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
 add_subdirectory(test)
