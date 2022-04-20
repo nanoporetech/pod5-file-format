@@ -87,8 +87,11 @@ public:
         return read_table_row.status();
     }
 
-    void close_read_table_writer() { m_read_table_writer = boost::none; }
+    mkr::Status flush_signal_table() { return m_signal_table_writer->flush(); }
 
+    mkr::Status flush_reads_table() { return m_read_table_writer->flush(); }
+
+    void close_read_table_writer() { m_read_table_writer = boost::none; }
     void close_signal_table_writer() { m_signal_table_writer = boost::none; }
 
     virtual arrow::Status close() {
@@ -211,6 +214,10 @@ arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
                                             gsl::span<std::int16_t const> const& signal) {
     return m_impl->add_complete_read(read_data, signal);
 }
+
+mkr::Status FileWriter::flush_signal_table() { return m_impl->flush_signal_table(); }
+
+mkr::Status FileWriter::flush_reads_table() { return m_impl->flush_reads_table(); }
 
 mkr::Result<PoreDictionaryIndex> FileWriter::add_pore(PoreData const& pore_data) {
     return m_impl->add_pore(pore_data);

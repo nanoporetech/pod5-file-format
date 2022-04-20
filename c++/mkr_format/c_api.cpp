@@ -507,6 +507,16 @@ mkr_error_t mkr_add_read(MkrFileWriter* file,
             gsl::make_span(signal, signal_size)));
     return MKR_OK;
 }
+
+mkr_error_t mkr_flush_signal_table(MkrFileWriter* file) {
+    MKR_C_RETURN_NOT_OK(file->writer->flush_signal_table());
+    return MKR_OK;
+}
+
+mkr_error_t mkr_flush_reads_table(MkrFileWriter* file) {
+    MKR_C_RETURN_NOT_OK(file->writer->flush_reads_table());
+    return MKR_OK;
+}
 }
 
 //---------------------------------------------------------------------------------------------------------------------

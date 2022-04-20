@@ -258,8 +258,8 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_run_info(int16_t* run_info_index,
                                                char const** tracking_id_values);
 
 /// \brief Add a read to the file.
-/// \param      file            The file to add the read to (in binary form, must be 16 bytes long)
-/// \param      read_id         The offset parameter for the calibration.
+/// \param      file            The file to add the read to.
+/// \param      read_id         The read id to use (in binary form, must be 16 bytes long).
 /// \param      pore            The pore type to use for the read.
 /// \param      calibration     The calibration to use for the read.
 /// \param      read_number     The read number.
@@ -280,6 +280,14 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter* file,
                                            int16_t run_info,
                                            int16_t const* signal,
                                            size_t signal_size);
+
+/// \brief Flush the signal table to disk, completing the in progress record batch.
+/// \param      file            The file to flush the signal table on.
+MKR_FORMAT_EXPORT mkr_error_t mkr_flush_signal_table(MkrFileWriter* file);
+
+/// \brief Flush the reads table to disk, completing the in progress record batch.
+/// \param      file            The file to add the read table on.
+MKR_FORMAT_EXPORT mkr_error_t mkr_flush_reads_table(MkrFileWriter* file);
 }
 
 //std::shared_ptr<arrow::Schema> pyarrow_test();

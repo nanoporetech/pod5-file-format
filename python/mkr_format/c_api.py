@@ -146,6 +146,13 @@ mkr_add_read.argtypes = [
     ctypes.c_size_t,
 ]
 
+mkr_flush_signal_table = mkr_format.mkr_flush_signal_table
+mkr_flush_signal_table.restype = ERROR_TYPE
+mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
+
+mkr_flush_reads_table = mkr_format.mkr_flush_reads_table
+mkr_flush_reads_table.restype = ERROR_TYPE
+mkr_flush_reads_table.argtypes = [FILE_WRITER_PTR]
 
 # ----------------------------------------------------------------------------------------------------------------------
 mkr_get_read_batch_count = mkr_format.mkr_get_read_batch_count
