@@ -40,9 +40,9 @@ private:
 };
 
 template <>
-class PrimitiveDictionaryKeyBuilder<std::chrono::steady_clock::time_point> {
+class PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point> {
 public:
-    void append(std::chrono::steady_clock::time_point const& value) {
+    void append(std::chrono::system_clock::time_point const& value) {
         std::int64_t milliseconds_since_epoch =
                 value.time_since_epoch() / std::chrono::milliseconds(1);
         m_values.push_back(milliseconds_since_epoch);
@@ -165,7 +165,7 @@ public:
     EndReasonWriter(arrow::MemoryPool* pool);
 
     mkr::Result<EndReasonDictionaryIndex> add(EndReasonData const& end_reason_data) {
-        return m_builder.append(end_reason_data.end_reason_as_string(), end_reason_data.forced);
+        return m_builder.append(end_reason_data.end_reason, end_reason_data.forced);
     }
 
     mkr::Result<std::shared_ptr<arrow::Array>> get_value_array();
@@ -218,7 +218,7 @@ public:
 private:
     std::shared_ptr<arrow::StructType> m_type;
     StructBuilder<detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::chrono::steady_clock::time_point>,
+                  detail::PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point>,
                   detail::PrimitiveDictionaryKeyBuilder<std::int16_t>,
                   detail::PrimitiveDictionaryKeyBuilder<std::int16_t>,
                   detail::StringMapDictionaryKeyBuilder,
@@ -227,7 +227,7 @@ private:
                   detail::StringDictionaryKeyBuilder,
                   detail::StringDictionaryKeyBuilder,
                   detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::chrono::steady_clock::time_point>,
+                  detail::PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point>,
                   detail::StringDictionaryKeyBuilder,
                   detail::PrimitiveDictionaryKeyBuilder<std::uint16_t>,
                   detail::StringDictionaryKeyBuilder,

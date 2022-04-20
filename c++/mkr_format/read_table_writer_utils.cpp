@@ -27,7 +27,7 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
 
 arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         std::shared_ptr<arrow::DataType> const& type,
-        PrimitiveDictionaryKeyBuilder<std::chrono::steady_clock::time_point> const& builder,
+        PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point> const& builder,
         std::shared_ptr<arrow::Buffer> const& null_bitmap,
         std::size_t expected_length) {
     arrow::TypedBufferBuilder<std::int64_t> buffer_builder;

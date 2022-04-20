@@ -2,6 +2,7 @@
 arrow/7.0.0@nanopore/stable
 boost/1.78.0@nanopore/stable
 flatbuffers/2.0.0@nanopore/stable
+zstd/1.4.8@nanopore/stable
 
 [generators]
 cmake_find_package_multi

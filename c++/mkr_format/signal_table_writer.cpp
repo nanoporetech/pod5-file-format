@@ -1,6 +1,7 @@
 #include "mkr_format/signal_table_writer.h"
 
 #include "mkr_format/errors.h"
+#include "mkr_format/signal_compression.h"
 
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_nested.h>
@@ -16,7 +17,8 @@ namespace {
 namespace visitors {
 class append_signal : boost::static_visitor<Status> {
 public:
-    append_signal(gsl::span<std::int16_t> const& signal) : m_signal(signal) {}
+    append_signal(gsl::span<std::int16_t const> const& signal, arrow::MemoryPool* pool)
+            : m_signal(signal), m_pool(pool) {}
 
     Status operator()(UncompressedSignalBuilder& builder) const {
         ARROW_RETURN_NOT_OK(builder.signal_builder->Append());  // start new slot
@@ -24,12 +26,12 @@ public:
     }
 
     Status operator()(VbzSignalBuilder& builder) const {
-        auto signal_bytes = gsl::as_bytes(m_signal);
-        return builder.signal_builder->Append(
-                reinterpret_cast<unsigned char const*>(signal_bytes.data()), signal_bytes.size());
+        ARROW_ASSIGN_OR_RAISE(auto compressed_signal, compress_signal(m_signal, m_pool));
+        return builder.signal_builder->Append(compressed_signal->data(), compressed_signal->size());
     }
 
-    gsl::span<std::int16_t> m_signal;
+    gsl::span<std::int16_t const> m_signal;
+    arrow::MemoryPool* m_pool;
 };
 
 class finish_column : boost::static_visitor<Status> {
@@ -75,7 +77,7 @@ SignalTableWriter::~SignalTableWriter() {
 }
 
 Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read_id,
-                                                  gsl::span<std::int16_t> const& signal) {
+                                                  gsl::span<std::int16_t const> const& signal) {
     if (!m_writer) {
         return Status::IOError("Writer terminated");
     }
@@ -83,7 +85,8 @@ Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read
     auto row_id = m_flushed_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
 
-    ARROW_RETURN_NOT_OK(boost::apply_visitor(visitors::append_signal{signal}, m_signal_builder));
+    ARROW_RETURN_NOT_OK(
+            boost::apply_visitor(visitors::append_signal{signal, m_pool}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(signal.size()));
     ++m_current_batch_row_count;
