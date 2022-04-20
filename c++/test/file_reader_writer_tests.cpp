@@ -10,11 +10,15 @@
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 
-SCENARIO("File Reader Writer Tests") {
-    auto types = mkr::register_extension_types();
+class FileInterface {
+public:
+    virtual mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file() = 0;
 
-    auto split_file_signal = "./foo_signal.mkr";
-    auto split_file_reads = "./foo_reads.mkr";
+    virtual mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() = 0;
+};
+
+void run_file_reader_writer_tests(FileInterface& file_ifc) {
+    auto types = mkr::register_extension_types();
 
     auto const run_info_data = get_test_run_info_data("_run_info");
     auto const end_reason_data = get_test_end_reason_data();
@@ -33,10 +37,7 @@ SCENARIO("File Reader Writer Tests") {
 
     // Write a file:
     {
-        mkr::FileWriterOptions options;
-
-        auto writer = mkr::create_split_file_writer(split_file_signal, split_file_reads,
-                                                    "test_software", options);
+        auto writer = file_ifc.create_file();
         REQUIRE(writer.ok());
 
         auto run_info = (*writer)->add_run_info(run_info_data);
@@ -52,9 +53,7 @@ SCENARIO("File Reader Writer Tests") {
     // Open the file for reading:
     // Write a file:
     {
-        mkr::FileReaderOptions options;
-
-        auto reader = mkr::open_split_file_reader(split_file_signal, split_file_reads, options);
+        auto reader = file_ifc.open_file();
         CAPTURE(reader);
         REQUIRE(reader.ok());
 
@@ -67,7 +66,8 @@ SCENARIO("File Reader Writer Tests") {
 
         REQUIRE((*reader)->num_signal_record_batches() == 1);
         auto signal_batch = (*reader)->read_signal_record_batch(0);
-        CHECK(signal_batch.ok());
+        CAPTURE(signal_batch);
+        REQUIRE(signal_batch.ok());
 
         auto signal_read_id_array = signal_batch->read_id_column();
         CHECK(signal_read_id_array->length() == 5);
@@ -87,4 +87,42 @@ SCENARIO("File Reader Writer Tests") {
         CHECK(samples_array->Value(3) == 20'480);
         CHECK(samples_array->Value(4) == 18'080);
     }
+}
+
+SCENARIO("Split File Reader Writer Tests") {
+    static constexpr char const* split_file_signal = "./foo_signal.mkr";
+    static constexpr char const* split_file_reads = "./foo_reads.mkr";
+
+    class SplitFileInterface : public FileInterface {
+    public:
+        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file() override {
+            return mkr::create_split_file_writer(split_file_signal, split_file_reads,
+                                                 "test_software", {});
+        }
+
+        mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() override {
+            return mkr::open_split_file_reader(split_file_signal, split_file_reads, {});
+        }
+    };
+
+    SplitFileInterface file_ifc;
+    run_file_reader_writer_tests(file_ifc);
+}
+
+SCENARIO("Combined File Reader Writer Tests") {
+    static constexpr char const* combined_file = "./foo.mkr";
+
+    class CombinedFileInterface : public FileInterface {
+    public:
+        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file() override {
+            return mkr::create_combined_file_writer(combined_file, "test_software", {});
+        }
+
+        mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() override {
+            return mkr::open_combined_file_reader(combined_file, {});
+        }
+    };
+
+    CombinedFileInterface file_ifc;
+    run_file_reader_writer_tests(file_ifc);
 }

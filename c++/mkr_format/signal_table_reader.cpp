@@ -9,8 +9,8 @@
 namespace mkr {
 
 SignalTableRecordBatch::SignalTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
-                                               SignalTableSchemaDescription field_locations) :
-        TableRecordBatch(std::move(batch)), m_field_locations(field_locations) {}
+                                               SignalTableSchemaDescription field_locations)
+        : TableRecordBatch(std::move(batch)), m_field_locations(field_locations) {}
 
 std::shared_ptr<UuidArray> SignalTableRecordBatch::read_id_column() const {
     return std::static_pointer_cast<UuidArray>(batch()->column(m_field_locations.read_id));
@@ -35,9 +35,9 @@ SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
                                      std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
                                      SignalTableSchemaDescription field_locations,
                                      SchemaMetadataDescription&& schema_metadata,
-                                     arrow::MemoryPool* pool) :
-        TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
-        m_field_locations(field_locations) {}
+                                     arrow::MemoryPool* pool)
+        : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
+          m_field_locations(field_locations) {}
 
 Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t i) const {
     auto record_batch = reader()->ReadRecordBatch(i);

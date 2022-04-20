@@ -1,6 +1,13 @@
 
 find_package(Arrow REQUIRED CONFIG)
 find_package(Boost REQUIRED CONFIG)
+find_package(Flatbuffers REQUIRED CONFIG)
+
+find_program(
+    FLATBUFFERS_FLATC_EXECUTABLE
+    flatc
+)
+include(BuildFlatBuffers)
 
 configure_file(
     mkr_format/version.h.in
@@ -47,6 +54,14 @@ add_library(mkr_format SHARED
     mkr_format/types.h
 )
 
+flatbuffers_generate_headers(
+    TARGET mkr_flatbuffers
+    SCHEMAS
+        mkr_format/flatbuffers/footer.fbs
+    INCLUDE_PREFIX ""
+    FLAGS --cpp
+)
+
 target_include_directories(mkr_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -56,7 +71,10 @@ target_include_directories(mkr_format
 target_link_libraries(mkr_format
     PUBLIC
         arrow::arrow
+        flatbuffers::flatbuffers
         Boost::headers
+    PRIVATE
+        mkr_flatbuffers
 )
 
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
