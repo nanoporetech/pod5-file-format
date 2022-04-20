@@ -16,7 +16,8 @@ size_t encode(Int16T const* in, uint8_t* SVB_RESTRICT out, uint32_t count, Int16
     auto const data = keys + ::svb16_key_length(count);
 #ifdef SVB16_X64
     if (has_ssse3()) {
-        return encode_sse<Int16T, UseDelta, UseZigzag>(in, keys, data, count, prev) - out;
+        // Gotta have some tests for this before we turn it on...
+        // return encode_sse<Int16T, UseDelta, UseZigzag>(in, keys, data, count, prev) - out;
     }
 #endif
     return encode_scalar<Int16T, UseDelta, UseZigzag>(in, keys, data, count, prev) - out;

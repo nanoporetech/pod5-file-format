@@ -97,6 +97,7 @@ SCENARIO("Signal table Tests") {
                             std::vector<std::int16_t> const& expected) {
                             auto decompressed = mkr::decompress_signal(compressed_actual,
                                                                        expected.size(), pool);
+                            CAPTURE(decompressed);
                             REQUIRE(decompressed.ok());
 
                             auto actual =
