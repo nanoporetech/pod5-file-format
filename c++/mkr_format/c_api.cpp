@@ -273,6 +273,7 @@ mkr_error_t mkr_get_pore(MkrReadRecordBatch* batch,
     *well = pore_data.well;
     assert(false);
     //*pore_type = pore_data.pore_type.;
+    return MKR_OK;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
