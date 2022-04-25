@@ -39,22 +39,6 @@ private:
     std::vector<std::uint8_t> m_values;
 };
 
-template <>
-class PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point> {
-public:
-    void append(std::chrono::system_clock::time_point const& value) {
-        std::int64_t milliseconds_since_epoch =
-                value.time_since_epoch() / std::chrono::milliseconds(1);
-        m_values.push_back(milliseconds_since_epoch);
-    }
-
-    std::size_t length() const { return m_values.size(); }
-    gsl::span<std::int64_t const> get_data() const { return gsl::make_span(m_values); }
-
-private:
-    std::vector<std::int64_t> m_values;
-};
-
 class StringDictionaryKeyBuilder {
 public:
     void append(std::string const& value) {
@@ -78,7 +62,7 @@ private:
 
 class StringMapDictionaryKeyBuilder {
 public:
-    void append(std::map<std::string, std::string> const& value) {
+    void append(mkr::RunInfoData::MapType const& value) {
         m_offset_values.push_back(m_key_builder.length());
         for (auto const& item : value) {
             m_key_builder.append(item.first);
@@ -165,7 +149,7 @@ public:
     EndReasonWriter(arrow::MemoryPool* pool);
 
     mkr::Result<EndReasonDictionaryIndex> add(EndReasonData const& end_reason_data) {
-        return m_builder.append(end_reason_data.end_reason, end_reason_data.forced);
+        return m_builder.append(end_reason_data.name, end_reason_data.forced);
     }
 
     mkr::Result<std::shared_ptr<arrow::Array>> get_value_array();
@@ -218,7 +202,7 @@ public:
 private:
     std::shared_ptr<arrow::StructType> m_type;
     StructBuilder<detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point>,
+                  detail::PrimitiveDictionaryKeyBuilder<std::int64_t>,
                   detail::PrimitiveDictionaryKeyBuilder<std::int16_t>,
                   detail::PrimitiveDictionaryKeyBuilder<std::int16_t>,
                   detail::StringMapDictionaryKeyBuilder,
@@ -227,7 +211,7 @@ private:
                   detail::StringDictionaryKeyBuilder,
                   detail::StringDictionaryKeyBuilder,
                   detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point>,
+                  detail::PrimitiveDictionaryKeyBuilder<std::int64_t>,
                   detail::StringDictionaryKeyBuilder,
                   detail::PrimitiveDictionaryKeyBuilder<std::uint16_t>,
                   detail::StringDictionaryKeyBuilder,

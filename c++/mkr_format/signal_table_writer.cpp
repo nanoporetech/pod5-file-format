@@ -72,8 +72,10 @@ SignalTableWriter::SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWrit
 SignalTableWriter::SignalTableWriter(SignalTableWriter&& other) = default;
 SignalTableWriter& SignalTableWriter::operator=(SignalTableWriter&&) = default;
 SignalTableWriter::~SignalTableWriter() {
-    flush();
-    close();
+    if (m_writer) {
+        flush();
+        close();
+    }
 }
 
 Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read_id,

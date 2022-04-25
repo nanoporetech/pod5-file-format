@@ -42,10 +42,10 @@ SCENARIO("C API") {
         CHECK(mkr_add_calibration(&calibration_id, combined_file, 54.0f, 100.0f) == MKR_OK);
         CHECK(calibration_id == 0);
 
-        std::vector<char const*> context_tags_keys{"thing", "foo", "bar"};
-        std::vector<char const*> context_tags_values{"thing_val", "foo_val", "bar_val"};
-        std::vector<char const*> tracking_id_keys{"baz"};
-        std::vector<char const*> tracking_id_values{"baz_val"};
+        std::vector<char const*> context_tags_keys{"thing", "foo"};
+        std::vector<char const*> context_tags_values{"thing_val", "foo_val"};
+        std::vector<char const*> tracking_id_keys{"baz", "other"};
+        std::vector<char const*> tracking_id_values{"baz_val", "other_val"};
 
         std::int16_t run_info_id = -1;
         CHECK(mkr_add_run_info(&run_info_id, combined_file, "acquisition_id", 15400, 1024, 0,
@@ -82,6 +82,21 @@ SCENARIO("C API") {
         MkrReadRecordBatch* batch_0 = nullptr;
         CHECK(mkr_get_read_batch(&batch_0, combined_file, 0) == MKR_OK);
         REQUIRE(!!batch_0);
+
+        RunInfoDictData* run_info_data_out = nullptr;
+        CHECK(mkr_get_run_info(batch_0, 0, &run_info_data_out) == MKR_OK);
+        REQUIRE(!!run_info_data_out);
+        CHECK(run_info_data_out->tracking_id.size == 2);
+        CHECK(run_info_data_out->tracking_id.keys[0] == std::string("baz"));
+        CHECK(run_info_data_out->tracking_id.keys[1] == std::string("other"));
+        CHECK(run_info_data_out->tracking_id.values[0] == std::string("baz_val"));
+        CHECK(run_info_data_out->tracking_id.values[1] == std::string("other_val"));
+        CHECK(run_info_data_out->context_tags.size == 2);
+        CHECK(run_info_data_out->context_tags.keys[0] == std::string("thing"));
+        CHECK(run_info_data_out->context_tags.keys[1] == std::string("foo"));
+        CHECK(run_info_data_out->context_tags.values[0] == std::string("thing_val"));
+        CHECK(run_info_data_out->context_tags.values[1] == std::string("foo_val"));
+        mkr_release_run_info(run_info_data_out);
 
         mkr_free_read_batch(batch_0);
 

@@ -12,6 +12,7 @@
 
 #include <chrono>
 
+//---------------------------------------------------------------------------------------------------------------------
 struct MkrFileReader {
     MkrFileReader(std::unique_ptr<mkr::FileReader> reader_) : reader(std::move(reader_)) {}
     std::unique_ptr<mkr::FileReader> reader;
@@ -27,30 +28,23 @@ struct MkrReadRecordBatch {
     mkr::ReadTableRecordBatch batch;
 };
 
-extern "C" {
-
-//---------------------------------------------------------------------------------------------------------------------
-void mkr_init() { mkr::register_extension_types(); }
-
-void mkr_terminate() { mkr::unregister_extension_types(); }
-
+namespace {
 //---------------------------------------------------------------------------------------------------------------------
 mkr_error_t g_mkr_error_no;
 std::string g_mkr_error_string;
+}  // namespace
+
+extern "C" void mkr_set_error(arrow::Status status) {
+    g_mkr_error_no = (mkr_error_t)status.code();
+    g_mkr_error_string = status.ToString();
+}
+
+namespace {
 
 void mkr_reset_error() {
     g_mkr_error_no = mkr_error_t::MKR_OK;
     g_mkr_error_string.clear();
 }
-
-void mkr_set_error(arrow::Status status) {
-    g_mkr_error_no = (mkr_error_t)status.code();
-    g_mkr_error_string = status.ToString();
-}
-
-mkr_error_t mkr_get_error_no() { return g_mkr_error_no; }
-
-char const* mkr_get_error_string() { return g_mkr_error_string.c_str(); }
 
 #define MKR_C_RETURN_NOT_OK(result) \
     if (!result.ok()) {             \
@@ -108,6 +102,51 @@ bool check_output_pointer_not_null(void const* output) {
     }
     return true;
 }
+
+//---------------------------------------------------------------------------------------------------------------------
+template <typename RealType, typename GetData, typename CType>
+mkr_error_t mkr_create_dict_type(MkrReadRecordBatch* batch,
+                                 GetData data_fn,
+                                 int16_t dict_index,
+                                 CType** data_out) {
+    mkr_reset_error();
+
+    if (!check_not_null(batch) || !check_output_pointer_not_null(data_out)) {
+        return g_mkr_error_no;
+    }
+
+    MKR_C_ASSIGN_OR_RAISE(auto internal_data, (batch->batch.*data_fn)(dict_index));
+    auto data = std::make_unique<RealType>(std::move(internal_data));
+
+    *data_out = data.release();
+    return MKR_OK;
+}
+
+template <typename RealType, typename T>
+mkr_error_t mkr_release_dict_type(T* dict_data) {
+    mkr_reset_error();
+
+    if (!check_not_null(dict_data)) {
+        return g_mkr_error_no;
+    }
+
+    std::unique_ptr<RealType> helper(static_cast<RealType*>(dict_data));
+    helper.reset();
+
+    return MKR_OK;
+}
+}  // namespace
+
+extern "C" {
+
+//---------------------------------------------------------------------------------------------------------------------
+void mkr_init() { mkr::register_extension_types(); }
+
+void mkr_terminate() { mkr::unregister_extension_types(); }
+
+mkr_error_t mkr_get_error_no() { return g_mkr_error_no; }
+
+char const* mkr_get_error_string() { return g_mkr_error_string.c_str(); }
 
 //---------------------------------------------------------------------------------------------------------------------
 MkrFileReader* mkr_open_split_file(char const* signal_filename, char const* reads_filename) {
@@ -256,24 +295,212 @@ mkr_error_t mkr_get_read_batch_row_info(MkrReadRecordBatch* batch,
     return MKR_OK;
 }
 
-mkr_error_t mkr_get_pore(MkrReadRecordBatch* batch,
-                         int16_t pore,
-                         uint16_t* channel,
-                         uint8_t* well,
-                         char** pore_type) {
+mkr_error_t mkr_get_signal_row_indices(MkrReadRecordBatch* batch,
+                                       size_t row,
+                                       int64_t signal_row_indices_count,
+                                       uint64_t* signal_row_indices) {
     mkr_reset_error();
 
-    if (!check_not_null(batch) || !check_output_pointer_not_null(channel) ||
-        !check_output_pointer_not_null(well) || !check_output_pointer_not_null(pore_type)) {
+    if (!check_not_null(batch) || !check_output_pointer_not_null(signal_row_indices)) {
         return g_mkr_error_no;
     }
 
-    auto pore_data = batch->batch.get_pore(pore);
-    *channel = pore_data.channel;
-    *well = pore_data.well;
-    assert(false);
-    //*pore_type = pore_data.pore_type.;
+    auto const signal_col = batch->batch.signal_column();
+    auto const& row_data =
+            std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
+
+    if (signal_row_indices_count != row_data->length()) {
+        mkr_set_error(mkr::Status::Invalid("Incorrect number of signal indices, expected ",
+                                           row_data->length(), " received ",
+                                           signal_row_indices_count));
+        return g_mkr_error_no;
+    }
+
+    for (std::size_t i = 0; i < signal_row_indices_count; ++i) {
+        signal_row_indices[i] = row_data->Value(i);
+    }
+
     return MKR_OK;
+}
+
+struct PoreDataCHelper : public PoreDictData {
+    PoreDataCHelper(mkr::PoreData&& internal_data_) : internal_data(std::move(internal_data_)) {
+        channel = internal_data.channel;
+        well = internal_data.well;
+        pore_type = internal_data.pore_type.c_str();
+    }
+
+    mkr::PoreData internal_data;
+};
+
+mkr_error_t mkr_get_pore(MkrReadRecordBatch* batch, int16_t pore, PoreDictData** pore_data) {
+    return mkr_create_dict_type<PoreDataCHelper>(batch, &mkr::ReadTableRecordBatch::get_pore, pore,
+                                                 pore_data);
+}
+
+mkr_error_t mkr_release_pore(PoreDictData* pore_data) {
+    return mkr_release_dict_type<PoreDataCHelper>(pore_data);
+}
+
+struct CalibrationDataCHelper : public CalibrationDictData {
+    CalibrationDataCHelper(mkr::CalibrationData&& internal_data_)
+            : internal_data(std::move(internal_data_)) {
+        offset = internal_data.offset;
+        scale = internal_data.scale;
+    }
+
+    mkr::CalibrationData internal_data;
+};
+
+mkr_error_t mkr_get_calibration(MkrReadRecordBatch* batch,
+                                int16_t calibration,
+                                CalibrationDictData** calibration_data) {
+    return mkr_create_dict_type<CalibrationDataCHelper>(
+            batch, &mkr::ReadTableRecordBatch::get_calibration, calibration, calibration_data);
+}
+
+mkr_error_t mkr_release_calibration(CalibrationDictData* calibration_data) {
+    return mkr_release_dict_type<CalibrationDictData>(calibration_data);
+}
+
+struct EndReasonDataCHelper : public EndReasonDictData {
+    EndReasonDataCHelper(mkr::EndReasonData&& internal_data_)
+            : internal_data(std::move(internal_data_)) {
+        name = internal_data.name.c_str();
+        forced = internal_data.forced;
+    }
+
+    mkr::EndReasonData internal_data;
+};
+
+mkr_error_t mkr_get_end_reason(MkrReadRecordBatch* batch,
+                               int16_t end_reason,
+                               EndReasonDictData** end_reason_data) {
+    return mkr_create_dict_type<EndReasonDataCHelper>(
+            batch, &mkr::ReadTableRecordBatch::get_end_reason, end_reason, end_reason_data);
+}
+
+mkr_error_t mkr_release_end_reason(EndReasonDictData* end_reason_data) {
+    return mkr_release_dict_type<EndReasonDataCHelper>(end_reason_data);
+}
+
+struct RunInfoDataCHelper : public RunInfoDictData {
+    struct InternalMapHelper {
+        std::vector<char const*> keys;
+        std::vector<char const*> values;
+    };
+
+    RunInfoDataCHelper(mkr::RunInfoData&& internal_data_)
+            : internal_data(std::move(internal_data_)) {
+        acquisition_id = internal_data.acquisition_id.c_str();
+        acquisition_start_time_ms = internal_data.acquisition_start_time;
+        adc_max = internal_data.adc_max;
+        adc_min = internal_data.adc_min;
+        context_tags = map_to_c(internal_data.context_tags, context_tags_helper);
+        experiment_name = internal_data.experiment_name.c_str();
+        flow_cell_id = internal_data.flow_cell_id.c_str();
+        flow_cell_product_code = internal_data.flow_cell_product_code.c_str();
+        protocol_name = internal_data.protocol_name.c_str();
+        protocol_run_id = internal_data.protocol_name.c_str();
+        protocol_start_time_ms = internal_data.protocol_start_time;
+        sample_id = internal_data.sample_id.c_str();
+        sample_rate = internal_data.sample_rate;
+        sequencing_kit = internal_data.sequencing_kit.c_str();
+        sequencer_position = internal_data.sequencer_position.c_str();
+        sequencer_position_type = internal_data.sequencer_position_type.c_str();
+        software = internal_data.software.c_str();
+        system_name = internal_data.system_name.c_str();
+        system_type = internal_data.system_type.c_str();
+        tracking_id = map_to_c(internal_data.tracking_id, tracking_id_helper);
+    }
+
+    KeyValueData map_to_c(mkr::RunInfoData::MapType const& map, InternalMapHelper& helper) {
+        helper.keys.reserve(map.size());
+        helper.values.reserve(map.size());
+        for (auto const& item : map) {
+            helper.keys.push_back(item.first.c_str());
+            helper.values.push_back(item.second.c_str());
+        }
+
+        KeyValueData result;
+        result.size = helper.keys.size();
+        result.keys = helper.keys.data();
+        result.values = helper.values.data();
+        return result;
+    }
+
+    mkr::RunInfoData internal_data;
+    InternalMapHelper context_tags_helper;
+    InternalMapHelper tracking_id_helper;
+};
+
+mkr_error_t mkr_get_run_info(MkrReadRecordBatch* batch,
+                             int16_t run_info,
+                             RunInfoDictData** run_info_data) {
+    return mkr_create_dict_type<RunInfoDataCHelper>(batch, &mkr::ReadTableRecordBatch::get_run_info,
+                                                    run_info, run_info_data);
+}
+
+MKR_FORMAT_EXPORT mkr_error_t mkr_release_run_info(RunInfoDictData* run_info_data) {
+    return mkr_release_dict_type<RunInfoDataCHelper>(run_info_data);
+}
+
+mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
+                                    size_t signal_rows_count,
+                                    uint64_t* signal_rows,
+                                    SignalRowInfo* signal_row_info) {
+    mkr_reset_error();
+
+    if (!check_not_null(reader) || !check_output_pointer_not_null(signal_row_info)) {
+        return g_mkr_error_no;
+    }
+
+    std::vector<std::uint64_t> signal_rows_sorted{signal_rows, signal_rows + signal_rows_count};
+    std::sort(signal_rows_sorted.begin(), signal_rows_sorted.end());
+
+    std::size_t completed_requests = 0;
+    std::uint64_t abs_batch_start_row = 0;
+    std::size_t current_batch = 0;
+    std::size_t const batch_count = reader->reader->num_signal_record_batches();
+    for (std::size_t req_row_index = 0; req_row_index < signal_rows_sorted.size();
+         ++req_row_index) {
+        auto const row = signal_rows_sorted[req_row_index];
+
+        assert(row >= abs_batch_start_row);
+
+        for (; current_batch < batch_count; ++current_batch) {
+            MKR_C_ASSIGN_OR_RAISE(auto batch,
+                                  reader->reader->read_signal_record_batch(current_batch));
+
+            auto abs_next_batch_start_row = abs_batch_start_row + batch.num_rows();
+            if (row < abs_next_batch_start_row) {
+                auto batch_row_index = row - abs_batch_start_row;
+
+                auto& output_info = signal_row_info[req_row_index];
+                output_info.batch_index = current_batch;
+                output_info.batch_row_index = batch_row_index;
+
+                auto samples = batch.samples_column();
+                output_info.stored_sample_count = samples->Value(batch_row_index);
+                MKR_C_ASSIGN_OR_RAISE(output_info.stored_byte_count,
+                                      batch.samples_byte_count(batch_row_index));
+
+                // Break out of the inner loop - next requested row might also be in this batch.
+                completed_requests += 1;
+                break;
+            }
+
+            abs_batch_start_row = abs_next_batch_start_row;
+        }
+    }
+
+    if (completed_requests != signal_rows_sorted.size()) {
+        assert(completed_requests < signal_rows_sorted.size());
+        mkr_set_error(mkr::Status::Invalid("Unable to find signal row index ",
+                                           signal_rows_sorted[completed_requests], ", only ",
+                                           abs_batch_start_row, " rows in file"));
+    }
+    return g_mkr_error_no;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -447,8 +674,8 @@ mkr_error_t mkr_add_run_info(int16_t* run_info_index,
 
     auto const parse_map =
             [](std::size_t tracking_id_count, char const** tracking_id_keys,
-               char const** tracking_id_values) -> mkr::Result<std::map<std::string, std::string>> {
-        std::map<std::string, std::string> result;
+               char const** tracking_id_values) -> mkr::Result<mkr::RunInfoData::MapType> {
+        mkr::RunInfoData::MapType result;
         for (std::size_t i = 0; i < tracking_id_count; ++i) {
             auto key = tracking_id_keys[i];
             auto value = tracking_id_values[i];
@@ -456,15 +683,11 @@ mkr_error_t mkr_add_run_info(int16_t* run_info_index,
                 return arrow::Status::Invalid("null file passed to C API");
             }
 
-            result[key] = value;
+            result.emplace_back(key, value);
         }
         return result;
     };
 
-    std::chrono::system_clock::time_point acquisition_start_time{};
-    acquisition_start_time += std::chrono::milliseconds(acquisition_start_time_ms);
-    std::chrono::system_clock::time_point protocol_start_time{};
-    protocol_start_time += std::chrono::milliseconds(protocol_start_time_ms);
     MKR_C_ASSIGN_OR_RAISE(auto const context_tags,
                           parse_map(context_tags_count, context_tags_keys, context_tags_values));
     MKR_C_ASSIGN_OR_RAISE(auto const tracking_id,
@@ -473,9 +696,9 @@ mkr_error_t mkr_add_run_info(int16_t* run_info_index,
     MKR_C_ASSIGN_OR_RAISE(
             *run_info_index,
             file->writer->add_run_info(mkr::RunInfoData(
-                    acquisition_id, acquisition_start_time, adc_max, adc_min, context_tags,
+                    acquisition_id, acquisition_start_time_ms, adc_max, adc_min, context_tags,
                     experiment_name, flow_cell_id, flow_cell_product_code, protocol_name,
-                    protocol_run_id, protocol_start_time, sample_id, sample_rate, sequencing_kit,
+                    protocol_run_id, protocol_start_time_ms, sample_id, sample_rate, sequencing_kit,
                     sequencer_position, sequencer_position_type, software, system_name, system_type,
                     tracking_id)));
 

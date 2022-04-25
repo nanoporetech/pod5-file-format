@@ -27,19 +27,6 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
 
 arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         std::shared_ptr<arrow::DataType> const& type,
-        PrimitiveDictionaryKeyBuilder<std::chrono::system_clock::time_point> const& builder,
-        std::shared_ptr<arrow::Buffer> const& null_bitmap,
-        std::size_t expected_length) {
-    arrow::TypedBufferBuilder<std::int64_t> buffer_builder;
-    auto data_in = builder.get_data();
-    buffer_builder.Append(data_in.data(), data_in.size());
-    ARROW_ASSIGN_OR_RAISE(auto data, buffer_builder.FinishWithLength(expected_length));
-
-    return arrow::ArrayData::Make(type, expected_length, {null_bitmap, data}, 0);
-}
-
-arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
-        std::shared_ptr<arrow::DataType> const& type,
         StringDictionaryKeyBuilder const& builder,
         std::shared_ptr<arrow::Buffer> const& null_bitmap,
         std::size_t expected_length) {
@@ -90,19 +77,27 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
     auto const& key_type = map_type->key_type();
     auto const& item_type = map_type->item_type();
 
+    std::shared_ptr<arrow::Buffer> map_item_null_bitmap;
     ARROW_ASSIGN_OR_RAISE(auto key_data, get_array_data(key_type, builder.key_builder(),
-                                                        null_bitmap, final_item_length));
+                                                        map_item_null_bitmap, final_item_length));
     ARROW_ASSIGN_OR_RAISE(auto item_data, get_array_data(item_type, builder.value_builder(),
-                                                         null_bitmap, final_item_length));
+                                                         map_item_null_bitmap, final_item_length));
 
     // Pack this data out as a struct:
     std::shared_ptr<arrow::ArrayData> items =
-            arrow::ArrayData::Make(map_type->value_type(), expected_length, {null_bitmap, offsets},
-                                   {key_data, item_data}, 0);
+            arrow::ArrayData::Make(map_type->value_type(), final_item_length,
+                                   {null_bitmap, offsets}, {key_data, item_data}, 0);
 
     // And add this struct to the map/list as the value data, along with the offsets:
-    return arrow::ArrayData::Make(type, expected_length, {null_bitmap, offsets}, {std::move(items)},
-                                  0);
+    auto data = arrow::ArrayData::Make(type, expected_length, {null_bitmap, offsets},
+                                       {std::move(items)}, 0);
+
+    arrow::MapArray array(data);
+    assert(array.length() == offset_data.size());
+    assert(array.keys()->length() == builder.key_builder().length());
+    assert(array.items()->length() == builder.value_builder().length());
+
+    return data;
 }
 
 template <std::size_t CurrentIndex, typename BuilderTuple>

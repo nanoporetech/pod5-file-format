@@ -207,11 +207,11 @@ def main():
             elif isinstance(item, EndFile):
                 break
 
-            if reads_processed % args.record_batch_size == 0:
-                out.flush()
-
             sample_count += item.signal.shape[0]
             reads_processed += 1
+
+            if reads_processed % args.record_batch_size == 0:
+                out.flush()
 
             now = time.time()
             if t_last_update + update_interval < now:

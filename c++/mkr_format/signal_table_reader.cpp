@@ -29,6 +29,23 @@ std::shared_ptr<arrow::UInt32Array> SignalTableRecordBatch::samples_column() con
     return std::static_pointer_cast<arrow::UInt32Array>(batch()->column(m_field_locations.samples));
 }
 
+Result<std::size_t> SignalTableRecordBatch::samples_byte_count(std::size_t row_index) const {
+    switch (m_field_locations.signal_type) {
+    case SignalType::UncompressedSignal: {
+        auto signal_column = uncompressed_signal_column();
+        auto signal = signal_column->value_slice(row_index);
+        return signal->length() * sizeof(std::int16_t);
+    }
+    case SignalType::VbzSignal: {
+        auto signal_column = vbz_signal_column();
+        auto signal_compressed = signal_column->Value(row_index);
+        return signal_compressed.size();
+    }
+    }
+
+    return mkr::Status::Invalid("Unknown signal type");
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 
 SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,

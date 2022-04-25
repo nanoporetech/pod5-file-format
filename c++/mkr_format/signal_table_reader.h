@@ -33,6 +33,8 @@ public:
     std::shared_ptr<VbzSignalArray> vbz_signal_column() const;
     std::shared_ptr<arrow::UInt32Array> samples_column() const;
 
+    Result<std::size_t> samples_byte_count(std::size_t row_index) const;
+
 private:
     SignalTableSchemaDescription m_field_locations;
 };

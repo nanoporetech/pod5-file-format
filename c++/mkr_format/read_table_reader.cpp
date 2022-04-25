@@ -9,8 +9,6 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/ipc/reader.h>
 
-#include <iostream>
-
 namespace mkr {
 
 namespace {
@@ -45,23 +43,35 @@ public:
         return get_row_value<arrow::StringArray>(field, row_index).to_string();
     }
 
-    std::chrono::system_clock::time_point get_timestamp(int field, std::int16_t row_index) const {
+    std::int64_t get_timestamp(int field, std::int16_t row_index) const {
         auto field_array =
                 std::static_pointer_cast<arrow::TimestampArray>(m_struct_data->field(field));
         assert(field_array);
-        auto since_epoch_ms = field_array->Value(row_index);
-        return std::chrono::system_clock::time_point() + std::chrono::milliseconds(since_epoch_ms);
+        return field_array->Value(row_index);
     }
 
-    std::map<std::string, std::string> get_string_map(int field, std::int16_t row_index) const {
+    Result<mkr::RunInfoData::MapType> get_string_map(int field, std::int16_t row_index) const {
         auto field_array = std::static_pointer_cast<arrow::MapArray>(m_struct_data->field(field));
         auto offsets = std::static_pointer_cast<arrow::Int32Array>(field_array->offsets());
         auto keys = std::static_pointer_cast<arrow::StringArray>(field_array->keys());
         auto values = std::static_pointer_cast<arrow::StringArray>(field_array->items());
 
-        std::map<std::string, std::string> result;
-        for (std::size_t i = offsets->Value(row_index); i < offsets->Value(row_index + 1); ++i) {
-            result[keys->Value(i).to_string()] = values->Value(i).to_string();
+        auto const start_index = offsets->Value(row_index);
+        auto const end_index = offsets->Value(row_index + 1);
+
+        if (keys->length() < end_index) {
+            return Status::Invalid("Incorrect number of keys in map field, got ", keys->length(),
+                                   " expected ", end_index);
+        }
+
+        if (values->length() < end_index) {
+            return Status::Invalid("Incorrect number of values in map field, got ",
+                                   values->length(), " expected ", end_index);
+        }
+
+        mkr::RunInfoData::MapType result;
+        for (std::size_t i = start_index; i < end_index; ++i) {
+            result.emplace_back(keys->Value(i).to_string(), values->Value(i).to_string());
         }
 
         return result;
@@ -112,7 +122,7 @@ std::shared_ptr<arrow::DictionaryArray> ReadTableRecordBatch::run_info_column() 
             batch()->column(m_field_locations->run_info));
 }
 
-PoreData ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
+Result<PoreData> ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
     auto pore_data = std::static_pointer_cast<arrow::StructArray>(pore_column()->dictionary());
     StructHelper hlp(pore_data);
 
@@ -121,7 +131,8 @@ PoreData ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
                     hlp.get_string(m_field_locations->pore_fields.pore_type, pore_index)};
 }
 
-CalibrationData ReadTableRecordBatch::get_calibration(std::int16_t calibration_index) const {
+Result<CalibrationData> ReadTableRecordBatch::get_calibration(
+        std::int16_t calibration_index) const {
     auto calibration_data =
             std::static_pointer_cast<arrow::StructArray>(calibration_column()->dictionary());
     StructHelper hlp(calibration_data);
@@ -131,7 +142,7 @@ CalibrationData ReadTableRecordBatch::get_calibration(std::int16_t calibration_i
             hlp.get_float(m_field_locations->calibration_fields.scale, calibration_index)};
 }
 
-EndReasonData ReadTableRecordBatch::get_end_reason(std::int16_t end_reason_index) const {
+Result<EndReasonData> ReadTableRecordBatch::get_end_reason(std::int16_t end_reason_index) const {
     auto end_reason_data =
             std::static_pointer_cast<arrow::StructArray>(end_reason_column()->dictionary());
     StructHelper hlp(end_reason_data);
@@ -142,10 +153,17 @@ EndReasonData ReadTableRecordBatch::get_end_reason(std::int16_t end_reason_index
     };
 }
 
-RunInfoData ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const {
+Result<RunInfoData> ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const {
     auto run_info_data =
             std::static_pointer_cast<arrow::StructArray>(run_info_column()->dictionary());
     StructHelper hlp(run_info_data);
+
+    ARROW_ASSIGN_OR_RAISE(
+            auto context_tags,
+            hlp.get_string_map(m_field_locations->run_info_fields.context_tags, run_info_index));
+    ARROW_ASSIGN_OR_RAISE(
+            auto tracking_id,
+            hlp.get_string_map(m_field_locations->run_info_fields.tracking_id, run_info_index));
 
     return RunInfoData{
             hlp.get_string(m_field_locations->run_info_fields.acquisition_id, run_info_index),
@@ -153,7 +171,7 @@ RunInfoData ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) cons
                               run_info_index),
             hlp.get_int16(m_field_locations->run_info_fields.adc_max, run_info_index),
             hlp.get_int16(m_field_locations->run_info_fields.adc_min, run_info_index),
-            hlp.get_string_map(m_field_locations->run_info_fields.context_tags, run_info_index),
+            std::move(context_tags),
             hlp.get_string(m_field_locations->run_info_fields.experiment_name, run_info_index),
             hlp.get_string(m_field_locations->run_info_fields.flow_cell_id, run_info_index),
             hlp.get_string(m_field_locations->run_info_fields.flow_cell_product_code,
@@ -171,7 +189,7 @@ RunInfoData ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) cons
             hlp.get_string(m_field_locations->run_info_fields.software, run_info_index),
             hlp.get_string(m_field_locations->run_info_fields.system_name, run_info_index),
             hlp.get_string(m_field_locations->run_info_fields.system_type, run_info_index),
-            hlp.get_string_map(m_field_locations->run_info_fields.tracking_id, run_info_index)};
+            std::move(tracking_id)};
 }
 
 //---------------------------------------------------------------------------------------------------------------------

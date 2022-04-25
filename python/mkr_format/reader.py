@@ -1,4 +1,5 @@
 import ctypes
+from collections import namedtuple
 from pathlib import Path
 import typing
 from uuid import UUID
@@ -6,9 +7,18 @@ from uuid import UUID
 from . import c_api
 from .api_utils import check_error
 
+SignalRowInfo = namedtuple(
+    "SignalRowInfo", ["batch_index", "batch_row_index", "sample_count", "byte_count"]
+)
+PoreData = namedtuple("PoreData", ["channel", "well", "pore_type"])
+CalibrationData = namedtuple("CalibrationData", ["offset", "scale"])
+EndReasonData = namedtuple("EndReasonData", ["name", "forced"])
+RunInfoData = namedtuple("RunInfoData", [])
+
 
 class ReadRow:
-    def __init__(self, batch, row):
+    def __init__(self, reader, batch, row):
+        self._reader = reader
         self._batch = batch
         self._row = row
         self._read_id = None
@@ -20,6 +30,11 @@ class ReadRow:
         self._end_reason_idx = None
         self._run_info_idx = None
         self._signal_row_count = None
+        self._signal_rows = None
+        self._pore = None
+        self._calibration = None
+        self._end_reason = None
+        self._run_info = None
 
     def cache_data(self):
         read_id = (ctypes.c_ubyte * 16)()
@@ -32,18 +47,20 @@ class ReadRow:
         run_info_idx = ctypes.c_short()
         signal_row_count = ctypes.c_longlong()
 
-        c_api.mkr_get_read_batch_row_info(
-            self._batch,
-            self._row,
-            read_id,
-            ctypes.pointer(pore_idx),
-            ctypes.pointer(calibration_idx),
-            ctypes.pointer(read_number),
-            ctypes.pointer(start_sample),
-            ctypes.pointer(median_before),
-            ctypes.pointer(end_reason_idx),
-            ctypes.pointer(run_info_idx),
-            ctypes.pointer(signal_row_count),
+        check_error(
+            c_api.mkr_get_read_batch_row_info(
+                self._batch,
+                self._row,
+                read_id,
+                ctypes.pointer(pore_idx),
+                ctypes.pointer(calibration_idx),
+                ctypes.pointer(read_number),
+                ctypes.pointer(start_sample),
+                ctypes.pointer(median_before),
+                ctypes.pointer(end_reason_idx),
+                ctypes.pointer(run_info_idx),
+                ctypes.pointer(signal_row_count),
+            )
         )
 
         self._read_id = UUID(bytes=bytes(read_id))
@@ -56,6 +73,38 @@ class ReadRow:
         self._calibration_idx = end_reason_idx.value
         self._run_info_idx = run_info_idx.value
         self._signal_row_count = signal_row_count.value
+
+    def cache_signal_row_data(self):
+        if not self._signal_row_count:
+            self.cache_data()
+
+        signal_rows = (ctypes.c_ulonglong * self._signal_row_count)()
+
+        check_error(
+            c_api.mkr_get_signal_row_indices(
+                self._batch, self._row, self._signal_row_count, signal_rows
+            )
+        )
+
+        signal_row_info = (c_api.SignalRowInfo * self._signal_row_count)()
+
+        check_error(
+            c_api.mkr_get_signal_row_info(
+                self._reader, self._signal_row_count, signal_rows, signal_row_info
+            )
+        )
+
+        self._signal_rows = []
+        for i in range(self._signal_row_count):
+            item = signal_row_info[i]
+            self._signal_rows.append(
+                SignalRowInfo(
+                    item.batch_index,
+                    item.batch_row_index,
+                    item.stored_sample_count,
+                    item.stored_byte_count,
+                )
+            )
 
     @property
     def read_id(self):
@@ -87,22 +136,109 @@ class ReadRow:
             self.cache_data()
         return self._signal_row_count
 
+    @property
+    def signal_rows(self):
+        if not self._signal_rows:
+            self.cache_signal_row_data()
+        return self._signal_rows
+
+    @property
+    def sample_count(self):
+        return sum(r.sample_count for r in self.signal_rows)
+
+    @property
+    def byte_count(self):
+        return sum(r.byte_count for r in self.signal_rows)
+
+    def _cache_dict_data(self, index, tuple_type, c_api_type, get, release):
+        data_ptr = ctypes.POINTER(c_api_type)()
+        check_error(get(self._batch, index, ctypes.pointer(data_ptr)))
+
+        def get_field(data, name):
+            val = getattr(data, name)
+            if isinstance(val, bytes):
+                val = val.decode("utf-8")
+            return val
+
+        data = data_ptr.contents
+        tuple_data = tuple_type(*[get_field(data, f) for f, _ in data._fields_])
+
+        check_error(release(data))
+        return tuple_data
+
+    @property
+    def pore(self):
+        if not self._pore:
+            if not self._pore_idx:
+                self.cache_data()
+            self._pore = self._cache_dict_data(
+                self._pore_idx,
+                PoreData,
+                c_api.PoreDictData,
+                c_api.mkr_get_pore,
+                c_api.mkr_release_pore,
+            )
+        return self._pore
+
+    @property
+    def calibration(self):
+        if not self._calibration:
+            if not self._calibration_idx:
+                self.cache_data()
+            self._calibration = self._cache_dict_data(
+                self._calibration_idx,
+                CalibrationData,
+                c_api.CalibrationDictData,
+                c_api.mkr_get_calibration,
+                c_api.mkr_release_calibration,
+            )
+        return self._calibration
+
+    @property
+    def end_reason(self):
+        if not self._end_reason:
+            if not self._end_reason_idx:
+                self.cache_data()
+            self._end_reason = self._cache_dict_data(
+                self._end_reason_idx,
+                EndReasonData,
+                c_api.EndReasonDictData,
+                c_api.mkr_get_end_reason,
+                c_api.mkr_release_end_reason,
+            )
+        return self._end_reason
+
+    @property
+    def run_info(self):
+        if not self._run_info:
+            if not self._run_info_idx:
+                self.cache_data()
+            self._run_info = self._cache_dict_data(
+                self._run_info_idx,
+                RunInfoData,
+                c_api.RunInfoDictData,
+                c_api.mkr_get_run_info,
+                c_api.mkr_release_run_info,
+            )
+        return self._run_info
+
 
 class ReadBatch:
-    def __init__(self, batch):
+    def __init__(self, reader, batch):
+        self._reader = reader
         self._batch = batch
 
     def __del__(self):
         check_error(c_api.mkr_free_read_batch(self._batch))
 
-    def iter_reads(self):
+    def reads(self):
         size = ctypes.c_size_t()
         check_error(
             c_api.mkr_get_read_batch_row_count(ctypes.pointer(size), self._batch)
         )
 
         for i in range(size.value):
-            yield ReadRow(self._batch, i)
+            yield ReadRow(self._reader, self._batch, i)
 
 
 class FileReader:
@@ -113,7 +249,7 @@ class FileReader:
             )
         self._reader = reader
 
-    def iter_read_batches(self):
+    def read_batches(self):
         size = ctypes.c_size_t()
         check_error(c_api.mkr_get_read_batch_count(ctypes.pointer(size), self._reader))
 
@@ -124,11 +260,11 @@ class FileReader:
                 c_api.mkr_get_read_batch(ctypes.pointer(batch), self._reader, i)
             )
 
-            yield ReadBatch(batch)
+            yield ReadBatch(self._reader, batch)
 
-    def iter_reads(self):
-        for batch in self.iter_read_batches():
-            for read in batch.iter_reads():
+    def reads(self):
+        for batch in self.read_batches():
+            for read in batch.reads():
                 yield read
 
 

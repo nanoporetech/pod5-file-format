@@ -5,8 +5,8 @@
 
 #include <chrono>
 #include <cstdint>
-#include <map>
 #include <string>
+#include <vector>
 
 namespace mkr {
 
@@ -19,6 +19,7 @@ using RunInfoDictionaryIndex = std::int16_t;
 
 class ReadData {
 public:
+    ReadData() = default;
     /// \brief Create a new read data structure to add to a read.
     /// \param read_id The read id for the read entry.
     /// \param pore Pore dictionary index which this read was sequenced with.
@@ -55,28 +56,36 @@ public:
     RunInfoDictionaryIndex run_info;
 };
 
+inline bool operator==(ReadData const& a, ReadData const& b) {
+    return a.read_id == b.read_id && a.pore == b.pore && a.calibration == b.calibration &&
+           a.read_number == b.read_number && a.start_sample == b.start_sample &&
+           a.median_before == b.median_before && a.end_reason == b.end_reason &&
+           a.run_info == b.run_info;
+}
+
 class RunInfoData {
 public:
-    RunInfoData(std::string acquisition_id,
-                std::chrono::system_clock::time_point acquisition_start_time,
+    using MapType = std::vector<std::pair<std::string, std::string>>;
+    RunInfoData(std::string const& acquisition_id,
+                std::int64_t acquisition_start_time,
                 std::int16_t adc_max,
                 std::int16_t adc_min,
-                std::map<std::string, std::string> context_tags,
-                std::string experiment_name,
-                std::string flow_cell_id,
-                std::string flow_cell_product_code,
-                std::string protocol_name,
-                std::string protocol_run_id,
-                std::chrono::system_clock::time_point protocol_start_time,
-                std::string sample_id,
+                MapType const& context_tags,
+                std::string const& experiment_name,
+                std::string const& flow_cell_id,
+                std::string const& flow_cell_product_code,
+                std::string const& protocol_name,
+                std::string const& protocol_run_id,
+                std::int64_t protocol_start_time,
+                std::string const& sample_id,
                 std::uint16_t sample_rate,
-                std::string sequencing_kit,
-                std::string sequencer_position,
-                std::string sequencer_position_type,
-                std::string software,
-                std::string system_name,
-                std::string system_type,
-                std::map<std::string, std::string> tracking_id)
+                std::string const& sequencing_kit,
+                std::string const& sequencer_position,
+                std::string const& sequencer_position_type,
+                std::string const& software,
+                std::string const& system_name,
+                std::string const& system_type,
+                MapType const& tracking_id)
             : acquisition_id(acquisition_id),
               acquisition_start_time(acquisition_start_time),
               adc_max(adc_max),
@@ -98,17 +107,26 @@ public:
               system_type(system_type),
               tracking_id(tracking_id) {}
 
+    static std::int64_t convert_from_system_clock(std::chrono::system_clock::time_point value) {
+        return value.time_since_epoch() / std::chrono::milliseconds(1);
+    }
+
+    static std::chrono::system_clock::time_point convert_to_system_clock(
+            std::int64_t since_epoch_ms) {
+        return std::chrono::system_clock::time_point() + std::chrono::milliseconds(since_epoch_ms);
+    }
+
     std::string acquisition_id;
-    std::chrono::system_clock::time_point acquisition_start_time;
+    std::int64_t acquisition_start_time;
     std::int16_t adc_max;
     std::int16_t adc_min;
-    std::map<std::string, std::string> context_tags;
+    MapType context_tags;
     std::string experiment_name;
     std::string flow_cell_id;
     std::string flow_cell_product_code;
     std::string protocol_name;
     std::string protocol_run_id;
-    std::chrono::system_clock::time_point protocol_start_time;
+    std::int64_t protocol_start_time;
     std::string sample_id;
     std::uint16_t sample_rate;
     std::string sequencing_kit;
@@ -117,8 +135,23 @@ public:
     std::string software;
     std::string system_name;
     std::string system_type;
-    std::map<std::string, std::string> tracking_id;
+    MapType tracking_id;
 };
+
+inline bool operator==(RunInfoData const& a, RunInfoData const& b) {
+    return a.acquisition_id == b.acquisition_id &&
+           a.acquisition_start_time == b.acquisition_start_time && a.adc_max == b.adc_max &&
+           a.adc_min == b.adc_min && a.context_tags == b.context_tags &&
+           a.experiment_name == b.experiment_name && a.flow_cell_id == b.flow_cell_id &&
+           a.flow_cell_product_code == b.flow_cell_product_code &&
+           a.protocol_name == b.protocol_name && a.protocol_run_id == b.protocol_run_id &&
+           a.protocol_start_time == b.protocol_start_time && a.sample_id == b.sample_id &&
+           a.sample_rate == b.sample_rate && a.sequencing_kit == b.sequencing_kit &&
+           a.sequencer_position == b.sequencer_position &&
+           a.sequencer_position_type == b.sequencer_position_type && a.software == b.software &&
+           a.system_name == b.system_name && a.system_type == b.system_type &&
+           a.tracking_id == b.tracking_id;
+}
 
 class PoreData {
 public:
@@ -133,6 +166,10 @@ public:
     std::string pore_type;
 };
 
+inline bool operator==(PoreData const& a, PoreData const& b) {
+    return a.channel == b.channel && a.well == b.well && a.pore_type == b.pore_type;
+}
+
 class CalibrationData {
 public:
     CalibrationData(float offset, float scale) : offset(offset), scale(scale) {}
@@ -140,6 +177,10 @@ public:
     float offset;
     float scale;
 };
+
+inline bool operator==(CalibrationData const& a, CalibrationData const& b) {
+    return a.offset == b.offset && a.scale == b.scale;
+}
 
 class EndReasonData {
 public:
@@ -152,9 +193,9 @@ public:
         signal_negative
     };
 
-    EndReasonData(ReadEndReason end_reason, bool forced)
-            : end_reason(end_reason_as_string(end_reason)), forced(forced) {}
-    EndReasonData(std::string&& end_reason, bool forced) : end_reason(end_reason), forced(forced) {}
+    EndReasonData(ReadEndReason name, bool forced)
+            : name(end_reason_as_string(name)), forced(forced) {}
+    EndReasonData(std::string&& name, bool forced) : name(name), forced(forced) {}
 
     static char const* end_reason_as_string(ReadEndReason reason) {
         switch (reason) {
@@ -174,8 +215,12 @@ public:
         return "unknown";
     }
 
-    std::string end_reason;
+    std::string name;
     bool forced;
 };
+
+inline bool operator==(EndReasonData const& a, EndReasonData const& b) {
+    return a.name == b.name && a.forced == b.forced;
+}
 
 }  // namespace mkr

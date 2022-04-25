@@ -31,7 +31,7 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
     auto read_id_1 = uuid_gen();
 
     std::uint32_t read_number = 1234;
-    std::uint64_t start_sample = 1234;
+    std::uint64_t start_sample = 12340;
     float median_before = 224.0f;
 
     std::vector<std::int16_t> signal_1(100'000);
@@ -50,9 +50,13 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
         auto pore = (*writer)->add_pore(pore_data);
         auto calibration = (*writer)->add_calibration(calibration_data);
 
-        (*writer)->add_complete_read({read_id_1, *pore, *calibration, read_number, start_sample,
-                                      median_before, *end_reason, *run_info},
-                                     gsl::make_span(signal_1));
+        for (std::size_t i = 0; i < 10; ++i) {
+            (*writer)->add_complete_read({read_id_1, *pore, *calibration, read_number, start_sample,
+                                          median_before, *end_reason, *run_info},
+                                         gsl::make_span(signal_1));
+            (*writer)->flush_signal_table();
+            (*writer)->flush_reads_table();
+        }
     }
 
     // Open the file for reading:
@@ -62,35 +66,37 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
         CAPTURE(reader);
         REQUIRE(reader.ok());
 
-        REQUIRE((*reader)->num_read_record_batches() == 1);
-        auto read_batch = (*reader)->read_read_record_batch(0);
-        CHECK(read_batch.ok());
+        REQUIRE((*reader)->num_read_record_batches() == 10);
+        for (std::size_t i = 0; i < 10; ++i) {
+            auto read_batch = (*reader)->read_read_record_batch(i);
+            CHECK(read_batch.ok());
 
-        auto read_id_array = read_batch->read_id_column();
-        CHECK(read_id_array->Value(0) == read_id_1);
+            auto read_id_array = read_batch->read_id_column();
+            CHECK(read_id_array->Value(0) == read_id_1);
 
-        REQUIRE((*reader)->num_signal_record_batches() == 1);
-        auto signal_batch = (*reader)->read_signal_record_batch(0);
-        CAPTURE(signal_batch);
-        REQUIRE(signal_batch.ok());
+            REQUIRE((*reader)->num_signal_record_batches() == 10);
+            auto signal_batch = (*reader)->read_signal_record_batch(i);
+            CAPTURE(signal_batch);
+            REQUIRE(signal_batch.ok());
 
-        auto signal_read_id_array = signal_batch->read_id_column();
-        CHECK(signal_read_id_array->length() == 5);
-        CHECK(signal_read_id_array->Value(0) == read_id_1);
-        CHECK(signal_read_id_array->Value(1) == read_id_1);
-        CHECK(signal_read_id_array->Value(2) == read_id_1);
-        CHECK(signal_read_id_array->Value(3) == read_id_1);
-        CHECK(signal_read_id_array->Value(4) == read_id_1);
+            auto signal_read_id_array = signal_batch->read_id_column();
+            CHECK(signal_read_id_array->length() == 5);
+            CHECK(signal_read_id_array->Value(0) == read_id_1);
+            CHECK(signal_read_id_array->Value(1) == read_id_1);
+            CHECK(signal_read_id_array->Value(2) == read_id_1);
+            CHECK(signal_read_id_array->Value(3) == read_id_1);
+            CHECK(signal_read_id_array->Value(4) == read_id_1);
 
-        auto vbz_signal_array = signal_batch->vbz_signal_column();
-        CHECK(vbz_signal_array->length() == 5);
+            auto vbz_signal_array = signal_batch->vbz_signal_column();
+            CHECK(vbz_signal_array->length() == 5);
 
-        auto samples_array = signal_batch->samples_column();
-        CHECK(samples_array->Value(0) == 20'480);
-        CHECK(samples_array->Value(1) == 20'480);
-        CHECK(samples_array->Value(2) == 20'480);
-        CHECK(samples_array->Value(3) == 20'480);
-        CHECK(samples_array->Value(4) == 18'080);
+            auto samples_array = signal_batch->samples_column();
+            CHECK(samples_array->Value(0) == 20'480);
+            CHECK(samples_array->Value(1) == 20'480);
+            CHECK(samples_array->Value(2) == 20'480);
+            CHECK(samples_array->Value(3) == 20'480);
+            CHECK(samples_array->Value(4) == 18'080);
+        }
     }
 }
 

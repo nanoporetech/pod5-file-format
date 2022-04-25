@@ -9,6 +9,7 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
+#include <arrow/util/compression.h>
 
 namespace mkr {
 
@@ -52,8 +53,10 @@ ReadTableWriter::ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&
 ReadTableWriter::ReadTableWriter(ReadTableWriter&& other) = default;
 ReadTableWriter& ReadTableWriter::operator=(ReadTableWriter&&) = default;
 ReadTableWriter::~ReadTableWriter() {
-    flush();
-    close();
+    if (m_writer) {
+        flush();
+        close();
+    }
 }
 
 Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
@@ -153,6 +156,9 @@ Result<ReadTableWriter> make_read_table_writer(
 
     arrow::ipc::IpcWriteOptions options;
     options.memory_pool = pool;
+    options.emit_dictionary_deltas = true;
+    // todo... consider:
+    //ARROW_ASSIGN_OR_RAISE(options.codec, arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
 
     ARROW_ASSIGN_OR_RAISE(auto writer, arrow::ipc::MakeFileWriter(sink, schema, options, metadata));
 
