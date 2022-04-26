@@ -16,7 +16,6 @@ def do_reads_command(file):
         pore_data = read.pore
         calibration_data = read.calibration
         end_reason_data = read.end_reason
-        run_info_data = read.run_info
 
         fields = [
             read.read_id,
@@ -36,6 +35,16 @@ def do_reads_command(file):
         print("\t".join(str(f) for f in fields))
 
 
+def dump_run_info(run_info):
+    for name, value in run_info._asdict().items():
+        if isinstance(value, dict):
+            print(f"    {name}")
+            for k, v in value.items():
+                print(f"        {k}: {v}")
+        else:
+            print(f"    {name}: {value}")
+
+
 def do_summary_command(file):
     batch_count = 0
     read_count = 0
@@ -43,6 +52,9 @@ def do_summary_command(file):
     byte_count = 0
     min_sample = float("inf")
     max_sample = 0
+
+    run_infos = {}
+
     for batch in file.read_batches():
         batch_count += 1
         for read in batch.reads():
@@ -50,6 +62,11 @@ def do_summary_command(file):
             read_sample_count = read.sample_count
             sample_count += read_sample_count
             byte_count += read.byte_count
+
+            run_info_index = read.run_info_index
+            if run_info_index not in run_infos:
+                run_infos[run_info_index] = read.run_info
+
             min_sample = min(min_sample, read.start_sample)
             max_sample = max(max_sample, read.start_sample + read_sample_count)
 
@@ -58,6 +75,10 @@ def do_summary_command(file):
     print(
         f"{sample_count} samples, {byte_count} bytes: {100*byte_count/float(sample_count*2):.1f} % signal compression ratio"
     )
+
+    for idx, run_info in run_infos.items():
+        print(f"Run info {idx}:")
+        dump_run_info(run_info)
 
 
 def main():

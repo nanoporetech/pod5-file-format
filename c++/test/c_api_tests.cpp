@@ -12,8 +12,10 @@ SCENARIO("C API") {
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
     auto read_id = uuid_gen();
-    std::vector<int16_t> signal(200'000);
+    std::vector<int16_t> signal(20'000);
     std::iota(signal.begin(), signal.end(), 0);
+
+    std::size_t read_count = 0;
 
     // Write the file:
     {
@@ -61,6 +63,21 @@ SCENARIO("C API") {
         CHECK(mkr_add_read(combined_file, (uint8_t const*)read_id.begin(), pore_id, calibration_id,
                            12, 10245, 200.0f, end_reason_id, run_info_id, signal.data(),
                            signal.size()) == MKR_OK);
+        read_count += 1;
+
+        auto compressed_read_max_size = mkr_vbz_compressed_signal_max_size(signal.size());
+        std::vector<char> compressed_signal(compressed_read_max_size);
+        char const* compressed_data = compressed_signal.data();
+        std::size_t compressed_size = compressed_signal.size();
+        std::uint32_t signal_size = signal.size();
+        mkr_vbz_compress_signal(signal.data(), signal.size(), compressed_signal.data(),
+                                &compressed_size);
+
+        CHECK(mkr_add_read_pre_compressed(combined_file, (uint8_t const*)read_id.begin(), pore_id,
+                                          calibration_id, 12, 10245, 200.0f, end_reason_id,
+                                          run_info_id, &compressed_data, &compressed_size,
+                                          &signal_size, 1) == MKR_OK);
+        read_count += 1;
 
         mkr_close_and_free_writer(combined_file);
         CHECK(mkr_get_error_no() == MKR_OK);
@@ -82,6 +99,49 @@ SCENARIO("C API") {
         MkrReadRecordBatch* batch_0 = nullptr;
         CHECK(mkr_get_read_batch(&batch_0, combined_file, 0) == MKR_OK);
         REQUIRE(!!batch_0);
+
+        for (std::size_t row = 0; row < read_count; ++row) {
+            boost::uuids::uuid read_id;
+            int16_t pore = 0;
+            int16_t calibration = 0;
+            uint32_t read_number = 0;
+            uint64_t start_sample = 0;
+            float median_before = 0.0f;
+            int16_t end_reason = 0;
+            int16_t run_info = 0;
+            int64_t signal_row_count = 0;
+
+            CHECK(mkr_get_read_batch_row_info(batch_0, row, (uint8_t*)read_id.begin(), &pore,
+                                              &calibration, &read_number, &start_sample,
+                                              &median_before, &end_reason, &run_info,
+                                              &signal_row_count) == MKR_OK);
+
+            CHECK(read_number == 12);
+            CHECK(start_sample == 10245);
+            CHECK(median_before == 200.0f);
+            CHECK(pore == 0);
+            CHECK(calibration == 0);
+            CHECK(end_reason == 0);
+            CHECK(run_info == 0);
+            CHECK(signal_row_count == 1);
+
+            std::vector<uint64_t> signal_row_indices(signal_row_count);
+            CHECK(mkr_get_signal_row_indices(batch_0, row, signal_row_indices.size(),
+                                             signal_row_indices.data()) == MKR_OK);
+
+            std::vector<SignalRowInfo> signal_row_info(signal_row_count);
+            CHECK(mkr_get_signal_row_info(combined_file, signal_row_indices.size(),
+                                          signal_row_indices.data(),
+                                          signal_row_info.data()) == MKR_OK);
+
+            std::vector<int16_t> read_signal(signal_row_info.front().stored_sample_count);
+            CHECK(mkr_get_signal(combined_file, signal_row_info.front().batch_index,
+                                 signal_row_info.front().batch_row_index,
+                                 signal_row_info.front().stored_sample_count,
+                                 read_signal.data()) == MKR_OK);
+
+            CHECK(read_signal == signal);
+        }
 
         RunInfoDictData* run_info_data_out = nullptr;
         CHECK(mkr_get_run_info(batch_0, 0, &run_info_data_out) == MKR_OK);

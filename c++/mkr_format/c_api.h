@@ -228,6 +228,17 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
                                                       size_t signal_rows_count,
                                                       uint64_t* signal_rows,
                                                       SignalRowInfo* signal_row_info);
+/// \brief Find the info for a signal row in a reader.
+/// \param      reader          The reader to query.
+/// \param      batch_index     The signal batch index to query data for.
+/// \param      batch_row_index The batch row to query information from.
+/// \param      sample_count    The number of samples allocated in [sample_data] (must equal the length of signal data in the row).
+/// \param[out] sample_data     The output location for the queried samples.
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal(MkrFileReader* reader,
+                                             size_t batch_index,
+                                             size_t batch_row_index,
+                                             std::size_t sample_count,
+                                             std::int16_t* sample_data);
 
 //---------------------------------------------------------------------------------------------------------------------
 // Writing files
@@ -390,6 +401,34 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter* file,
                                            int16_t const* signal,
                                            size_t signal_size);
 
+/// \brief Add a read to the file, with pre compressed signal chunk sections.
+/// \param      file                    The file to add the read to.
+/// \param      read_id                 The read id to use (in binary form, must be 16 bytes long).
+/// \param      pore                    The pore type to use for the read.
+/// \param      calibration             The calibration to use for the read.
+/// \param      read_number             The read number.
+/// \param      start_sample            The read's start sample.
+/// \param      median_before           The median signal level before the read started.
+/// \param      end_reason              The end reason for the read.
+/// \param      run_info                The run info for the read.
+/// \param      compressed_signal       The signal chunks data for the read.
+/// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
+/// \param      sample_counts           The number of samples of each signal chunk.
+/// \param      signal_chunk_count      The number of sections of compressed signal.
+MKR_FORMAT_EXPORT mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter* file,
+                                                          uint8_t const* read_id,
+                                                          int16_t pore,
+                                                          int16_t calibration,
+                                                          uint32_t read_number,
+                                                          uint64_t start_sample,
+                                                          float median_before,
+                                                          int16_t end_reason,
+                                                          int16_t run_info,
+                                                          char const** compressed_signal,
+                                                          size_t* compressed_signal_size,
+                                                          uint32_t* sample_counts,
+                                                          size_t signal_chunk_count);
+
 /// \brief Flush the signal table to disk, completing the in progress record batch.
 /// \param      file            The file to flush the signal table on.
 MKR_FORMAT_EXPORT mkr_error_t mkr_flush_signal_table(MkrFileWriter* file);
@@ -397,6 +436,21 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_flush_signal_table(MkrFileWriter* file);
 /// \brief Flush the reads table to disk, completing the in progress record batch.
 /// \param      file            The file to add the read table on.
 MKR_FORMAT_EXPORT mkr_error_t mkr_flush_reads_table(MkrFileWriter* file);
+
+/// \brief Find the max size of a compressed array of samples.
+/// \param sample_count The number of samples in the source signal.
+/// \return The max number of bytes required for the compressed signal.
+MKR_FORMAT_EXPORT size_t mkr_vbz_compressed_signal_max_size(size_t sample_count);
+
+/// \brief VBZ compress an array of samples.
+/// \param          signal                      The signal to compress.
+/// \param          signal_size                 The number of samples to compress.
+/// \param[out]     compressed_signal_out       The compressed signal.
+/// \param[inout]   compressed_signal_size      The number of compressed bytes, should be set to the size of compressed_signal_out on call.
+MKR_FORMAT_EXPORT mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
+                                                      size_t signal_size,
+                                                      char* compressed_signal_out,
+                                                      size_t* compressed_signal_size);
 }
 
 //std::shared_ptr<arrow::Schema> pyarrow_test();

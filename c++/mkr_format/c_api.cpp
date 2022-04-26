@@ -3,11 +3,13 @@
 #include "mkr_format/file_reader.h"
 #include "mkr_format/file_writer.h"
 #include "mkr_format/read_table_reader.h"
+#include "mkr_format/signal_compression.h"
 
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_dict.h>
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
+#include <arrow/memory_pool.h>
 #include <arrow/type.h>
 
 #include <chrono>
@@ -503,6 +505,25 @@ mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
     return g_mkr_error_no;
 }
 
+mkr_error_t mkr_get_signal(MkrFileReader* reader,
+                           size_t batch_index,
+                           size_t batch_row_index,
+                           std::size_t sample_count,
+                           std::int16_t* sample_data) {
+    mkr_reset_error();
+
+    if (!check_not_null(reader) || !check_output_pointer_not_null(sample_data)) {
+        return g_mkr_error_no;
+    }
+
+    MKR_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(batch_index));
+
+    MKR_C_RETURN_NOT_OK(
+            batch.extract_signal_row(batch_row_index, gsl::make_span(sample_data, sample_count)));
+
+    return MKR_OK;
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 mkr::FileWriterOptions make_internal_writer_options(MkrWriterOptions const* options) {
     mkr::FileWriterOptions internal_options;
@@ -732,6 +753,50 @@ mkr_error_t mkr_add_read(MkrFileWriter* file,
     return MKR_OK;
 }
 
+mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter* file,
+                                        uint8_t const* read_id,
+                                        int16_t pore,
+                                        int16_t calibration,
+                                        uint32_t read_number,
+                                        uint64_t start_sample,
+                                        float median_before,
+                                        int16_t end_reason,
+                                        int16_t run_info,
+                                        char const** compressed_signal,
+                                        size_t* compressed_signal_size,
+                                        uint32_t* sample_counts,
+                                        size_t signal_chunk_count) {
+    mkr_reset_error();
+
+    if (!check_file_not_null(file) || !check_not_null(read_id) ||
+        !check_not_null(compressed_signal) || !check_not_null(compressed_signal_size)) {
+        return g_mkr_error_no;
+    }
+
+    boost::uuids::uuid read_id_uuid;
+    std::copy(read_id, read_id + sizeof(read_id_uuid), read_id_uuid.begin());
+
+    std::vector<std::uint64_t> signal_rows;
+    for (std::size_t i = 0; i < signal_chunk_count; ++i) {
+        auto signal = compressed_signal[i];
+        auto signal_size = compressed_signal_size[i];
+        auto sample_count = sample_counts[i];
+        MKR_C_ASSIGN_OR_RAISE(
+                auto row_id,
+                file->writer->add_pre_compressed_signal(
+                        read_id_uuid,
+                        gsl::make_span(signal, signal_size).as_span<std::uint8_t const>(),
+                        sample_count));
+        signal_rows.push_back(row_id);
+    }
+
+    MKR_C_RETURN_NOT_OK(file->writer->add_complete_read(
+            mkr::ReadData{read_id_uuid, pore, calibration, read_number, start_sample, median_before,
+                          end_reason, run_info},
+            gsl::make_span(signal_rows)));
+    return MKR_OK;
+}
+
 mkr_error_t mkr_flush_signal_table(MkrFileWriter* file) {
     MKR_C_RETURN_NOT_OK(file->writer->flush_signal_table());
     return MKR_OK;
@@ -739,6 +804,38 @@ mkr_error_t mkr_flush_signal_table(MkrFileWriter* file) {
 
 mkr_error_t mkr_flush_reads_table(MkrFileWriter* file) {
     MKR_C_RETURN_NOT_OK(file->writer->flush_reads_table());
+    return MKR_OK;
+}
+
+size_t mkr_vbz_compressed_signal_max_size(size_t sample_count) {
+    mkr_reset_error();
+    return mkr::compressed_signal_max_size(sample_count);
+}
+
+mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
+                                    size_t signal_size,
+                                    char* compressed_signal_out,
+                                    size_t* compressed_signal_size) {
+    mkr_reset_error();
+
+    if (!check_not_null(signal) || !check_output_pointer_not_null(compressed_signal_out) ||
+        !check_output_pointer_not_null(compressed_signal_size)) {
+        return g_mkr_error_no;
+    }
+
+    MKR_C_ASSIGN_OR_RAISE(auto buffer, mkr::compress_signal(gsl::make_span(signal, signal_size),
+                                                            arrow::system_memory_pool()));
+
+    if (buffer->size() > *compressed_signal_size) {
+        mkr_set_error(mkr::Status::Invalid("Compressed signal size (", buffer->size(),
+                                           ") is greater than provided buffer size (",
+                                           compressed_signal_size, ")"));
+        return g_mkr_error_no;
+    }
+
+    std::copy(buffer->data(), buffer->data() + buffer->size(), compressed_signal_out);
+    *compressed_signal_size = buffer->size();
+
     return MKR_OK;
 }
 }

@@ -63,7 +63,8 @@ public:
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.
     Result<std::size_t> add_pre_compressed_signal(boost::uuids::uuid const& read_id,
-                                                  gsl::span<std::uint8_t> const& signal_compressed);
+                                                  gsl::span<std::uint8_t const> const& signal,
+                                                  std::uint32_t sample_count);
 
     /// \brief Flush buffered data into the writer as a record batch.
     Status flush();

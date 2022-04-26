@@ -74,7 +74,7 @@ class RunInfoDictData(ctypes.Structure):
         ("protocol_run_id", ctypes.c_char_p),
         ("protocol_start_time_ms", ctypes.c_longlong),
         ("sample_id", ctypes.c_char_p),
-        ("protocol_start_time_ms", ctypes.c_ushort),
+        ("sample_rate", ctypes.c_ushort),
         ("sequencing_kit", ctypes.c_char_p),
         ("sequencer_position", ctypes.c_char_p),
         ("sequencer_position_type", ctypes.c_char_p),
@@ -117,6 +117,15 @@ mkr_create_combined_file.argtypes = [
     WRITER_OPTIONS_PTR,  # options
 ]
 mkr_create_combined_file.restype = FILE_WRITER_PTR
+
+mkr_create_split_file = mkr_format.mkr_create_split_file
+mkr_create_split_file.argtypes = [
+    ctypes.c_char_p,  # signal filename
+    ctypes.c_char_p,  # reads filename
+    ctypes.c_char_p,  # software name
+    WRITER_OPTIONS_PTR,  # options
+]
+mkr_create_split_file.restype = FILE_WRITER_PTR
 
 mkr_close_and_free_writer = mkr_format.mkr_close_and_free_writer
 mkr_close_and_free_writer.argtypes = [
@@ -210,6 +219,24 @@ mkr_add_read.argtypes = [
     ctypes.c_size_t,
 ]
 
+mkr_add_read_pre_compressed = mkr_format.mkr_add_read_pre_compressed
+mkr_add_read_pre_compressed.restype = ERROR_TYPE
+mkr_add_read_pre_compressed.argtypes = [
+    FILE_WRITER_PTR,
+    ctypes.POINTER(ctypes.c_ubyte),
+    ctypes.c_short,
+    ctypes.c_short,
+    ctypes.c_uint,
+    ctypes.c_ulonglong,
+    ctypes.c_float,
+    ctypes.c_short,
+    ctypes.c_short,
+    ctypes.POINTER(ctypes.c_char_p),
+    ctypes.POINTER(ctypes.c_size_t),
+    ctypes.POINTER(ctypes.c_uint),
+    ctypes.c_size_t,
+]
+
 mkr_flush_signal_table = mkr_format.mkr_flush_signal_table
 mkr_flush_signal_table.restype = ERROR_TYPE
 mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
@@ -217,6 +244,19 @@ mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
 mkr_flush_reads_table = mkr_format.mkr_flush_reads_table
 mkr_flush_reads_table.restype = ERROR_TYPE
 mkr_flush_reads_table.argtypes = [FILE_WRITER_PTR]
+
+mkr_vbz_compressed_signal_max_size = mkr_format.mkr_vbz_compressed_signal_max_size
+mkr_vbz_compressed_signal_max_size.restype = ctypes.c_size_t
+mkr_vbz_compressed_signal_max_size.argtypes = [ctypes.c_size_t]
+
+mkr_vbz_compress_signal = mkr_format.mkr_vbz_compress_signal
+mkr_vbz_compress_signal.restype = ERROR_TYPE
+mkr_vbz_compress_signal.argtypes = [
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.c_size_t,
+    ctypes.c_char_p,
+    ctypes.POINTER(ctypes.c_size_t),
+]
 
 # ----------------------------------------------------------------------------------------------------------------------
 mkr_get_read_batch_count = mkr_format.mkr_get_read_batch_count

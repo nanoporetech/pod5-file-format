@@ -1,6 +1,7 @@
 #include "mkr_format/signal_table_reader.h"
 
 #include "mkr_format/schema_metadata.h"
+#include "mkr_format/signal_compression.h"
 
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
@@ -9,8 +10,9 @@
 namespace mkr {
 
 SignalTableRecordBatch::SignalTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
-                                               SignalTableSchemaDescription field_locations)
-        : TableRecordBatch(std::move(batch)), m_field_locations(field_locations) {}
+                                               SignalTableSchemaDescription field_locations,
+                                               arrow::MemoryPool* pool)
+        : TableRecordBatch(std::move(batch)), m_field_locations(field_locations), m_pool(pool) {}
 
 std::shared_ptr<UuidArray> SignalTableRecordBatch::read_id_column() const {
     return std::static_pointer_cast<UuidArray>(batch()->column(m_field_locations.read_id));
@@ -46,6 +48,39 @@ Result<std::size_t> SignalTableRecordBatch::samples_byte_count(std::size_t row_i
     return mkr::Status::Invalid("Unknown signal type");
 }
 
+Status SignalTableRecordBatch::extract_signal_row(std::size_t row_index,
+                                                  gsl::span<std::int16_t> samples) const {
+    if (row_index >= num_rows()) {
+        return mkr::Status::Invalid("Queried signal row ", row_index,
+                                    " is outside the available rows (", num_rows(), "in batch)");
+    }
+
+    auto sample_count = samples_column();
+    auto samples_in_row = sample_count->Value(row_index);
+    if (samples_in_row != samples.size()) {
+        return mkr::Status::Invalid("Unexpected size for sample array ", samples.size(),
+                                    " expected ", samples_in_row);
+    }
+
+    switch (m_field_locations.signal_type) {
+    case SignalType::UncompressedSignal: {
+        auto signal_column = uncompressed_signal_column();
+        auto signal =
+                std::static_pointer_cast<arrow::Int16Array>(signal_column->value_slice(row_index));
+        std::copy(signal->raw_values(), signal->raw_values() + signal->length(), samples.begin());
+        return Status::OK();
+    }
+    case SignalType::VbzSignal: {
+        auto signal_column = vbz_signal_column();
+        auto signal_compressed = signal_column->Value(row_index);
+        mkr::decompress_signal(signal_compressed, m_pool, samples);
+        return Status::OK();
+    }
+    }
+
+    return mkr::Status::Invalid("Unknown signal type");
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 
 SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
@@ -54,14 +89,15 @@ SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
                                      SchemaMetadataDescription&& schema_metadata,
                                      arrow::MemoryPool* pool)
         : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
-          m_field_locations(field_locations) {}
+          m_field_locations(field_locations),
+          m_pool(pool) {}
 
 Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t i) const {
     auto record_batch = reader()->ReadRecordBatch(i);
     if (!record_batch.ok()) {
         return record_batch.status();
     }
-    return SignalTableRecordBatch{std::move(*record_batch), m_field_locations};
+    return SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
 }
 
 //---------------------------------------------------------------------------------------------------------------------

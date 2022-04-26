@@ -47,10 +47,19 @@ public:
     FileWriter(std::unique_ptr<FileWriterImpl>&& impl);
     ~FileWriter();
 
-    arrow::Status close();
+    mkr::Status close();
 
-    arrow::Status add_complete_read(ReadData const& read_data,
-                                    gsl::span<std::int16_t const> const& signal);
+    mkr::Status add_complete_read(ReadData const& read_data,
+                                  gsl::span<std::int16_t const> const& signal);
+
+    /// \brief Add a complete with rows already pre appended.
+    mkr::Status add_complete_read(ReadData const& read_data,
+                                  gsl::span<std::uint64_t const> const& signal_rows);
+
+    mkr::Result<SignalTableRowIndex> add_pre_compressed_signal(
+            boost::uuids::uuid const& read_id,
+            gsl::span<std::uint8_t const> const& signal_bytes,
+            std::uint32_t sample_count);
 
     mkr::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data);
     mkr::Result<CalibrationDictionaryIndex> add_calibration(

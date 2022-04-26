@@ -13,7 +13,40 @@ SignalRowInfo = namedtuple(
 PoreData = namedtuple("PoreData", ["channel", "well", "pore_type"])
 CalibrationData = namedtuple("CalibrationData", ["offset", "scale"])
 EndReasonData = namedtuple("EndReasonData", ["name", "forced"])
-RunInfoData = namedtuple("RunInfoData", [])
+RunInfoData = namedtuple(
+    "EndReasonData",
+    [
+        "acquisition_id",
+        "acquisition_start_time_ms",
+        "adc_max",
+        "adc_min",
+        "context_tags",
+        "experiment_name",
+        "flow_cell_id",
+        "flow_cell_product_code",
+        "protocol_name",
+        "protocol_run_id",
+        "protocol_start_time_ms",
+        "sample_id",
+        "sample_rate",
+        "sequencing_kit",
+        "sequencer_position",
+        "sequencer_position_type",
+        "software",
+        "system_name",
+        "system_typacquisie",
+        "tracking_id",
+    ],
+)
+
+
+def parse_dict(key_value_pairs):
+    out = {}
+    for i in range(key_value_pairs.size):
+        out[key_value_pairs.keys[i].decode("utf-8")] = key_value_pairs.values[i].decode(
+            "utf-8"
+        )
+    return out
 
 
 class ReadRow:
@@ -150,7 +183,7 @@ class ReadRow:
     def byte_count(self):
         return sum(r.byte_count for r in self.signal_rows)
 
-    def _cache_dict_data(self, index, tuple_type, c_api_type, get, release):
+    def _cache_dict_data(self, index, data_type, c_api_type, get, release):
         data_ptr = ctypes.POINTER(c_api_type)()
         check_error(get(self._batch, index, ctypes.pointer(data_ptr)))
 
@@ -158,10 +191,12 @@ class ReadRow:
             val = getattr(data, name)
             if isinstance(val, bytes):
                 val = val.decode("utf-8")
+            if isinstance(val, c_api.KeyValueData):
+                val = parse_dict(val)
             return val
 
         data = data_ptr.contents
-        tuple_data = tuple_type(*[get_field(data, f) for f, _ in data._fields_])
+        tuple_data = data_type(*[get_field(data, f) for f, _ in data._fields_])
 
         check_error(release(data))
         return tuple_data
@@ -207,6 +242,10 @@ class ReadRow:
                 c_api.mkr_release_end_reason,
             )
         return self._end_reason
+
+    @property
+    def run_info_index(self):
+        return self._run_info_idx
 
     @property
     def run_info(self):
