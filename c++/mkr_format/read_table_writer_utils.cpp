@@ -74,13 +74,15 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
     auto const& key_type = map_type->key_type();
     auto const& item_type = map_type->item_type();
 
-    ARROW_ASSIGN_OR_RAISE(auto key_data, get_array_data(key_type, builder.key_builder(), final_item_length));
-    ARROW_ASSIGN_OR_RAISE(auto item_data, get_array_data(item_type, builder.value_builder(), final_item_length));
+    ARROW_ASSIGN_OR_RAISE(auto key_data,
+                          get_array_data(key_type, builder.key_builder(), final_item_length));
+    ARROW_ASSIGN_OR_RAISE(auto item_data,
+                          get_array_data(item_type, builder.value_builder(), final_item_length));
 
     // Pack this data out as a struct:
     std::shared_ptr<arrow::ArrayData> items =
-            arrow::ArrayData::Make(map_type->value_type(), final_item_length,
-                                   {nullptr, offsets}, {key_data, item_data}, 0);
+            arrow::ArrayData::Make(map_type->value_type(), final_item_length, {nullptr, offsets},
+                                   {key_data, item_data}, 0);
 
     // And add this struct to the map/list as the value data, along with the offsets:
     auto data = arrow::ArrayData::Make(type, expected_length, {nullptr, offsets},
@@ -104,8 +106,7 @@ arrow::Status do_struct_array_data_unpack(std::vector<std::shared_ptr<arrow::Arr
 
     auto const& builder = std::get<CurrentIndex>(builders);
 
-    ARROW_ASSIGN_OR_RAISE(dest[CurrentIndex],
-                          get_array_data(field_type, builder, expected_length));
+    ARROW_ASSIGN_OR_RAISE(dest[CurrentIndex], get_array_data(field_type, builder, expected_length));
     return Status::OK();
 }
 
@@ -130,8 +131,8 @@ struct UnpackStructArrayData {
                                 std::size_t expected_length,
                                 BuilderTuple const& builders) {
         // Dump this builders first:
-        RETURN_NOT_OK(do_struct_array_data_unpack<CurrentIndex>(dest, type,
-                                                                expected_length, builders));
+        RETURN_NOT_OK(
+                do_struct_array_data_unpack<CurrentIndex>(dest, type, expected_length, builders));
         // Then recursively dump the other builders:
         return UnpackStructArrayData<CurrentIndex - 1, BuilderTuple>::unpack(
                 dest, type, expected_length, builders);

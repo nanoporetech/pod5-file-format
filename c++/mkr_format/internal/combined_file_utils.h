@@ -142,8 +142,8 @@ inline mkr::Result<ParsedFooter> read_footer(
     footer_length_data_end -= sizeof(boost::uuids::uuid);
 
     std::int64_t footer_length = 0;
-    ARROW_RETURN_NOT_OK(file->ReadAt(footer_length_data_end - sizeof(footer_length), sizeof(footer_length),
-                 &footer_length));
+    ARROW_RETURN_NOT_OK(file->ReadAt(footer_length_data_end - sizeof(footer_length),
+                                     sizeof(footer_length), &footer_length));
     footer_length = arrow::bit_util::FromLittleEndian(footer_length);
 
     std::vector<std::uint8_t> footer_data;
