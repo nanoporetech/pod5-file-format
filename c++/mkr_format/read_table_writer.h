@@ -56,7 +56,6 @@ private:
     std::shared_ptr<arrow::Schema> m_schema;
     ReadTableSchemaDescription m_field_locations;
 
-    std::shared_ptr<arrow::io::OutputStream> m_sink;
     std::shared_ptr<arrow::ipc::RecordBatchWriter> m_writer;
 
     std::unique_ptr<arrow::FixedSizeBinaryBuilder> m_read_id_builder;

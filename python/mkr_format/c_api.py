@@ -21,6 +21,70 @@ class MkrWriterOptions(ctypes.Structure):
     ]
 
 
+class SignalRowInfo(ctypes.Structure):
+    _fields_ = [
+        ("batch_index", ctypes.c_size_t),
+        ("batch_row_index", ctypes.c_size_t),
+        ("stored_sample_count", ctypes.c_uint),
+        ("stored_byte_count", ctypes.c_size_t),
+    ]
+
+
+class PoreDictData(ctypes.Structure):
+    _fields_ = [
+        ("channel", ctypes.c_ushort),
+        ("well", ctypes.c_ubyte),
+        ("pore_type", ctypes.c_char_p),
+    ]
+
+
+class CalibrationDictData(ctypes.Structure):
+    _fields_ = [
+        ("offset", ctypes.c_float),
+        ("scale", ctypes.c_float),
+    ]
+
+
+class EndReasonDictData(ctypes.Structure):
+    _fields_ = [
+        ("name", ctypes.c_char_p),
+        ("forced", ctypes.c_bool),
+    ]
+
+
+class KeyValueData(ctypes.Structure):
+    _fields_ = [
+        ("size", ctypes.c_size_t),
+        ("keys", ctypes.POINTER(ctypes.c_char_p)),
+        ("values", ctypes.POINTER(ctypes.c_char_p)),
+    ]
+
+
+class RunInfoDictData(ctypes.Structure):
+    _fields_ = [
+        ("acquisition_id", ctypes.c_char_p),
+        ("acquisition_start_time_ms", ctypes.c_longlong),
+        ("adc_max", ctypes.c_short),
+        ("adc_min", ctypes.c_short),
+        ("context_tags", KeyValueData),
+        ("experiment_name", ctypes.c_char_p),
+        ("flow_cell_id", ctypes.c_char_p),
+        ("flow_cell_product_code", ctypes.c_char_p),
+        ("protocol_name", ctypes.c_char_p),
+        ("protocol_run_id", ctypes.c_char_p),
+        ("protocol_start_time_ms", ctypes.c_longlong),
+        ("sample_id", ctypes.c_char_p),
+        ("sample_rate", ctypes.c_ushort),
+        ("sequencing_kit", ctypes.c_char_p),
+        ("sequencer_position", ctypes.c_char_p),
+        ("sequencer_position_type", ctypes.c_char_p),
+        ("software", ctypes.c_char_p),
+        ("system_name", ctypes.c_char_p),
+        ("system_type", ctypes.c_char_p),
+        ("tracking_id", KeyValueData),
+    ]
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).parent.parent.parent
 mkr_format = ctypes.cdll.LoadLibrary(REPO_ROOT / "build" / "c++" / "libmkr_format.so")
@@ -53,6 +117,15 @@ mkr_create_combined_file.argtypes = [
     WRITER_OPTIONS_PTR,  # options
 ]
 mkr_create_combined_file.restype = FILE_WRITER_PTR
+
+mkr_create_split_file = mkr_format.mkr_create_split_file
+mkr_create_split_file.argtypes = [
+    ctypes.c_char_p,  # signal filename
+    ctypes.c_char_p,  # reads filename
+    ctypes.c_char_p,  # software name
+    WRITER_OPTIONS_PTR,  # options
+]
+mkr_create_split_file.restype = FILE_WRITER_PTR
 
 mkr_close_and_free_writer = mkr_format.mkr_close_and_free_writer
 mkr_close_and_free_writer.argtypes = [
@@ -146,6 +219,24 @@ mkr_add_read.argtypes = [
     ctypes.c_size_t,
 ]
 
+mkr_add_read_pre_compressed = mkr_format.mkr_add_read_pre_compressed
+mkr_add_read_pre_compressed.restype = ERROR_TYPE
+mkr_add_read_pre_compressed.argtypes = [
+    FILE_WRITER_PTR,
+    ctypes.POINTER(ctypes.c_ubyte),
+    ctypes.c_short,
+    ctypes.c_short,
+    ctypes.c_uint,
+    ctypes.c_ulonglong,
+    ctypes.c_float,
+    ctypes.c_short,
+    ctypes.c_short,
+    ctypes.POINTER(ctypes.c_char_p),
+    ctypes.POINTER(ctypes.c_size_t),
+    ctypes.POINTER(ctypes.c_uint),
+    ctypes.c_size_t,
+]
+
 mkr_flush_signal_table = mkr_format.mkr_flush_signal_table
 mkr_flush_signal_table.restype = ERROR_TYPE
 mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
@@ -153,6 +244,19 @@ mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
 mkr_flush_reads_table = mkr_format.mkr_flush_reads_table
 mkr_flush_reads_table.restype = ERROR_TYPE
 mkr_flush_reads_table.argtypes = [FILE_WRITER_PTR]
+
+mkr_vbz_compressed_signal_max_size = mkr_format.mkr_vbz_compressed_signal_max_size
+mkr_vbz_compressed_signal_max_size.restype = ctypes.c_size_t
+mkr_vbz_compressed_signal_max_size.argtypes = [ctypes.c_size_t]
+
+mkr_vbz_compress_signal = mkr_format.mkr_vbz_compress_signal
+mkr_vbz_compress_signal.restype = ERROR_TYPE
+mkr_vbz_compress_signal.argtypes = [
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.c_size_t,
+    ctypes.c_char_p,
+    ctypes.POINTER(ctypes.c_size_t),
+]
 
 # ----------------------------------------------------------------------------------------------------------------------
 mkr_get_read_batch_count = mkr_format.mkr_get_read_batch_count
@@ -196,4 +300,78 @@ mkr_get_read_batch_row_info.argtypes = [
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_longlong),
+]
+
+mkr_get_signal_row_indices = mkr_format.mkr_get_signal_row_indices
+mkr_get_signal_row_indices.restype = ERROR_TYPE
+mkr_get_signal_row_indices.argtypes = [
+    READ_RECORD_BATCH_POINTER,
+    ctypes.c_size_t,
+    ctypes.c_longlong,
+    ctypes.POINTER(ctypes.c_ulonglong),
+]
+
+mkr_get_signal_row_info = mkr_format.mkr_get_signal_row_info
+mkr_get_signal_row_info.restype = ERROR_TYPE
+mkr_get_signal_row_info.argtypes = [
+    FILE_READER_PTR,
+    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_ulonglong),
+    ctypes.POINTER(SignalRowInfo),
+]
+
+mkr_get_pore = mkr_format.mkr_get_pore
+mkr_get_pore.restype = ERROR_TYPE
+mkr_get_pore.argtypes = [
+    READ_RECORD_BATCH_POINTER,
+    ctypes.c_short,
+    ctypes.POINTER(ctypes.POINTER(PoreDictData)),
+]
+
+mkr_release_pore = mkr_format.mkr_release_pore
+mkr_release_pore.restype = ERROR_TYPE
+mkr_release_pore.argtypes = [
+    ctypes.POINTER(PoreDictData),
+]
+
+mkr_get_calibration = mkr_format.mkr_get_calibration
+mkr_get_calibration.restype = ERROR_TYPE
+mkr_get_calibration.argtypes = [
+    READ_RECORD_BATCH_POINTER,
+    ctypes.c_short,
+    ctypes.POINTER(ctypes.POINTER(CalibrationDictData)),
+]
+
+mkr_release_calibration = mkr_format.mkr_release_calibration
+mkr_release_calibration.restype = ERROR_TYPE
+mkr_release_calibration.argtypes = [
+    ctypes.POINTER(CalibrationDictData),
+]
+
+mkr_get_end_reason = mkr_format.mkr_get_end_reason
+mkr_get_end_reason.restype = ERROR_TYPE
+mkr_get_end_reason.argtypes = [
+    READ_RECORD_BATCH_POINTER,
+    ctypes.c_short,
+    ctypes.POINTER(ctypes.POINTER(EndReasonDictData)),
+]
+
+mkr_release_end_reason = mkr_format.mkr_release_end_reason
+mkr_release_end_reason.restype = ERROR_TYPE
+mkr_release_end_reason.argtypes = [
+    ctypes.POINTER(EndReasonDictData),
+]
+
+mkr_get_run_info = mkr_format.mkr_get_run_info
+mkr_get_run_info.restype = ERROR_TYPE
+mkr_get_run_info.argtypes = [
+    READ_RECORD_BATCH_POINTER,
+    ctypes.c_short,
+    ctypes.POINTER(ctypes.POINTER(RunInfoDictData)),
+]
+
+mkr_release_run_info = mkr_format.mkr_release_run_info
+mkr_release_run_info.restype = ERROR_TYPE
+mkr_release_run_info.argtypes = [
+    ctypes.POINTER(RunInfoDictData),
 ]

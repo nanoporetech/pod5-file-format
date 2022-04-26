@@ -43,10 +43,10 @@ public:
     std::shared_ptr<arrow::DictionaryArray> end_reason_column() const;
     std::shared_ptr<arrow::DictionaryArray> run_info_column() const;
 
-    PoreData get_pore(std::int16_t pore_index) const;
-    CalibrationData get_calibration(std::int16_t calibration_index) const;
-    EndReasonData get_end_reason(std::int16_t end_reason_index) const;
-    RunInfoData get_run_info(std::int16_t run_info_index) const;
+    Result<PoreData> get_pore(std::int16_t pore_index) const;
+    Result<CalibrationData> get_calibration(std::int16_t calibration_index) const;
+    Result<EndReasonData> get_end_reason(std::int16_t end_reason_index) const;
+    Result<RunInfoData> get_run_info(std::int16_t run_info_index) const;
 
 private:
     std::shared_ptr<ReadTableSchemaDescription> m_field_locations;

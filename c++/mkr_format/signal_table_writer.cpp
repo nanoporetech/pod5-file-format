@@ -15,6 +15,25 @@ namespace mkr {
 
 namespace {
 namespace visitors {
+class append_pre_compressed_signal : boost::static_visitor<Status> {
+public:
+    append_pre_compressed_signal(gsl::span<std::uint8_t const> const& signal) : m_signal(signal) {}
+
+    Status operator()(UncompressedSignalBuilder& builder) const {
+        ARROW_RETURN_NOT_OK(builder.signal_builder->Append());  // start new slot
+
+        auto as_uncompressed = m_signal.as_span<std::int16_t const>();
+        return builder.signal_data_builder->AppendValues(as_uncompressed.data(),
+                                                         as_uncompressed.size());
+    }
+
+    Status operator()(VbzSignalBuilder& builder) const {
+        return builder.signal_builder->Append(m_signal.data(), m_signal.size());
+    }
+
+    gsl::span<std::uint8_t const> m_signal;
+};
+
 class append_signal : boost::static_visitor<Status> {
 public:
     append_signal(gsl::span<std::int16_t const> const& signal, arrow::MemoryPool* pool)
@@ -72,8 +91,10 @@ SignalTableWriter::SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWrit
 SignalTableWriter::SignalTableWriter(SignalTableWriter&& other) = default;
 SignalTableWriter& SignalTableWriter::operator=(SignalTableWriter&&) = default;
 SignalTableWriter::~SignalTableWriter() {
-    flush();
-    close();
+    if (m_writer) {
+        flush();
+        close();
+    }
 }
 
 Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read_id,
@@ -89,6 +110,25 @@ Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read
             boost::apply_visitor(visitors::append_signal{signal, m_pool}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(signal.size()));
+    ++m_current_batch_row_count;
+    return row_id;
+}
+
+Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
+        boost::uuids::uuid const& read_id,
+        gsl::span<std::uint8_t const> const& signal,
+        std::uint32_t sample_count) {
+    if (!m_writer) {
+        return Status::IOError("Writer terminated");
+    }
+
+    auto row_id = m_flushed_row_count + m_current_batch_row_count;
+    ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
+
+    ARROW_RETURN_NOT_OK(
+            boost::apply_visitor(visitors::append_pre_compressed_signal{signal}, m_signal_builder));
+
+    ARROW_RETURN_NOT_OK(m_samples_builder->Append(sample_count));
     ++m_current_batch_row_count;
     return row_id;
 }

@@ -38,26 +38,34 @@ SCENARIO("Read table Tests") {
 
     auto file_identifier = uuid_gen();
 
-    auto read_id_1 = uuid_gen();
-    auto read_id_2 = uuid_gen();
+    auto data_for_index = [&](std::size_t index) {
+        std::array<std::uint8_t, 16> uuid_source;
+        gsl::make_span(uuid_source).as_span<std::uint64_t>()[0] = index;
 
-    std::vector<std::uint64_t> signal_rows_1{1, 3};
-    std::vector<std::uint64_t> signal_rows_2{2, 5};
+        boost::uuids::uuid read_id;
+        std::copy(uuid_source.begin(), uuid_source.end(), read_id.begin());
 
-    std::uint32_t read_number_1 = 2;
-    std::uint32_t read_number_2 = 4;
+        return std::make_tuple(
+                mkr::ReadData{
+                        read_id, 0, 0, std::uint32_t(index * 2), std::uint64_t(index * 10),
+                        index * 5.0f, 0,
+                        0  //std::int16_t(index % 2)
 
-    std::uint64_t start_sample_1 = 1000;
-    std::uint64_t start_sample_2 = 5000;
-
-    float median_before_1 = 100.0f;
-    float median_before_2 = 200.0f;
+                },
+                std::vector<std::uint64_t>{index + 2, index + 3});
+    };
 
     GIVEN("A read table writer") {
         auto filename = "./foo.mkr";
         auto pool = arrow::system_memory_pool();
 
         auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
+
+        auto const record_batch_count = GENERATE(1, 2, 5, 10);
+        auto const read_count = GENERATE(1, 2);
+
+        auto run_info_data_0 = get_test_run_info_data();
+        auto run_info_data_1 = get_test_run_info_data("_2");
 
         {
             auto schema_metadata =
@@ -79,40 +87,37 @@ SCENARIO("Read table Tests") {
                                                       *run_info_writer, pool);
             REQUIRE(writer.ok());
 
-            WHEN("Writing a read") {
-                auto const pore_1 = (*pore_writer)->add({12, 2, "Well Type"});
-                REQUIRE(pore_1.ok());
-                auto const calib_1 = (*calibration_writer)->add({100.0f, 0.5f});
-                REQUIRE(calib_1.ok());
-                auto const end_reason_1 =
-                        (*end_reason_writer)
-                                ->add({mkr::EndReasonData::ReadEndReason::mux_change, false});
-                REQUIRE(end_reason_1.ok());
-                auto const run_info_1 = (*run_info_writer)->add(get_test_run_info_data());
-                REQUIRE(run_info_1.ok());
-                auto const run_info_2 = (*run_info_writer)->add(get_test_run_info_data("_2"));
-                REQUIRE(run_info_2.ok());
-                auto row_1 = writer->add_read(
-                        {read_id_1, *pore_1, *calib_1, read_number_1, start_sample_1,
-                         median_before_1, *end_reason_1, *run_info_1},
-                        gsl::make_span(signal_rows_1));
-                auto row_2 = writer->add_read(
-                        {read_id_2, *pore_1, *calib_1, read_number_2, start_sample_2,
-                         median_before_2, *end_reason_1, *run_info_2},
-                        gsl::make_span(signal_rows_2));
+            auto const pore_1 = (*pore_writer)->add({12, 2, "Well Type"});
+            REQUIRE(pore_1.ok());
+            auto const calib_1 = (*calibration_writer)->add({100.0f, 0.5f});
+            REQUIRE(calib_1.ok());
+            auto const end_reason_1 =
+                    (*end_reason_writer)
+                            ->add({mkr::EndReasonData::ReadEndReason::mux_change, false});
+            REQUIRE(end_reason_1.ok());
+            auto const run_info_1 = (*run_info_writer)->add(run_info_data_0);
+            REQUIRE(run_info_1.ok());
+            auto const run_info_2 = (*run_info_writer)->add(run_info_data_1);
+            REQUIRE(run_info_2.ok());
+
+            for (std::size_t i = 0; i < record_batch_count; ++i) {
+                for (std::size_t j = 0; j < read_count; ++j) {
+                    auto const idx = j + i * read_count;
+
+                    mkr::ReadData read_data;
+                    std::vector<std::uint64_t> signal;
+                    std::tie(read_data, signal) = data_for_index(idx);
+                    auto row = writer->add_read(read_data, signal);
+
+                    REQUIRE(row.ok());
+                    CHECK(*row == idx);
+                }
 
                 auto flush_res = writer->flush();
                 CAPTURE(flush_res);
                 REQUIRE(flush_res.ok());
-                REQUIRE(writer->close().ok());
-
-                THEN("Read row ids are correct") {
-                    REQUIRE(row_1.ok());
-                    REQUIRE(row_2.ok());
-                    CHECK(*row_1 == 0);
-                    CHECK(*row_2 == 1);
-                }
             }
+            REQUIRE(writer->close().ok());
         }
 
         auto file_in = arrow::io::ReadableFile::Open(filename, pool);
@@ -128,102 +133,97 @@ SCENARIO("Read table Tests") {
             CHECK(metadata.writing_software == "test_software");
             CHECK(metadata.writing_mkr_version == MkrVersion);
 
-            REQUIRE(reader->num_record_batches() == 1);
-            auto const record_batch_0 = reader->read_record_batch(0);
-            CAPTURE(record_batch_0);
-            REQUIRE(record_batch_0.ok());
-            REQUIRE(record_batch_0->num_rows() == 2);
+            REQUIRE(reader->num_record_batches() == record_batch_count);
+            for (std::size_t i = 0; i < record_batch_count; ++i) {
+                auto const record_batch = reader->read_record_batch(i);
+                CAPTURE(record_batch);
+                REQUIRE(record_batch.ok());
+                REQUIRE(record_batch->num_rows() == read_count);
 
-            auto read_id = record_batch_0->read_id_column();
-            CHECK(read_id->length() == 2);
-            CHECK(read_id->Value(0) == read_id_1);
-            CHECK(read_id->Value(1) == read_id_2);
+                auto read_id = record_batch->read_id_column();
+                CHECK(read_id->length() == read_count);
 
-            auto signal = record_batch_0->signal_column();
-            CHECK(signal->length() == 2);
-            CHECK(std::static_pointer_cast<arrow::UInt64Array>(signal->value_slice(0)) ==
-                  signal_rows_1);
-            CHECK(std::static_pointer_cast<arrow::UInt64Array>(signal->value_slice(1)) ==
-                  signal_rows_2);
+                auto signal = record_batch->signal_column();
+                CHECK(signal->length() == read_count);
 
-            auto pore = record_batch_0->pore_column();
-            CHECK(pore->length() == 2);
-            auto pore_indices = std::static_pointer_cast<arrow::Int16Array>(pore->indices());
-            CHECK(pore_indices->Value(0) == 0);
-            CHECK(pore_indices->Value(1) == 0);
+                auto pore = record_batch->pore_column();
+                CHECK(pore->length() == read_count);
 
-            auto pore_data = record_batch_0->get_pore(0);
-            CHECK(pore_data.channel == 12);
-            CHECK(pore_data.well == 2);
-            CHECK(pore_data.pore_type == "Well Type");
+                auto calibration = record_batch->calibration_column();
+                CHECK(calibration->length() == read_count);
 
-            auto calibration = record_batch_0->calibration_column();
-            CHECK(calibration->length() == 2);
-            auto calibration_indices =
-                    std::static_pointer_cast<arrow::Int16Array>(calibration->indices());
-            CHECK(calibration_indices->Value(0) == 0);
-            CHECK(calibration_indices->Value(1) == 0);
+                auto read_number = record_batch->read_number_column();
+                CHECK(read_number->length() == read_count);
 
-            auto calibration_data = record_batch_0->get_calibration(0);
-            CHECK(calibration_data.offset == 100.0f);
-            CHECK(calibration_data.scale == 0.5f);
+                auto start_sample = record_batch->start_sample_column();
+                CHECK(start_sample->length() == read_count);
 
-            auto read_number = record_batch_0->read_number_column();
-            CHECK(read_number->length() == 2);
-            CHECK(read_number->Value(0) == read_number_1);
-            CHECK(read_number->Value(1) == read_number_2);
+                auto median_before = record_batch->median_before_column();
+                CHECK(median_before->length() == read_count);
 
-            auto start_sample = record_batch_0->start_sample_column();
-            CHECK(start_sample->length() == 2);
-            CHECK(start_sample->Value(0) == start_sample_1);
-            CHECK(start_sample->Value(1) == start_sample_2);
+                auto end_reason = record_batch->end_reason_column();
+                CHECK(end_reason->length() == read_count);
 
-            auto median_before = record_batch_0->median_before_column();
-            CHECK(median_before->length() == 2);
-            CHECK(median_before->Value(0) == median_before_1);
-            CHECK(median_before->Value(1) == median_before_2);
+                auto run_info = record_batch->run_info_column();
+                CHECK(run_info->length() == read_count);
 
-            auto end_reason = record_batch_0->end_reason_column();
-            CHECK(end_reason->length() == 2);
-            auto end_reason_indices =
-                    std::static_pointer_cast<arrow::Int16Array>(end_reason->indices());
-            CHECK(end_reason_indices->Value(0) == 0);
-            CHECK(end_reason_indices->Value(1) == 0);
+                auto pore_indices = std::static_pointer_cast<arrow::Int16Array>(pore->indices());
+                auto calibration_indices =
+                        std::static_pointer_cast<arrow::Int16Array>(calibration->indices());
+                auto end_reason_indices =
+                        std::static_pointer_cast<arrow::Int16Array>(end_reason->indices());
+                auto run_info_indices =
+                        std::static_pointer_cast<arrow::Int16Array>(run_info->indices());
+                for (auto j = 0; j < read_count; ++j) {
+                    auto idx = j + i * read_count;
 
-            auto end_reason_data = record_batch_0->get_end_reason(0);
-            CHECK(end_reason_data.end_reason == "mux_change");
-            CHECK(end_reason_data.forced == false);
+                    mkr::ReadData read_data;
+                    std::vector<std::uint64_t> expected_signal;
+                    std::tie(read_data, expected_signal) = data_for_index(idx);
 
-            auto run_info = record_batch_0->run_info_column();
-            CHECK(run_info->length() == 2);
-            auto run_info_indices =
-                    std::static_pointer_cast<arrow::Int16Array>(run_info->indices());
-            CHECK(run_info_indices->Value(0) == 0);
-            CHECK(run_info_indices->Value(1) == 1);
+                    CHECK(read_id->Value(j) == read_data.read_id);
 
-            auto run_info_data = record_batch_0->get_run_info(0);
-            CHECK(run_info_data.acquisition_id == "acquisition_id");
-            //CHECK(run_info_data.acquisition_start_time == {});
-            CHECK(run_info_data.adc_max == 4095);
-            CHECK(run_info_data.adc_min == -4096);
-            CHECK(run_info_data.context_tags ==
-                  std::map<std::string, std::string>{{"context", "tags"}, {"other", "tagz"}});
-            CHECK(run_info_data.experiment_name == "experiment_name");
-            CHECK(run_info_data.flow_cell_id == "flow_cell_id");
-            CHECK(run_info_data.flow_cell_product_code == "flow_cell_product_code");
-            CHECK(run_info_data.protocol_name == "protocol_name");
-            CHECK(run_info_data.protocol_run_id == "protocol_run_id");
-            //CHECK(run_info_data.protocol_start_time == "protocol_start_time");
-            CHECK(run_info_data.sample_id == "sample_id");
-            CHECK(run_info_data.sample_rate == 4000);
-            CHECK(run_info_data.sequencing_kit == "sequencing_kit");
-            CHECK(run_info_data.sequencer_position == "sequencer_position");
-            CHECK(run_info_data.sequencer_position_type == "sequencer_position_type");
-            CHECK(run_info_data.software == "software");
-            CHECK(run_info_data.system_name == "system_name");
-            CHECK(run_info_data.system_type == "system_type");
-            CHECK(run_info_data.tracking_id ==
-                  std::map<std::string, std::string>{{"tracking", "id"}});
+                    auto signal_data =
+                            std::static_pointer_cast<arrow::UInt64Array>(signal->value_slice(j));
+                    CHECK(gsl::make_span(signal_data->raw_values(), signal_data->length()) ==
+                          gsl::make_span(expected_signal));
+
+                    CHECK(read_number->Value(j) == read_data.read_number);
+                    CHECK(start_sample->Value(j) == read_data.start_sample);
+                    CHECK(median_before->Value(j) == read_data.median_before);
+
+                    CHECK(calibration_indices->Value(j) == read_data.calibration);
+                    CHECK(end_reason_indices->Value(j) == read_data.end_reason);
+                    CHECK(pore_indices->Value(j) == read_data.pore);
+                    CHECK(run_info_indices->Value(j) == read_data.run_info);
+                }
+
+                auto pore_data = record_batch->get_pore(0);
+                REQUIRE(pore_data.ok());
+                CHECK(pore_data->channel == 12);
+                CHECK(pore_data->well == 2);
+                CHECK(pore_data->pore_type == "Well Type");
+
+                auto calibration_data = record_batch->get_calibration(0);
+                REQUIRE(calibration_data.ok());
+                CHECK(calibration_data->offset == 100.0f);
+                CHECK(calibration_data->scale == 0.5f);
+
+                auto end_reason_data = record_batch->get_end_reason(0);
+                REQUIRE(end_reason_data.ok());
+                CHECK(end_reason_data->name == "mux_change");
+                CHECK(end_reason_data->forced == false);
+
+                auto run_info_data = record_batch->get_run_info(0);
+                CAPTURE(run_info_data);
+                REQUIRE(run_info_data.ok());
+                CHECK(*run_info_data == run_info_data_0);
+
+                run_info_data = record_batch->get_run_info(1);
+                CAPTURE(run_info_data);
+                REQUIRE(run_info_data.ok());
+                CHECK(*run_info_data == run_info_data_1);
+            }
         }
     }
 }

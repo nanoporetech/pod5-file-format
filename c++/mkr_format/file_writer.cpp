@@ -60,8 +60,8 @@ public:
         return m_dict_writers.run_info_writer->add(run_info_data);
     }
 
-    arrow::Status add_complete_read(ReadData const& read_data,
-                                    gsl::span<std::int16_t const> const& signal) {
+    mkr::Status add_complete_read(ReadData const& read_data,
+                                  gsl::span<std::int16_t const> const& signal) {
         if (!m_signal_table_writer || !m_read_table_writer) {
             return arrow::Status::Invalid("File writer closed, cannot write further data");
         }
@@ -85,6 +85,29 @@ public:
         auto read_table_row = m_read_table_writer->add_read(
                 read_data, gsl::make_span(signal_row_builder.data(), signal_row_builder.length()));
         return read_table_row.status();
+    }
+
+    mkr::Status add_complete_read(ReadData const& read_data,
+                                  gsl::span<std::uint64_t const> const& signal_rows) {
+        if (!m_signal_table_writer || !m_read_table_writer) {
+            return arrow::Status::Invalid("File writer closed, cannot write further data");
+        }
+
+        // Write read data and signal row entries:
+        auto read_table_row = m_read_table_writer->add_read(read_data, signal_rows);
+        return read_table_row.status();
+    }
+
+    mkr::Result<std::uint64_t> add_pre_compressed_signal(
+            boost::uuids::uuid const& read_id,
+            gsl::span<std::uint8_t const> const& signal_bytes,
+            std::uint32_t sample_count) {
+        if (!m_signal_table_writer || !m_read_table_writer) {
+            return arrow::Status::Invalid("File writer closed, cannot write further data");
+        }
+
+        return m_signal_table_writer->add_pre_compressed_signal(read_id, signal_bytes,
+                                                                sample_count);
     }
 
     mkr::Status flush_signal_table() { return m_signal_table_writer->flush(); }
@@ -213,6 +236,18 @@ arrow::Status FileWriter::close() { return m_impl->close(); }
 arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
                                             gsl::span<std::int16_t const> const& signal) {
     return m_impl->add_complete_read(read_data, signal);
+}
+
+arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
+                                            gsl::span<std::uint64_t const> const& signal_rows) {
+    return m_impl->add_complete_read(read_data, signal_rows);
+}
+
+mkr::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
+        boost::uuids::uuid const& read_id,
+        gsl::span<std::uint8_t const> const& signal_bytes,
+        std::uint32_t sample_count) {
+    return m_impl->add_pre_compressed_signal(read_id, signal_bytes, sample_count);
 }
 
 mkr::Status FileWriter::flush_signal_table() { return m_impl->flush_signal_table(); }

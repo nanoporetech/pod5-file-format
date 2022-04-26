@@ -3,6 +3,7 @@ from enum import Enum
 from pathlib import Path
 import typing
 
+import numpy
 from . import c_api
 from .api_utils import check_error
 
@@ -53,6 +54,9 @@ class FileWriter:
         return self
 
     def __exit__(self, type, value, traceback):
+        self.close()
+
+    def close(self):
         if self._writer:
             c_api.mkr_close_and_free_writer(self._writer)
             self._writer = None
@@ -117,22 +121,50 @@ class FileWriter:
         end_reason: ctypes.c_short,
         run_info: ctypes.c_short,
         signal,
+        sample_count,
+        pre_compressed_signal: bool = False,
     ):
-        check_error(
-            c_api.mkr_add_read(
-                self._writer,
-                ctypes.cast(ctypes.c_char_p(read_id), ctypes.POINTER(ctypes.c_ubyte)),
-                pore,
-                calibration,
-                read_number,
-                start_sample,
-                median_before,
-                end_reason,
-                run_info,
-                signal.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
-                signal.shape[0],
+        if pre_compressed_signal:
+            signal_bytes = signal.ctypes.data_as(ctypes.c_char_p)
+            signal_size = ctypes.c_size_t(signal.shape[0])
+            sample_count_arr = ctypes.c_uint(sample_count)
+            check_error(
+                c_api.mkr_add_read_pre_compressed(
+                    self._writer,
+                    ctypes.cast(
+                        ctypes.c_char_p(read_id), ctypes.POINTER(ctypes.c_ubyte)
+                    ),
+                    pore,
+                    calibration,
+                    read_number,
+                    start_sample,
+                    median_before,
+                    end_reason,
+                    run_info,
+                    ctypes.pointer(signal_bytes),
+                    ctypes.pointer(signal_size),
+                    ctypes.pointer(sample_count_arr),
+                    1,
+                )
             )
-        )
+        else:
+            check_error(
+                c_api.mkr_add_read(
+                    self._writer,
+                    ctypes.cast(
+                        ctypes.c_char_p(read_id), ctypes.POINTER(ctypes.c_ubyte)
+                    ),
+                    pore,
+                    calibration,
+                    read_number,
+                    start_sample,
+                    median_before,
+                    end_reason,
+                    run_info,
+                    signal.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+                    signal.shape[0],
+                )
+            )
 
     def flush(self):
         check_error(c_api.mkr_flush_reads_table(self._writer))
@@ -259,3 +291,32 @@ def create_combined_file(
             str(filename).encode("utf-8"), software_name.encode("utf-8"), options
         )
     )
+
+
+def create_split_file(
+    signal_file: Path, reads_file: Path, software_name: str = "Python API"
+) -> FileWriter:
+    options = None
+    return FileWriter(
+        c_api.mkr_create_split_file(
+            str(signal_file).encode("utf-8"),
+            str(reads_file).encode("utf-8"),
+            software_name.encode("utf-8"),
+            options,
+        )
+    )
+
+
+def vbz_compress_signal(signal):
+    max_signal_size = c_api.mkr_vbz_compressed_signal_max_size(len(signal))
+    signal_bytes = numpy.empty(max_signal_size, dtype="i1")
+
+    signal_size = ctypes.c_size_t(max_signal_size)
+    c_api.mkr_vbz_compress_signal(
+        signal.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
+        signal.shape[0],
+        signal_bytes.ctypes.data_as(ctypes.c_char_p),
+        ctypes.pointer(signal_size),
+    )
+    numpy.resize(signal_bytes, signal_size.value)
+    return signal_bytes

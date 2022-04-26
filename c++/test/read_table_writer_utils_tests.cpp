@@ -63,19 +63,18 @@ void check_field(std::size_t index,
     CHECK((*field)[index] == data);
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 std::chrono::system_clock::time_point data) {
+void check_timestamp_field(std::size_t index,
+                           arrow::StructArray& struct_array,
+                           char const* name,
+                           std::int64_t milliseconds_since_epoch) {
     auto field = get_field<arrow::TimestampArray>(struct_array, name);
-    std::int64_t milliseconds_since_epoch = data.time_since_epoch() / std::chrono::milliseconds(1);
     CHECK((*field)[index] == milliseconds_since_epoch);
 }
 
 void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
-                 std::map<std::string, std::string> const& data) {
+                 mkr::RunInfoData::MapType const& data) {
     auto field = get_field<arrow::MapArray>(struct_array, name);
 
     auto offsets = std::dynamic_pointer_cast<arrow::Int32Array>(field->offsets());
@@ -85,11 +84,11 @@ void check_field(std::size_t index,
     auto keys = std::dynamic_pointer_cast<arrow::StringArray>(field->keys());
     auto items = std::dynamic_pointer_cast<arrow::StringArray>(field->items());
 
-    std::map<std::string, std::string> extracted_data;
+    mkr::RunInfoData::MapType extracted_data;
     for (std::size_t i = start_data; i < end_data; ++i) {
         std::string key = nonstd::sv_lite::to_string(*((*keys)[i]));
         std::string item = nonstd::sv_lite::to_string(*((*items)[i]));
-        extracted_data[key] = item;
+        extracted_data.emplace_back(key, item);
     }
 
     CHECK(extracted_data == data);
@@ -254,7 +253,8 @@ TEST_CASE("Run Info Writer Tests") {
         CHECK(struct_array.fields().size() == 20);
 
         check_field(index, struct_array, "acquisition_id", data.acquisition_id);
-        check_field(index, struct_array, "acquisition_start_time", data.acquisition_start_time);
+        check_timestamp_field(index, struct_array, "acquisition_start_time",
+                              data.acquisition_start_time);
         check_field(index, struct_array, "adc_max", data.adc_max);
         check_field(index, struct_array, "adc_min", data.adc_min);
         check_field(index, struct_array, "context_tags", data.context_tags);
@@ -263,7 +263,7 @@ TEST_CASE("Run Info Writer Tests") {
         check_field(index, struct_array, "flow_cell_product_code", data.flow_cell_product_code);
         check_field(index, struct_array, "protocol_name", data.protocol_name);
         check_field(index, struct_array, "protocol_run_id", data.protocol_run_id);
-        check_field(index, struct_array, "protocol_start_time", data.protocol_start_time);
+        check_timestamp_field(index, struct_array, "protocol_start_time", data.protocol_start_time);
         check_field(index, struct_array, "sample_id", data.sample_id);
         check_field(index, struct_array, "sample_rate", data.sample_rate);
         check_field(index, struct_array, "sequencing_kit", data.sequencing_kit);
