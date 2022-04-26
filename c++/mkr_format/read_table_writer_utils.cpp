@@ -19,7 +19,7 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         std::size_t expected_length) {
     arrow::TypedBufferBuilder<Type> buffer_builder;
     auto data_in = builder.get_data();
-    buffer_builder.Append(data_in.data(), data_in.size());
+    ARROW_RETURN_NOT_OK(buffer_builder.Append(data_in.data(), data_in.size()));
     ARROW_ASSIGN_OR_RAISE(auto data, buffer_builder.FinishWithLength(expected_length));
 
     return arrow::ArrayData::Make(type, expected_length, {null_bitmap, data}, 0);
@@ -32,16 +32,16 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         std::size_t expected_length) {
     arrow::TypedBufferBuilder<std::uint8_t> value_builder;
     auto const& str_data = builder.get_string_data();
-    value_builder.Append(str_data.data(), str_data.size());
+    ARROW_RETURN_NOT_OK(value_builder.Append(str_data.data(), str_data.size()));
 
     arrow::TypedBufferBuilder<std::int32_t> offset_builder;
     auto const& offset_data = builder.get_offset_data();
     if (offset_data.size() != expected_length) {
         return Status::Invalid("Invalid size for field in struct");
     }
-    offset_builder.Append(offset_data.data(), offset_data.size());
+    ARROW_RETURN_NOT_OK(offset_builder.Append(offset_data.data(), offset_data.size()));
     // Append final offset - size of value data.
-    offset_builder.Append(str_data.size());
+    ARROW_RETURN_NOT_OK(offset_builder.Append(str_data.size()));
 
     std::shared_ptr<arrow::Buffer> offsets, value_data;
     ARROW_RETURN_NOT_OK(offset_builder.Finish(&offsets));
@@ -60,10 +60,10 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
     if (offset_data.size() != expected_length) {
         return Status::Invalid("Invalid size for field in struct");
     }
-    offset_builder.Append(offset_data.data(), offset_data.size());
+    ARROW_RETURN_NOT_OK(offset_builder.Append(offset_data.data(), offset_data.size()));
     // Append final offset - size of value data.
     auto const final_item_length = builder.key_builder().length();
-    offset_builder.Append(builder.key_builder().length());
+    ARROW_RETURN_NOT_OK(offset_builder.Append(builder.key_builder().length()));
 
     std::shared_ptr<arrow::Buffer> offsets;
     ARROW_RETURN_NOT_OK(offset_builder.Finish(&offsets));
@@ -155,7 +155,7 @@ arrow::Result<std::shared_ptr<arrow::StructArray>> get_struct_array(
 
     // Build null bitmap:
     arrow::TypedBufferBuilder<bool> null_bitmap_builder;
-    null_bitmap_builder.Append(length, true);
+    ARROW_RETURN_NOT_OK(null_bitmap_builder.Append(length, true));
     std::int64_t null_count = 0;
     std::shared_ptr<arrow::Buffer> null_bitmap;
     RETURN_NOT_OK(null_bitmap_builder.Finish(&null_bitmap));

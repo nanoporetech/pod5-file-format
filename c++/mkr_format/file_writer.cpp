@@ -172,8 +172,8 @@ public:
         signal_table.file_length -= signal_table.file_start_offset;
 
         // Padd file to 8 bytes and mark section:
-        combined_file_utils::padd_file(file, 8);
-        combined_file_utils::write_section_marker(file, m_section_marker);
+        ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
+        ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, m_section_marker));
 
         // Write in read table:
         combined_file_utils::FileInfo read_info_table;

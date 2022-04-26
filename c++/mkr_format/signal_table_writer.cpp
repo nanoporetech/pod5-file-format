@@ -92,8 +92,8 @@ SignalTableWriter::SignalTableWriter(SignalTableWriter&& other) = default;
 SignalTableWriter& SignalTableWriter::operator=(SignalTableWriter&&) = default;
 SignalTableWriter::~SignalTableWriter() {
     if (m_writer) {
-        flush();
-        close();
+        (void)flush();
+        (void)close();
     }
 }
 

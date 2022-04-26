@@ -1,2 +1,3 @@
 build/
 .mkr
+python/mkr_format/_version.py

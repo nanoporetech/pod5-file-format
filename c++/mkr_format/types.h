@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mkr_format/mkr_format_export.h"
+#include "mkr_format/result.h"
 
 #include <arrow/extension_type.h>
 #include <arrow/stl_iterator.h>
@@ -70,9 +71,9 @@ std::shared_ptr<VbzSignalType> vbz_signal();
 std::shared_ptr<UuidType> uuid();
 
 /// \brief Register all required extension types.
-MKR_FORMAT_EXPORT void register_extension_types();
+MKR_FORMAT_EXPORT mkr::Status register_extension_types();
 
 /// \brief Unregister all required extension types.
-MKR_FORMAT_EXPORT void unregister_extension_types();
+MKR_FORMAT_EXPORT mkr::Status unregister_extension_types();
 
 }  // namespace mkr

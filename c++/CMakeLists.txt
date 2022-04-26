@@ -44,7 +44,6 @@ add_library(mkr_format SHARED
     mkr_format/signal_table_writer.h
     mkr_format/signal_table_utils.h
     
-
     mkr_format/c_api.cpp
     mkr_format/c_api.h
 
@@ -84,6 +83,10 @@ target_include_directories(mkr_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
+        "XXX"
+        "${arrow_include}"
+        "${boost_include}"
+        "YYY"
 )
 
 target_link_libraries(mkr_format
@@ -96,7 +99,7 @@ target_link_libraries(mkr_format
         zstd::zstd
 )
 
-#target_compile_options(mkr_format PRIVATE -Wall -Werror)
+target_compile_options(mkr_format PRIVATE -Werror) #-Wall 
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
 add_subdirectory(test)

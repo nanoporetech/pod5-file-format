@@ -88,7 +88,7 @@ public:
 
     bool closed() const override { return m_file->closed(); }
 
-    arrow::Result<long int> Tell() const override {
+    arrow::Result<std::int64_t> Tell() const override {
         ARROW_ASSIGN_OR_RAISE(auto t, m_file->Tell());
         return t - m_sub_file_offset;
     }
@@ -98,7 +98,7 @@ public:
         return m_file->Seek(offset);
     }
 
-    arrow::Result<long int> Read(int64_t length, void* data) override {
+    arrow::Result<std::int64_t> Read(int64_t length, void* data) override {
         return m_file->Read(length, data);
     }
 
@@ -106,7 +106,7 @@ public:
         return m_file->Read(length);
     }
 
-    arrow::Result<long int> GetSize() override { return m_sub_file_length; }
+    arrow::Result<std::int64_t> GetSize() override { return m_sub_file_length; }
 
 private:
     std::shared_ptr<arrow::io::RandomAccessFile> m_file;

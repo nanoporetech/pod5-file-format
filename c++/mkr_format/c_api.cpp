@@ -137,14 +137,37 @@ mkr_error_t mkr_release_dict_type(T* dict_data) {
 
     return MKR_OK;
 }
+
+mkr::FileWriterOptions make_internal_writer_options(MkrWriterOptions const* options) {
+    mkr::FileWriterOptions internal_options;
+    if (options) {
+        if (options->max_signal_chunk_size != 0) {
+            internal_options.set_max_signal_chunk_size(options->max_signal_chunk_size);
+        }
+
+        if (options->signal_compression_type == UNCOMPRESSED_SIGNAL) {
+            internal_options.set_signal_type(mkr::SignalType::UncompressedSignal);
+        }
+    }
+    return internal_options;
+}
+
 }  // namespace
 
 extern "C" {
 
 //---------------------------------------------------------------------------------------------------------------------
-void mkr_init() { mkr::register_extension_types(); }
+mkr_error_t mkr_init() {
+    mkr_reset_error();
+    MKR_C_RETURN_NOT_OK(mkr::register_extension_types());
+    return MKR_OK;
+}
 
-void mkr_terminate() { mkr::unregister_extension_types(); }
+mkr_error_t mkr_terminate() {
+    mkr_reset_error();
+    MKR_C_RETURN_NOT_OK(mkr::unregister_extension_types());
+    return MKR_OK;
+}
 
 mkr_error_t mkr_get_error_no() { return g_mkr_error_no; }
 
@@ -525,20 +548,6 @@ mkr_error_t mkr_get_signal(MkrFileReader* reader,
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-mkr::FileWriterOptions make_internal_writer_options(MkrWriterOptions const* options) {
-    mkr::FileWriterOptions internal_options;
-    if (options) {
-        if (options->max_signal_chunk_size != 0) {
-            internal_options.set_max_signal_chunk_size(options->max_signal_chunk_size);
-        }
-
-        if (options->signal_compression_type == UNCOMPRESSED_SIGNAL) {
-            internal_options.set_signal_type(mkr::SignalType::UncompressedSignal);
-        }
-    }
-    return internal_options;
-}
-
 MkrFileWriter* mkr_create_split_file(char const* signal_filename,
                                      char const* reads_filename,
                                      char const* writer_name,

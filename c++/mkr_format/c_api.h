@@ -10,15 +10,6 @@ struct MkrFileWriter;
 struct MkrReadRecordBatch;
 
 //---------------------------------------------------------------------------------------------------------------------
-// Global state
-//---------------------------------------------------------------------------------------------------------------------
-
-/// \brief Initialise and register global mkr types
-MKR_FORMAT_EXPORT void mkr_init();
-/// \brief Terminate global mkr types
-MKR_FORMAT_EXPORT void mkr_terminate();
-
-//---------------------------------------------------------------------------------------------------------------------
 // Error management
 //---------------------------------------------------------------------------------------------------------------------
 
@@ -44,6 +35,15 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_get_error_no();
 /// \brief Get the most recent error description string from all mkr api's.
 /// \note The string's lifetime is internally managed, a caller should not free it.
 MKR_FORMAT_EXPORT char const* mkr_get_error_string();
+
+//---------------------------------------------------------------------------------------------------------------------
+// Global state
+//---------------------------------------------------------------------------------------------------------------------
+
+/// \brief Initialise and register global mkr types
+MKR_FORMAT_EXPORT mkr_error_t mkr_init();
+/// \brief Terminate global mkr types
+MKR_FORMAT_EXPORT mkr_error_t mkr_terminate();
 
 //---------------------------------------------------------------------------------------------------------------------
 // Reading files

@@ -78,24 +78,28 @@ std::shared_ptr<UuidType> uuid() {
 
 struct ExtensionTypes {
     ExtensionTypes() {
-        arrow::RegisterExtensionType(uuid());
-        arrow::RegisterExtensionType(vbz_signal());
     }
 
     ~ExtensionTypes() {
-        if (arrow::GetExtensionType("minknow.uuid")) {
-            arrow::UnregisterExtensionType("minknow.uuid");
-        }
-        if (arrow::GetExtensionType("minknow.vbz")) {
-            arrow::UnregisterExtensionType("minknow.vbz");
-        }
     }
 };
 
 ExtensionTypes *g_extension_types;
 
-void register_extension_types() { g_extension_types = new ExtensionTypes(); }
+mkr::Status register_extension_types() { 
+    ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(uuid()));
+    ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(vbz_signal()));
+    return mkr::Status::OK();
+}
 
-void unregister_extension_types() { delete g_extension_types; }
+mkr::Status unregister_extension_types() { 
+    if (arrow::GetExtensionType("minknow.uuid")) {
+        ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.uuid"));
+    }
+    if (arrow::GetExtensionType("minknow.vbz")) {
+        ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.vbz"));
+    }
+    return mkr::Status::OK();
+}
 
 }  // namespace mkr

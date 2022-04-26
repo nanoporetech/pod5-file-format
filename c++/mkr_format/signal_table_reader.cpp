@@ -73,8 +73,7 @@ Status SignalTableRecordBatch::extract_signal_row(std::size_t row_index,
     case SignalType::VbzSignal: {
         auto signal_column = vbz_signal_column();
         auto signal_compressed = signal_column->Value(row_index);
-        mkr::decompress_signal(signal_compressed, m_pool, samples);
-        return Status::OK();
+        return mkr::decompress_signal(signal_compressed, m_pool, samples);
     }
     }
 

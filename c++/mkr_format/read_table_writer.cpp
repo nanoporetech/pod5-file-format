@@ -54,8 +54,8 @@ ReadTableWriter::ReadTableWriter(ReadTableWriter&& other) = default;
 ReadTableWriter& ReadTableWriter::operator=(ReadTableWriter&&) = default;
 ReadTableWriter::~ReadTableWriter() {
     if (m_writer) {
-        flush();
-        close();
+        (void)flush();
+        (void)close();
     }
 }
 
