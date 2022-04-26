@@ -52,7 +52,6 @@ public:
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> const& reader() const { return m_reader; }
 
 private:
-    arrow::MemoryPool* m_pool = nullptr;
     std::shared_ptr<void> m_input_source;
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> m_reader;
     SchemaMetadataDescription m_schema_metadata;

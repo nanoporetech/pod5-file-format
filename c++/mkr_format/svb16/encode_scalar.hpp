@@ -23,7 +23,6 @@ uint8_t* encode_scalar(Int16T const* in,
         return 0;
     }
 
-    auto const data_orig = data;
     uint8_t shift = 0;  // cycles 0 through 7 then resets
     uint8_t key_byte = 0;
     for (uint32_t c = 0; c < count; c++) {

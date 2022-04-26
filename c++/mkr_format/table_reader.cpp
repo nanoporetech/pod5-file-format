@@ -20,8 +20,7 @@ TableReader::TableReader(std::shared_ptr<void>&& input_source,
                          std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
                          SchemaMetadataDescription&& schema_metadata,
                          arrow::MemoryPool* pool)
-        : m_pool(pool),
-          m_input_source(std::move(input_source)),
+        : m_input_source(std::move(input_source)),
           m_reader(std::move(reader)),
           m_schema_metadata(std::move(schema_metadata)) {}
 

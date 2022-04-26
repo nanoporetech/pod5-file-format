@@ -41,7 +41,7 @@ public:
               m_signal_chunk_size(signal_chunk_size),
               m_pool(pool) {}
 
-    ~FileWriterImpl() = default;
+    virtual ~FileWriterImpl() = default;
 
     mkr::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data) {
         return m_dict_writers.pore_writer->add(pore_data);

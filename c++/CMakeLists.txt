@@ -99,7 +99,7 @@ target_link_libraries(mkr_format
         zstd::zstd
 )
 
-target_compile_options(mkr_format PRIVATE -Werror) #-Wall 
+target_compile_options(mkr_format PRIVATE -Werror -Wall)
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
 add_subdirectory(test)
