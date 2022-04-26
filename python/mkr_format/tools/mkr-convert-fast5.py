@@ -343,7 +343,7 @@ def main():
             mb_total = (sample_count * 2) / (1000 * 1000)
             time_total = t_last_update - t_start
             print(
-                f"{files_started}/{files_ended}/{file_count} files\t"
+                f"{files_ended}/{files_started}/{file_count} files\t"
                 f"{reads_processed}/{read_count} reads, {format_sample_count(sample_count)}, {mb_total/time_total:.1f} MB/s"
             )
 

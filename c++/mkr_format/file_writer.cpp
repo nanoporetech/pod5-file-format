@@ -229,7 +229,7 @@ private:
 
 FileWriter::FileWriter(std::unique_ptr<FileWriterImpl>&& impl) : m_impl(std::move(impl)) {}
 
-FileWriter::~FileWriter() { close(); }
+FileWriter::~FileWriter() { (void)close(); }
 
 arrow::Status FileWriter::close() { return m_impl->close(); }
 

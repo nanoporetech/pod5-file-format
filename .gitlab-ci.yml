@@ -24,13 +24,42 @@ pre-commit checks:
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
     - cmake -DCMAKE_BUILD_TYPE=Release ..
-    - make -j
-    - ctest
+    - cmake --build .
+    - ctest -C Release
 
-gcc9-release-build:
+linux-x64-gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
   extends: [".build"]
   tags:
-      - linux
+    - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9-release"
+
+linux-aarch64-gcc9-release-build:
+  image: git.oxfordnanolabs.local:4567/minknow/images/build-aarch64-gcc9:latest
+  extends: [".build"]
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc9-release"
+
+osx-x64-clang12-release-build:
+  extends: [".build"]
+  tags:
+    - osx_x86
+    - xcode-12.4
+    - high-cpu
+    - conan
+  variables:
+    CONAN_PROFILE: "macos-x86_64-appleclang-12.0-release"
+
+win-x64-msvc2017-release-build:
+  extends: [".build"]
+  tags:
+    - windows
+    - cmake
+    - VS2017
+    - conan
+  variables:
+    CONAN_PROFILE: "windows-x86_64-vs2017-release"

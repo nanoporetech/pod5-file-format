@@ -70,6 +70,8 @@ add_library(mkr_format SHARED
     mkr_format/svb16/svb16.h
 )
 
+set_property(TARGET mkr_format PROPERTY CXX_STANDARD 14)
+
 flatbuffers_generate_headers(
     TARGET mkr_flatbuffers
     SCHEMAS

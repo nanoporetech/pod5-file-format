@@ -54,7 +54,7 @@ struct FileInfo {
     std::int64_t file_length;
 };
 
-inline mkr::Result<std::size_t> write_footer_flatbuffer(
+inline mkr::Result<std::int64_t> write_footer_flatbuffer(
         std::shared_ptr<arrow::io::OutputStream> const& sink,
         boost::uuids::uuid const& file_identifier,
         std::string const& software_name,
@@ -88,11 +88,12 @@ inline mkr::Status write_footer(std::shared_ptr<arrow::io::OutputStream> const& 
                                 FileInfo const& signal_table,
                                 FileInfo const& reads_table) {
     ARROW_RETURN_NOT_OK(write_footer_magic(sink));
-    ARROW_ASSIGN_OR_RAISE(auto length, write_footer_flatbuffer(sink, file_identifier, software_name,
-                                                               signal_table, reads_table));
+    ARROW_ASSIGN_OR_RAISE(std::int64_t length,
+                          write_footer_flatbuffer(sink, file_identifier, software_name,
+                                                  signal_table, reads_table));
     ARROW_RETURN_NOT_OK(padd_file(sink, 8));
 
-    int64_t padded_flatbuffer_size = arrow::bit_util::ToLittleEndian(length);
+    std::int64_t padded_flatbuffer_size = arrow::bit_util::ToLittleEndian(length);
     ARROW_RETURN_NOT_OK(sink->Write(&padded_flatbuffer_size, sizeof(padded_flatbuffer_size)));
 
     ARROW_RETURN_NOT_OK(write_section_marker(sink, section_marker));

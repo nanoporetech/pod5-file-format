@@ -82,31 +82,31 @@ public:
             std::int64_t sub_file_length)
             : m_file(std::move(main_file)),
               m_sub_file_offset(sub_file_offset),
-              m_sub_file_length(sub_file_length) {
-        m_file->Seek(sub_file_offset);
-    }
+              m_sub_file_length(sub_file_length) {}
 
     arrow::Status Close() override { return m_file->Close(); }
 
-    bool closed() const { return m_file->closed(); }
+    bool closed() const override { return m_file->closed(); }
 
-    arrow::Result<long int> Tell() const {
+    arrow::Result<long int> Tell() const override {
         ARROW_ASSIGN_OR_RAISE(auto t, m_file->Tell());
         return t - m_sub_file_offset;
     }
 
-    arrow::Status Seek(int64_t offset) {
+    arrow::Status Seek(int64_t offset) override {
         offset += m_sub_file_offset;
         return m_file->Seek(offset);
     }
 
-    arrow::Result<long int> Read(int64_t length, void* data) { return m_file->Read(length, data); }
+    arrow::Result<long int> Read(int64_t length, void* data) override {
+        return m_file->Read(length, data);
+    }
 
-    arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t length) {
+    arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t length) override {
         return m_file->Read(length);
     }
 
-    arrow::Result<long int> GetSize() { return m_sub_file_length; }
+    arrow::Result<long int> GetSize() override { return m_sub_file_length; }
 
 private:
     std::shared_ptr<arrow::io::RandomAccessFile> m_file;
@@ -129,6 +129,7 @@ mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
     // Restrict our open file to just the reads section:
     //
     // Reads file was written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
+    ARROW_RETURN_NOT_OK(file->Seek(parsed_footer_metadata.reads_table.file_start_offset));
     auto reads_sub_file =
             std::make_shared<SubFile>(file, parsed_footer_metadata.reads_table.file_start_offset,
                                       parsed_footer_metadata.reads_table.file_length);

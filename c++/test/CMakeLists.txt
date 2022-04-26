@@ -16,6 +16,7 @@ target_link_libraries(mkr_unit_tests
         mkr_format
 )
 
+set_property(TARGET mkr_unit_tests PROPERTY CXX_STANDARD 14)
 #target_compile_options(mkr_unit_tests PRIVATE -Wall -Werror)
 
 add_test(
