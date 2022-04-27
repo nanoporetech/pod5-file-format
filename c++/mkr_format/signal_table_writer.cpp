@@ -163,7 +163,7 @@ Status SignalTableWriter::close() {
         return Status::OK();
     }
 
-	ARROW_RETURN_NOT_OK(flush());
+    ARROW_RETURN_NOT_OK(flush());
 
     ARROW_RETURN_NOT_OK(m_writer->Close());
     m_writer = nullptr;
