@@ -115,22 +115,24 @@ public:
 
     mkr::Status flush_reads_table() { return m_read_table_writer->flush(); }
 
-    void close_read_table_writer() {
+    mkr::Status close_read_table_writer() {
         if (m_read_table_writer) {
-            m_read_table_writer->close();
+            ARROW_RETURN_NOT_OK(m_read_table_writer->close());
             m_read_table_writer = boost::none;
         }
+        return mkr::Status::OK();
     }
-    void close_signal_table_writer() {
+    mkr::Status close_signal_table_writer() {
         if (m_signal_table_writer) {
-            m_signal_table_writer->close();
+            ARROW_RETURN_NOT_OK(m_signal_table_writer->close());
             m_signal_table_writer = boost::none;
         }
+        return mkr::Status::OK();
     }
 
     virtual arrow::Status close() {
-        close_read_table_writer();
-        close_signal_table_writer();
+        ARROW_RETURN_NOT_OK(close_read_table_writer());
+        ARROW_RETURN_NOT_OK(close_signal_table_writer());
         return arrow::Status::OK();
     }
 
@@ -178,8 +180,8 @@ public:
         if (is_closed()) {
             return arrow::Status::OK();
         }
-        close_read_table_writer();
-        close_signal_table_writer();
+        ARROW_RETURN_NOT_OK(close_read_table_writer());
+        ARROW_RETURN_NOT_OK(close_signal_table_writer());
 
         // Open main path with append set:
         ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(m_path.string(), true));
