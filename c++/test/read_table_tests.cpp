@@ -39,10 +39,10 @@ SCENARIO("Read table Tests") {
     auto file_identifier = uuid_gen();
 
     auto data_for_index = [&](std::size_t index) {
-        std::array<std::uint8_t, 16> uuid_source;
-        gsl::make_span(uuid_source).as_span<std::uint64_t>()[0] = index;
+        std::array<std::uint8_t, 16> uuid_source{};
+        gsl::make_span(uuid_source).as_span<std::uint8_t>()[0] = index;
 
-        boost::uuids::uuid read_id;
+        boost::uuids::uuid read_id{};
         std::copy(uuid_source.begin(), uuid_source.end(), read_id.begin());
 
         return std::make_tuple(
