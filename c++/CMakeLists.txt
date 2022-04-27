@@ -103,7 +103,7 @@ flatbuffers_generate_headers(
 )
 
 if (NOT MSVC)
-    target_compile_options(mkr_format PRIVATE -Werror -Wall -Wno-error=comment)
+    target_compile_options(mkr_format PRIVATE -Werror -Wall -Wno-comment)
 endif()
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
@@ -138,10 +138,16 @@ list(APPEND public_headers
 )
 
 # shared and static libraries built from the same object files
-add_library(mkr_format_static STATIC $<TARGET_OBJECTS:mkr_format>)
 add_library(mkr_format_shared SHARED $<TARGET_OBJECTS:mkr_format>)
 
-foreach (target "mkr_format_static" "mkr_format_shared")
+set (mkr_lib_targets "mkr_format_shared")
+if (NOT WIN32)
+    add_library(mkr_format_static STATIC $<TARGET_OBJECTS:mkr_format>)
+    set (mkr_lib_targets "${mkr_lib_targets}" mkr_format_static)
+endif()
+
+
+foreach (target ${mkr_lib_targets})
     target_link_libraries(${target}
         PUBLIC
             arrow::arrow

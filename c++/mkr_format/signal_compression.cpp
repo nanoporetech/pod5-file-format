@@ -74,7 +74,7 @@ MKR_FORMAT_EXPORT arrow::Status decompress_signal(
             reinterpret_cast<SampleType*>(destination.data()), intermediate->data(),
             destination.size());
 
-    if (consumed_count != intermediate->size()) {
+    if (consumed_count != (std::size_t)intermediate->size()) {
         return mkr::Status::Invalid("Remaining data at end of signal buffer");
     }
 

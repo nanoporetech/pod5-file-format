@@ -1,6 +1,8 @@
 stages:
   - pre-flight
   - build
+  - build-python
+  - test-python
 
 pre-commit checks:
     image: python:3.9
@@ -24,9 +26,12 @@ pre-commit checks:
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
     - cmake -DCMAKE_BUILD_TYPE=Release ..
-    - cmake --build .
-    - ctest -C Release
+    - cmake --build . --config Release
+    - ctest -C Release -VV
     - cpack -C Release -G TGZ
+  artifacts:
+    paths:
+      - build/mkr-file-format*.tar.gz
 
 linux-x64-gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
@@ -64,3 +69,30 @@ win-x64-msvc2017-release-build:
     - conan
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
+
+wheel-build:
+  stage: build-python
+  tags: 
+    - linux
+  needs:
+    - win-x64-msvc2017-release-build
+    - osx-x64-clang12-release-build
+    - linux-aarch64-gcc9-release-build
+    - linux-x64-gcc9-release-build
+  script:
+    - ls
+    - cd python
+    - python setup.py bdist_wheel
+  artifacts:
+    paths:
+      - dist/*.whl
+
+wheel-test:
+  stage: test-python
+  tags: 
+    - linux
+  needs:
+    - wheel-build
+  script:
+    - pip install ./dist/*
+    - mkr-convert-fast5 ./test_files/ ./output_files --output-one-to-one

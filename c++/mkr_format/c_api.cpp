@@ -342,7 +342,7 @@ mkr_error_t mkr_get_signal_row_indices(MkrReadRecordBatch* batch,
         return g_mkr_error_no;
     }
 
-    for (std::size_t i = 0; i < signal_row_indices_count; ++i) {
+    for (std::int64_t i = 0; i < signal_row_indices_count; ++i) {
         signal_row_indices[i] = row_data->Value(i);
     }
 
@@ -836,7 +836,7 @@ mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
     MKR_C_ASSIGN_OR_RAISE(auto buffer, mkr::compress_signal(gsl::make_span(signal, signal_size),
                                                             arrow::system_memory_pool()));
 
-    if (buffer->size() > *compressed_signal_size) {
+    if ((std::size_t)buffer->size() > *compressed_signal_size) {
         mkr_set_error(mkr::Status::Invalid("Compressed signal size (", buffer->size(),
                                            ") is greater than provided buffer size (",
                                            compressed_signal_size, ")"));

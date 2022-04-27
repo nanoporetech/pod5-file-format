@@ -70,7 +70,7 @@ public:
         }
 
         mkr::RunInfoData::MapType result;
-        for (std::size_t i = start_index; i < end_index; ++i) {
+        for (std::int32_t i = start_index; i < end_index; ++i) {
             result.emplace_back(keys->Value(i).to_string(), values->Value(i).to_string());
         }
 
