@@ -4,6 +4,7 @@
 #include "mkr_format/file_writer.h"
 #include "mkr_format/read_table_reader.h"
 #include "mkr_format/signal_compression.h"
+#include "mkr_format/signal_table_reader.h"
 
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_dict.h>
@@ -617,7 +618,7 @@ mkr_error_t mkr_add_pore(int16_t* pore_index,
 mkr_error_t mkr_add_end_reason(int16_t* end_reason_index,
                                MkrFileWriter* file,
                                mkr_end_reason_t end_reason,
-                               bool forced) {
+                               int forced) {
     mkr_reset_error();
 
     if (!check_file_not_null(file) || !check_output_pointer_not_null(end_reason_index)) {
@@ -652,7 +653,7 @@ mkr_error_t mkr_add_end_reason(int16_t* end_reason_index,
     }
 
     MKR_C_ASSIGN_OR_RAISE(*end_reason_index,
-                          file->writer->add_end_reason({end_reason_internal, forced}));
+                          file->writer->add_end_reason({end_reason_internal, forced != 0}));
     return MKR_OK;
 }
 

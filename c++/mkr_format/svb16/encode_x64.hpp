@@ -53,7 +53,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
     // this isn't a problem, as the scalar code does the same
     __m128i prev_reg;
     SVB16_IF_CONSTEXPR(UseDelta) { prev_reg = _mm_set1_epi16(prev); }
-    auto const key_len = svb16_key_length(count);
+    //auto const key_len = svb16_key_length(count);
     auto const mask_01 = detail::m128i_from_bytes(0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
                                                   0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01);
     for (const Int16T *end = &in [(count & ~15)]; in != end; in += 16) {

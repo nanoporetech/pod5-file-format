@@ -1,13 +1,20 @@
 #pragma once
 
 #include "mkr_format/mkr_format_export.h"
-#include "mkr_format/signal_table_reader.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 struct MkrFileReader;
+typedef struct MkrFileReader MkrFileReader_t;
 struct MkrFileWriter;
+typedef struct MkrFileWriter MkrFileWriter_t;
 struct MkrReadRecordBatch;
+typedef struct MkrReadRecordBatch MkrReadRecordBatch_t;
 
 //---------------------------------------------------------------------------------------------------------------------
 // Error management
@@ -15,7 +22,7 @@ struct MkrReadRecordBatch;
 
 /// \brief Integer error codes.
 /// \note Taken from the arrow status enum.
-enum mkr_error_t {
+enum mkr_error {
     MKR_OK = 0,
     MKR_ERROR_OUTOFMEMORY = 1,
     MKR_ERROR_KEYERROR = 2,
@@ -29,6 +36,7 @@ enum mkr_error_t {
     MKR_ERROR_NOTIMPLEMENTED = 10,
     MKR_ERROR_SERIALIZATIONERROR = 11,
 };
+typedef enum mkr_error mkr_error_t;
 
 /// \brief Get the most recent error number from all mkr api's.
 MKR_FORMAT_EXPORT mkr_error_t mkr_get_error_no();
@@ -52,36 +60,36 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_terminate();
 /// \brief Open a split file reader
 /// \param signal_filename  The filename of the signal file.
 /// \param reads_filename   The filename of the reads file.
-MKR_FORMAT_EXPORT MkrFileReader* mkr_open_split_file(char const* signal_filename,
-                                                     char const* reads_filename);
+MKR_FORMAT_EXPORT MkrFileReader_t* mkr_open_split_file(char const* signal_filename,
+                                                       char const* reads_filename);
 /// \brief Open a combined file reader
 /// \param filename         The filename of the combined mkr file.
-MKR_FORMAT_EXPORT MkrFileReader* mkr_open_combined_file(char const* filename);
+MKR_FORMAT_EXPORT MkrFileReader_t* mkr_open_combined_file(char const* filename);
 
 /// \brief Close a file reader, releasing all memory held by the reader.
-MKR_FORMAT_EXPORT mkr_error_t mkr_close_and_free_reader(MkrFileReader* file);
+MKR_FORMAT_EXPORT mkr_error_t mkr_close_and_free_reader(MkrFileReader_t* file);
 
 /// \brief Find the number of read batches in the file.
 /// \param[out] count   The number of read batches in the file
 /// \param      reader  The file reader to read from
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_count(size_t* count, MkrFileReader* reader);
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_count(size_t* count, MkrFileReader_t* reader);
 
 /// \brief Get a read batch from the file.
 /// \param[out] batch   The extracted batch.
 /// \param      reader  The file reader to read from
 /// \param      index   The index of the batch to read.
 /// \note Batches returned from this API must be freed using #mkr_free_read_batch
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch(MkrReadRecordBatch** batch,
-                                                 MkrFileReader* reader,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch(MkrReadRecordBatch_t** batch,
+                                                 MkrFileReader_t* reader,
                                                  size_t index);
 
 /// \brief Release a read batch when it is not longer used.
 /// \param batch The batch to release.
-MKR_FORMAT_EXPORT mkr_error_t mkr_free_read_batch(MkrReadRecordBatch* batch);
+MKR_FORMAT_EXPORT mkr_error_t mkr_free_read_batch(MkrReadRecordBatch_t* batch);
 
 /// \brief Find the number of rows in a batch.
 /// \param batch    The batch to query the number of rows for.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_row_count(size_t* count, MkrReadRecordBatch*);
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_row_count(size_t* count, MkrReadRecordBatch_t*);
 
 /// \brief Find the info for a row in a read batch.
 /// \param      batch               The read batch to query.
@@ -95,7 +103,7 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_row_count(size_t* count, MkrRea
 /// \param[out] end_reason          Output location for the end reason type for the read.
 /// \param[out] run_info            Output location for the run info type for the read.
 /// \param[out] signal_row_count    Output location for the number of signal row entries for the read.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_row_info(MkrReadRecordBatch* batch,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_row_info(MkrReadRecordBatch_t* batch,
                                                           size_t row,
                                                           uint8_t* read_id,
                                                           int16_t* pore,
@@ -114,7 +122,7 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_get_read_batch_row_info(MkrReadRecordBatch* ba
 /// \param[out] signal_row_indices          The signal row indices read out of the read row.
 /// \note signal_row_indices_count Must equal signal_row_count returned from mkr_get_read_batch_row_info
 ///       or an error is generated.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal_row_indices(MkrReadRecordBatch* batch,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal_row_indices(MkrReadRecordBatch_t* batch,
                                                          size_t row,
                                                          int64_t signal_row_indices_count,
                                                          uint64_t* signal_row_indices);
@@ -124,65 +132,67 @@ struct PoreDictData {
     uint8_t well;
     char const* pore_type;
 };
+typedef struct PoreDictData PoreDictData_t;
 
 /// \brief Find the pore info for a row in a read batch.
 /// \param      batch               The read batch to query.
 /// \param      pore                The pore index to query.
 /// \param[out] pore_data           Output location for the pore data.
 /// \note The returned pore value should be released using mkr_release_pore when it is no longer used.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_pore(MkrReadRecordBatch* batch,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_pore(MkrReadRecordBatch_t* batch,
                                            int16_t pore,
-                                           PoreDictData** pore_data);
+                                           PoreDictData_t** pore_data);
 
 /// \brief Release a PoreDictData struct after use.
-MKR_FORMAT_EXPORT mkr_error_t mkr_release_pore(PoreDictData* pore_data);
+MKR_FORMAT_EXPORT mkr_error_t mkr_release_pore(PoreDictData_t* pore_data);
 
 struct CalibrationDictData {
     float offset;
     float scale;
 };
+typedef struct CalibrationDictData CalibrationDictData_t;
 
 /// \brief Find the calibration info for a row in a read batch.
 /// \param      batch               The read batch to query.
 /// \param      calibration         The pore index to query.
 /// \param[out] calibration_data    Output location for the calibration data.
 /// \note The returned calibration value should be released using mkr_release_calibration when it is no longer used.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_calibration(MkrReadRecordBatch* batch,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_calibration(MkrReadRecordBatch_t* batch,
                                                   int16_t calibration,
-                                                  CalibrationDictData** calibration_data);
+                                                  CalibrationDictData_t** calibration_data);
 
 /// \brief Release a CalibrationDictData struct after use.
-MKR_FORMAT_EXPORT mkr_error_t mkr_release_calibration(CalibrationDictData* calibration_data);
+MKR_FORMAT_EXPORT mkr_error_t mkr_release_calibration(CalibrationDictData_t* calibration_data);
 
 struct EndReasonDictData {
     char const* name;
-    bool forced;
+    int forced;
 };
+typedef struct EndReasonDictData EndReasonDictData_t;
 
 /// \brief Find the calibration info for a row in a read batch.
 /// \param      batch               The read batch to query.
 /// \param      end_reason          The end reason index to query.
 /// \param[out] end_reason_data     Output location for the end reason data.
 /// \note The returned end_reason value should be released using mkr_release_calibration when it is no longer used.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_end_reason(MkrReadRecordBatch* batch,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_end_reason(MkrReadRecordBatch_t* batch,
                                                  int16_t end_reason,
-                                                 EndReasonDictData** end_reason_data);
+                                                 EndReasonDictData_t** end_reason_data);
 
 /// \brief Release a CalibrationDictData struct after use.
-MKR_FORMAT_EXPORT mkr_error_t mkr_release_end_reason(EndReasonDictData* end_reason_data);
+MKR_FORMAT_EXPORT mkr_error_t mkr_release_end_reason(EndReasonDictData_t* end_reason_data);
 
+struct KeyValueData {
+    size_t size;
+    char const** keys;
+    char const** values;
+};
 struct RunInfoDictData {
-    struct KeyValueData {
-        size_t size;
-        char const** keys;
-        char const** values;
-    };
-
     char const* acquisition_id;
-    std::int64_t acquisition_start_time_ms;
+    int64_t acquisition_start_time_ms;
     int16_t adc_max;
     int16_t adc_min;
-    KeyValueData context_tags;
+    struct KeyValueData context_tags;
     char const* experiment_name;
     char const* flow_cell_id;
     char const* flow_cell_product_code;
@@ -197,20 +207,21 @@ struct RunInfoDictData {
     char const* software;
     char const* system_name;
     char const* system_type;
-    KeyValueData tracking_id;
+    struct KeyValueData tracking_id;
 };
+typedef struct RunInfoDictData RunInfoDictData_t;
 
 /// \brief Find the calibration info for a row in a read batch.
 /// \param      batch               The read batch to query.
 /// \param      run_info            The run info index to query.
 /// \param[out] run_info_data       Output location for the run info data.
 /// \note The returned end_reason value should be released using mkr_release_calibration when it is no longer used.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_run_info(MkrReadRecordBatch* batch,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_run_info(MkrReadRecordBatch_t* batch,
                                                int16_t run_info,
-                                               RunInfoDictData** run_info_data);
+                                               RunInfoDictData_t** run_info_data);
 
 /// \brief Release a CalibrationDictData struct after use.
-MKR_FORMAT_EXPORT mkr_error_t mkr_release_run_info(RunInfoDictData* run_info_data);
+MKR_FORMAT_EXPORT mkr_error_t mkr_release_run_info(RunInfoDictData_t* run_info_data);
 
 struct SignalRowInfo {
     size_t batch_index;
@@ -218,69 +229,73 @@ struct SignalRowInfo {
     uint32_t stored_sample_count;
     size_t stored_byte_count;
 };
+typedef struct SignalRowInfo SignalRowInfo_t;
 
 /// \brief Find the info for a signal row in a reader.
 /// \param      reader                      The reader to query.
 /// \param      signal_rows_count           The number of signal rows to query.
 /// \param      signal_rows                 The signal rows to query.
 /// \param[out] signal_row_info             The output signal row information (must be an array of size signal_rows_count)
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal_row_info(MkrFileReader_t* reader,
                                                       size_t signal_rows_count,
                                                       uint64_t* signal_rows,
-                                                      SignalRowInfo* signal_row_info);
+                                                      SignalRowInfo_t* signal_row_info);
 /// \brief Find the info for a signal row in a reader.
 /// \param      reader          The reader to query.
 /// \param      batch_index     The signal batch index to query data for.
 /// \param      batch_row_index The batch row to query information from.
 /// \param      sample_count    The number of samples allocated in [sample_data] (must equal the length of signal data in the row).
 /// \param[out] sample_data     The output location for the queried samples.
-MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal(MkrFileReader* reader,
+MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal(MkrFileReader_t* reader,
                                              size_t batch_index,
                                              size_t batch_row_index,
-                                             std::size_t sample_count,
-                                             std::int16_t* sample_data);
+                                             size_t sample_count,
+                                             int16_t* sample_data);
 
 //---------------------------------------------------------------------------------------------------------------------
 // Writing files
 //---------------------------------------------------------------------------------------------------------------------
 
 // Signal compression options.
-/// \brief Use the default signal compression option.
-std::int8_t DEFAULT_SIGNAL_COMPRESSION = 0;
-/// \brief Use vbz to compress read signals in tables.
-std::int8_t VBZ_SIGNAL_COMPRESSION = 1;
-/// \brief Write signals uncompressed to tables.
-std::int8_t UNCOMPRESSED_SIGNAL = 2;
+enum CompressionOption {
+    /// \brief Use the default signal compression option.
+    DEFAULT_SIGNAL_COMPRESSION = 0,
+    /// \brief Use vbz to compress read signals in tables.
+    VBZ_SIGNAL_COMPRESSION = 1,
+    /// \brief Write signals uncompressed to tables.
+    UNCOMPRESSED_SIGNAL = 2,
+};
 
 // Options to control how a file is written.
 struct MkrWriterOptions {
     /// \brief Maximum number of samples to place in one signal record in the signals table.
     /// \note Use zero to use default value.
-    std::uint32_t max_signal_chunk_size;
+    uint32_t max_signal_chunk_size;
     /// \brief Signal type to write to the signals table.
     /// \note Use 'DEFAULT_SIGNAL_COMPRESSION' to use default value.
-    std::int8_t signal_compression_type;
+    int8_t signal_compression_type;
 };
+typedef struct MkrWriterOptions MkrWriterOptions_t;
 
 /// \brief Create a new split mkr file using specified filenames and options.
 /// \param signal_filename  The filename of the signal file.
 /// \param reads_filename   The filename of the reads file.
 /// \param writer_name      A descriptive string for the user software writing this file.
 /// \param options          Options controlling how the file will be written (optional).
-MKR_FORMAT_EXPORT MkrFileWriter* mkr_create_split_file(char const* signal_filename,
-                                                       char const* reads_filename,
-                                                       char const* writer_name,
-                                                       MkrWriterOptions const* options);
+MKR_FORMAT_EXPORT MkrFileWriter_t* mkr_create_split_file(char const* signal_filename,
+                                                         char const* reads_filename,
+                                                         char const* writer_name,
+                                                         MkrWriterOptions_t const* options);
 /// \brief Create a new combined mkr file using specified filenames and options.
 /// \param filename         The filename of the combined mkr file.
 /// \param writer_name      A descriptive string for the user software writing this file.
 /// \param options          Options controlling how the file will be written.
-MKR_FORMAT_EXPORT MkrFileWriter* mkr_create_combined_file(char const* filename,
-                                                          char const* writer_name,
-                                                          MkrWriterOptions const* options);
+MKR_FORMAT_EXPORT MkrFileWriter_t* mkr_create_combined_file(char const* filename,
+                                                            char const* writer_name,
+                                                            MkrWriterOptions_t const* options);
 
 /// \brief Close a file writer, releasing all memory held by the writer.
-MKR_FORMAT_EXPORT mkr_error_t mkr_close_and_free_writer(MkrFileWriter* file);
+MKR_FORMAT_EXPORT mkr_error_t mkr_close_and_free_writer(MkrFileWriter_t* file);
 
 /// \brief Add a new pore type to the file.
 /// \param[out] pore_index  The index of the added pore.
@@ -289,12 +304,12 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_close_and_free_writer(MkrFileWriter* file);
 /// \param      well        The well the pore type uses.
 /// \param      pore_type   The pore type string for the pore.
 MKR_FORMAT_EXPORT mkr_error_t mkr_add_pore(int16_t* pore_index,
-                                           MkrFileWriter* file,
-                                           std::uint16_t channel,
-                                           std::uint8_t well,
+                                           MkrFileWriter_t* file,
+                                           uint16_t channel,
+                                           uint8_t well,
                                            char const* pore_type);
 
-enum mkr_end_reason_t {
+enum mkr_end_reason {
     MKR_END_REASON_UNKNOWN = 0,
     MKR_END_REASON_MUX_CHANGE = 1,
     MKR_END_REASON_UNBLOCK_MUX_CHANGE = 2,
@@ -302,6 +317,7 @@ enum mkr_end_reason_t {
     MKR_END_REASON_SIGNAL_POSITIVE = 4,
     MKR_END_REASON_SIGNAL_NEGATIVE = 5
 };
+typedef enum mkr_end_reason mkr_end_reason_t;
 
 /// \brief Add a new end reason type to the file.
 /// \param[out] end_reason_index  The index of the added end reason.
@@ -309,9 +325,9 @@ enum mkr_end_reason_t {
 /// \param      end_reason  The end reason enumeration type for the end reason.
 /// \param      forced      Was the end reason was forced by control, false if the end reason is signal driven.
 MKR_FORMAT_EXPORT mkr_error_t mkr_add_end_reason(int16_t* end_reason_index,
-                                                 MkrFileWriter* file,
+                                                 MkrFileWriter_t* file,
                                                  mkr_end_reason_t end_reason,
-                                                 bool forced);
+                                                 int forced);
 
 /// \brief Add a new calibration to the file, calibrations are used to map ADC raw data units into floating point pico-amp space.
 /// \param[out] end_reason_index  The index of the added end reason.
@@ -319,7 +335,7 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_end_reason(int16_t* end_reason_index,
 /// \param      offset      The offset parameter for the calibration.
 /// \param      scale       The scale parameter for the calibration.
 MKR_FORMAT_EXPORT mkr_error_t mkr_add_calibration(int16_t* calibration_index,
-                                                  MkrFileWriter* file,
+                                                  MkrFileWriter_t* file,
                                                   float offset,
                                                   float scale);
 
@@ -351,7 +367,7 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_calibration(int16_t* calibration_index,
 /// \param      tracking_id_keys            Array of strings used as keys into the tracking id map (must have tracking_id_count entries).
 /// \param      tracking_id_values          Array of strings used as values in the tracking id map (must have tracking_id_count entries).
 MKR_FORMAT_EXPORT mkr_error_t mkr_add_run_info(int16_t* run_info_index,
-                                               MkrFileWriter* file,
+                                               MkrFileWriter_t* file,
                                                char const* acquisition_id,
                                                int64_t acquisition_start_time_ms,
                                                int16_t adc_max,
@@ -389,7 +405,7 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_run_info(int16_t* run_info_index,
 /// \param      run_info        The run info for the read.
 /// \param      signal          The signal data for the read.
 /// \param      signal_size     The number of samples in the signal data.
-MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter* file,
+MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter_t* file,
                                            uint8_t const* read_id,
                                            int16_t pore,
                                            int16_t calibration,
@@ -415,7 +431,7 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter* file,
 /// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
 /// \param      sample_counts           The number of samples of each signal chunk.
 /// \param      signal_chunk_count      The number of sections of compressed signal.
-MKR_FORMAT_EXPORT mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter* file,
+MKR_FORMAT_EXPORT mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter_t* file,
                                                           uint8_t const* read_id,
                                                           int16_t pore,
                                                           int16_t calibration,
@@ -431,11 +447,11 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter* file,
 
 /// \brief Flush the signal table to disk, completing the in progress record batch.
 /// \param      file            The file to flush the signal table on.
-MKR_FORMAT_EXPORT mkr_error_t mkr_flush_signal_table(MkrFileWriter* file);
+MKR_FORMAT_EXPORT mkr_error_t mkr_flush_signal_table(MkrFileWriter_t* file);
 
 /// \brief Flush the reads table to disk, completing the in progress record batch.
 /// \param      file            The file to add the read table on.
-MKR_FORMAT_EXPORT mkr_error_t mkr_flush_reads_table(MkrFileWriter* file);
+MKR_FORMAT_EXPORT mkr_error_t mkr_flush_reads_table(MkrFileWriter_t* file);
 
 /// \brief Find the max size of a compressed array of samples.
 /// \param sample_count The number of samples in the source signal.
@@ -451,6 +467,9 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
                                                       size_t signal_size,
                                                       char* compressed_signal_out,
                                                       size_t* compressed_signal_size);
+
+#ifdef __cplusplus
 }
+#endif
 
 //std::shared_ptr<arrow::Schema> pyarrow_test();

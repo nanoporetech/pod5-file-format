@@ -15,7 +15,7 @@ configure_file(
     mkr_format/version.h
 )
 
-add_library(mkr_format SHARED
+add_library(mkr_format
     mkr_format/file_writer.cpp
     mkr_format/file_writer.h
     mkr_format/file_reader.cpp
@@ -99,7 +99,9 @@ target_link_libraries(mkr_format
         zstd::zstd
 )
 
-target_compile_options(mkr_format PRIVATE -Werror -Wall)
+if (NOT MSVC)
+    target_compile_options(mkr_format PRIVATE -Werror -Wall -Wno-error=comment)
+endif()
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
 add_subdirectory(test)

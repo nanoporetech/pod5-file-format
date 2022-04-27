@@ -19,8 +19,8 @@ public:
 };
 
 void run_file_reader_writer_tests(FileInterface& file_ifc) {
-    mkr::register_extension_types();
-    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
+    (void)mkr::register_extension_types();
+    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
 
     auto const run_info_data = get_test_run_info_data("_run_info");
     auto const end_reason_data = get_test_end_reason_data();
@@ -51,11 +51,13 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
         auto calibration = (*writer)->add_calibration(calibration_data);
 
         for (std::size_t i = 0; i < 10; ++i) {
-            (*writer)->add_complete_read({read_id_1, *pore, *calibration, read_number, start_sample,
-                                          median_before, *end_reason, *run_info},
-                                         gsl::make_span(signal_1));
-            (*writer)->flush_signal_table();
-            (*writer)->flush_reads_table();
+            CHECK((*writer)
+                          ->add_complete_read({read_id_1, *pore, *calibration, read_number,
+                                               start_sample, median_before, *end_reason, *run_info},
+                                              gsl::make_span(signal_1))
+                          .ok());
+            CHECK((*writer)->flush_signal_table().ok());
+            CHECK((*writer)->flush_reads_table().ok());
         }
     }
 
