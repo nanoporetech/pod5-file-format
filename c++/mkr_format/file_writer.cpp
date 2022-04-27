@@ -9,6 +9,7 @@
 
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
+#include <arrow/util/future.h>
 #include <boost/filesystem.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -324,6 +325,41 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
             options.max_signal_chunk_size(), pool));
 }
 
+class SubFileOutputStream : public arrow::io::OutputStream {
+public:
+    SubFileOutputStream(std::shared_ptr<OutputStream> const& main_stream, std::int64_t offset)
+            : m_main_stream(main_stream), m_offset(offset) {}
+
+    virtual arrow::Status Close() override { return m_main_stream->Close(); }
+
+    arrow::Future<> CloseAsync() override { return m_main_stream->CloseAsync(); }
+
+    arrow::Status Abort() override { return m_main_stream->Abort(); }
+
+    arrow::Result<int64_t> Tell() const override {
+        ARROW_ASSIGN_OR_RAISE(auto tell, m_main_stream->Tell());
+        return tell - m_offset;
+    }
+
+    bool closed() const override { return m_main_stream->closed(); }
+
+    arrow::Status Write(const void* data, int64_t nbytes) override {
+        return m_main_stream->Write(data, nbytes);
+    }
+
+    arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
+        return m_main_stream->Write(data);
+    }
+
+    arrow::Status Flush() override { return m_main_stream->Flush(); }
+
+    arrow::Status Write(arrow::util::string_view data);
+
+private:
+    std::shared_ptr<OutputStream> m_main_stream;
+    std::int64_t m_offset;
+};
+
 mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
         boost::filesystem::path const& path,
         std::string const& writing_software_name,
@@ -364,9 +400,10 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
 
     // Then place the signal file directly after that:
     ARROW_ASSIGN_OR_RAISE(auto signal_table_start, main_file->Tell());
-    ARROW_ASSIGN_OR_RAISE(
-            auto signal_table_writer,
-            make_signal_table_writer(main_file, file_schema_metadata, options.signal_type(), pool));
+    auto signal_file = std::make_shared<SubFileOutputStream>(main_file, signal_table_start);
+    ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
+                          make_signal_table_writer(signal_file, file_schema_metadata,
+                                                   options.signal_type(), pool));
 
     // Throw it all together into a writer object:
     return std::make_unique<FileWriter>(std::make_unique<CombinedFileWriterImpl>(

@@ -126,22 +126,23 @@ mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
 
     ARROW_ASSIGN_OR_RAISE(auto parsed_footer_metadata, combined_file_utils::read_footer(file));
 
-    // Restrict our open file to just the reads section:
-    //
-    // Reads file was written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
+    // Files are written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
+
+    // Seek to the start of the sub-file:
     ARROW_RETURN_NOT_OK(file->Seek(parsed_footer_metadata.reads_table.file_start_offset));
+    // Restrict our open file to just the reads section:
     auto reads_sub_file =
             std::make_shared<SubFile>(file, parsed_footer_metadata.reads_table.file_start_offset,
                                       parsed_footer_metadata.reads_table.file_length);
+
     ARROW_ASSIGN_OR_RAISE(auto read_table_reader, make_read_table_reader(reads_sub_file, pool));
 
-    // Open a second file and restrict it to just the signal section:
-    ARROW_ASSIGN_OR_RAISE(auto signal_file, arrow::io::ReadableFile::Open(path.string(), pool));
+    // Seek to the start of the sub-file:
+    ARROW_RETURN_NOT_OK(file->Seek(parsed_footer_metadata.signal_table.file_start_offset));
     // Signal file is generated _into_ the main file, and so the offset should start at 0, as all internal offsets in the arrow file will be relative to the main file header:
-    auto signal_sub_file = std::make_shared<SubFile>(
-            signal_file, 0,
-            parsed_footer_metadata.signal_table.file_length +
-                    parsed_footer_metadata.signal_table.file_start_offset);
+    auto signal_sub_file =
+            std::make_shared<SubFile>(file, parsed_footer_metadata.signal_table.file_start_offset,
+                                      parsed_footer_metadata.signal_table.file_length);
     ARROW_ASSIGN_OR_RAISE(auto signal_table_reader,
                           make_signal_table_reader(signal_sub_file, pool));
 
