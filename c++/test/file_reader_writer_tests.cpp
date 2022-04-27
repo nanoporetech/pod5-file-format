@@ -8,8 +8,9 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
 #include <boost/uuid/random_generator.hpp>
-#include <numeric>
 #include <catch2/catch.hpp>
+
+#include <numeric>
 
 class FileInterface {
 public:

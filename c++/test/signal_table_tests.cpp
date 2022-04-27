@@ -12,10 +12,9 @@
 #include <arrow/memory_pool.h>
 #include <arrow/record_batch.h>
 #include <boost/uuid/random_generator.hpp>
-#include <numeric>
-
 #include <catch2/catch.hpp>
 
+#include <numeric>
 
 SCENARIO("Signal table Tests") {
     using namespace mkr;

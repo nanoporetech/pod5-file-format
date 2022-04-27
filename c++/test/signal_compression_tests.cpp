@@ -6,6 +6,7 @@
 #include <arrow/memory_pool.h>
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
+
 #include <numeric>
 
 SCENARIO("Signal compression Tests") {
