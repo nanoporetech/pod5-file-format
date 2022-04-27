@@ -81,7 +81,7 @@ SCENARIO("C API") {
                                           &signal_size, 1) == MKR_OK);
         read_count += 1;
 
-        mkr_close_and_free_writer(combined_file);
+        CHECK(mkr_close_and_free_writer(combined_file) == MKR_OK);
         CHECK(mkr_get_error_no() == MKR_OK);
     }
 

@@ -595,6 +595,7 @@ mkr_error_t mkr_close_and_free_writer(MkrFileWriter* file) {
     mkr_reset_error();
 
     std::unique_ptr<MkrFileWriter> ptr{file};
+	MKR_C_RETURN_NOT_OK(ptr->writer->close());
     ptr.reset();
     return MKR_OK;
 }

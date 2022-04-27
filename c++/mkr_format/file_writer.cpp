@@ -115,14 +115,29 @@ public:
 
     mkr::Status flush_reads_table() { return m_read_table_writer->flush(); }
 
-    void close_read_table_writer() { m_read_table_writer = boost::none; }
-    void close_signal_table_writer() { m_signal_table_writer = boost::none; }
+    void close_read_table_writer() {
+		if (m_read_table_writer) {
+			m_read_table_writer->close();
+			m_read_table_writer = boost::none;
+		}
+	}
+    void close_signal_table_writer() {
+		if (m_signal_table_writer) {
+			m_signal_table_writer->close();
+			m_signal_table_writer = boost::none;
+		}
+	}
 
     virtual arrow::Status close() {
         close_read_table_writer();
         close_signal_table_writer();
         return arrow::Status::OK();
     }
+
+	bool is_closed() const {
+		assert(!!m_read_table_writer == !!m_signal_table_writer);
+		return !m_signal_table_writer;
+	}
 
     arrow::MemoryPool* pool() const { return m_pool; }
 
@@ -160,6 +175,9 @@ public:
               m_software_name(software_name) {}
 
     arrow::Status close() override {
+		if (is_closed()) {
+			return arrow::Status::OK();
+		}
         close_read_table_writer();
         close_signal_table_writer();
 
@@ -182,28 +200,30 @@ public:
             // Record file start location in bytes within the main file:
             ARROW_ASSIGN_OR_RAISE(read_info_table.file_start_offset, file->Tell());
 
-            // Stream out the reads table into the main file:
-            ARROW_ASSIGN_OR_RAISE(auto reads_table_file_in,
-                                  arrow::io::ReadableFile::Open(m_reads_tmp_path.string(), pool()));
-            std::int64_t read_bytes = 0;
-            std::int64_t target_chunk_size = 10 * 1024 * 1024;  // Read in 10MB of data at a time
-            std::vector<char> read_data(target_chunk_size);
-            do {
-                ARROW_ASSIGN_OR_RAISE(
-                        auto const read_bytes,
-                        reads_table_file_in->Read(target_chunk_size, read_data.data()));
-                ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
-            } while (read_bytes == target_chunk_size);
+			{
+				// Stream out the reads table into the main file:
+				ARROW_ASSIGN_OR_RAISE(auto reads_table_file_in,
+					arrow::io::ReadableFile::Open(m_reads_tmp_path.string(), pool()));
+				std::int64_t read_bytes = 0;
+				std::int64_t target_chunk_size = 10 * 1024 * 1024;  // Read in 10MB of data at a time
+				std::vector<char> read_data(target_chunk_size);
+				do {
+					ARROW_ASSIGN_OR_RAISE(
+						auto const read_bytes,
+						reads_table_file_in->Read(target_chunk_size, read_data.data()));
+					ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
+				} while (read_bytes == target_chunk_size);
 
-            // Store the reads file length for later reading:
-            ARROW_ASSIGN_OR_RAISE(read_info_table.file_length, file->Tell());
-            read_info_table.file_length -= read_info_table.file_start_offset;
+				// Store the reads file length for later reading:
+				ARROW_ASSIGN_OR_RAISE(read_info_table.file_length, file->Tell());
+				read_info_table.file_length -= read_info_table.file_start_offset;
+			}
 
             // Clean up the tmp read path:
             boost::system::error_code ec;
             boost::filesystem::remove(m_reads_tmp_path, ec);
             if (ec) {
-                return arrow::Status::Invalid("Failed to remove temporary file");
+                return arrow::Status::Invalid("Failed to remove temporary file: ", ec.message());
             }
         }
         // Padd file to 8 bytes and mark section:
@@ -214,8 +234,6 @@ public:
         ARROW_RETURN_NOT_OK(combined_file_utils::write_footer(file, m_section_marker,
                                                               m_file_identifier, m_software_name,
                                                               signal_table, read_info_table));
-
-        close_signal_table_writer();
         return arrow::Status::OK();
     }
 
