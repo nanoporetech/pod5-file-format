@@ -59,7 +59,7 @@ private:
     arrow::MemoryPool* m_pool;
 };
 
-Result<SignalTableReader> make_signal_table_reader(
+MKR_FORMAT_EXPORT Result<SignalTableReader> make_signal_table_reader(
         std::shared_ptr<arrow::io::RandomAccessFile> const& sink,
         arrow::MemoryPool* pool);
 

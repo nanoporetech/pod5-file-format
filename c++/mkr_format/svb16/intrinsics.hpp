@@ -31,7 +31,7 @@ namespace detail {
                                                                   uint8_t o,
                                                                   uint8_t p) {
 #ifdef _MSC_VER
-    return __m128i{a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p};
+    return __m128i{(char)a, (char)b, (char)c, (char)d, (char)e, (char)f, (char)g, (char)h, (char)i, (char)j, (char)k, (char)l, (char)m, (char)n, (char)o, (char)p};
 #else
     return __m128i{
             static_cast<int64_t>(static_cast<uint64_t>(h) << 56) + (static_cast<int64_t>(g) << 48) +

@@ -15,7 +15,7 @@ configure_file(
     mkr_format/version.h
 )
 
-add_library(mkr_format OBJECT
+add_library(mkr_format SHARED
     mkr_format/file_writer.cpp
     mkr_format/file_writer.h
     mkr_format/file_reader.cpp
@@ -72,10 +72,40 @@ add_library(mkr_format OBJECT
     mkr_format/svb16/svb16.h
 )
 
+set(public_headers)
+list(APPEND public_headers
+    mkr_format/file_writer.h
+    mkr_format/file_reader.h
+
+    mkr_format/schema_metadata.h
+
+    mkr_format/read_table_reader.h
+    mkr_format/read_table_schema.h
+    mkr_format/read_table_writer.h
+    mkr_format/read_table_writer_utils.h
+    mkr_format/read_table_utils.h
+
+    mkr_format/signal_compression.h
+    mkr_format/signal_table_reader.h
+    mkr_format/signal_table_schema.h
+    mkr_format/signal_table_writer.h
+    mkr_format/signal_table_utils.h
+
+    mkr_format/c_api.h
+
+    mkr_format/errors.h
+    mkr_format/result.h
+    mkr_format/table_reader.h
+    mkr_format/types.h
+
+    ${CMAKE_CURRENT_BINARY_DIR}/mkr_format/mkr_format_export.h
+)
+
 set_target_properties(mkr_format 
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
         CXX_STANDARD 14
+        PUBLIC_HEADER "${public_headers}"
 )
 
 target_link_libraries(mkr_format
@@ -107,71 +137,9 @@ if (NOT MSVC)
 endif()
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
-
-set(public_headers)
-list(APPEND public_headers
-    mkr_format/file_writer.h
-    mkr_format/file_reader.h
-
-    mkr_format/schema_metadata.h
-
-    mkr_format/read_table_reader.h
-    mkr_format/read_table_schema.h
-    mkr_format/read_table_writer.h
-    mkr_format/read_table_writer_utils.h
-    mkr_format/read_table_utils.h
-
-    mkr_format/signal_compression.h
-    mkr_format/signal_table_reader.h
-    mkr_format/signal_table_schema.h
-    mkr_format/signal_table_writer.h
-    mkr_format/signal_table_utils.h
-
-    mkr_format/c_api.h
-
-    mkr_format/errors.h
-    mkr_format/result.h
-    mkr_format/table_reader.h
-    mkr_format/types.h
-
-    ${CMAKE_CURRENT_BINARY_DIR}/mkr_format/mkr_format_export.h
+install(
+    TARGETS mkr_format
+    PUBLIC_HEADER DESTINATION "include/mkr_format"
 )
-
-# shared and static libraries built from the same object files
-add_library(mkr_format_shared SHARED $<TARGET_OBJECTS:mkr_format>)
-
-set (mkr_lib_targets "mkr_format_shared")
-if (NOT WIN32)
-    add_library(mkr_format_static STATIC $<TARGET_OBJECTS:mkr_format>)
-    set (mkr_lib_targets "${mkr_lib_targets}" mkr_format_static)
-endif()
-
-
-foreach (target ${mkr_lib_targets})
-    target_link_libraries(${target}
-        PUBLIC
-            arrow::arrow
-            flatbuffers::flatbuffers
-            Boost::headers
-        PRIVATE
-            mkr_flatbuffers
-            zstd::zstd
-    )
-
-    target_include_directories(${target}
-        PUBLIC
-            ${CMAKE_CURRENT_SOURCE_DIR}
-            ${CMAKE_CURRENT_BINARY_DIR}
-    )
-    set_target_properties(${target}
-        PROPERTIES
-            PUBLIC_HEADER "${public_headers}"
-    )
-
-    install(
-        TARGETS ${target}
-        PUBLIC_HEADER DESTINATION "include/mkr_format"
-    )
-endforeach()
 
 add_subdirectory(test)

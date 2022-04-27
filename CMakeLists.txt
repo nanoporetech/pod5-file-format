@@ -23,6 +23,16 @@ endif()
 set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}")
 include_directories("third_party/include")
 
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
+
+foreach (config "Release" "Debug")
+    string(TOUPPER "${config}" config_upper)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${config_upper} ${CMAKE_BINARY_DIR}/${config}/lib)
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${config_upper} ${CMAKE_BINARY_DIR}/${config}/lib)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${config_upper} ${CMAKE_BINARY_DIR}/${config}/bin)
+endforeach()
+
 include(GenerateExportHeader)
 
 enable_testing()

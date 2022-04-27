@@ -14,7 +14,7 @@ add_executable(mkr_unit_tests
 
 target_link_libraries(mkr_unit_tests
     PUBLIC
-        mkr_format_shared
+        mkr_format
 )
 
 set_property(TARGET mkr_unit_tests PROPERTY CXX_STANDARD 14)

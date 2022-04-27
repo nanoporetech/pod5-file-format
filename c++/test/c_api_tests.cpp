@@ -3,6 +3,7 @@
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
+#include <numeric>
 
 SCENARIO("C API") {
     static constexpr char const* combined_filename = "./foo_c_api.mkr";

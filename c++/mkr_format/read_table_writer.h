@@ -86,7 +86,7 @@ private:
 /// \param metadata Metadata to be applied to the table schema.
 /// \param pool Pool to be used for building table in memory.
 /// \returns The writer for the new table.
-Result<ReadTableWriter> make_read_table_writer(
+MKR_FORMAT_EXPORT Result<ReadTableWriter> make_read_table_writer(
         std::shared_ptr<arrow::io::OutputStream> const& sink,
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
         std::shared_ptr<PoreWriter> const& pore_writer,

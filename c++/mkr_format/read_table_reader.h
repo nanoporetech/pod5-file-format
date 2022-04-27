@@ -66,7 +66,7 @@ private:
     std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
 };
 
-Result<ReadTableReader> make_read_table_reader(
+MKR_FORMAT_EXPORT Result<ReadTableReader> make_read_table_reader(
         std::shared_ptr<arrow::io::RandomAccessFile> const& sink,
         arrow::MemoryPool* pool);
 
