@@ -29,3 +29,5 @@ enable_testing()
 
 add_subdirectory(c++)
 add_subdirectory(python)
+
+include(mkr_packaging)

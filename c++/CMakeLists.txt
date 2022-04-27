@@ -15,7 +15,7 @@ configure_file(
     mkr_format/version.h
 )
 
-add_library(mkr_format
+add_library(mkr_format SHARED
     mkr_format/file_writer.cpp
     mkr_format/file_writer.h
     mkr_format/file_reader.cpp
@@ -55,6 +55,9 @@ add_library(mkr_format
     mkr_format/types.cpp
     mkr_format/types.h
 
+    mkr_format/internal/combined_file_utils.h
+    mkr_format/internal/schema_utils.h
+
     mkr_format/svb16/common.hpp
     mkr_format/svb16/decode.hpp
     mkr_format/svb16/decode_scalar.hpp
@@ -69,7 +72,38 @@ add_library(mkr_format
     mkr_format/svb16/svb16.h
 )
 
-set_property(TARGET mkr_format PROPERTY CXX_STANDARD 14)
+set(public_headers)
+list(APPEND public_headers
+    mkr_format/file_writer.h
+    mkr_format/file_reader.h
+
+    mkr_format/schema_metadata.h
+
+    mkr_format/read_table_reader.h
+    mkr_format/read_table_schema.h
+    mkr_format/read_table_writer.h
+    mkr_format/read_table_writer_utils.h
+    mkr_format/read_table_utils.h
+
+    mkr_format/signal_compression.h
+    mkr_format/signal_table_reader.h
+    mkr_format/signal_table_schema.h
+    mkr_format/signal_table_writer.h
+    mkr_format/signal_table_utils.h
+
+    mkr_format/c_api.h
+
+    mkr_format/errors.h
+    mkr_format/result.h
+    mkr_format/table_reader.h
+    mkr_format/types.h
+)
+
+set_target_properties(mkr_format
+    PROPERTIES
+        PUBLIC_HEADER "${public_headers}"
+        CXX_STANDARD 14
+)
 
 flatbuffers_generate_headers(
     TARGET mkr_flatbuffers
@@ -83,10 +117,6 @@ target_include_directories(mkr_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
-        "XXX"
-        "${arrow_include}"
-        "${boost_include}"
-        "YYY"
 )
 
 target_link_libraries(mkr_format
@@ -105,3 +135,8 @@ endif()
 generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
 
 add_subdirectory(test)
+
+install(
+    TARGETS mkr_format
+    PUBLIC_HEADER DESTINATION "include/mkr_format"
+)

@@ -31,8 +31,8 @@ bool operator==(std::shared_ptr<arrow::UInt64Array> const& array,
 SCENARIO("Read table Tests") {
     using namespace mkr;
 
-    mkr::register_extension_types();
-    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
+    (void)mkr::register_extension_types();
+    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
 
