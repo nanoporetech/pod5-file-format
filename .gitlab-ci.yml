@@ -26,6 +26,7 @@ pre-commit checks:
     - cmake -DCMAKE_BUILD_TYPE=Release ..
     - cmake --build .
     - ctest -C Release
+    - cpack -C Release -G TGZ
 
 linux-x64-gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
