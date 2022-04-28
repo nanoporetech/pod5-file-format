@@ -30,7 +30,7 @@ pre-commit checks:
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - tar -czf ../mkr-file-format-VEr.tar.gz
+    - tar -czf ../mkr-file-format.tar.gz .
   artifacts:
     paths:
       - build/mkr-file-format*.tar.gz
