@@ -87,6 +87,7 @@ wheel-build:
     - linux-aarch64-gcc9-release-build
     - linux-x64-gcc9-release-build
   script:
+    - pip install --upgrade pip
     - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
     - mkdir wheels
     - cd python

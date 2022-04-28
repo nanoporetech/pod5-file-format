@@ -11,8 +11,14 @@ requires-python = "~= 3.7"
 dynamic = ["version", "description"]
 
 dependencies = [
-    "numpy"
+    "iso8601",
+    "h5py",
+    "numpy",
 ]
+
+[project.scripts]
+mkr-convert-fast5 = "mkr_format.tools.mkr_convert_fast5:main"
+mkr-inspect = "mkr_format.tools.mkr_inspect:main"
 
 [tool.black]
 target-version = ["py37"]
