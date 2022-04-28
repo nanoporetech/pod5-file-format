@@ -393,8 +393,11 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_run_info(int16_t* run_info_index,
                                                char const** tracking_id_keys,
                                                char const** tracking_id_values);
 
+typedef uint8_t read_id_t[16];
+
 /// \brief Add a read to the file.
 /// \param      file            The file to add the read to.
+/// \param      read_count      The number of reads to add with this call.
 /// \param      read_id         The read id to use (in binary form, must be 16 bytes long).
 /// \param      pore            The pore type to use for the read.
 /// \param      calibration     The calibration to use for the read.
@@ -405,20 +408,22 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_run_info(int16_t* run_info_index,
 /// \param      run_info        The run info for the read.
 /// \param      signal          The signal data for the read.
 /// \param      signal_size     The number of samples in the signal data.
-MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter_t* file,
-                                           uint8_t const* read_id,
-                                           int16_t pore,
-                                           int16_t calibration,
-                                           uint32_t read_number,
-                                           uint64_t start_sample,
-                                           float median_before,
-                                           int16_t end_reason,
-                                           int16_t run_info,
-                                           int16_t const* signal,
-                                           size_t signal_size);
+MKR_FORMAT_EXPORT mkr_error_t mkr_add_reads(MkrFileWriter_t* file,
+                                            uint32_t read_count,
+                                            read_id_t const* read_id,
+                                            int16_t const* pore,
+                                            int16_t const* calibration,
+                                            uint32_t const* read_number,
+                                            uint64_t const* start_sample,
+                                            float const* median_before,
+                                            int16_t const* end_reason,
+                                            int16_t const* run_info,
+                                            int16_t const** signal,
+                                            uint32_t const* signal_size);
 
 /// \brief Add a read to the file, with pre compressed signal chunk sections.
 /// \param      file                    The file to add the read to.
+/// \param      read_count      The number of reads to add with this call.
 /// \param      read_id                 The read id to use (in binary form, must be 16 bytes long).
 /// \param      pore                    The pore type to use for the read.
 /// \param      calibration             The calibration to use for the read.
@@ -431,19 +436,20 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_read(MkrFileWriter_t* file,
 /// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
 /// \param      sample_counts           The number of samples of each signal chunk.
 /// \param      signal_chunk_count      The number of sections of compressed signal.
-MKR_FORMAT_EXPORT mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter_t* file,
-                                                          uint8_t const* read_id,
-                                                          int16_t pore,
-                                                          int16_t calibration,
-                                                          uint32_t read_number,
-                                                          uint64_t start_sample,
-                                                          float median_before,
-                                                          int16_t end_reason,
-                                                          int16_t run_info,
-                                                          char const** compressed_signal,
-                                                          size_t* compressed_signal_size,
-                                                          uint32_t* sample_counts,
-                                                          size_t signal_chunk_count);
+MKR_FORMAT_EXPORT mkr_error_t mkr_add_reads_pre_compressed(MkrFileWriter_t* file,
+                                                           uint32_t read_count,
+                                                           read_id_t const* read_id,
+                                                           int16_t const* pore,
+                                                           int16_t const* calibration,
+                                                           uint32_t const* read_number,
+                                                           uint64_t const* start_sample,
+                                                           float const* median_before,
+                                                           int16_t const* end_reason,
+                                                           int16_t const* run_info,
+                                                           char const*** compressed_signal,
+                                                           size_t const** compressed_signal_size,
+                                                           uint32_t const** sample_counts,
+                                                           size_t const* signal_chunk_count);
 
 /// \brief Flush the signal table to disk, completing the in progress record batch.
 /// \param      file            The file to flush the signal table on.

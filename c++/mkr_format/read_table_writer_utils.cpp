@@ -89,9 +89,9 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
                                        {std::move(items)}, 0);
 
     arrow::MapArray array(data);
-    assert(array.length() == offset_data.size());
-    assert(array.keys()->length() == builder.key_builder().length());
-    assert(array.items()->length() == builder.value_builder().length());
+    assert(array.length() == (std::int64_t)offset_data.size());
+    assert(array.keys()->length() == (std::int64_t)builder.key_builder().length());
+    assert(array.items()->length() == (std::int64_t)builder.value_builder().length());
 
     return data;
 }

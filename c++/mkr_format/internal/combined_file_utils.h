@@ -114,7 +114,7 @@ inline mkr::Status check_signature(std::shared_ptr<arrow::io::RandomAccessFile> 
     std::array<char, sizeof(FILE_SIGNATURE)> read_signature;
     ARROW_ASSIGN_OR_RAISE(auto read_bytes, file->ReadAt(offset_in_file, read_signature.size(),
                                                         read_signature.data()));
-    if (read_bytes != read_signature.size() || read_signature != FILE_SIGNATURE) {
+    if (read_bytes != (std::int16_t)read_signature.size() || read_signature != FILE_SIGNATURE) {
         return arrow::Status::IOError("Invalid signature in file");
     }
 

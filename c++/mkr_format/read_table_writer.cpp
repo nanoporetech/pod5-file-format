@@ -74,13 +74,13 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
     ARROW_RETURN_NOT_OK(m_start_sample_builder->Append(read_data.start_sample));
     ARROW_RETURN_NOT_OK(m_median_before_builder->Append(read_data.median_before));
 
-    assert(read_data.pore <= m_pore_writer->item_count());
+    assert((std::size_t)read_data.pore <= m_pore_writer->item_count());
     ARROW_RETURN_NOT_OK(m_pore_builder->Append(read_data.pore));
-    assert(read_data.end_reason <= m_end_reason_writer->item_count());
+    assert((std::size_t)read_data.end_reason <= m_end_reason_writer->item_count());
     ARROW_RETURN_NOT_OK(m_end_reason_builder->Append(read_data.end_reason));
-    assert(read_data.calibration <= m_calibration_writer->item_count());
+    assert((std::size_t)read_data.calibration <= m_calibration_writer->item_count());
     ARROW_RETURN_NOT_OK(m_calibration_builder->Append(read_data.calibration));
-    assert(read_data.run_info <= m_run_info_writer->item_count());
+    assert((std::size_t)read_data.run_info <= m_run_info_writer->item_count());
     ARROW_RETURN_NOT_OK(m_run_info_builder->Append(read_data.run_info));
 
     ++m_current_batch_row_count;

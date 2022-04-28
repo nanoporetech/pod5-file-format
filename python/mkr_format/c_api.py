@@ -225,38 +225,40 @@ mkr_add_run_info.argtypes = [
 ]
 
 
-mkr_add_read = mkr_format.mkr_add_read
-mkr_add_read.restype = ERROR_TYPE
-mkr_add_read.argtypes = [
+mkr_add_reads = mkr_format.mkr_add_reads
+mkr_add_reads.restype = ERROR_TYPE
+mkr_add_reads.argtypes = [
     FILE_WRITER_PTR,
-    ctypes.POINTER(ctypes.c_ubyte),
-    ctypes.c_short,
-    ctypes.c_short,
     ctypes.c_uint,
-    ctypes.c_ulonglong,
-    ctypes.c_float,
-    ctypes.c_short,
-    ctypes.c_short,
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_ubyte)),
     ctypes.POINTER(ctypes.c_short),
-    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_uint),
+    ctypes.POINTER(ctypes.c_ulonglong),
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_short)),
+    ctypes.POINTER(ctypes.c_size_t),
 ]
 
-mkr_add_read_pre_compressed = mkr_format.mkr_add_read_pre_compressed
-mkr_add_read_pre_compressed.restype = ERROR_TYPE
-mkr_add_read_pre_compressed.argtypes = [
+mkr_add_reads_pre_compressed = mkr_format.mkr_add_reads_pre_compressed
+mkr_add_reads_pre_compressed.restype = ERROR_TYPE
+mkr_add_reads_pre_compressed.argtypes = [
     FILE_WRITER_PTR,
-    ctypes.POINTER(ctypes.c_ubyte),
-    ctypes.c_short,
-    ctypes.c_short,
     ctypes.c_uint,
-    ctypes.c_ulonglong,
-    ctypes.c_float,
-    ctypes.c_short,
-    ctypes.c_short,
-    ctypes.POINTER(ctypes.c_char_p),
-    ctypes.POINTER(ctypes.c_size_t),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_ubyte)),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_uint),
-    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_ulonglong),
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_char_p)),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_size_t)),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_uint)),
+    ctypes.POINTER(ctypes.c_size_t),
 ]
 
 mkr_flush_signal_table = mkr_format.mkr_flush_signal_table

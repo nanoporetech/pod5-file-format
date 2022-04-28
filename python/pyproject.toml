@@ -13,6 +13,7 @@ dynamic = ["version", "description"]
 dependencies = [
     "iso8601",
     "h5py",
+    "more_itertools",
     "numpy",
 ]
 

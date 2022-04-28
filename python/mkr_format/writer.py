@@ -29,6 +29,19 @@ def tuple_to_char_arrays(tup: typing.Tuple[str, str]):
     )
 
 
+def array_of_pointers_to_numpy_data(ctype, numpy_data):
+    size = numpy_data.shape[0]
+    pointer_type = ctypes.POINTER(ctype)
+    array = (pointer_type * size)()
+    data_pointer = ctypes.addressof(numpy_data.ctypes.data_as(pointer_type).contents)
+    for i in range(size):
+        array[i] = ctypes.cast(
+            ctypes.c_void_p(data_pointer + i * numpy_data.itemsize), pointer_type
+        )
+
+    return array
+
+
 class EndReason(Enum):
     UNKNOWN = 0
     MUX_CHANGE = 1
@@ -113,56 +126,120 @@ class FileWriter:
     def add_read(
         self,
         read_id: bytes,
-        pore: ctypes.c_short,
-        calibration: ctypes.c_short,
+        pore: int,
+        calibration: int,
         read_number: int,
         start_sample: int,
         median_before: float,
-        end_reason: ctypes.c_short,
-        run_info: ctypes.c_short,
+        end_reason: int,
+        run_info: int,
         signal,
         sample_count,
         pre_compressed_signal: bool = False,
     ):
+        return self.add_reads(
+            numpy.array([read_id], dtype=numpy.uint8),
+            numpy.array([pore], dtype=numpy.int16),
+            numpy.array([calibration], dtype=numpy.int16),
+            numpy.array([read_number], dtype=numpy.uint32),
+            numpy.array([start_sample], dtype=numpy.uint64),
+            numpy.array([median_before], dtype=numpy.float),
+            numpy.array([end_reason], dtype=numpy.int16),
+            numpy.array([run_info], dtype=numpy.int16),
+            numpy.array([signal], dtype=numpy.int16),
+            numpy.array([sample_count], type=numpy.uint32),
+            pre_compressed_signal,
+        )
+
+    def add_reads(
+        self,
+        read_ids,
+        pores,
+        calibrations,
+        read_numbers,
+        start_samples,
+        median_befores,
+        end_reasons,
+        run_infos,
+        signals,
+        sample_counts,
+        pre_compressed_signal: bool = False,
+    ):
+        read_id_data = ctypes.cast(
+            read_ids.ctypes.data_as(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ubyte)
+        )
         if pre_compressed_signal:
-            signal_bytes = signal.ctypes.data_as(ctypes.c_char_p)
-            signal_size = ctypes.c_size_t(signal.shape[0])
-            sample_count_arr = ctypes.c_uint(sample_count)
+            numpy_size_t = numpy.uint64
+            signals_bytes = numpy.array(
+                [signal.ctypes.data_as(ctypes.c_char_p).value for signal in signals]
+            )
+            signals_size = numpy.array(
+                [signal.shape[0] for signal in signals], dtype=numpy_size_t
+            )
+            signals_size_ptrs = array_of_pointers_to_numpy_data(
+                ctypes.c_size_t, signals_size
+            )
+
+            signal_pointer_type = ctypes.POINTER(ctypes.c_char_p)
+            signal_ptrs = (signal_pointer_type * len(signals))()
+            for i in range(len(signals)):
+                signal_ptrs[i] = ctypes.pointer(
+                    signals[i].ctypes.data_as(ctypes.c_char_p)
+                )
+
+            sample_counts_ptrs = array_of_pointers_to_numpy_data(
+                ctypes.c_uint, sample_counts
+            )
+            signal_chunk_counts = numpy.ones(dtype=numpy_size_t, shape=(len(signals)))
+
+            short_ptr_type = ctypes.POINTER(ctypes.c_short)
             check_error(
-                c_api.mkr_add_read_pre_compressed(
+                c_api.mkr_add_reads_pre_compressed(
                     self._writer,
-                    ctypes.cast(
-                        ctypes.c_char_p(read_id), ctypes.POINTER(ctypes.c_ubyte)
-                    ),
-                    pore,
-                    calibration,
-                    read_number,
-                    start_sample,
-                    median_before,
-                    end_reason,
-                    run_info,
-                    ctypes.pointer(signal_bytes),
-                    ctypes.pointer(signal_size),
-                    ctypes.pointer(sample_count_arr),
-                    1,
+                    read_ids.shape[0],
+                    read_id_data,
+                    pores.ctypes.data_as(short_ptr_type),
+                    calibrations.ctypes.data_as(short_ptr_type),
+                    read_numbers.ctypes.data_as(ctypes.POINTER(ctypes.c_uint)),
+                    start_samples.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)),
+                    median_befores.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+                    end_reasons.ctypes.data_as(short_ptr_type),
+                    run_infos.ctypes.data_as(short_ptr_type),
+                    signal_ptrs,
+                    signals_size_ptrs,
+                    sample_counts_ptrs,
+                    signal_chunk_counts.ctypes.data_as(ctypes.POINTER(ctypes.c_size_t)),
                 )
             )
         else:
+            signal_pointer_type = ctypes.POINTER(ctypes.c_char_p)
+            signal_ptrs = (signal_pointer_type * len(signals))()
+            for i in range(len(signals)):
+                signal_ptrs[i] = ctypes.pointer(
+                    signals[i].ctypes.data_as(ctypes.c_short)
+                )
+
+            signals_size = numpy.array(
+                [signal.shape[0] for signal in signals], dtype=numpy_size_t
+            )
+            signals_size_ptrs = array_of_pointers_to_numpy_data(
+                ctypes.c_size_t, signals_size
+            )
+
             check_error(
-                c_api.mkr_add_read(
+                c_api.mkr_add_reads(
                     self._writer,
-                    ctypes.cast(
-                        ctypes.c_char_p(read_id), ctypes.POINTER(ctypes.c_ubyte)
-                    ),
-                    pore,
-                    calibration,
-                    read_number,
-                    start_sample,
-                    median_before,
-                    end_reason,
-                    run_info,
-                    signal.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
-                    signal.shape[0],
+                    read_ids.shape[0],
+                    read_id_data,
+                    pores.ctypes.data_as(short_ptr_type),
+                    calibrations.ctypes.data_as(short_ptr_type),
+                    read_numbers.ctypes.data_as(ctypes.POINTER(ctypes.c_uint)),
+                    start_samples.ctypes.data_as(ctypes.POINTER(ctypes.c_ulonglong)),
+                    median_befores.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+                    end_reasons.ctypes.data_as(short_ptr_type),
+                    run_infos.ctypes.data_as(short_ptr_type),
+                    signal_ptrs,
+                    signals_size_ptrs,
                 )
             )
 
