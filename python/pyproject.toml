@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core >=3.2,<4", "wheel"]
 build-backend = "flit_core.buildapi"
 
 
@@ -10,7 +10,9 @@ readme = "README.md"
 requires-python = "~= 3.7"
 dynamic = ["version", "description"]
 
-dependencies = [ ]
+dependencies = [
+    "numpy"
+]
 
 [tool.black]
 target-version = ["py37"]

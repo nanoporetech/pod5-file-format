@@ -30,7 +30,7 @@ pre-commit checks:
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - tar -czf ../mkr-file-format.tar.gz .
+    - tar -czf ../mkr-file-format-${OUTPUT_SKU}.tar.gz .
   artifacts:
     paths:
       - build/mkr-file-format*.tar.gz
@@ -42,6 +42,7 @@ linux-x64-gcc9-release-build:
     - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9-release"
+    OUTPUT_SKU: "linux-x64"
 
 linux-aarch64-gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-aarch64-gcc9:latest
@@ -51,6 +52,7 @@ linux-aarch64-gcc9-release-build:
     - high-cpu
   variables:
     CONAN_PROFILE: "linux-aarch64-gcc9-release"
+    OUTPUT_SKU: "linux-arm64"
 
 osx-x64-clang12-release-build:
   extends: [".build"]
@@ -61,6 +63,7 @@ osx-x64-clang12-release-build:
     - conan
   variables:
     CONAN_PROFILE: "macos-x86_64-appleclang-12.0-release"
+    OUTPUT_SKU: "osx-x64"
 
 win-x64-msvc2017-release-build:
   extends: [".build"]
@@ -71,9 +74,11 @@ win-x64-msvc2017-release-build:
     - conan
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
+    OUTPUT_SKU: "win-x64"
 
 wheel-build:
   stage: build-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
   tags: 
     - linux
   needs:
@@ -82,12 +87,13 @@ wheel-build:
     - linux-aarch64-gcc9-release-build
     - linux-x64-gcc9-release-build
   script:
-    - ls
+    - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
+    - mkdir wheels
     - cd python
-    - python setup.py bdist_wheel
+    - pip wheel . --wheel-dir ../wheels
   artifacts:
     paths:
-      - dist/*.whl
+      - wheels/*.whl
 
 wheel-test:
   stage: test-python

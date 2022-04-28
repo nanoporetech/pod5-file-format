@@ -1,7 +1,32 @@
 from pathlib import Path
 import ctypes
+import platform
 
 
+def sku_arch():
+    if platform.processor() == "arm":
+        return "arm64"
+    return "x64"
+
+
+sku = None
+so_ext = None
+if platform.system() == "Linux":
+    so_ext = ".so"
+    sku = f"linux-{sku_arch()}"
+elif sys.platform == "Darwin":
+    so_ext = ".dylib"
+    sku = f"osx-{sku_arch()}"
+elif sys.platform == "Windows":
+    so_ext = ".dll"
+    sku = f"win-{sku_arch()}"
+
+REPO_ROOT = Path(__file__).parent
+mkr_format = ctypes.cdll.LoadLibrary(
+    REPO_ROOT / "libs" / sku / ("libmkr_format" + so_ext)
+)
+
+# ----------------------------------------------------------------------------------------------------------------------
 class MkrFileWriter(ctypes.Structure):
     _fields_ = []
 
@@ -86,9 +111,6 @@ class RunInfoDictData(ctypes.Structure):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-REPO_ROOT = Path(__file__).parent.parent.parent
-mkr_format = ctypes.cdll.LoadLibrary(REPO_ROOT / "build" / "c++" / "libmkr_format.so")
-
 # Init the MKR library
 mkr_format.mkr_init()
 
