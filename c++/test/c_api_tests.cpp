@@ -1,5 +1,6 @@
 #include "mkr_format/c_api.h"
 
+#include <boost/filesystem.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
@@ -28,6 +29,10 @@ SCENARIO("C API") {
         CHECK(mkr_get_error_no() == MKR_ERROR_INVALID);
         CHECK(!mkr_create_combined_file("", NULL, NULL));
         CHECK(mkr_get_error_no() == MKR_ERROR_INVALID);
+
+        if (boost::filesystem::exists(combined_filename)) {
+            boost::filesystem::remove(combined_filename);
+        }
 
         auto combined_file = mkr_create_combined_file(combined_filename, "c_software", NULL);
         REQUIRE(combined_file);
@@ -144,16 +149,18 @@ SCENARIO("C API") {
             CHECK(mkr_get_signal_row_indices(batch_0, row, signal_row_indices.size(),
                                              signal_row_indices.data()) == MKR_OK);
 
-            std::vector<SignalRowInfo> signal_row_info(signal_row_count);
+            std::vector<SignalRowInfo*> signal_row_info(signal_row_count);
             CHECK(mkr_get_signal_row_info(combined_file, signal_row_indices.size(),
                                           signal_row_indices.data(),
                                           signal_row_info.data()) == MKR_OK);
 
-            std::vector<int16_t> read_signal(signal_row_info.front().stored_sample_count);
-            CHECK(mkr_get_signal(combined_file, signal_row_info.front().batch_index,
-                                 signal_row_info.front().batch_row_index,
-                                 signal_row_info.front().stored_sample_count,
+            std::vector<int16_t> read_signal(signal_row_info.front()->stored_sample_count);
+            CHECK(mkr_get_signal(combined_file, signal_row_info.front(),
+                                 signal_row_info.front()->stored_sample_count,
                                  read_signal.data()) == MKR_OK);
+
+            CHECK(mkr_free_signal_row_info(signal_row_indices.size(), signal_row_info.data()) ==
+                  MKR_OK);
 
             CHECK(read_signal == signal);
         }

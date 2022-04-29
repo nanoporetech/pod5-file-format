@@ -54,8 +54,11 @@ public:
 
     Result<SignalTableRecordBatch> read_record_batch(std::size_t i) const;
 
+    Result<std::size_t> signal_batch_for_row_id(std::size_t row, std::size_t* batch_start) const;
+
 private:
     SignalTableSchemaDescription m_field_locations;
+    mutable std::vector<std::size_t> m_cumulative_batch_sizes;
     arrow::MemoryPool* m_pool;
 };
 

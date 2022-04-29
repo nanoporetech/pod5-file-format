@@ -34,6 +34,11 @@ public:
         return m_signal_table_reader.num_record_batches();
     }
 
+    Result<std::size_t> signal_batch_for_row_id(std::size_t row,
+                                                std::size_t* batch_start_row) const override {
+        return m_signal_table_reader.signal_batch_for_row_id(row, batch_start_row);
+    }
+
 private:
     ReadTableReader m_read_table_reader;
     SignalTableReader m_signal_table_reader;

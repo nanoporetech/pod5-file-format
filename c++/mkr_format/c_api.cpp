@@ -471,79 +471,90 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_release_run_info(RunInfoDictData* run_info_dat
     return mkr_release_dict_type<RunInfoDataCHelper>(run_info_data);
 }
 
+class SignalRowInfoCHelper : public SignalRowInfo {
+public:
+    SignalRowInfoCHelper(mkr::SignalTableRecordBatch const& b) : batch(b) {}
+
+    mkr::SignalTableRecordBatch batch;
+};
+
 mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
                                     size_t signal_rows_count,
                                     uint64_t* signal_rows,
-                                    SignalRowInfo* signal_row_info) {
+                                    SignalRowInfo** signal_row_info) {
     mkr_reset_error();
 
     if (!check_not_null(reader) || !check_output_pointer_not_null(signal_row_info)) {
         return g_mkr_error_no;
     }
 
+    // Sort all rows first, in order to make searching faster.
     std::vector<std::uint64_t> signal_rows_sorted{signal_rows, signal_rows + signal_rows_count};
     std::sort(signal_rows_sorted.begin(), signal_rows_sorted.end());
 
-    std::size_t completed_requests = 0;
-    std::uint64_t abs_batch_start_row = 0;
-    std::size_t current_batch = 0;
-    std::size_t const batch_count = reader->reader->num_signal_record_batches();
-    for (std::size_t req_row_index = 0; req_row_index < signal_rows_sorted.size();
-         ++req_row_index) {
-        auto const row = signal_rows_sorted[req_row_index];
+    // Then loop all rows, forward.
+    for (std::size_t completed_rows = 0;
+         completed_rows <
+         signal_rows_sorted.size();) {  // No increment here, we do it below when we succeed.
+        auto const start_row = signal_rows_sorted[completed_rows];
 
-        assert(row >= abs_batch_start_row);
+        std::size_t batch_start_row = 0;
+        MKR_C_ASSIGN_OR_RAISE(std::size_t row_batch, (reader->reader->signal_batch_for_row_id(
+                                                             start_row, &batch_start_row)));
+        MKR_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(row_batch));
+        auto const batch_num_rows = batch.num_rows();
 
-        for (; current_batch < batch_count; ++current_batch) {
-            MKR_C_ASSIGN_OR_RAISE(auto batch,
-                                  reader->reader->read_signal_record_batch(current_batch));
-
-            auto abs_next_batch_start_row = abs_batch_start_row + batch.num_rows();
-            if (row < abs_next_batch_start_row) {
-                auto batch_row_index = row - abs_batch_start_row;
-
-                auto& output_info = signal_row_info[req_row_index];
-                output_info.batch_index = current_batch;
-                output_info.batch_row_index = batch_row_index;
-
-                auto samples = batch.samples_column();
-                output_info.stored_sample_count = samples->Value(batch_row_index);
-                MKR_C_ASSIGN_OR_RAISE(output_info.stored_byte_count,
-                                      batch.samples_byte_count(batch_row_index));
-
-                // Break out of the inner loop - next requested row might also be in this batch.
-                completed_requests += 1;
+        // Try to find answers for as many of the rows as possible, incrementing for loop index when we succeed
+        while (true) {
+            auto const row = signal_rows_sorted[completed_rows];
+            if (row >= (batch_start_row + batch_num_rows)) {
                 break;
             }
 
-            abs_batch_start_row = abs_next_batch_start_row;
+            auto const batch_row_index = row - batch_start_row;
+
+            auto output = std::make_unique<SignalRowInfoCHelper>(batch);
+
+            output->batch_index = row_batch;
+            output->batch_row_index = batch_row_index;
+
+            auto samples = batch.samples_column();
+            output->stored_sample_count = samples->Value(batch_row_index);
+            MKR_C_ASSIGN_OR_RAISE(output->stored_byte_count,
+                                  batch.samples_byte_count(batch_row_index));
+
+            signal_row_info[completed_rows] = output.release();
+            completed_rows += 1;
         }
     }
 
-    if (completed_requests != signal_rows_sorted.size()) {
-        assert(completed_requests < signal_rows_sorted.size());
-        mkr_set_error(mkr::Status::Invalid("Unable to find signal row index ",
-                                           signal_rows_sorted[completed_requests], ", only ",
-                                           abs_batch_start_row, " rows in file"));
+    return MKR_OK;
+}
+
+mkr_error_t mkr_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t** signal_row_info) {
+    for (std::size_t i = 0; i < signal_rows_count; ++i) {
+        std::unique_ptr<SignalRowInfoCHelper> helper(
+                static_cast<SignalRowInfoCHelper*>(signal_row_info[i]));
+        helper.reset();
     }
-    return g_mkr_error_no;
+    return MKR_OK;
 }
 
 mkr_error_t mkr_get_signal(MkrFileReader* reader,
-                           size_t batch_index,
-                           size_t batch_row_index,
+                           SignalRowInfo_t* row_info,
                            std::size_t sample_count,
                            std::int16_t* sample_data) {
     mkr_reset_error();
 
-    if (!check_not_null(reader) || !check_output_pointer_not_null(sample_data)) {
+    if (!check_not_null(reader) || !check_not_null(row_info) ||
+        !check_output_pointer_not_null(sample_data)) {
         return g_mkr_error_no;
     }
 
-    MKR_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(batch_index));
+    SignalRowInfoCHelper* row_info_data = static_cast<SignalRowInfoCHelper*>(row_info);
 
-    MKR_C_RETURN_NOT_OK(
-            batch.extract_signal_row(batch_row_index, gsl::make_span(sample_data, sample_count)));
+    MKR_C_RETURN_NOT_OK(row_info_data->batch.extract_signal_row(
+            row_info->batch_row_index, gsl::make_span(sample_data, sample_count)));
 
     return MKR_OK;
 }

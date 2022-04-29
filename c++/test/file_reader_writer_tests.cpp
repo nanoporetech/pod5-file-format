@@ -7,6 +7,7 @@
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
+#include <boost/filesystem.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 
@@ -112,6 +113,12 @@ SCENARIO("Split File Reader Writer Tests") {
     public:
         mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
                 mkr::FileWriterOptions const& options) override {
+            if (boost::filesystem::exists(split_file_signal)) {
+                boost::filesystem::remove(split_file_signal);
+            }
+            if (boost::filesystem::exists(split_file_reads)) {
+                boost::filesystem::remove(split_file_reads);
+            }
             return mkr::create_split_file_writer(split_file_signal, split_file_reads,
                                                  "test_software", options);
         }
@@ -132,6 +139,9 @@ SCENARIO("Combined File Reader Writer Tests") {
     public:
         mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
                 mkr::FileWriterOptions const& options) override {
+            if (boost::filesystem::exists(combined_file)) {
+                boost::filesystem::remove(combined_file);
+            }
             return mkr::create_combined_file_writer(combined_file, "test_software", options);
         }
 

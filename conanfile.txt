@@ -9,3 +9,4 @@ cmake_find_package_multi
 
 [options]
 arrow:with_boost=True
+arrow:with_jemalloc=True

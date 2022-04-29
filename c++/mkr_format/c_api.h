@@ -235,20 +235,26 @@ typedef struct SignalRowInfo SignalRowInfo_t;
 /// \param      reader                      The reader to query.
 /// \param      signal_rows_count           The number of signal rows to query.
 /// \param      signal_rows                 The signal rows to query.
-/// \param[out] signal_row_info             The output signal row information (must be an array of size signal_rows_count)
+/// \param[out] signal_row_info             Pointers to the output signal row information (must be an array of size signal_rows_count)
 MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal_row_info(MkrFileReader_t* reader,
                                                       size_t signal_rows_count,
                                                       uint64_t* signal_rows,
-                                                      SignalRowInfo_t* signal_row_info);
+                                                      SignalRowInfo_t** signal_row_info);
+
+/// \brief Release a list of signal row infos allocated by [mkr_get_signal_row_info].
+/// \param      signal_rows_count           The number of signal rows to release.
+/// \param      signal_row_info             The signal row infos to release.
+/// \note Calls to mkr_free_signal_row_info must be 1:1 with [mkr_get_signal_row_info], you cannot free part of the returned data.
+MKR_FORMAT_EXPORT mkr_error_t mkr_free_signal_row_info(size_t signal_rows_count,
+                                                       SignalRowInfo_t** signal_row_info);
+
 /// \brief Find the info for a signal row in a reader.
 /// \param      reader          The reader to query.
-/// \param      batch_index     The signal batch index to query data for.
-/// \param      batch_row_index The batch row to query information from.
+/// \param      row_info        The signal row info batch index to query data for.
 /// \param      sample_count    The number of samples allocated in [sample_data] (must equal the length of signal data in the row).
 /// \param[out] sample_data     The output location for the queried samples.
 MKR_FORMAT_EXPORT mkr_error_t mkr_get_signal(MkrFileReader_t* reader,
-                                             size_t batch_index,
-                                             size_t batch_row_index,
+                                             SignalRowInfo_t* row_info,
                                              size_t sample_count,
                                              int16_t* sample_data);
 

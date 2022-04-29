@@ -127,6 +127,8 @@ FILE_READER_PTR = ctypes.POINTER(MkrFileReader)
 FILE_WRITER_PTR = ctypes.POINTER(MkrFileWriter)
 READ_RECORD_BATCH_POINTER = ctypes.POINTER(MkrReadRecordBatch)
 
+READ_ID = ctypes.c_ubyte * 16
+
 # ----------------------------------------------------------------------------------------------------------------------
 mkr_get_error_string = mkr_format.mkr_get_error_string
 mkr_get_error_string.restype = ctypes.c_char_p
@@ -230,7 +232,7 @@ mkr_add_reads.restype = ERROR_TYPE
 mkr_add_reads.argtypes = [
     FILE_WRITER_PTR,
     ctypes.c_uint,
-    ctypes.POINTER(ctypes.POINTER(ctypes.c_ubyte)),
+    ctypes.POINTER(READ_ID),
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_uint),
@@ -247,7 +249,7 @@ mkr_add_reads_pre_compressed.restype = ERROR_TYPE
 mkr_add_reads_pre_compressed.argtypes = [
     FILE_WRITER_PTR,
     ctypes.c_uint,
-    ctypes.POINTER(ctypes.POINTER(ctypes.c_ubyte)),
+    ctypes.POINTER(READ_ID),
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_uint),

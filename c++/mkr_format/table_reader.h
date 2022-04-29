@@ -21,8 +21,8 @@ public:
 
     TableRecordBatch(TableRecordBatch&&);
     TableRecordBatch& operator=(TableRecordBatch&&);
-    TableRecordBatch(TableRecordBatch const&) = delete;
-    TableRecordBatch& operator=(TableRecordBatch const&) = delete;
+    TableRecordBatch(TableRecordBatch const&);
+    TableRecordBatch& operator=(TableRecordBatch const&);
     ~TableRecordBatch();
 
     std::size_t num_rows() const;

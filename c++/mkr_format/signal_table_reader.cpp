@@ -99,6 +99,39 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
     return SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
 }
 
+Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
+                                                               std::size_t* batch_start_row) const {
+    if (m_cumulative_batch_sizes.empty()) {
+        auto const batch_count = num_record_batches();
+        m_cumulative_batch_sizes.resize(batch_count);
+
+        std::size_t cumulative_row_count = 0;
+        for (std::size_t i = 0; i < batch_count; ++i) {
+            ARROW_ASSIGN_OR_RAISE(auto batch, read_record_batch(i));
+            cumulative_row_count += batch.num_rows();
+
+            // Assign each element the cumulative size of the batches.
+            m_cumulative_batch_sizes[i] = cumulative_row_count;
+        }
+    }
+
+    // Find cumulative row count >= to [row]
+    auto it =
+            std::lower_bound(m_cumulative_batch_sizes.begin(), m_cumulative_batch_sizes.end(), row);
+    if (it == m_cumulative_batch_sizes.end()) {
+        return mkr::Status::Invalid("Unable to find row ", row, " in batches (max row ",
+                                    m_cumulative_batch_sizes.back(), ")");
+    }
+
+    if (batch_start_row) {
+        *batch_start_row = 0;
+        // If we aren't in the first batch, the abs batch start is the entry before the one we found.
+        if (it != m_cumulative_batch_sizes.begin()) {
+            *batch_start_row = *(it - 1);
+        }
+    }
+    return std::distance(m_cumulative_batch_sizes.begin(), it);
+}
 //---------------------------------------------------------------------------------------------------------------------
 
 Result<SignalTableReader> make_signal_table_reader(

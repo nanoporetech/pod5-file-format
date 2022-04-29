@@ -165,9 +165,17 @@ class FileWriter:
         sample_counts,
         pre_compressed_signal: bool = False,
     ):
-        read_id_data = ctypes.cast(
-            read_ids.ctypes.data_as(ctypes.c_char_p), ctypes.POINTER(ctypes.c_ubyte)
-        )
+        read_id_data = read_ids.ctypes.data_as(ctypes.POINTER(c_api.READ_ID))
+
+        read_ids = read_ids.astype(numpy.uint8, copy=False)
+        pores = pores.astype(numpy.int16, copy=False)
+        calibrations = calibrations.astype(numpy.int16, copy=False)
+        read_numbers = read_numbers.astype(numpy.uint32, copy=False)
+        start_samples = start_samples.astype(numpy.uint64, copy=False)
+        median_befores = median_befores.astype(numpy.float32, copy=False)
+        end_reasons = end_reasons.astype(numpy.int16, copy=False)
+        run_infos = run_infos.astype(numpy.int16, copy=False)
+
         if pre_compressed_signal:
             numpy_size_t = numpy.uint64
             signals_bytes = numpy.array(
@@ -395,5 +403,5 @@ def vbz_compress_signal(signal):
         signal_bytes.ctypes.data_as(ctypes.c_char_p),
         ctypes.pointer(signal_size),
     )
-    numpy.resize(signal_bytes, signal_size.value)
+    signal_bytes = numpy.resize(signal_bytes, signal_size.value)
     return signal_bytes

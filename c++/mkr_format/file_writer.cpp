@@ -315,6 +315,16 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
+    if (boost::filesystem::exists(reads_path)) {
+        return Status::Invalid("Unable to create new file '", reads_path.string(),
+                               "', already exists");
+    }
+
+    if (boost::filesystem::exists(signal_path)) {
+        return Status::Invalid("Unable to create new file '", signal_path.string(),
+                               "', already exists");
+    }
+
     // Open dictionary writrs:
     ARROW_ASSIGN_OR_RAISE(auto dict_writers, make_dictionary_writers(pool));
 
@@ -389,6 +399,10 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
     auto pool = options.memory_pool();
     if (!pool) {
         return Status::Invalid("Invalid memory pool specified for file writer");
+    }
+
+    if (boost::filesystem::exists(path)) {
+        return Status::Invalid("Unable to create new file '", path.string(), "', already exists");
     }
 
     // Open dictionary writrs:
