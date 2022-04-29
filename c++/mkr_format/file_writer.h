@@ -20,6 +20,8 @@ class MKR_FORMAT_EXPORT FileWriterOptions {
 public:
     /// \brief Default chunk size for signal table entries
     static constexpr std::uint32_t DEFAULT_SIGNAL_CHUNK_SIZE = 102'400;
+    static constexpr std::uint32_t DEFAULT_SIGNAL_TABLE_BATCH_SIZE = 100;
+    static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 1000;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
 
     FileWriterOptions();
@@ -35,10 +37,20 @@ public:
     void set_signal_type(SignalType signal_type) { m_signal_type = signal_type; }
     SignalType signal_type() const { return m_signal_type; }
 
+    void set_signal_table_batch_size(std::size_t batch_size) {
+        m_signal_table_batch_size = batch_size;
+    }
+    std::size_t signal_table_batch_size() const { return m_signal_table_batch_size; }
+
+    void set_read_table_batch_size(std::size_t batch_size) { m_read_table_batch_size = batch_size; }
+    std::size_t read_table_batch_size() const { return m_read_table_batch_size; }
+
 private:
     std::uint32_t m_max_signal_chunk_size;
     arrow::MemoryPool* m_memory_pool;
     SignalType m_signal_type;
+    std::size_t m_signal_table_batch_size;
+    std::size_t m_read_table_batch_size;
 };
 
 class FileWriterImpl;
@@ -66,9 +78,6 @@ public:
             CalibrationData const& calibration_data);
     mkr::Result<EndReasonDictionaryIndex> add_end_reason(EndReasonData const& end_reason_data);
     mkr::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data);
-
-    mkr::Status flush_signal_table();
-    mkr::Status flush_reads_table();
 
 private:
     std::unique_ptr<FileWriterImpl> m_impl;

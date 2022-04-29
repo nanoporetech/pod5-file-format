@@ -149,6 +149,13 @@ mkr::FileWriterOptions make_internal_writer_options(MkrWriterOptions const* opti
         if (options->signal_compression_type == UNCOMPRESSED_SIGNAL) {
             internal_options.set_signal_type(mkr::SignalType::UncompressedSignal);
         }
+
+        if (options->signal_table_batch_size != 0) {
+            internal_options.set_signal_table_batch_size(options->signal_table_batch_size);
+        }
+        if (options->read_table_batch_size != 0) {
+            internal_options.set_read_table_batch_size(options->read_table_batch_size);
+        }
     }
     return internal_options;
 }
@@ -833,16 +840,6 @@ mkr_error_t mkr_add_reads_pre_compressed(MkrFileWriter* file,
                               run_info[read]},
                 gsl::make_span(signal_rows)));
     }
-    return MKR_OK;
-}
-
-mkr_error_t mkr_flush_signal_table(MkrFileWriter* file) {
-    MKR_C_RETURN_NOT_OK(file->writer->flush_signal_table());
-    return MKR_OK;
-}
-
-mkr_error_t mkr_flush_reads_table(MkrFileWriter* file) {
-    MKR_C_RETURN_NOT_OK(file->writer->flush_reads_table());
     return MKR_OK;
 }
 

@@ -46,8 +46,8 @@ SCENARIO("Signal table Tests") {
             REQUIRE(schema_metadata.ok());
             REQUIRE(file_out.ok());
 
-            auto writer =
-                    mkr::make_signal_table_writer(*file_out, *schema_metadata, signal_type, pool);
+            auto writer = mkr::make_signal_table_writer(*file_out, *schema_metadata, 100,
+                                                        signal_type, pool);
             REQUIRE(writer.ok());
 
             WHEN("Writing a read") {
@@ -55,7 +55,6 @@ SCENARIO("Signal table Tests") {
 
                 auto row_2 = writer->add_signal(read_id_2, gsl::make_span(signal_2));
 
-                REQUIRE(writer->flush().ok());
                 REQUIRE(writer->close().ok());
 
                 THEN("Read row ids are correct") {

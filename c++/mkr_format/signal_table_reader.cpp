@@ -96,41 +96,30 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
     if (!record_batch.ok()) {
         return record_batch.status();
     }
-    return SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
+    auto batch = SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
+    m_last_batch.emplace(i, batch);
+    return batch;
 }
 
 Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
                                                                std::size_t* batch_start_row) const {
-    if (m_cumulative_batch_sizes.empty()) {
-        auto const batch_count = num_record_batches();
-        m_cumulative_batch_sizes.resize(batch_count);
-
-        std::size_t cumulative_row_count = 0;
-        for (std::size_t i = 0; i < batch_count; ++i) {
-            ARROW_ASSIGN_OR_RAISE(auto batch, read_record_batch(i));
-            cumulative_row_count += batch.num_rows();
-
-            // Assign each element the cumulative size of the batches.
-            m_cumulative_batch_sizes[i] = cumulative_row_count;
-        }
+    if (!m_last_batch) {
+        ARROW_RETURN_NOT_OK(read_record_batch(0));
     }
+    assert(!!m_last_batch);
+    auto const& batch_size = m_last_batch->second.num_rows();
 
-    // Find cumulative row count >= to [row]
-    auto it =
-            std::lower_bound(m_cumulative_batch_sizes.begin(), m_cumulative_batch_sizes.end(), row);
-    if (it == m_cumulative_batch_sizes.end()) {
-        return mkr::Status::Invalid("Unable to find row ", row, " in batches (max row ",
-                                    m_cumulative_batch_sizes.back(), ")");
-    }
+    auto batch = row / batch_size;
 
     if (batch_start_row) {
-        *batch_start_row = 0;
-        // If we aren't in the first batch, the abs batch start is the entry before the one we found.
-        if (it != m_cumulative_batch_sizes.begin()) {
-            *batch_start_row = *(it - 1);
-        }
+        *batch_start_row = batch * batch_size;
     }
-    return std::distance(m_cumulative_batch_sizes.begin(), it);
+
+    if (batch >= num_record_batches()) {
+        return Status::Invalid("Row outside batch bounds");
+    }
+
+    return batch;
 }
 //---------------------------------------------------------------------------------------------------------------------
 

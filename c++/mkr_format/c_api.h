@@ -280,6 +280,11 @@ struct MkrWriterOptions {
     /// \brief Signal type to write to the signals table.
     /// \note Use 'DEFAULT_SIGNAL_COMPRESSION' to use default value.
     int8_t signal_compression_type;
+
+    /// \brief The size of each batch written for the signal table (zero for default).
+    size_t signal_table_batch_size;
+    /// \brief The size of each batch written for the reads table (zero for default).
+    size_t read_table_batch_size;
 };
 typedef struct MkrWriterOptions MkrWriterOptions_t;
 
@@ -456,14 +461,6 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_add_reads_pre_compressed(MkrFileWriter_t* file
                                                            size_t const** compressed_signal_size,
                                                            uint32_t const** sample_counts,
                                                            size_t const* signal_chunk_count);
-
-/// \brief Flush the signal table to disk, completing the in progress record batch.
-/// \param      file            The file to flush the signal table on.
-MKR_FORMAT_EXPORT mkr_error_t mkr_flush_signal_table(MkrFileWriter_t* file);
-
-/// \brief Flush the reads table to disk, completing the in progress record batch.
-/// \param      file            The file to add the read table on.
-MKR_FORMAT_EXPORT mkr_error_t mkr_flush_reads_table(MkrFileWriter_t* file);
 
 /// \brief Find the max size of a compressed array of samples.
 /// \param sample_count The number of samples in the source signal.

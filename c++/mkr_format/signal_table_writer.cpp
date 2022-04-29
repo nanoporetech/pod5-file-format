@@ -72,10 +72,12 @@ SignalTableWriter::SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWrit
                                      std::shared_ptr<arrow::Schema>&& schema,
                                      SignalBuilderVariant&& signal_builder,
                                      SignalTableSchemaDescription const& field_locations,
+                                     std::size_t table_batch_size,
                                      arrow::MemoryPool* pool)
         : m_pool(pool),
           m_schema(schema),
           m_field_locations(field_locations),
+          m_table_batch_size(table_batch_size),
           m_writer(std::move(writer)),
           m_signal_builder(std::move(signal_builder)) {
     auto uuid_type = m_schema->field(m_field_locations.read_id)->type();
@@ -102,7 +104,7 @@ Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read
         return Status::IOError("Writer terminated");
     }
 
-    auto row_id = m_flushed_row_count + m_current_batch_row_count;
+    auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
 
     ARROW_RETURN_NOT_OK(
@@ -110,6 +112,11 @@ Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(signal.size()));
     ++m_current_batch_row_count;
+
+    if (m_current_batch_row_count >= m_table_batch_size) {
+        ARROW_RETURN_NOT_OK(write_batch());
+    }
+
     return row_id;
 }
 
@@ -121,7 +128,7 @@ Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
         return Status::IOError("Writer terminated");
     }
 
-    auto row_id = m_flushed_row_count + m_current_batch_row_count;
+    auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
 
     ARROW_RETURN_NOT_OK(
@@ -132,7 +139,20 @@ Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
     return row_id;
 }
 
-Status SignalTableWriter::flush() {
+Status SignalTableWriter::close() {
+    // Check for already closed
+    if (!m_writer) {
+        return Status::OK();
+    }
+
+    ARROW_RETURN_NOT_OK(write_batch());
+
+    ARROW_RETURN_NOT_OK(m_writer->Close());
+    m_writer = nullptr;
+    return Status::OK();
+}
+
+Status SignalTableWriter::write_batch() {
     if (m_current_batch_row_count == 0) {
         return Status::OK();
     }
@@ -151,28 +171,16 @@ Status SignalTableWriter::flush() {
 
     auto const record_batch =
             arrow::RecordBatch::Make(m_schema, m_current_batch_row_count, std::move(columns));
-    m_flushed_row_count += m_current_batch_row_count;
+    m_written_batched_row_count += m_current_batch_row_count;
     m_current_batch_row_count = 0;
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
     return Status();
 }
 
-Status SignalTableWriter::close() {
-    // Check for already closed
-    if (!m_writer) {
-        return Status::OK();
-    }
-
-    ARROW_RETURN_NOT_OK(flush());
-
-    ARROW_RETURN_NOT_OK(m_writer->Close());
-    m_writer = nullptr;
-    return Status::OK();
-}
-
 Result<SignalTableWriter> make_signal_table_writer(
         std::shared_ptr<arrow::io::OutputStream> const& sink,
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
+        std::size_t table_batch_size,
         SignalType compression_type,
         arrow::MemoryPool* pool) {
     SignalTableSchemaDescription field_locations;
@@ -197,7 +205,7 @@ Result<SignalTableWriter> make_signal_table_writer(
     }
 
     return SignalTableWriter(std::move(writer), std::move(schema), std::move(signal_builder),
-                             field_locations, pool);
+                             field_locations, table_batch_size, pool);
 }
 
 }  // namespace mkr

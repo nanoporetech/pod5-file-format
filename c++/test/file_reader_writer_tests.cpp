@@ -44,6 +44,8 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
     {
         mkr::FileWriterOptions options;
         options.set_max_signal_chunk_size(20'480);
+        options.set_read_table_batch_size(1);
+        options.set_signal_table_batch_size(5);
 
         auto writer = file_ifc.create_file(options);
         REQUIRE(writer.ok());
@@ -59,8 +61,6 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
                                                start_sample, median_before, *end_reason, *run_info},
                                               gsl::make_span(signal_1))
                           .ok());
-            CHECK((*writer)->flush_signal_table().ok());
-            CHECK((*writer)->flush_reads_table().ok());
         }
     }
 

@@ -82,9 +82,9 @@ SCENARIO("Read table Tests") {
             auto run_info_writer = mkr::make_run_info_writer(pool);
             REQUIRE(run_info_writer.ok());
 
-            auto writer = mkr::make_read_table_writer(*file_out, *schema_metadata, *pore_writer,
-                                                      *calibration_writer, *end_reason_writer,
-                                                      *run_info_writer, pool);
+            auto writer = mkr::make_read_table_writer(*file_out, *schema_metadata, read_count,
+                                                      *pore_writer, *calibration_writer,
+                                                      *end_reason_writer, *run_info_writer, pool);
             REQUIRE(writer.ok());
 
             auto const pore_1 = (*pore_writer)->add({12, 2, "Well Type"});
@@ -112,10 +112,6 @@ SCENARIO("Read table Tests") {
                     REQUIRE(row.ok());
                     CHECK(*row == idx);
                 }
-
-                auto flush_res = writer->flush();
-                CAPTURE(flush_res);
-                REQUIRE(flush_res.ok());
             }
             REQUIRE(writer->close().ok());
         }

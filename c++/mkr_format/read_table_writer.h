@@ -26,6 +26,7 @@ public:
     ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&& writer,
                     std::shared_ptr<arrow::Schema>&& schema,
                     ReadTableSchemaDescription const& field_locations,
+                    std::size_t table_batch_size,
                     std::shared_ptr<PoreWriter> const& pore_writer,
                     std::shared_ptr<CalibrationWriter> const& calibration_writer,
                     std::shared_ptr<EndReasonWriter> const& end_reason_writer,
@@ -45,16 +46,17 @@ public:
     Result<std::size_t> add_read(ReadData const& read_data,
                                  gsl::span<SignalTableRowIndex const> const& signal);
 
-    /// \brief Flush buffered data into the writer as a record batch.
-    Status flush();
-
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();
 
 private:
+    /// \brief Flush buffered data into the writer as a record batch.
+    Status write_batch();
+
     arrow::MemoryPool* m_pool = nullptr;
     std::shared_ptr<arrow::Schema> m_schema;
     ReadTableSchemaDescription m_field_locations;
+    std::size_t m_table_batch_size;
 
     std::shared_ptr<arrow::ipc::RecordBatchWriter> m_writer;
 
@@ -77,18 +79,20 @@ private:
     std::shared_ptr<EndReasonWriter> m_end_reason_writer;
     std::shared_ptr<RunInfoWriter> m_run_info_writer;
 
-    std::size_t m_flushed_row_count = 0;
+    std::size_t m_written_batched_row_count = 0;
     std::size_t m_current_batch_row_count = 0;
 };
 
 /// \brief Make a new writer for a read table.
 /// \param sink Sink to be used for output of the table.
 /// \param metadata Metadata to be applied to the table schema.
+/// \param table_batch_size The size of each batch written for the table.
 /// \param pool Pool to be used for building table in memory.
 /// \returns The writer for the new table.
 MKR_FORMAT_EXPORT Result<ReadTableWriter> make_read_table_writer(
         std::shared_ptr<arrow::io::OutputStream> const& sink,
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
+        std::size_t table_batch_size,
         std::shared_ptr<PoreWriter> const& pore_writer,
         std::shared_ptr<CalibrationWriter> const& calibration_writer,
         std::shared_ptr<EndReasonWriter> const& end_reason_writer,

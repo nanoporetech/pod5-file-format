@@ -111,10 +111,6 @@ public:
                                                                 sample_count);
     }
 
-    mkr::Status flush_signal_table() { return m_signal_table_writer->flush(); }
-
-    mkr::Status flush_reads_table() { return m_read_table_writer->flush(); }
-
     mkr::Status close_read_table_writer() {
         if (m_read_table_writer) {
             ARROW_RETURN_NOT_OK(m_read_table_writer->close());
@@ -273,10 +269,6 @@ mkr::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
     return m_impl->add_pre_compressed_signal(read_id, signal_bytes, sample_count);
 }
 
-mkr::Status FileWriter::flush_signal_table() { return m_impl->flush_signal_table(); }
-
-mkr::Status FileWriter::flush_reads_table() { return m_impl->flush_reads_table(); }
-
 mkr::Result<PoreDictionaryIndex> FileWriter::add_pore(PoreData const& pore_data) {
     return m_impl->add_pore(pore_data);
 }
@@ -340,7 +332,8 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
                           arrow::io::FileOutputStream::Open(reads_path.string(), false));
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_writer,
-            make_read_table_writer(read_table_file, file_schema_metadata, dict_writers.pore_writer,
+            make_read_table_writer(read_table_file, file_schema_metadata,
+                                   options.read_table_batch_size(), dict_writers.pore_writer,
                                    dict_writers.calibration_writer, dict_writers.end_reason_writer,
                                    dict_writers.run_info_writer, pool));
 
@@ -349,6 +342,7 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
                           arrow::io::FileOutputStream::Open(signal_path.string(), false));
     ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
                           make_signal_table_writer(signal_table_file, file_schema_metadata,
+                                                   options.signal_table_batch_size(),
                                                    options.signal_type(), pool));
 
     // Throw it all together into a writer object:
@@ -424,7 +418,8 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
                           arrow::io::FileOutputStream::Open(reads_tmp_path.string(), false));
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_tmp_writer,
-            make_read_table_writer(read_table_file, file_schema_metadata, dict_writers.pore_writer,
+            make_read_table_writer(read_table_file, file_schema_metadata,
+                                   options.read_table_batch_size(), dict_writers.pore_writer,
                                    dict_writers.calibration_writer, dict_writers.end_reason_writer,
                                    dict_writers.run_info_writer, pool));
 
@@ -439,6 +434,7 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
     auto signal_file = std::make_shared<SubFileOutputStream>(main_file, signal_table_start);
     ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
                           make_signal_table_writer(signal_file, file_schema_metadata,
+                                                   options.signal_table_batch_size(),
                                                    options.signal_type(), pool));
 
     // Throw it all together into a writer object:

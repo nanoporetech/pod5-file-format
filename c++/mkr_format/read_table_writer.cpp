@@ -16,6 +16,7 @@ namespace mkr {
 ReadTableWriter::ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&& writer,
                                  std::shared_ptr<arrow::Schema>&& schema,
                                  ReadTableSchemaDescription const& field_locations,
+                                 std::size_t table_batch_size,
                                  std::shared_ptr<PoreWriter> const& pore_writer,
                                  std::shared_ptr<CalibrationWriter> const& calibration_writer,
                                  std::shared_ptr<EndReasonWriter> const& end_reason_writer,
@@ -24,6 +25,7 @@ ReadTableWriter::ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&
         : m_pool(pool),
           m_schema(schema),
           m_field_locations(field_locations),
+          m_table_batch_size(table_batch_size),
           m_writer(std::move(writer)),
           m_pore_writer(pore_writer),
           m_calibration_writer(calibration_writer),
@@ -64,7 +66,7 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
         return Status::IOError("Writer terminated");
     }
 
-    auto row_id = m_flushed_row_count + m_current_batch_row_count;
+    auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_data.read_id.begin()));
 
     ARROW_RETURN_NOT_OK(m_signal_builder->Append());  // start new slot
@@ -84,10 +86,26 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
     ARROW_RETURN_NOT_OK(m_run_info_builder->Append(read_data.run_info));
 
     ++m_current_batch_row_count;
+
+    if (m_current_batch_row_count >= m_table_batch_size) {
+        ARROW_RETURN_NOT_OK(write_batch());
+    }
     return row_id;
 }
 
-Status ReadTableWriter::flush() {
+Status ReadTableWriter::close() {
+    // Check for already closed
+    if (!m_writer) {
+        return Status::OK();
+    }
+
+    ARROW_RETURN_NOT_OK(write_batch());
+    ARROW_RETURN_NOT_OK(m_writer->Close());
+    m_writer = nullptr;
+    return Status::OK();
+}
+
+Status ReadTableWriter::write_batch() {
     if (m_current_batch_row_count == 0) {
         return Status::OK();
     }
@@ -125,27 +143,16 @@ Status ReadTableWriter::flush() {
     auto const record_batch =
             arrow::RecordBatch::Make(m_schema, m_current_batch_row_count, std::move(columns));
 
-    m_flushed_row_count += m_current_batch_row_count;
+    m_written_batched_row_count += m_current_batch_row_count;
     m_current_batch_row_count = 0;
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
     return Status();
 }
 
-Status ReadTableWriter::close() {
-    // Check for already closed
-    if (!m_writer) {
-        return Status::OK();
-    }
-
-    ARROW_RETURN_NOT_OK(flush());
-    ARROW_RETURN_NOT_OK(m_writer->Close());
-    m_writer = nullptr;
-    return Status::OK();
-}
-
 Result<ReadTableWriter> make_read_table_writer(
         std::shared_ptr<arrow::io::OutputStream> const& sink,
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
+        std::size_t table_batch_size,
         std::shared_ptr<PoreWriter> const& pore_writer,
         std::shared_ptr<CalibrationWriter> const& calibration_writer,
         std::shared_ptr<EndReasonWriter> const& end_reason_writer,
@@ -162,8 +169,9 @@ Result<ReadTableWriter> make_read_table_writer(
 
     ARROW_ASSIGN_OR_RAISE(auto writer, arrow::ipc::MakeFileWriter(sink, schema, options, metadata));
 
-    return ReadTableWriter(std::move(writer), std::move(schema), field_locations, pore_writer,
-                           calibration_writer, end_reason_writer, run_info_writer, pool);
+    return ReadTableWriter(std::move(writer), std::move(schema), field_locations, table_batch_size,
+                           pore_writer, calibration_writer, end_reason_writer, run_info_writer,
+                           pool);
 }
 
 }  // namespace mkr
