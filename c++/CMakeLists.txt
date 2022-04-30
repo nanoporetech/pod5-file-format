@@ -161,7 +161,6 @@ else()
 endif()
 
 # Copy lib to python dir for easy dev:
-message("XX ${python_base_dest_dir}/${python_lib_subfolder}")
 add_custom_command(
     TARGET mkr_format
     POST_BUILD

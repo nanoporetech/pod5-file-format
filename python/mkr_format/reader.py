@@ -139,7 +139,7 @@ class ReadRow:
             )
         )
 
-        """self._signal_rows = []
+        self._signal_rows = []
         for i in range(self._signal_row_count):
             item = self._signal_row_info[i].contents
             self._signal_rows.append(
@@ -149,7 +149,7 @@ class ReadRow:
                     item.stored_sample_count,
                     item.stored_byte_count,
                 )
-            )"""
+            )
 
     @property
     def read_id(self):

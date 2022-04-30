@@ -7,8 +7,6 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/ipc/reader.h>
 
-#include <iostream>
-
 namespace mkr {
 
 SignalTableRecordBatch::SignalTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
@@ -98,7 +96,6 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
         return m_last_batch->second;
     }
 
-    std::cout << "Really read batch " << i << "\n";
     auto record_batch = reader()->ReadRecordBatch(i);
     if (!record_batch.ok()) {
         return record_batch.status();

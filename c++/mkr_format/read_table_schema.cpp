@@ -5,8 +5,6 @@
 
 #include <arrow/type.h>
 
-#include <iostream>
-
 namespace mkr {
 
 std::shared_ptr<arrow::StructType> make_pore_struct_type() {

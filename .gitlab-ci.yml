@@ -4,6 +4,9 @@ stages:
   - build-python
   - test-python
 
+variables:
+  CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v24.zip
+
 pre-commit checks:
     image: python:3.9
     stage: pre-flight
@@ -87,7 +90,15 @@ wheel-build:
     - linux-aarch64-gcc9-release-build
     - linux-x64-gcc9-release-build
   script:
-    - pip install --upgrade pip flit
+    - pip install --upgrade pip flit conan
+    - mkdir -p build
+    - cd build
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - conan install --profile linux-aarch64-gcc9-release ..
+    - apt update
+    - apt install -y cmake
+    - cmake ..
+    - cd ..
     - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
     - mkdir wheels
     - cd python
@@ -98,10 +109,11 @@ wheel-build:
 
 wheel-test:
   stage: test-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
   tags: 
     - linux
   needs:
     - wheel-build
   script:
-    - pip install ./dist/*
+    - pip install ./wheels/*
     - mkr-convert-fast5 ./test_files/ ./output_files --output-one-to-one

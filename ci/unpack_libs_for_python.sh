@@ -17,14 +17,19 @@ for i in ${input_dir}/mkr-file-format*.tar.gz; do
         exit 1
     fi
 
-    sku_out_dir="$output_dir/$sku"
+    sku_out_dir="$output_dir/$sku/"
+    mkdir -p "${sku_out_dir}"
 
     tmp_dir="$output_dir/tmp"
     mkdir -p $tmp_dir
-    tar -xzf $i --directory $output_dir/tmp
+    tar -xzf $i --directory "$output_dir/tmp"
 
-    mv $tmp_dir/lib/* $sku_out_dir
+    mv ${tmp_dir}/lib/* "${sku_out_dir}"
 
-    ls $tmp_dir/lib/
     rm -r $tmp_dir
 done
+
+echo "unpacked skus:"
+ls ${output_dir}/
+echo "contents:"
+ls ${output_dir}/*
