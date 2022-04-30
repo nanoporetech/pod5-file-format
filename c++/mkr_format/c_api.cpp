@@ -512,7 +512,7 @@ mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
         auto const batch_num_rows = batch.num_rows();
 
         // Try to find answers for as many of the rows as possible, incrementing for loop index when we succeed
-        while (true) {
+        while (completed_rows < signal_rows_sorted.size()) {
             auto const row = signal_rows_sorted[completed_rows];
             if (row >= (batch_start_row + batch_num_rows)) {
                 break;

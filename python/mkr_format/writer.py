@@ -251,10 +251,6 @@ class FileWriter:
                 )
             )
 
-    def flush(self):
-        check_error(c_api.mkr_flush_reads_table(self._writer))
-        check_error(c_api.mkr_flush_signal_table(self._writer))
-
     def add_pore(self, channel: int, well: int, pore_type: str) -> ctypes.c_short:
         index_out = ctypes.c_short()
         check_error(

@@ -19,7 +19,9 @@ namespace mkr {
 FileWriterOptions::FileWriterOptions()
         : m_max_signal_chunk_size(DEFAULT_SIGNAL_CHUNK_SIZE),
           m_memory_pool(arrow::system_memory_pool()),
-          m_signal_type(DEFAULT_SIGNAL_TYPE) {}
+          m_signal_type(DEFAULT_SIGNAL_TYPE),
+          m_signal_table_batch_size(DEFAULT_SIGNAL_TABLE_BATCH_SIZE),
+          m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE) {}
 
 class FileWriterImpl {
 public:

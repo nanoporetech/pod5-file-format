@@ -43,6 +43,8 @@ class MkrWriterOptions(ctypes.Structure):
     _fields_ = [
         ("max_signal_chunk_size", ctypes.c_uint),
         ("signal_compression_type", ctypes.c_byte),
+        ("signal_table_batch_size", ctypes.c_size_t),
+        ("read_table_batch_size", ctypes.c_size_t),
     ]
 
 
@@ -263,14 +265,6 @@ mkr_add_reads_pre_compressed.argtypes = [
     ctypes.POINTER(ctypes.c_size_t),
 ]
 
-mkr_flush_signal_table = mkr_format.mkr_flush_signal_table
-mkr_flush_signal_table.restype = ERROR_TYPE
-mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
-
-mkr_flush_reads_table = mkr_format.mkr_flush_reads_table
-mkr_flush_reads_table.restype = ERROR_TYPE
-mkr_flush_reads_table.argtypes = [FILE_WRITER_PTR]
-
 mkr_vbz_compressed_signal_max_size = mkr_format.mkr_vbz_compressed_signal_max_size
 mkr_vbz_compressed_signal_max_size.restype = ctypes.c_size_t
 mkr_vbz_compressed_signal_max_size.argtypes = [ctypes.c_size_t]
@@ -343,7 +337,14 @@ mkr_get_signal_row_info.argtypes = [
     FILE_READER_PTR,
     ctypes.c_size_t,
     ctypes.POINTER(ctypes.c_ulonglong),
-    ctypes.POINTER(SignalRowInfo),
+    ctypes.POINTER(ctypes.POINTER(SignalRowInfo)),
+]
+
+mkr_free_signal_row_info = mkr_format.mkr_free_signal_row_info
+mkr_free_signal_row_info.restype = ERROR_TYPE
+mkr_free_signal_row_info.argtypes = [
+    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.POINTER(SignalRowInfo)),
 ]
 
 mkr_get_pore = mkr_format.mkr_get_pore

@@ -145,6 +145,7 @@ Status ReadTableWriter::write_batch() {
 
     m_written_batched_row_count += m_current_batch_row_count;
     m_current_batch_row_count = 0;
+
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
     return Status();
 }

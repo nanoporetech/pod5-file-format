@@ -136,6 +136,11 @@ Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(sample_count));
     ++m_current_batch_row_count;
+
+    if (m_current_batch_row_count >= m_table_batch_size) {
+        ARROW_RETURN_NOT_OK(write_batch());
+    }
+
     return row_id;
 }
 
@@ -173,6 +178,7 @@ Status SignalTableWriter::write_batch() {
             arrow::RecordBatch::Make(m_schema, m_current_batch_row_count, std::move(columns));
     m_written_batched_row_count += m_current_batch_row_count;
     m_current_batch_row_count = 0;
+
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
     return Status();
 }

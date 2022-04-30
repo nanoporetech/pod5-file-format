@@ -63,11 +63,20 @@ class ReadRow:
         self._end_reason_idx = None
         self._run_info_idx = None
         self._signal_row_count = None
+        self._signal_row_info = None
         self._signal_rows = None
         self._pore = None
         self._calibration = None
         self._end_reason = None
         self._run_info = None
+
+    def __del__(self):
+        if self._signal_row_info:
+            check_error(
+                c_api.mkr_free_signal_row_info(
+                    self._signal_row_count, self._signal_row_info
+                )
+            )
 
     def cache_data(self):
         read_id = (ctypes.c_ubyte * 16)()
@@ -85,14 +94,14 @@ class ReadRow:
                 self._batch,
                 self._row,
                 read_id,
-                ctypes.pointer(pore_idx),
-                ctypes.pointer(calibration_idx),
-                ctypes.pointer(read_number),
-                ctypes.pointer(start_sample),
-                ctypes.pointer(median_before),
-                ctypes.pointer(end_reason_idx),
-                ctypes.pointer(run_info_idx),
-                ctypes.pointer(signal_row_count),
+                ctypes.byref(pore_idx),
+                ctypes.byref(calibration_idx),
+                ctypes.byref(read_number),
+                ctypes.byref(start_sample),
+                ctypes.byref(median_before),
+                ctypes.byref(end_reason_idx),
+                ctypes.byref(run_info_idx),
+                ctypes.byref(signal_row_count),
             )
         )
 
@@ -119,17 +128,20 @@ class ReadRow:
             )
         )
 
-        signal_row_info = (c_api.SignalRowInfo * self._signal_row_count)()
+        self._signal_row_info = (
+            ctypes.POINTER(c_api.SignalRowInfo) * self._signal_row_count
+        )()
 
+        self._signal_rows = []
         check_error(
             c_api.mkr_get_signal_row_info(
-                self._reader, self._signal_row_count, signal_rows, signal_row_info
+                self._reader, self._signal_row_count, signal_rows, self._signal_row_info
             )
         )
 
-        self._signal_rows = []
+        """self._signal_rows = []
         for i in range(self._signal_row_count):
-            item = signal_row_info[i]
+            item = self._signal_row_info[i].contents
             self._signal_rows.append(
                 SignalRowInfo(
                     item.batch_index,
@@ -137,7 +149,7 @@ class ReadRow:
                     item.stored_sample_count,
                     item.stored_byte_count,
                 )
-            )
+            )"""
 
     @property
     def read_id(self):
@@ -185,7 +197,7 @@ class ReadRow:
 
     def _cache_dict_data(self, index, data_type, c_api_type, get, release):
         data_ptr = ctypes.POINTER(c_api_type)()
-        check_error(get(self._batch, index, ctypes.pointer(data_ptr)))
+        check_error(get(self._batch, index, ctypes.byref(data_ptr)))
 
         def get_field(data, name):
             val = getattr(data, name)
@@ -272,9 +284,7 @@ class ReadBatch:
 
     def reads(self):
         size = ctypes.c_size_t()
-        check_error(
-            c_api.mkr_get_read_batch_row_count(ctypes.pointer(size), self._batch)
-        )
+        check_error(c_api.mkr_get_read_batch_row_count(ctypes.byref(size), self._batch))
 
         for i in range(size.value):
             yield ReadRow(self._reader, self._batch, i)
@@ -290,14 +300,12 @@ class FileReader:
 
     def read_batches(self):
         size = ctypes.c_size_t()
-        check_error(c_api.mkr_get_read_batch_count(ctypes.pointer(size), self._reader))
+        check_error(c_api.mkr_get_read_batch_count(ctypes.byref(size), self._reader))
 
         for i in range(size.value):
             batch = ctypes.POINTER(c_api.MkrReadRecordBatch)()
 
-            check_error(
-                c_api.mkr_get_read_batch(ctypes.pointer(batch), self._reader, i)
-            )
+            check_error(c_api.mkr_get_read_batch(ctypes.byref(batch), self._reader, i))
 
             yield ReadBatch(self._reader, batch)
 
@@ -305,6 +313,11 @@ class FileReader:
         for batch in self.read_batches():
             for read in batch.reads():
                 yield read
+
+    def select_reads(self, selection):
+        search_selection = set(selection)
+
+        return filter(lambda x: x.read_id in search_selection, self.reads())
 
 
 def open_combined_file(filename: Path) -> FileReader:
