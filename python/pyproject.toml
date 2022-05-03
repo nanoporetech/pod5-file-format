@@ -16,6 +16,7 @@ dependencies = [
     "more_itertools",
     "numpy",
     "pyarrow",
+    "pytz",
 ]
 
 [project.optional-dependencies]
