@@ -39,7 +39,6 @@ uint8_t const *decode_scalar(Int16T *out,
         return 0;
     }
 
-    auto const data_orig = data;
     uint8_t shift = 0;  // cycles 0 through 7 then resets
     uint8_t key_byte = *keys++;
     // need to do the arithmetic in unsigned space so it wraps

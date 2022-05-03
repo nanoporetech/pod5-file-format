@@ -7,8 +7,11 @@
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
+#include <boost/filesystem.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
+
+#include <numeric>
 
 class FileInterface {
 public:
@@ -19,8 +22,8 @@ public:
 };
 
 void run_file_reader_writer_tests(FileInterface& file_ifc) {
-    mkr::register_extension_types();
-    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
+    (void)mkr::register_extension_types();
+    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
 
     auto const run_info_data = get_test_run_info_data("_run_info");
     auto const end_reason_data = get_test_end_reason_data();
@@ -41,6 +44,8 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
     {
         mkr::FileWriterOptions options;
         options.set_max_signal_chunk_size(20'480);
+        options.set_read_table_batch_size(1);
+        options.set_signal_table_batch_size(5);
 
         auto writer = file_ifc.create_file(options);
         REQUIRE(writer.ok());
@@ -51,11 +56,11 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
         auto calibration = (*writer)->add_calibration(calibration_data);
 
         for (std::size_t i = 0; i < 10; ++i) {
-            (*writer)->add_complete_read({read_id_1, *pore, *calibration, read_number, start_sample,
-                                          median_before, *end_reason, *run_info},
-                                         gsl::make_span(signal_1));
-            (*writer)->flush_signal_table();
-            (*writer)->flush_reads_table();
+            CHECK((*writer)
+                          ->add_complete_read({read_id_1, *pore, *calibration, read_number,
+                                               start_sample, median_before, *end_reason, *run_info},
+                                              gsl::make_span(signal_1))
+                          .ok());
         }
     }
 
@@ -108,6 +113,12 @@ SCENARIO("Split File Reader Writer Tests") {
     public:
         mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
                 mkr::FileWriterOptions const& options) override {
+            if (boost::filesystem::exists(split_file_signal)) {
+                boost::filesystem::remove(split_file_signal);
+            }
+            if (boost::filesystem::exists(split_file_reads)) {
+                boost::filesystem::remove(split_file_reads);
+            }
             return mkr::create_split_file_writer(split_file_signal, split_file_reads,
                                                  "test_software", options);
         }
@@ -128,6 +139,9 @@ SCENARIO("Combined File Reader Writer Tests") {
     public:
         mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
                 mkr::FileWriterOptions const& options) override {
+            if (boost::filesystem::exists(combined_file)) {
+                boost::filesystem::remove(combined_file);
+            }
             return mkr::create_combined_file_writer(combined_file, "test_software", options);
         }
 

@@ -8,6 +8,8 @@ namespace mkr {
 TableRecordBatch::TableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch)
         : m_batch(std::move(batch)) {}
 
+TableRecordBatch::TableRecordBatch(TableRecordBatch const&) = default;
+TableRecordBatch& TableRecordBatch::operator=(TableRecordBatch const&) = default;
 TableRecordBatch::TableRecordBatch(TableRecordBatch&&) = default;
 TableRecordBatch& TableRecordBatch::operator=(TableRecordBatch&&) = default;
 TableRecordBatch::~TableRecordBatch() = default;
@@ -20,8 +22,7 @@ TableReader::TableReader(std::shared_ptr<void>&& input_source,
                          std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
                          SchemaMetadataDescription&& schema_metadata,
                          arrow::MemoryPool* pool)
-        : m_pool(pool),
-          m_input_source(std::move(input_source)),
+        : m_input_source(std::move(input_source)),
           m_reader(std::move(reader)),
           m_schema_metadata(std::move(schema_metadata)) {}
 

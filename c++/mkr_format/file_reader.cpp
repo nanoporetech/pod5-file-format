@@ -34,6 +34,11 @@ public:
         return m_signal_table_reader.num_record_batches();
     }
 
+    Result<std::size_t> signal_batch_for_row_id(std::size_t row,
+                                                std::size_t* batch_start_row) const override {
+        return m_signal_table_reader.signal_batch_for_row_id(row, batch_start_row);
+    }
+
 private:
     ReadTableReader m_read_table_reader;
     SignalTableReader m_signal_table_reader;
@@ -82,31 +87,31 @@ public:
             std::int64_t sub_file_length)
             : m_file(std::move(main_file)),
               m_sub_file_offset(sub_file_offset),
-              m_sub_file_length(sub_file_length) {
-        m_file->Seek(sub_file_offset);
-    }
+              m_sub_file_length(sub_file_length) {}
 
     arrow::Status Close() override { return m_file->Close(); }
 
-    bool closed() const { return m_file->closed(); }
+    bool closed() const override { return m_file->closed(); }
 
-    arrow::Result<long int> Tell() const {
+    arrow::Result<std::int64_t> Tell() const override {
         ARROW_ASSIGN_OR_RAISE(auto t, m_file->Tell());
         return t - m_sub_file_offset;
     }
 
-    arrow::Status Seek(int64_t offset) {
+    arrow::Status Seek(int64_t offset) override {
         offset += m_sub_file_offset;
         return m_file->Seek(offset);
     }
 
-    arrow::Result<long int> Read(int64_t length, void* data) { return m_file->Read(length, data); }
+    arrow::Result<std::int64_t> Read(int64_t length, void* data) override {
+        return m_file->Read(length, data);
+    }
 
-    arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t length) {
+    arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t length) override {
         return m_file->Read(length);
     }
 
-    arrow::Result<long int> GetSize() { return m_sub_file_length; }
+    arrow::Result<std::int64_t> GetSize() override { return m_sub_file_length; }
 
 private:
     std::shared_ptr<arrow::io::RandomAccessFile> m_file;
@@ -126,21 +131,23 @@ mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
 
     ARROW_ASSIGN_OR_RAISE(auto parsed_footer_metadata, combined_file_utils::read_footer(file));
 
+    // Files are written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
+
+    // Seek to the start of the sub-file:
+    ARROW_RETURN_NOT_OK(file->Seek(parsed_footer_metadata.reads_table.file_start_offset));
     // Restrict our open file to just the reads section:
-    //
-    // Reads file was written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
     auto reads_sub_file =
             std::make_shared<SubFile>(file, parsed_footer_metadata.reads_table.file_start_offset,
                                       parsed_footer_metadata.reads_table.file_length);
+
     ARROW_ASSIGN_OR_RAISE(auto read_table_reader, make_read_table_reader(reads_sub_file, pool));
 
-    // Open a second file and restrict it to just the signal section:
-    ARROW_ASSIGN_OR_RAISE(auto signal_file, arrow::io::ReadableFile::Open(path.string(), pool));
+    // Seek to the start of the sub-file:
+    ARROW_RETURN_NOT_OK(file->Seek(parsed_footer_metadata.signal_table.file_start_offset));
     // Signal file is generated _into_ the main file, and so the offset should start at 0, as all internal offsets in the arrow file will be relative to the main file header:
-    auto signal_sub_file = std::make_shared<SubFile>(
-            signal_file, 0,
-            parsed_footer_metadata.signal_table.file_length +
-                    parsed_footer_metadata.signal_table.file_start_offset);
+    auto signal_sub_file =
+            std::make_shared<SubFile>(file, parsed_footer_metadata.signal_table.file_start_offset,
+                                      parsed_footer_metadata.signal_table.file_length);
     ARROW_ASSIGN_OR_RAISE(auto signal_table_reader,
                           make_signal_table_reader(signal_sub_file, pool));
 

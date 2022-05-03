@@ -1,6 +1,11 @@
 stages:
   - pre-flight
   - build
+  - build-python
+  - test-python
+
+variables:
+  CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v24.zip
 
 pre-commit checks:
     image: python:3.9
@@ -24,13 +29,91 @@ pre-commit checks:
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
     - cmake -DCMAKE_BUILD_TYPE=Release ..
-    - make -j
-    - ctest
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
+    - cd ./archive
+    - tar -czf ../mkr-file-format-${OUTPUT_SKU}.tar.gz .
+  artifacts:
+    paths:
+      - build/mkr-file-format*.tar.gz
 
-gcc9-release-build:
+linux-x64-gcc9-release-build:
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
   extends: [".build"]
   tags:
-      - linux
+    - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9-release"
+    OUTPUT_SKU: "linux-x64"
+
+linux-aarch64-gcc9-release-build:
+  image: git.oxfordnanolabs.local:4567/minknow/images/build-aarch64-gcc9:latest
+  extends: [".build"]
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc9-release"
+    OUTPUT_SKU: "linux-arm64"
+
+osx-x64-clang12-release-build:
+  extends: [".build"]
+  tags:
+    - osx_x86
+    - xcode-12.4
+    - high-cpu
+    - conan
+  variables:
+    CONAN_PROFILE: "macos-x86_64-appleclang-12.0-release"
+    OUTPUT_SKU: "osx-x64"
+
+win-x64-msvc2017-release-build:
+  extends: [".build"]
+  tags:
+    - windows
+    - cmake
+    - VS2017
+    - conan
+  variables:
+    CONAN_PROFILE: "windows-x86_64-vs2017-release"
+    OUTPUT_SKU: "win-x64"
+
+wheel-build:
+  stage: build-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags: 
+    - linux
+  needs:
+    - win-x64-msvc2017-release-build
+    - osx-x64-clang12-release-build
+    - linux-aarch64-gcc9-release-build
+    - linux-x64-gcc9-release-build
+  script:
+    - pip install --upgrade pip flit conan
+    - mkdir -p build
+    - cd build
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - conan install --profile linux-aarch64-gcc9-release ..
+    - apt update
+    - apt install -y cmake
+    - cmake ..
+    - cd ..
+    - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
+    - mkdir wheels
+    - cd python
+    - pip wheel . --wheel-dir ../wheels
+  artifacts:
+    paths:
+      - wheels/*.whl
+
+wheel-test:
+  stage: test-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags: 
+    - linux
+  needs:
+    - wheel-build
+  script:
+    - pip install ./wheels/*
+    - mkr-convert-fast5 ./test_files/ ./output_files --output-one-to-one

@@ -1,7 +1,32 @@
 from pathlib import Path
 import ctypes
+import platform
 
 
+def sku_arch():
+    if platform.processor() == "arm":
+        return "arm64"
+    return "x64"
+
+
+sku = None
+so_ext = None
+if platform.system() == "Linux":
+    so_ext = ".so"
+    sku = f"linux-{sku_arch()}"
+elif sys.platform == "Darwin":
+    so_ext = ".dylib"
+    sku = f"osx-{sku_arch()}"
+elif sys.platform == "Windows":
+    so_ext = ".dll"
+    sku = f"win-{sku_arch()}"
+
+REPO_ROOT = Path(__file__).parent
+mkr_format = ctypes.cdll.LoadLibrary(
+    REPO_ROOT / "libs" / sku / ("libmkr_format" + so_ext)
+)
+
+# ----------------------------------------------------------------------------------------------------------------------
 class MkrFileWriter(ctypes.Structure):
     _fields_ = []
 
@@ -18,6 +43,8 @@ class MkrWriterOptions(ctypes.Structure):
     _fields_ = [
         ("max_signal_chunk_size", ctypes.c_uint),
         ("signal_compression_type", ctypes.c_byte),
+        ("signal_table_batch_size", ctypes.c_size_t),
+        ("read_table_batch_size", ctypes.c_size_t),
     ]
 
 
@@ -86,9 +113,6 @@ class RunInfoDictData(ctypes.Structure):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-REPO_ROOT = Path(__file__).parent.parent.parent
-mkr_format = ctypes.cdll.LoadLibrary(REPO_ROOT / "build" / "c++" / "libmkr_format.so")
-
 # Init the MKR library
 mkr_format.mkr_init()
 
@@ -104,6 +128,8 @@ WRITER_OPTIONS_PTR = ctypes.POINTER(MkrWriterOptions)
 FILE_READER_PTR = ctypes.POINTER(MkrFileReader)
 FILE_WRITER_PTR = ctypes.POINTER(MkrFileWriter)
 READ_RECORD_BATCH_POINTER = ctypes.POINTER(MkrReadRecordBatch)
+
+READ_ID = ctypes.c_ubyte * 16
 
 # ----------------------------------------------------------------------------------------------------------------------
 mkr_get_error_string = mkr_format.mkr_get_error_string
@@ -203,47 +229,41 @@ mkr_add_run_info.argtypes = [
 ]
 
 
-mkr_add_read = mkr_format.mkr_add_read
-mkr_add_read.restype = ERROR_TYPE
-mkr_add_read.argtypes = [
+mkr_add_reads = mkr_format.mkr_add_reads
+mkr_add_reads.restype = ERROR_TYPE
+mkr_add_reads.argtypes = [
     FILE_WRITER_PTR,
-    ctypes.POINTER(ctypes.c_ubyte),
-    ctypes.c_short,
-    ctypes.c_short,
     ctypes.c_uint,
-    ctypes.c_ulonglong,
-    ctypes.c_float,
-    ctypes.c_short,
-    ctypes.c_short,
+    ctypes.POINTER(READ_ID),
     ctypes.POINTER(ctypes.c_short),
-    ctypes.c_size_t,
-]
-
-mkr_add_read_pre_compressed = mkr_format.mkr_add_read_pre_compressed
-mkr_add_read_pre_compressed.restype = ERROR_TYPE
-mkr_add_read_pre_compressed.argtypes = [
-    FILE_WRITER_PTR,
-    ctypes.POINTER(ctypes.c_ubyte),
-    ctypes.c_short,
-    ctypes.c_short,
-    ctypes.c_uint,
-    ctypes.c_ulonglong,
-    ctypes.c_float,
-    ctypes.c_short,
-    ctypes.c_short,
-    ctypes.POINTER(ctypes.c_char_p),
-    ctypes.POINTER(ctypes.c_size_t),
+    ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_uint),
-    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_ulonglong),
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_short)),
+    ctypes.POINTER(ctypes.c_size_t),
 ]
 
-mkr_flush_signal_table = mkr_format.mkr_flush_signal_table
-mkr_flush_signal_table.restype = ERROR_TYPE
-mkr_flush_signal_table.argtypes = [FILE_WRITER_PTR]
-
-mkr_flush_reads_table = mkr_format.mkr_flush_reads_table
-mkr_flush_reads_table.restype = ERROR_TYPE
-mkr_flush_reads_table.argtypes = [FILE_WRITER_PTR]
+mkr_add_reads_pre_compressed = mkr_format.mkr_add_reads_pre_compressed
+mkr_add_reads_pre_compressed.restype = ERROR_TYPE
+mkr_add_reads_pre_compressed.argtypes = [
+    FILE_WRITER_PTR,
+    ctypes.c_uint,
+    ctypes.POINTER(READ_ID),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_uint),
+    ctypes.POINTER(ctypes.c_ulonglong),
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.c_short),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_char_p)),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_size_t)),
+    ctypes.POINTER(ctypes.POINTER(ctypes.c_uint)),
+    ctypes.POINTER(ctypes.c_size_t),
+]
 
 mkr_vbz_compressed_signal_max_size = mkr_format.mkr_vbz_compressed_signal_max_size
 mkr_vbz_compressed_signal_max_size.restype = ctypes.c_size_t
@@ -317,7 +337,14 @@ mkr_get_signal_row_info.argtypes = [
     FILE_READER_PTR,
     ctypes.c_size_t,
     ctypes.POINTER(ctypes.c_ulonglong),
-    ctypes.POINTER(SignalRowInfo),
+    ctypes.POINTER(ctypes.POINTER(SignalRowInfo)),
+]
+
+mkr_free_signal_row_info = mkr_format.mkr_free_signal_row_info
+mkr_free_signal_row_info.restype = ERROR_TYPE
+mkr_free_signal_row_info.argtypes = [
+    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.POINTER(SignalRowInfo)),
 ]
 
 mkr_get_pore = mkr_format.mkr_get_pore

@@ -13,3 +13,24 @@ What does this project contain
 
 This project contains a core library for reading and writing MKR data, and a toolkit for
 accessing this data in other languages.
+
+Getting Started
+---------------
+
+### Developing
+
+Building the project requires several tools and libraries are available:
+
+- CMake
+- Arrow
+- Zstd
+- Boost
+- Flatbuffers
+
+```bash
+> pip install -r ./requirements.txt
+> mkdir build
+> cd build
+> conan install .. # Optional step, but the source requires the libraries are available on the system in a way cmake can find them.
+> cmake ..
+```

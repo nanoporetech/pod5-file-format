@@ -27,7 +27,7 @@ struct CpuidResult {
 inline CpuidResult cpuid(unsigned int leaf, unsigned int subleaf) {
 #ifdef _MSC_VER
     int info[4];
-    __cpuid_ex(info, static_cast<int>(leaf), static_cast<int>(subleaf));
+    __cpuidex(info, static_cast<int>(leaf), static_cast<int>(subleaf));
     return CpuidResult{
             static_cast<unsigned int>(info[0]),
             static_cast<unsigned int>(info[1]),

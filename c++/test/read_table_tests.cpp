@@ -31,18 +31,18 @@ bool operator==(std::shared_ptr<arrow::UInt64Array> const& array,
 SCENARIO("Read table Tests") {
     using namespace mkr;
 
-    mkr::register_extension_types();
-    auto fin = gsl::finally([] { mkr::unregister_extension_types(); });
+    (void)mkr::register_extension_types();
+    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
 
     auto file_identifier = uuid_gen();
 
     auto data_for_index = [&](std::size_t index) {
-        std::array<std::uint8_t, 16> uuid_source;
-        gsl::make_span(uuid_source).as_span<std::uint64_t>()[0] = index;
+        std::array<std::uint8_t, 16> uuid_source{};
+        gsl::make_span(uuid_source).as_span<std::uint8_t>()[0] = index;
 
-        boost::uuids::uuid read_id;
+        boost::uuids::uuid read_id{};
         std::copy(uuid_source.begin(), uuid_source.end(), read_id.begin());
 
         return std::make_tuple(
@@ -82,9 +82,9 @@ SCENARIO("Read table Tests") {
             auto run_info_writer = mkr::make_run_info_writer(pool);
             REQUIRE(run_info_writer.ok());
 
-            auto writer = mkr::make_read_table_writer(*file_out, *schema_metadata, *pore_writer,
-                                                      *calibration_writer, *end_reason_writer,
-                                                      *run_info_writer, pool);
+            auto writer = mkr::make_read_table_writer(*file_out, *schema_metadata, read_count,
+                                                      *pore_writer, *calibration_writer,
+                                                      *end_reason_writer, *run_info_writer, pool);
             REQUIRE(writer.ok());
 
             auto const pore_1 = (*pore_writer)->add({12, 2, "Well Type"});
@@ -112,10 +112,6 @@ SCENARIO("Read table Tests") {
                     REQUIRE(row.ok());
                     CHECK(*row == idx);
                 }
-
-                auto flush_res = writer->flush();
-                CAPTURE(flush_res);
-                REQUIRE(flush_res.ok());
             }
             REQUIRE(writer->close().ok());
         }

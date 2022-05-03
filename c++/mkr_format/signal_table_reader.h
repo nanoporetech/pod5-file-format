@@ -8,6 +8,7 @@
 #include "mkr_format/types.h"
 
 #include <arrow/io/type_fwd.h>
+#include <boost/optional.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
@@ -54,12 +55,16 @@ public:
 
     Result<SignalTableRecordBatch> read_record_batch(std::size_t i) const;
 
+    Result<std::size_t> signal_batch_for_row_id(std::size_t row,
+                                                std::size_t* batch_start_row) const;
+
 private:
     SignalTableSchemaDescription m_field_locations;
     arrow::MemoryPool* m_pool;
+    mutable boost::optional<std::pair<std::size_t, SignalTableRecordBatch>> m_last_batch;
 };
 
-Result<SignalTableReader> make_signal_table_reader(
+MKR_FORMAT_EXPORT Result<SignalTableReader> make_signal_table_reader(
         std::shared_ptr<arrow::io::RandomAccessFile> const& sink,
         arrow::MemoryPool* pool);
 

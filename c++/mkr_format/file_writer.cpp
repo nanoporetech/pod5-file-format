@@ -9,6 +9,7 @@
 
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
+#include <arrow/util/future.h>
 #include <boost/filesystem.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -18,7 +19,9 @@ namespace mkr {
 FileWriterOptions::FileWriterOptions()
         : m_max_signal_chunk_size(DEFAULT_SIGNAL_CHUNK_SIZE),
           m_memory_pool(arrow::system_memory_pool()),
-          m_signal_type(DEFAULT_SIGNAL_TYPE) {}
+          m_signal_type(DEFAULT_SIGNAL_TYPE),
+          m_signal_table_batch_size(DEFAULT_SIGNAL_TABLE_BATCH_SIZE),
+          m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE) {}
 
 class FileWriterImpl {
 public:
@@ -41,7 +44,7 @@ public:
               m_signal_chunk_size(signal_chunk_size),
               m_pool(pool) {}
 
-    ~FileWriterImpl() = default;
+    virtual ~FileWriterImpl() = default;
 
     mkr::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data) {
         return m_dict_writers.pore_writer->add(pore_data);
@@ -110,17 +113,30 @@ public:
                                                                 sample_count);
     }
 
-    mkr::Status flush_signal_table() { return m_signal_table_writer->flush(); }
-
-    mkr::Status flush_reads_table() { return m_read_table_writer->flush(); }
-
-    void close_read_table_writer() { m_read_table_writer = boost::none; }
-    void close_signal_table_writer() { m_signal_table_writer = boost::none; }
+    mkr::Status close_read_table_writer() {
+        if (m_read_table_writer) {
+            ARROW_RETURN_NOT_OK(m_read_table_writer->close());
+            m_read_table_writer = boost::none;
+        }
+        return mkr::Status::OK();
+    }
+    mkr::Status close_signal_table_writer() {
+        if (m_signal_table_writer) {
+            ARROW_RETURN_NOT_OK(m_signal_table_writer->close());
+            m_signal_table_writer = boost::none;
+        }
+        return mkr::Status::OK();
+    }
 
     virtual arrow::Status close() {
-        close_read_table_writer();
-        close_signal_table_writer();
+        ARROW_RETURN_NOT_OK(close_read_table_writer());
+        ARROW_RETURN_NOT_OK(close_signal_table_writer());
         return arrow::Status::OK();
+    }
+
+    bool is_closed() const {
+        assert(!!m_read_table_writer == !!m_signal_table_writer);
+        return !m_signal_table_writer;
     }
 
     arrow::MemoryPool* pool() const { return m_pool; }
@@ -159,8 +175,11 @@ public:
               m_software_name(software_name) {}
 
     arrow::Status close() override {
-        close_read_table_writer();
-        close_signal_table_writer();
+        if (is_closed()) {
+            return arrow::Status::OK();
+        }
+        ARROW_RETURN_NOT_OK(close_read_table_writer());
+        ARROW_RETURN_NOT_OK(close_signal_table_writer());
 
         // Open main path with append set:
         ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(m_path.string(), true));
@@ -172,8 +191,8 @@ public:
         signal_table.file_length -= signal_table.file_start_offset;
 
         // Padd file to 8 bytes and mark section:
-        combined_file_utils::padd_file(file, 8);
-        combined_file_utils::write_section_marker(file, m_section_marker);
+        ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
+        ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, m_section_marker));
 
         // Write in read table:
         combined_file_utils::FileInfo read_info_table;
@@ -181,28 +200,32 @@ public:
             // Record file start location in bytes within the main file:
             ARROW_ASSIGN_OR_RAISE(read_info_table.file_start_offset, file->Tell());
 
-            // Stream out the reads table into the main file:
-            ARROW_ASSIGN_OR_RAISE(auto reads_table_file_in,
-                                  arrow::io::ReadableFile::Open(m_reads_tmp_path.string(), pool()));
-            std::int64_t read_bytes = 0;
-            std::int64_t target_chunk_size = 10 * 1024 * 1024;  // Read in 10MB of data at a time
-            std::vector<char> read_data(target_chunk_size);
-            do {
+            {
+                // Stream out the reads table into the main file:
                 ARROW_ASSIGN_OR_RAISE(
-                        auto const read_bytes,
-                        reads_table_file_in->Read(target_chunk_size, read_data.data()));
-                ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
-            } while (read_bytes == target_chunk_size);
+                        auto reads_table_file_in,
+                        arrow::io::ReadableFile::Open(m_reads_tmp_path.string(), pool()));
+                std::int64_t read_bytes = 0;
+                std::int64_t target_chunk_size =
+                        10 * 1024 * 1024;  // Read in 10MB of data at a time
+                std::vector<char> read_data(target_chunk_size);
+                do {
+                    ARROW_ASSIGN_OR_RAISE(
+                            auto const read_bytes,
+                            reads_table_file_in->Read(target_chunk_size, read_data.data()));
+                    ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
+                } while (read_bytes == target_chunk_size);
 
-            // Store the reads file length for later reading:
-            ARROW_ASSIGN_OR_RAISE(read_info_table.file_length, file->Tell());
-            read_info_table.file_length -= read_info_table.file_start_offset;
+                // Store the reads file length for later reading:
+                ARROW_ASSIGN_OR_RAISE(read_info_table.file_length, file->Tell());
+                read_info_table.file_length -= read_info_table.file_start_offset;
+            }
 
             // Clean up the tmp read path:
             boost::system::error_code ec;
             boost::filesystem::remove(m_reads_tmp_path, ec);
             if (ec) {
-                return arrow::Status::Invalid("Failed to remove temporary file");
+                return arrow::Status::Invalid("Failed to remove temporary file: ", ec.message());
             }
         }
         // Padd file to 8 bytes and mark section:
@@ -213,8 +236,6 @@ public:
         ARROW_RETURN_NOT_OK(combined_file_utils::write_footer(file, m_section_marker,
                                                               m_file_identifier, m_software_name,
                                                               signal_table, read_info_table));
-
-        close_signal_table_writer();
         return arrow::Status::OK();
     }
 
@@ -229,7 +250,7 @@ private:
 
 FileWriter::FileWriter(std::unique_ptr<FileWriterImpl>&& impl) : m_impl(std::move(impl)) {}
 
-FileWriter::~FileWriter() { close(); }
+FileWriter::~FileWriter() { (void)close(); }
 
 arrow::Status FileWriter::close() { return m_impl->close(); }
 
@@ -249,10 +270,6 @@ mkr::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
         std::uint32_t sample_count) {
     return m_impl->add_pre_compressed_signal(read_id, signal_bytes, sample_count);
 }
-
-mkr::Status FileWriter::flush_signal_table() { return m_impl->flush_signal_table(); }
-
-mkr::Status FileWriter::flush_reads_table() { return m_impl->flush_reads_table(); }
 
 mkr::Result<PoreDictionaryIndex> FileWriter::add_pore(PoreData const& pore_data) {
     return m_impl->add_pore(pore_data);
@@ -292,6 +309,16 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
+    if (boost::filesystem::exists(reads_path)) {
+        return Status::Invalid("Unable to create new file '", reads_path.string(),
+                               "', already exists");
+    }
+
+    if (boost::filesystem::exists(signal_path)) {
+        return Status::Invalid("Unable to create new file '", signal_path.string(),
+                               "', already exists");
+    }
+
     // Open dictionary writrs:
     ARROW_ASSIGN_OR_RAISE(auto dict_writers, make_dictionary_writers(pool));
 
@@ -307,7 +334,8 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
                           arrow::io::FileOutputStream::Open(reads_path.string(), false));
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_writer,
-            make_read_table_writer(read_table_file, file_schema_metadata, dict_writers.pore_writer,
+            make_read_table_writer(read_table_file, file_schema_metadata,
+                                   options.read_table_batch_size(), dict_writers.pore_writer,
                                    dict_writers.calibration_writer, dict_writers.end_reason_writer,
                                    dict_writers.run_info_writer, pool));
 
@@ -316,6 +344,7 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
                           arrow::io::FileOutputStream::Open(signal_path.string(), false));
     ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
                           make_signal_table_writer(signal_table_file, file_schema_metadata,
+                                                   options.signal_table_batch_size(),
                                                    options.signal_type(), pool));
 
     // Throw it all together into a writer object:
@@ -324,6 +353,41 @@ mkr::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
             options.max_signal_chunk_size(), pool));
 }
 
+class SubFileOutputStream : public arrow::io::OutputStream {
+public:
+    SubFileOutputStream(std::shared_ptr<OutputStream> const& main_stream, std::int64_t offset)
+            : m_main_stream(main_stream), m_offset(offset) {}
+
+    virtual arrow::Status Close() override { return m_main_stream->Close(); }
+
+    arrow::Future<> CloseAsync() override { return m_main_stream->CloseAsync(); }
+
+    arrow::Status Abort() override { return m_main_stream->Abort(); }
+
+    arrow::Result<int64_t> Tell() const override {
+        ARROW_ASSIGN_OR_RAISE(auto tell, m_main_stream->Tell());
+        return tell - m_offset;
+    }
+
+    bool closed() const override { return m_main_stream->closed(); }
+
+    arrow::Status Write(const void* data, int64_t nbytes) override {
+        return m_main_stream->Write(data, nbytes);
+    }
+
+    arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
+        return m_main_stream->Write(data);
+    }
+
+    arrow::Status Flush() override { return m_main_stream->Flush(); }
+
+    arrow::Status Write(arrow::util::string_view data);
+
+private:
+    std::shared_ptr<OutputStream> m_main_stream;
+    std::int64_t m_offset;
+};
+
 mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
         boost::filesystem::path const& path,
         std::string const& writing_software_name,
@@ -331,6 +395,10 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
     auto pool = options.memory_pool();
     if (!pool) {
         return Status::Invalid("Invalid memory pool specified for file writer");
+    }
+
+    if (boost::filesystem::exists(path)) {
+        return Status::Invalid("Unable to create new file '", path.string(), "', already exists");
     }
 
     // Open dictionary writrs:
@@ -352,7 +420,8 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
                           arrow::io::FileOutputStream::Open(reads_tmp_path.string(), false));
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_tmp_writer,
-            make_read_table_writer(read_table_file, file_schema_metadata, dict_writers.pore_writer,
+            make_read_table_writer(read_table_file, file_schema_metadata,
+                                   options.read_table_batch_size(), dict_writers.pore_writer,
                                    dict_writers.calibration_writer, dict_writers.end_reason_writer,
                                    dict_writers.run_info_writer, pool));
 
@@ -364,9 +433,11 @@ mkr::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
 
     // Then place the signal file directly after that:
     ARROW_ASSIGN_OR_RAISE(auto signal_table_start, main_file->Tell());
-    ARROW_ASSIGN_OR_RAISE(
-            auto signal_table_writer,
-            make_signal_table_writer(main_file, file_schema_metadata, options.signal_type(), pool));
+    auto signal_file = std::make_shared<SubFileOutputStream>(main_file, signal_table_start);
+    ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
+                          make_signal_table_writer(signal_file, file_schema_metadata,
+                                                   options.signal_table_batch_size(),
+                                                   options.signal_type(), pool));
 
     // Throw it all together into a writer object:
     return std::make_unique<FileWriter>(std::make_unique<CombinedFileWriterImpl>(

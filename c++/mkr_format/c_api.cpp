@@ -4,6 +4,7 @@
 #include "mkr_format/file_writer.h"
 #include "mkr_format/read_table_reader.h"
 #include "mkr_format/signal_compression.h"
+#include "mkr_format/signal_table_reader.h"
 
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_dict.h>
@@ -137,14 +138,44 @@ mkr_error_t mkr_release_dict_type(T* dict_data) {
 
     return MKR_OK;
 }
+
+mkr::FileWriterOptions make_internal_writer_options(MkrWriterOptions const* options) {
+    mkr::FileWriterOptions internal_options;
+    if (options) {
+        if (options->max_signal_chunk_size != 0) {
+            internal_options.set_max_signal_chunk_size(options->max_signal_chunk_size);
+        }
+
+        if (options->signal_compression_type == UNCOMPRESSED_SIGNAL) {
+            internal_options.set_signal_type(mkr::SignalType::UncompressedSignal);
+        }
+
+        if (options->signal_table_batch_size != 0) {
+            internal_options.set_signal_table_batch_size(options->signal_table_batch_size);
+        }
+        if (options->read_table_batch_size != 0) {
+            internal_options.set_read_table_batch_size(options->read_table_batch_size);
+        }
+    }
+    return internal_options;
+}
+
 }  // namespace
 
 extern "C" {
 
 //---------------------------------------------------------------------------------------------------------------------
-void mkr_init() { mkr::register_extension_types(); }
+mkr_error_t mkr_init() {
+    mkr_reset_error();
+    MKR_C_RETURN_NOT_OK(mkr::register_extension_types());
+    return MKR_OK;
+}
 
-void mkr_terminate() { mkr::unregister_extension_types(); }
+mkr_error_t mkr_terminate() {
+    mkr_reset_error();
+    MKR_C_RETURN_NOT_OK(mkr::unregister_extension_types());
+    return MKR_OK;
+}
 
 mkr_error_t mkr_get_error_no() { return g_mkr_error_no; }
 
@@ -318,7 +349,7 @@ mkr_error_t mkr_get_signal_row_indices(MkrReadRecordBatch* batch,
         return g_mkr_error_no;
     }
 
-    for (std::size_t i = 0; i < signal_row_indices_count; ++i) {
+    for (std::int64_t i = 0; i < signal_row_indices_count; ++i) {
         signal_row_indices[i] = row_data->Value(i);
     }
 
@@ -447,98 +478,95 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_release_run_info(RunInfoDictData* run_info_dat
     return mkr_release_dict_type<RunInfoDataCHelper>(run_info_data);
 }
 
+class SignalRowInfoCHelper : public SignalRowInfo {
+public:
+    SignalRowInfoCHelper(mkr::SignalTableRecordBatch const& b) : batch(b) {}
+
+    mkr::SignalTableRecordBatch batch;
+};
+
 mkr_error_t mkr_get_signal_row_info(MkrFileReader* reader,
                                     size_t signal_rows_count,
                                     uint64_t* signal_rows,
-                                    SignalRowInfo* signal_row_info) {
+                                    SignalRowInfo** signal_row_info) {
     mkr_reset_error();
 
     if (!check_not_null(reader) || !check_output_pointer_not_null(signal_row_info)) {
         return g_mkr_error_no;
     }
 
+    // Sort all rows first, in order to make searching faster.
     std::vector<std::uint64_t> signal_rows_sorted{signal_rows, signal_rows + signal_rows_count};
     std::sort(signal_rows_sorted.begin(), signal_rows_sorted.end());
 
-    std::size_t completed_requests = 0;
-    std::uint64_t abs_batch_start_row = 0;
-    std::size_t current_batch = 0;
-    std::size_t const batch_count = reader->reader->num_signal_record_batches();
-    for (std::size_t req_row_index = 0; req_row_index < signal_rows_sorted.size();
-         ++req_row_index) {
-        auto const row = signal_rows_sorted[req_row_index];
+    // Then loop all rows, forward.
+    for (std::size_t completed_rows = 0;
+         completed_rows <
+         signal_rows_sorted.size();) {  // No increment here, we do it below when we succeed.
+        auto const start_row = signal_rows_sorted[completed_rows];
 
-        assert(row >= abs_batch_start_row);
+        std::size_t batch_start_row = 0;
+        MKR_C_ASSIGN_OR_RAISE(std::size_t row_batch, (reader->reader->signal_batch_for_row_id(
+                                                             start_row, &batch_start_row)));
+        MKR_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(row_batch));
+        auto const batch_num_rows = batch.num_rows();
 
-        for (; current_batch < batch_count; ++current_batch) {
-            MKR_C_ASSIGN_OR_RAISE(auto batch,
-                                  reader->reader->read_signal_record_batch(current_batch));
-
-            auto abs_next_batch_start_row = abs_batch_start_row + batch.num_rows();
-            if (row < abs_next_batch_start_row) {
-                auto batch_row_index = row - abs_batch_start_row;
-
-                auto& output_info = signal_row_info[req_row_index];
-                output_info.batch_index = current_batch;
-                output_info.batch_row_index = batch_row_index;
-
-                auto samples = batch.samples_column();
-                output_info.stored_sample_count = samples->Value(batch_row_index);
-                MKR_C_ASSIGN_OR_RAISE(output_info.stored_byte_count,
-                                      batch.samples_byte_count(batch_row_index));
-
-                // Break out of the inner loop - next requested row might also be in this batch.
-                completed_requests += 1;
+        // Try to find answers for as many of the rows as possible, incrementing for loop index when we succeed
+        while (completed_rows < signal_rows_sorted.size()) {
+            auto const row = signal_rows_sorted[completed_rows];
+            if (row >= (batch_start_row + batch_num_rows)) {
                 break;
             }
 
-            abs_batch_start_row = abs_next_batch_start_row;
+            auto const batch_row_index = row - batch_start_row;
+
+            auto output = std::make_unique<SignalRowInfoCHelper>(batch);
+
+            output->batch_index = row_batch;
+            output->batch_row_index = batch_row_index;
+
+            auto samples = batch.samples_column();
+            output->stored_sample_count = samples->Value(batch_row_index);
+            MKR_C_ASSIGN_OR_RAISE(output->stored_byte_count,
+                                  batch.samples_byte_count(batch_row_index));
+
+            signal_row_info[completed_rows] = output.release();
+            completed_rows += 1;
         }
     }
 
-    if (completed_requests != signal_rows_sorted.size()) {
-        assert(completed_requests < signal_rows_sorted.size());
-        mkr_set_error(mkr::Status::Invalid("Unable to find signal row index ",
-                                           signal_rows_sorted[completed_requests], ", only ",
-                                           abs_batch_start_row, " rows in file"));
+    return MKR_OK;
+}
+
+mkr_error_t mkr_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t** signal_row_info) {
+    for (std::size_t i = 0; i < signal_rows_count; ++i) {
+        std::unique_ptr<SignalRowInfoCHelper> helper(
+                static_cast<SignalRowInfoCHelper*>(signal_row_info[i]));
+        helper.reset();
     }
-    return g_mkr_error_no;
+    return MKR_OK;
 }
 
 mkr_error_t mkr_get_signal(MkrFileReader* reader,
-                           size_t batch_index,
-                           size_t batch_row_index,
+                           SignalRowInfo_t* row_info,
                            std::size_t sample_count,
                            std::int16_t* sample_data) {
     mkr_reset_error();
 
-    if (!check_not_null(reader) || !check_output_pointer_not_null(sample_data)) {
+    if (!check_not_null(reader) || !check_not_null(row_info) ||
+        !check_output_pointer_not_null(sample_data)) {
         return g_mkr_error_no;
     }
 
-    MKR_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(batch_index));
+    SignalRowInfoCHelper* row_info_data = static_cast<SignalRowInfoCHelper*>(row_info);
 
-    MKR_C_RETURN_NOT_OK(
-            batch.extract_signal_row(batch_row_index, gsl::make_span(sample_data, sample_count)));
+    MKR_C_RETURN_NOT_OK(row_info_data->batch.extract_signal_row(
+            row_info->batch_row_index, gsl::make_span(sample_data, sample_count)));
 
     return MKR_OK;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-mkr::FileWriterOptions make_internal_writer_options(MkrWriterOptions const* options) {
-    mkr::FileWriterOptions internal_options;
-    if (options) {
-        if (options->max_signal_chunk_size != 0) {
-            internal_options.set_max_signal_chunk_size(options->max_signal_chunk_size);
-        }
-
-        if (options->signal_compression_type == UNCOMPRESSED_SIGNAL) {
-            internal_options.set_signal_type(mkr::SignalType::UncompressedSignal);
-        }
-    }
-    return internal_options;
-}
-
 MkrFileWriter* mkr_create_split_file(char const* signal_filename,
                                      char const* reads_filename,
                                      char const* writer_name,
@@ -585,6 +613,7 @@ mkr_error_t mkr_close_and_free_writer(MkrFileWriter* file) {
     mkr_reset_error();
 
     std::unique_ptr<MkrFileWriter> ptr{file};
+    MKR_C_RETURN_NOT_OK(ptr->writer->close());
     ptr.reset();
     return MKR_OK;
 }
@@ -608,7 +637,7 @@ mkr_error_t mkr_add_pore(int16_t* pore_index,
 mkr_error_t mkr_add_end_reason(int16_t* end_reason_index,
                                MkrFileWriter* file,
                                mkr_end_reason_t end_reason,
-                               bool forced) {
+                               int forced) {
     mkr_reset_error();
 
     if (!check_file_not_null(file) || !check_output_pointer_not_null(end_reason_index)) {
@@ -643,7 +672,7 @@ mkr_error_t mkr_add_end_reason(int16_t* end_reason_index,
     }
 
     MKR_C_ASSIGN_OR_RAISE(*end_reason_index,
-                          file->writer->add_end_reason({end_reason_internal, forced}));
+                          file->writer->add_end_reason({end_reason_internal, forced != 0}));
     return MKR_OK;
 }
 
@@ -726,84 +755,91 @@ mkr_error_t mkr_add_run_info(int16_t* run_info_index,
     return MKR_OK;
 }
 
-mkr_error_t mkr_add_read(MkrFileWriter* file,
-                         uint8_t const* read_id,
-                         int16_t pore,
-                         int16_t calibration,
-                         uint32_t read_number,
-                         uint64_t start_sample,
-                         float median_before,
-                         int16_t end_reason,
-                         int16_t run_info,
-                         int16_t const* signal,
-                         size_t signal_size) {
+mkr_error_t mkr_add_reads(MkrFileWriter* file,
+                          uint32_t read_count,
+                          read_id_t const* read_id,
+                          int16_t const* pore,
+                          int16_t const* calibration,
+                          uint32_t const* read_number,
+                          uint64_t const* start_sample,
+                          float const* median_before,
+                          int16_t const* end_reason,
+                          int16_t const* run_info,
+                          int16_t const** signal,
+                          uint32_t const* signal_size) {
     mkr_reset_error();
 
-    if (!check_file_not_null(file) || !check_not_null(read_id) || !check_not_null(signal)) {
+    if (!check_file_not_null(file) || !check_not_null(read_id) || !check_not_null(pore) ||
+        !check_not_null(calibration) || !check_not_null(read_number) ||
+        !check_not_null(start_sample) || !check_not_null(median_before) ||
+        !check_not_null(end_reason) || !check_not_null(run_info) || !check_not_null(signal) ||
+        !check_not_null(signal_size)) {
         return g_mkr_error_no;
     }
 
-    boost::uuids::uuid read_id_uuid;
-    std::copy(read_id, read_id + sizeof(read_id_uuid), read_id_uuid.begin());
+    for (std::uint32_t read = 0; read < read_count; ++read) {
+        boost::uuids::uuid read_id_uuid;
+        std::copy(read_id[read], read_id[read] + sizeof(read_id_uuid), read_id_uuid.begin());
 
-    MKR_C_RETURN_NOT_OK(file->writer->add_complete_read(
-            mkr::ReadData{read_id_uuid, pore, calibration, read_number, start_sample, median_before,
-                          end_reason, run_info},
-            gsl::make_span(signal, signal_size)));
+        MKR_C_RETURN_NOT_OK(file->writer->add_complete_read(
+                mkr::ReadData{read_id_uuid, pore[read], calibration[read], read_number[read],
+                              start_sample[read], median_before[read], end_reason[read],
+                              run_info[read]},
+                gsl::make_span(signal[read], signal_size[read])));
+    }
+
     return MKR_OK;
 }
 
-mkr_error_t mkr_add_read_pre_compressed(MkrFileWriter* file,
-                                        uint8_t const* read_id,
-                                        int16_t pore,
-                                        int16_t calibration,
-                                        uint32_t read_number,
-                                        uint64_t start_sample,
-                                        float median_before,
-                                        int16_t end_reason,
-                                        int16_t run_info,
-                                        char const** compressed_signal,
-                                        size_t* compressed_signal_size,
-                                        uint32_t* sample_counts,
-                                        size_t signal_chunk_count) {
+mkr_error_t mkr_add_reads_pre_compressed(MkrFileWriter* file,
+                                         uint32_t read_count,
+                                         read_id_t const* read_id,
+                                         int16_t const* pore,
+                                         int16_t const* calibration,
+                                         uint32_t const* read_number,
+                                         uint64_t const* start_sample,
+                                         float const* median_before,
+                                         int16_t const* end_reason,
+                                         int16_t const* run_info,
+                                         char const*** compressed_signal,
+                                         size_t const** compressed_signal_size,
+                                         uint32_t const** sample_counts,
+                                         size_t const* signal_chunk_count) {
     mkr_reset_error();
 
-    if (!check_file_not_null(file) || !check_not_null(read_id) ||
-        !check_not_null(compressed_signal) || !check_not_null(compressed_signal_size)) {
+    if (!check_file_not_null(file) || !check_not_null(read_id) || !check_not_null(pore) ||
+        !check_not_null(calibration) || !check_not_null(read_number) ||
+        !check_not_null(start_sample) || !check_not_null(median_before) ||
+        !check_not_null(end_reason) || !check_not_null(run_info) ||
+        !check_not_null(compressed_signal) || !check_not_null(compressed_signal_size) ||
+        !check_not_null(sample_counts) || !check_not_null(signal_chunk_count)) {
         return g_mkr_error_no;
     }
 
-    boost::uuids::uuid read_id_uuid;
-    std::copy(read_id, read_id + sizeof(read_id_uuid), read_id_uuid.begin());
+    for (std::uint32_t read = 0; read < read_count; ++read) {
+        boost::uuids::uuid read_id_uuid;
+        std::copy(read_id[read], read_id[read] + sizeof(read_id_uuid), read_id_uuid.begin());
 
-    std::vector<std::uint64_t> signal_rows;
-    for (std::size_t i = 0; i < signal_chunk_count; ++i) {
-        auto signal = compressed_signal[i];
-        auto signal_size = compressed_signal_size[i];
-        auto sample_count = sample_counts[i];
-        MKR_C_ASSIGN_OR_RAISE(
-                auto row_id,
-                file->writer->add_pre_compressed_signal(
-                        read_id_uuid,
-                        gsl::make_span(signal, signal_size).as_span<std::uint8_t const>(),
-                        sample_count));
-        signal_rows.push_back(row_id);
+        std::vector<std::uint64_t> signal_rows;
+        for (std::size_t i = 0; i < signal_chunk_count[read]; ++i) {
+            auto signal = compressed_signal[read][i];
+            auto signal_size = compressed_signal_size[read][i];
+            auto sample_count = sample_counts[read][i];
+            MKR_C_ASSIGN_OR_RAISE(
+                    auto row_id,
+                    file->writer->add_pre_compressed_signal(
+                            read_id_uuid,
+                            gsl::make_span(signal, signal_size).as_span<std::uint8_t const>(),
+                            sample_count));
+            signal_rows.push_back(row_id);
+        }
+
+        MKR_C_RETURN_NOT_OK(file->writer->add_complete_read(
+                mkr::ReadData{read_id_uuid, pore[read], calibration[read], read_number[read],
+                              start_sample[read], median_before[read], end_reason[read],
+                              run_info[read]},
+                gsl::make_span(signal_rows)));
     }
-
-    MKR_C_RETURN_NOT_OK(file->writer->add_complete_read(
-            mkr::ReadData{read_id_uuid, pore, calibration, read_number, start_sample, median_before,
-                          end_reason, run_info},
-            gsl::make_span(signal_rows)));
-    return MKR_OK;
-}
-
-mkr_error_t mkr_flush_signal_table(MkrFileWriter* file) {
-    MKR_C_RETURN_NOT_OK(file->writer->flush_signal_table());
-    return MKR_OK;
-}
-
-mkr_error_t mkr_flush_reads_table(MkrFileWriter* file) {
-    MKR_C_RETURN_NOT_OK(file->writer->flush_reads_table());
     return MKR_OK;
 }
 
@@ -826,7 +862,7 @@ mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
     MKR_C_ASSIGN_OR_RAISE(auto buffer, mkr::compress_signal(gsl::make_span(signal, signal_size),
                                                             arrow::system_memory_pool()));
 
-    if (buffer->size() > *compressed_signal_size) {
+    if ((std::size_t)buffer->size() > *compressed_signal_size) {
         mkr_set_error(mkr::Status::Invalid("Compressed signal size (", buffer->size(),
                                            ") is greater than provided buffer size (",
                                            compressed_signal_size, ")"));

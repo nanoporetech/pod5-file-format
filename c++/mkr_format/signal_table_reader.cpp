@@ -73,8 +73,7 @@ Status SignalTableRecordBatch::extract_signal_row(std::size_t row_index,
     case SignalType::VbzSignal: {
         auto signal_column = vbz_signal_column();
         auto signal_compressed = signal_column->Value(row_index);
-        mkr::decompress_signal(signal_compressed, m_pool, samples);
-        return Status::OK();
+        return mkr::decompress_signal(signal_compressed, m_pool, samples);
     }
     }
 
@@ -93,13 +92,39 @@ SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
           m_pool(pool) {}
 
 Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t i) const {
+    if (m_last_batch && m_last_batch->first == i) {
+        return m_last_batch->second;
+    }
+
     auto record_batch = reader()->ReadRecordBatch(i);
     if (!record_batch.ok()) {
         return record_batch.status();
     }
-    return SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
+    auto batch = SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
+    m_last_batch.emplace(i, batch);
+    return batch;
 }
 
+Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
+                                                               std::size_t* batch_start_row) const {
+    if (!m_last_batch) {
+        ARROW_RETURN_NOT_OK(read_record_batch(0));
+    }
+    assert(!!m_last_batch);
+    auto const& batch_size = m_last_batch->second.num_rows();
+
+    auto batch = row / batch_size;
+
+    if (batch_start_row) {
+        *batch_start_row = batch * batch_size;
+    }
+
+    if (batch >= num_record_batches()) {
+        return Status::Invalid("Row outside batch bounds");
+    }
+
+    return batch;
+}
 //---------------------------------------------------------------------------------------------------------------------
 
 Result<SignalTableReader> make_signal_table_reader(

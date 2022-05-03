@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core >=3.2,<4", "wheel"]
 build-backend = "flit_core.buildapi"
 
 
@@ -10,7 +10,16 @@ readme = "README.md"
 requires-python = "~= 3.7"
 dynamic = ["version", "description"]
 
-dependencies = [ ]
+dependencies = [
+    "iso8601",
+    "h5py",
+    "more_itertools",
+    "numpy",
+]
+
+[project.scripts]
+mkr-convert-fast5 = "mkr_format.tools.mkr_convert_fast5:main"
+mkr-inspect = "mkr_format.tools.mkr_inspect:main"
 
 [tool.black]
 target-version = ["py37"]

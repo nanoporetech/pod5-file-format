@@ -25,7 +25,7 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
     static constexpr bool UseZigzag = true;
     auto const encoded_count = svb16::encode<SampleType, UseDelta, UseZigzag>(
             samples.data(), intermediate->mutable_data(), samples.size());
-    intermediate->Resize(encoded_count);
+    ARROW_RETURN_NOT_OK(intermediate->Resize(encoded_count));
 
     // Now compress the svb data using zstd:
     size_t const zstd_compressed_max_size = ZSTD_compressBound(intermediate->size());
@@ -43,7 +43,7 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
     if (ZSTD_isError(compressed_size)) {
         return mkr::Status::Invalid("Failed to compress data");
     }
-    out->Resize(compressed_size);
+    ARROW_RETURN_NOT_OK(out->Resize(compressed_size));
     return out;
 }
 
@@ -74,7 +74,7 @@ MKR_FORMAT_EXPORT arrow::Status decompress_signal(
             reinterpret_cast<SampleType*>(destination.data()), intermediate->data(),
             destination.size());
 
-    if (consumed_count != intermediate->size()) {
+    if (consumed_count != (std::size_t)intermediate->size()) {
         return mkr::Status::Invalid("Remaining data at end of signal buffer");
     }
 

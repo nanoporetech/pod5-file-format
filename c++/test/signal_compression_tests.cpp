@@ -7,6 +7,8 @@
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
 
+#include <numeric>
+
 SCENARIO("Signal compression Tests") {
     auto pool = arrow::system_memory_pool();
 
