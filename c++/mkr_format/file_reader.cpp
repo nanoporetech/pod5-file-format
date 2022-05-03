@@ -44,9 +44,9 @@ public:
         return m_signal_table_reader.signal_batch_for_row_id(row, batch_start_row);
     }
 
-    Result<FileLocation> read_table_location() const { return m_read_table_location; }
+    Result<FileLocation> read_table_location() const override { return m_read_table_location; }
 
-    Result<FileLocation> signal_table_location() const { return m_signal_table_location; }
+    Result<FileLocation> signal_table_location() const override { return m_signal_table_location; }
 
 private:
     FileLocation m_read_table_location;
