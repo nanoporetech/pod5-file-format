@@ -24,14 +24,6 @@ To run a benchmark, use the helper script to start the docker image:
 Benchmarking Result
 -------------------
 
+On dataset a PCR Zymo dataset PAM50264, on 10.4.1 e8.2 data (`pcr_zymo/20220419_1706_2E_PAM50264_3c6f33f1`):
+
 ### Converting fast5
-
-fast5 dataset size: 11.0gb
-
-fast5 -> mkr: 75s, 9.1gb
-fast5 -> blow5: 80s, 8.2gb
-
-### Finding read ids
-
-mkr: 2.2s, 123699 ids
-slow5: 80s, 123999 ids
