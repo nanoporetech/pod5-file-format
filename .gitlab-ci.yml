@@ -117,6 +117,7 @@ pytest:
   script:
     - pip install ./wheels/*
     - cd python
+    - pip install -e .[test]
     - pytest
 
 wheel-test:
@@ -128,5 +129,5 @@ wheel-test:
     - wheel-build
   script:
     - pip install ./wheels/*
-    - mkr-convert-fast5 ./test_files/ ./output_files --output-one-to-one
+    - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
     - python3 pyton/tests/
