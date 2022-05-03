@@ -13,9 +13,10 @@ import mkr_format
 def select_reads(file, selection):
     if selection is not None:
         for read in selection:
-            if read not in file:
+            path = f"/read_{read}"
+            if path not in file:
                 continue
-            yield read, f"/read_{read_id}"
+            yield read, path
     else:
         for key in file.keys():
             if key.startswith("read_"):
@@ -47,7 +48,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
                 col = extracted_columns[c]
 
                 if c == "read_number":
-                    col.append(file[f"{read_path}/Raw"].attrs)
+                    col.append(file[f"{read_path}/Raw"].attrs["read_number"])
                 elif c == "sample_count":
                     col.append(len(file[f"{read_path}/Raw"]["Signal"]))
 
