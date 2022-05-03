@@ -129,3 +129,4 @@ wheel-test:
   script:
     - pip install ./wheels/*
     - mkr-convert-fast5 ./test_files/ ./output_files --output-one-to-one
+    - python3 pyton/tests/

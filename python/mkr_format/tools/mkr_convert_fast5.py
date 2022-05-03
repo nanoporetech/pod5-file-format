@@ -31,19 +31,20 @@ def format_sample_count(count):
 
 
 def find_end_reason(end_reason):
-    if end_reason == 2:
-        return {"name": mkr_format.EndReason.MUX_CHANGE, "forced": True}
-    elif end_reason == 3:
-        return {"name": mkr_format.EndReason.UNBLOCK_MUX_CHANGE, "forced": True}
-    elif end_reason == 4:
-        return {
-            "name": mkr_format.EndReason.DATA_SERVICE_UNBLOCK_MUX_CHANGE,
-            "forced": True,
-        }
-    elif end_reason == 5:
-        return {"name": mkr_format.EndReason.SIGNAL_POSITIVE, "forced": False}
-    elif end_reason == 6:
-        return {"name": mkr_format.EndReason.SIGNAL_NEGATIVE, "forced": False}
+    if end_reason is not None:
+        if end_reason == 2:
+            return {"name": mkr_format.EndReason.MUX_CHANGE, "forced": True}
+        elif end_reason == 3:
+            return {"name": mkr_format.EndReason.UNBLOCK_MUX_CHANGE, "forced": True}
+        elif end_reason == 4:
+            return {
+                "name": mkr_format.EndReason.DATA_SERVICE_UNBLOCK_MUX_CHANGE,
+                "forced": True,
+            }
+        elif end_reason == 5:
+            return {"name": mkr_format.EndReason.SIGNAL_POSITIVE, "forced": False}
+        elif end_reason == 6:
+            return {"name": mkr_format.EndReason.SIGNAL_NEGATIVE, "forced": False}
 
     return {"name": mkr_format.EndReason.UNKNOWN, "forced": False}
 
@@ -53,10 +54,9 @@ def get_datetime_as_epoch_ms(time_str):
     if time_str == None:
         return 0
     try:
-        date = iso8601.parse_date(time_str.decode("utf-8"))
+        return iso8601.parse_date(time_str.decode("utf-8"))
     except iso8601.iso8601.ParseError:
         return 0
-    return int((date - epoch).total_seconds() * 1000)
 
 
 ReadRequest = namedtuple("ReadRequest", [])
@@ -123,7 +123,11 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                             "adc_range": channel_id.attrs["range"],
                             "digitisation": channel_id.attrs["digitisation"],
                         }
-                        end_reason_type = find_end_reason(raw.attrs["end_reason"])
+                        end_reason_type = find_end_reason(
+                            raw.attrs["end_reason"]
+                            if "end_reason" in raw.attrs
+                            else None
+                        )
 
                         acq_id = attrs["run_id"].decode("utf-8")
                         if not run_cache or run_cache.acquisition_id != acq_id:
@@ -137,7 +141,7 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                             context_tags = dict(inp[key]["context_tags"].attrs)
                             run_info_type = {
                                 "acquisition_id": acq_id,
-                                "acquisition_start_time_ms": get_datetime_as_epoch_ms(
+                                "acquisition_start_time": get_datetime_as_epoch_ms(
                                     tracking_id["exp_start_time"]
                                 ),
                                 "adc_max": adc_max,
@@ -156,7 +160,7 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                                 "protocol_run_id": tracking_id[
                                     "protocol_run_id"
                                 ].decode("utf-8"),
-                                "protocol_start_time_ms": get_datetime_as_epoch_ms(
+                                "protocol_start_time": get_datetime_as_epoch_ms(
                                     tracking_id.get("protocol_start_time", None)
                                 ),
                                 "sample_id": tracking_id["sample_id"].decode("utf-8"),
@@ -186,7 +190,7 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                         signal = raw["Signal"][()]
                         sample_count = signal.shape[0]
                         if pre_compress_signal:
-                            signal = mkr_format.vbz_compress_signal(signal)
+                            signal = mkr_format.signal_tools.vbz_compress_signal(signal)
 
                         reads.append(
                             Read(
@@ -244,13 +248,12 @@ def add_reads(file, reads, pre_compressed_signal):
 
 
 def iterate_inputs(input_items):
-    ctx = mp.get_context("spawn")
     for input_item in input_items:
-        if input_item.is_file():
-            yield input_item
-        else:
+        if input_item.is_dir():
             for file in input_item.glob("*.fast5"):
                 yield file
+        else:
+            yield input_item
 
 
 class FileWrapper:
