@@ -133,7 +133,7 @@ pytest:
   script:
     - pip install ./wheels/*
     - cd python
-    - pip install -e .[test]
+    - pip install pytest pytest-cov
     - pytest
 
 wheel-test:
