@@ -146,7 +146,7 @@ wheel-test:
   script:
     - pip install ./wheels/*
     - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
-    - python3 pyton/tests/
+    - python3 python/tests/
 
 package_upload:
   stage: deploy
