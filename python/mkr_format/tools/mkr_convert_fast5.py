@@ -211,7 +211,6 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                     out_q.put(ReadList(fast5_file, reads))
         except Exception as exc:
             print(f"Error in file {fast5_file}: {exc}", file=sys.stderr)
-            raise
 
         out_q.put(EndFile(fast5_file, file_read_sent_count))
 
