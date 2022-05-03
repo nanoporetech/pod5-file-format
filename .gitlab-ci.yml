@@ -3,9 +3,24 @@ stages:
   - build
   - build-python
   - test-python
+  - deploy
 
 variables:
   CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v24.zip
+
+tag_version_check:
+  stage: pre-flight
+  only:
+    - tags
+  image: ${PYTHON_IMAGE}
+  script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - tag_version="${CI_COMMIT_TAG/#v/}"
+    - if [[ "${mkr_version}" != "${tag_version}" ]]; then
+        echo "Tag is for release ${tag_version}, but MKR version is $mkr_version";
+        exit 1;
+      fi
+
 
 pre-commit checks:
     image: python:3.9
@@ -33,7 +48,8 @@ pre-commit checks:
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - tar -czf ../mkr-file-format-${OUTPUT_SKU}.tar.gz .
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - tar -czf ../mkr-file-format-{mkr_version}-${OUTPUT_SKU}.tar.gz .
   artifacts:
     paths:
       - build/mkr-file-format*.tar.gz
@@ -131,3 +147,14 @@ wheel-test:
     - pip install ./wheels/*
     - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
     - python3 pyton/tests/
+
+package_upload:
+  stage: deploy
+  image: ${UPLOAD_PYTHON_IMAGE}
+  needs:
+    - wheel-build
+  script:
+    - ls -lh wheels
+    - pip install twine
+    - twine upload wheels/*
+  only: ["tags"]
