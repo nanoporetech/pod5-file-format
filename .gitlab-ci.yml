@@ -40,6 +40,7 @@ pre-commit checks:
 .build:
   stage: build
   script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
@@ -48,7 +49,6 @@ pre-commit checks:
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - tar -czf ../mkr-file-format-{mkr_version}-${OUTPUT_SKU}.tar.gz .
   artifacts:
     paths:
