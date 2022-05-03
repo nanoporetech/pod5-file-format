@@ -1,55 +1,51 @@
+"""
+Classes for reading data out of MKR files.
+"""
+
 import ctypes
 from collections import namedtuple
+from datetime import datetime, timezone
+import mmap
 from pathlib import Path
 import typing
 from uuid import UUID
 
+import numpy
+import pyarrow as pa
+
 from . import c_api
+from . import pyarrow_reader
 from .api_utils import check_error
-
-SignalRowInfo = namedtuple(
-    "SignalRowInfo", ["batch_index", "batch_row_index", "sample_count", "byte_count"]
-)
-PoreData = namedtuple("PoreData", ["channel", "well", "pore_type"])
-CalibrationData = namedtuple("CalibrationData", ["offset", "scale"])
-EndReasonData = namedtuple("EndReasonData", ["name", "forced"])
-RunInfoData = namedtuple(
-    "EndReasonData",
-    [
-        "acquisition_id",
-        "acquisition_start_time_ms",
-        "adc_max",
-        "adc_min",
-        "context_tags",
-        "experiment_name",
-        "flow_cell_id",
-        "flow_cell_product_code",
-        "protocol_name",
-        "protocol_run_id",
-        "protocol_start_time_ms",
-        "sample_id",
-        "sample_rate",
-        "sequencing_kit",
-        "sequencer_position",
-        "sequencer_position_type",
-        "software",
-        "system_name",
-        "system_typacquisie",
-        "tracking_id",
-    ],
+from .utils import make_split_filename
+from .reader_utils import (
+    PoreData,
+    CalibrationData,
+    EndReasonData,
+    RunInfoData,
+    SignalRowInfo,
 )
 
 
-def parse_dict(key_value_pairs):
-    out = {}
+def _parse_map(key_value_pairs: c_api.KeyValueData) -> typing.Dict[str, str]:
+    """
+    Parse a ctypes dict KeyValueData struct into a dict.
+    """
+    out = []
     for i in range(key_value_pairs.size):
-        out[key_value_pairs.keys[i].decode("utf-8")] = key_value_pairs.values[i].decode(
-            "utf-8"
+        out.append(
+            (
+                key_value_pairs.keys[i].decode("utf-8"),
+                key_value_pairs.values[i].decode("utf-8"),
+            )
         )
     return out
 
 
-class ReadRow:
+class ReadRowCApi:
+    """
+    Represents the data for a single read.
+    """
+
     def __init__(self, reader, batch, row):
         self._reader = reader
         self._batch = batch
@@ -112,7 +108,7 @@ class ReadRow:
         self._start_sample = start_sample.value
         self._median_before = median_before.value
         self._end_reason_idx = end_reason_idx.value
-        self._calibration_idx = end_reason_idx.value
+        self._calibration_idx = calibration_idx.value
         self._run_info_idx = run_info_idx.value
         self._signal_row_count = signal_row_count.value
 
@@ -195,20 +191,65 @@ class ReadRow:
     def byte_count(self):
         return sum(r.byte_count for r in self.signal_rows)
 
-    def _cache_dict_data(self, index, data_type, c_api_type, get, release):
+    @property
+    def signal(self):
+        if not self._signal_rows:
+            self.cache_signal_row_data()
+        output = numpy.empty(self.sample_count, dtype=numpy.int16)
+
+        start = 0
+        for row in self._signal_row_info:
+            sample_count = row.contents.stored_sample_count
+            check_error(
+                c_api.mkr_get_signal(
+                    self._reader,
+                    row,
+                    sample_count,
+                    output[start:].ctypes.data_as(ctypes.POINTER(ctypes.c_short)),
+                )
+            )
+            start += sample_count
+        return output
+
+    def signal_for_chunk(self, i):
+        if not self._signal_rows:
+            self.cache_signal_row_data()
+
+        row = self._signal_row_info[i]
+        sample_count = row.contents.stored_sample_count
+        output = numpy.empty(self.sample_count, dtype=numpy.int16)
+        check_error(
+            c_api.mkr_get_signal(
+                self._reader,
+                row,
+                sample_count,
+                output.ctypes.data_as(ctypes.POINTER(ctypes.c_short)),
+            )
+        )
+        return output
+
+    def _cache_dict_data(
+        self, index, data_type, c_api_type, get, release, map_fields=None
+    ):
         data_ptr = ctypes.POINTER(c_api_type)()
         check_error(get(self._batch, index, ctypes.byref(data_ptr)))
 
-        def get_field(data, name):
+        def get_field(data, name, map_fields):
             val = getattr(data, name)
             if isinstance(val, bytes):
                 val = val.decode("utf-8")
-            if isinstance(val, c_api.KeyValueData):
-                val = parse_dict(val)
+            elif isinstance(val, c_api.KeyValueData):
+                val = _parse_map(val)
+
+            if map_fields and name in map_fields:
+                val = map_fields[name](val)
+
             return val
 
         data = data_ptr.contents
-        tuple_data = data_type(*[get_field(data, f) for f, _ in data._fields_])
+        tuple_data = data_type(
+            *[get_field(data, f, map_fields) for f, _ in data._fields_]
+        )
 
         check_error(release(data))
         return tuple_data
@@ -264,17 +305,29 @@ class ReadRow:
         if not self._run_info:
             if not self._run_info_idx:
                 self.cache_data()
+
+            def to_datetime(val):
+                return datetime.fromtimestamp(val / 1000, timezone.utc)
+
             self._run_info = self._cache_dict_data(
                 self._run_info_idx,
                 RunInfoData,
                 c_api.RunInfoDictData,
                 c_api.mkr_get_run_info,
                 c_api.mkr_release_run_info,
+                {
+                    "acquisition_start_time_ms": to_datetime,
+                    "protocol_start_time_ms": to_datetime,
+                },
             )
         return self._run_info
 
 
-class ReadBatch:
+class ReadBatchCApi:
+    """
+    Read data for a batch of reads.
+    """
+
     def __init__(self, reader, batch):
         self._reader = reader
         self._batch = batch
@@ -287,16 +340,22 @@ class ReadBatch:
         check_error(c_api.mkr_get_read_batch_row_count(ctypes.byref(size), self._batch))
 
         for i in range(size.value):
-            yield ReadRow(self._reader, self._batch, i)
+            yield ReadRowCApi(self._reader, self._batch, i)
 
 
-class FileReader:
+class FileReaderCApi:
+    """
+    A reader for MKR data, opened using [open_combined_file], [open_split_file].
+    """
+
     def __init__(self, reader):
-        if not reader:
-            raise Exception(
-                "Failed to open reader: " + c_api.mkr_get_error_string().decode("utf-8")
-            )
         self._reader = reader
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        pass
 
     def read_batches(self):
         size = ctypes.c_size_t()
@@ -307,7 +366,7 @@ class FileReader:
 
             check_error(c_api.mkr_get_read_batch(ctypes.byref(batch), self._reader, i))
 
-            yield ReadBatch(self._reader, batch)
+            yield ReadBatchCApi(self._reader, batch)
 
     def reads(self):
         for batch in self.read_batches():
@@ -320,5 +379,65 @@ class FileReader:
         return filter(lambda x: x.read_id in search_selection, self.reads())
 
 
-def open_combined_file(filename: Path) -> FileReader:
-    return FileReader(c_api.mkr_open_combined_file(str(filename).encode("utf-8")))
+class SubFileReader:
+    def __init__(self, filename, reader, getter):
+        location = c_api.EmbeddedFileData()
+        getter(reader, ctypes.byref(location))
+
+        self._file = open(str(filename), "r")
+        map = mmap.mmap(
+            self._file.fileno(),
+            length=0,
+            access=mmap.ACCESS_READ,
+        )
+        map_view = memoryview(map)
+        sub_file = map_view[location.offset : location.offset + location.length]
+        self.reader = pa.ipc.open_file(pa.BufferReader(sub_file))
+
+    def __del__(self):
+        self._file.close()
+
+
+def open_combined_file(filename: Path, use_c_api=False):
+    reader = c_api.mkr_open_combined_file(str(filename).encode("utf-8"))
+    if not reader:
+        raise Exception(
+            "Failed to open reader: " + c_api.mkr_get_error_string().decode("utf-8")
+        )
+
+    if use_c_api:
+        return FileReaderCApi(reader)
+    else:
+        read_reader = SubFileReader(
+            filename, reader, c_api.mkr_get_combined_file_read_table_location
+        )
+        signal_reader = SubFileReader(
+            filename, reader, c_api.mkr_get_combined_file_signal_table_location
+        )
+        return pyarrow_reader.FileReader(reader, read_reader, signal_reader)
+
+
+def open_split_file(file: Path, reads_file: Path = None, use_c_api=False):
+    signal_file = file
+    if not reads_file:
+        signal_file, reads_file = make_split_filename(file)
+
+    reader = c_api.mkr_open_split_file(
+        str(signal_file).encode("utf-8"), str(reads_file).encode("utf-8")
+    )
+    if not reader:
+        raise Exception(
+            "Failed to open reader: " + c_api.mkr_get_error_string().decode("utf-8")
+        )
+
+    if use_c_api:
+        return FileReaderCApi(reader)
+    else:
+
+        class ArrowReader:
+            def __init__(self, reader):
+                self.reader = pa.ipc.open_file(reader)
+
+        read_reader = ArrowReader(reads_file)
+        signal_reader = ArrowReader(signal_file)
+        return pyarrow_reader.FileReader(reader, read_reader, signal_reader)

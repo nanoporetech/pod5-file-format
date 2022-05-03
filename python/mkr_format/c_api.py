@@ -112,6 +112,13 @@ class RunInfoDictData(ctypes.Structure):
     ]
 
 
+class EmbeddedFileData(ctypes.Structure):
+    _fields_ = [
+        ("offset", ctypes.c_size_t),
+        ("length", ctypes.c_size_t),
+    ]
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # Init the MKR library
 mkr_format.mkr_init()
@@ -166,6 +173,31 @@ mkr_open_combined_file.argtypes = [
     ctypes.c_char_p,  # filename
 ]
 mkr_open_combined_file.restype = FILE_READER_PTR
+
+mkr_open_split_file = mkr_format.mkr_open_split_file
+mkr_open_split_file.argtypes = [
+    ctypes.c_char_p,  # signal_filename
+    ctypes.c_char_p,  # reads_filename
+]
+mkr_open_split_file.restype = FILE_READER_PTR
+
+mkr_get_combined_file_read_table_location = (
+    mkr_format.mkr_get_combined_file_read_table_location
+)
+mkr_get_combined_file_read_table_location.restype = ERROR_TYPE
+mkr_get_combined_file_read_table_location.argtypes = [
+    FILE_READER_PTR,
+    ctypes.POINTER(EmbeddedFileData),
+]
+
+mkr_get_combined_file_signal_table_location = (
+    mkr_format.mkr_get_combined_file_signal_table_location
+)
+mkr_get_combined_file_signal_table_location.restype = ERROR_TYPE
+mkr_get_combined_file_signal_table_location.argtypes = [
+    FILE_READER_PTR,
+    ctypes.POINTER(EmbeddedFileData),
+]
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -243,7 +275,7 @@ mkr_add_reads.argtypes = [
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.c_short),
     ctypes.POINTER(ctypes.POINTER(ctypes.c_short)),
-    ctypes.POINTER(ctypes.c_size_t),
+    ctypes.POINTER(ctypes.c_uint),
 ]
 
 mkr_add_reads_pre_compressed = mkr_format.mkr_add_reads_pre_compressed
@@ -276,6 +308,15 @@ mkr_vbz_compress_signal.argtypes = [
     ctypes.c_size_t,
     ctypes.c_char_p,
     ctypes.POINTER(ctypes.c_size_t),
+]
+
+mkr_vbz_decompress_signal = mkr_format.mkr_vbz_decompress_signal
+mkr_vbz_decompress_signal.restype = ERROR_TYPE
+mkr_vbz_decompress_signal.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_size_t,
+    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_short),
 ]
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -338,6 +379,15 @@ mkr_get_signal_row_info.argtypes = [
     ctypes.c_size_t,
     ctypes.POINTER(ctypes.c_ulonglong),
     ctypes.POINTER(ctypes.POINTER(SignalRowInfo)),
+]
+
+mkr_get_signal = mkr_format.mkr_get_signal
+mkr_get_signal.restype = ERROR_TYPE
+mkr_get_signal.argtypes = [
+    FILE_READER_PTR,
+    ctypes.POINTER(SignalRowInfo),
+    ctypes.c_size_t,
+    ctypes.POINTER(ctypes.c_short),
 ]
 
 mkr_free_signal_row_info = mkr_format.mkr_free_signal_row_info

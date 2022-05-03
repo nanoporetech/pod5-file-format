@@ -107,6 +107,18 @@ wheel-build:
     paths:
       - wheels/*.whl
 
+pytest:
+  stage: test-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags: 
+    - linux
+  needs:
+    - wheel-build
+  script:
+    - pip install ./wheels/*
+    - cd python
+    - pytest
+
 wheel-test:
   stage: test-python
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9

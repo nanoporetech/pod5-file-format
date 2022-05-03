@@ -1,11 +1,13 @@
 import ctypes
 from enum import Enum
 from pathlib import Path
+import pytz
 import typing
 
 import numpy
 from . import c_api
 from .api_utils import check_error
+from .utils import make_split_filename
 
 
 def list_to_char_arrays(iterable: typing.Iterable[str]):
@@ -40,6 +42,18 @@ def array_of_pointers_to_numpy_data(ctype, numpy_data):
         )
 
     return array
+
+
+def map_to_tuple(tup):
+    if isinstance(tup, dict):
+        return tuple(i for i in tup.items())
+    elif isinstance(tup, list):
+        return tuple(i for i in tup)
+    raise Exception("Unknown input type for context tags")
+
+
+def timestamp_to_int(ts):
+    return int(ts.astimezone(pytz.utc).timestamp() * 1000)
 
 
 class EndReason(Enum):
@@ -115,6 +129,11 @@ class FileWriter:
         return added_idx, True
 
     def find_run_info(self, **args) -> typing.Tuple[ctypes.c_short, bool]:
+        if not isinstance(args["context_tags"], tuple):
+            args["context_tags"] = map_to_tuple(args["context_tags"])
+        if not isinstance(args["tracking_id"], tuple):
+            args["tracking_id"] = map_to_tuple(args["tracking_id"])
+
         data = tuple(args.values())
         if data in self._run_info_types:
             return self._run_info_types[data], False
@@ -138,7 +157,7 @@ class FileWriter:
         pre_compressed_signal: bool = False,
     ):
         return self.add_reads(
-            numpy.array([read_id], dtype=numpy.uint8),
+            numpy.array([numpy.frombuffer(read_id, dtype=numpy.uint8)]),
             numpy.array([pore], dtype=numpy.int16),
             numpy.array([calibration], dtype=numpy.int16),
             numpy.array([read_number], dtype=numpy.uint32),
@@ -146,8 +165,8 @@ class FileWriter:
             numpy.array([median_before], dtype=numpy.float),
             numpy.array([end_reason], dtype=numpy.int16),
             numpy.array([run_info], dtype=numpy.int16),
-            numpy.array([signal], dtype=numpy.int16),
-            numpy.array([sample_count], type=numpy.uint32),
+            [signal],
+            numpy.array([sample_count], dtype=numpy.uint32),
             pre_compressed_signal,
         )
 
@@ -176,13 +195,15 @@ class FileWriter:
         end_reasons = end_reasons.astype(numpy.int16, copy=False)
         run_infos = run_infos.astype(numpy.int16, copy=False)
 
+        short_ptr_type = ctypes.POINTER(ctypes.c_short)
+        numpy_size_t = numpy.uint64
         if pre_compressed_signal:
-            numpy_size_t = numpy.uint64
             signals_bytes = numpy.array(
                 [signal.ctypes.data_as(ctypes.c_char_p).value for signal in signals]
             )
             signals_size = numpy.array(
-                [signal.shape[0] for signal in signals], dtype=numpy_size_t
+                [signal.shape[0] * signal.itemsize for signal in signals],
+                dtype=numpy_size_t,
             )
             signals_size_ptrs = array_of_pointers_to_numpy_data(
                 ctypes.c_size_t, signals_size
@@ -200,7 +221,6 @@ class FileWriter:
             )
             signal_chunk_counts = numpy.ones(dtype=numpy_size_t, shape=(len(signals)))
 
-            short_ptr_type = ctypes.POINTER(ctypes.c_short)
             check_error(
                 c_api.mkr_add_reads_pre_compressed(
                     self._writer,
@@ -220,18 +240,15 @@ class FileWriter:
                 )
             )
         else:
-            signal_pointer_type = ctypes.POINTER(ctypes.c_char_p)
+            signal_pointer_type = ctypes.POINTER(ctypes.c_short)
             signal_ptrs = (signal_pointer_type * len(signals))()
             for i in range(len(signals)):
-                signal_ptrs[i] = ctypes.pointer(
-                    signals[i].ctypes.data_as(ctypes.c_short)
+                signal_ptrs[i] = signals[i].ctypes.data_as(
+                    ctypes.POINTER(ctypes.c_short)
                 )
 
             signals_size = numpy.array(
-                [signal.shape[0] for signal in signals], dtype=numpy_size_t
-            )
-            signals_size_ptrs = array_of_pointers_to_numpy_data(
-                ctypes.c_size_t, signals_size
+                [signal.shape[0] for signal in signals], dtype=numpy.uint32
             )
 
             check_error(
@@ -247,7 +264,7 @@ class FileWriter:
                     end_reasons.ctypes.data_as(short_ptr_type),
                     run_infos.ctypes.data_as(short_ptr_type),
                     signal_ptrs,
-                    signals_size_ptrs,
+                    signals_size.ctypes.data_as(ctypes.POINTER(ctypes.c_uint)),
                 )
             )
 
@@ -262,7 +279,7 @@ class FileWriter:
                 pore_type.encode("utf-8"),
             )
         )
-        return index_out
+        return index_out.value
 
     def add_calibration(
         self,
@@ -281,7 +298,7 @@ class FileWriter:
                 ctypes.byref(index_out), self._writer, offset, scale
             )
         )
-        return index_out
+        return index_out.value
 
     def add_end_reason(self, name: EndReason, forced: bool) -> ctypes.c_short:
         index_out = ctypes.c_short()
@@ -290,12 +307,12 @@ class FileWriter:
                 ctypes.byref(index_out), self._writer, name.value, forced
             )
         )
-        return index_out
+        return index_out.value
 
     def add_run_info(
         self,
         acquisition_id: str,
-        acquisition_start_time_ms: int,
+        acquisition_start_time,
         adc_max: int,
         adc_min: int,
         context_tags: typing.Dict[str, str],
@@ -304,7 +321,7 @@ class FileWriter:
         flow_cell_product_code: str,
         protocol_name: str,
         protocol_run_id: str,
-        protocol_start_time_ms: int,
+        protocol_start_time,
         sample_id: str,
         sample_rate: int,
         sequencing_kit: str,
@@ -315,13 +332,22 @@ class FileWriter:
         system_type: str,
         tracking_id: typing.Dict[str, str],
     ):
+        if not isinstance(acquisition_start_time, int):
+            acquisition_start_time = timestamp_to_int(acquisition_start_time)
+        if not isinstance(protocol_start_time, int):
+            protocol_start_time = timestamp_to_int(protocol_start_time)
+        if not isinstance(context_tags, tuple):
+            context_tags = map_to_tuple(context_tags)
+        if not isinstance(tracking_id, tuple):
+            tracking_id = map_to_tuple(tracking_id)
+
         index_out = ctypes.c_short()
         check_error(
             c_api.mkr_add_run_info(
                 ctypes.byref(index_out),
                 self._writer,
                 acquisition_id.encode("utf-8"),
-                acquisition_start_time_ms,
+                acquisition_start_time,
                 adc_max,
                 adc_min,
                 *tuple_to_char_arrays(context_tags),
@@ -330,7 +356,7 @@ class FileWriter:
                 flow_cell_product_code.encode("utf-8"),
                 protocol_name.encode("utf-8"),
                 protocol_run_id.encode("utf-8"),
-                protocol_start_time_ms,
+                protocol_start_time,
                 sample_id.encode("utf-8"),
                 sample_rate,
                 sequencing_kit.encode("utf-8"),
@@ -342,7 +368,7 @@ class FileWriter:
                 *tuple_to_char_arrays(tracking_id),
             )
         )
-        return index_out
+        return index_out.value
 
     @staticmethod
     def find_scale(
@@ -375,9 +401,14 @@ def create_combined_file(
 
 
 def create_split_file(
-    signal_file: Path, reads_file: Path, software_name: str = "Python API"
+    file: Path, reads_file: Path = None, software_name: str = "Python API"
 ) -> FileWriter:
     options = None
+
+    signal_file = file
+    if reads_file == None:
+        signal_file, reads_file = make_split_filename(file)
+
     return FileWriter(
         c_api.mkr_create_split_file(
             str(signal_file).encode("utf-8"),
@@ -386,18 +417,3 @@ def create_split_file(
             options,
         )
     )
-
-
-def vbz_compress_signal(signal):
-    max_signal_size = c_api.mkr_vbz_compressed_signal_max_size(len(signal))
-    signal_bytes = numpy.empty(max_signal_size, dtype="i1")
-
-    signal_size = ctypes.c_size_t(max_signal_size)
-    c_api.mkr_vbz_compress_signal(
-        signal.ctypes.data_as(ctypes.POINTER(ctypes.c_int16)),
-        signal.shape[0],
-        signal_bytes.ctypes.data_as(ctypes.c_char_p),
-        ctypes.pointer(signal_size),
-    )
-    signal_bytes = numpy.resize(signal_bytes, signal_size.value)
-    return signal_bytes

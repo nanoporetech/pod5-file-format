@@ -224,6 +224,35 @@ mkr_error_t mkr_close_and_free_reader(MkrFileReader* file) {
     return MKR_OK;
 }
 
+mkr_error_t mkr_get_combined_file_read_table_location(MkrFileReader_t* reader,
+                                                      EmbeddedFileData_t* file_data) {
+    mkr_reset_error();
+
+    if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
+        return g_mkr_error_no;
+    }
+    MKR_C_ASSIGN_OR_RAISE(auto const read_table_location, reader->reader->read_table_location());
+
+    file_data->offset = read_table_location.offset;
+    file_data->length = read_table_location.size;
+    return MKR_OK;
+}
+
+mkr_error_t mkr_get_combined_file_signal_table_location(MkrFileReader_t* reader,
+                                                        EmbeddedFileData_t* file_data) {
+    mkr_reset_error();
+
+    if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
+        return g_mkr_error_no;
+    }
+    MKR_C_ASSIGN_OR_RAISE(auto const signal_table_location,
+                          reader->reader->signal_table_location());
+
+    file_data->offset = signal_table_location.offset;
+    file_data->length = signal_table_location.size;
+    return MKR_OK;
+}
+
 mkr_error_t mkr_get_read_batch_count(size_t* count, MkrFileReader* reader) {
     mkr_reset_error();
 
@@ -434,7 +463,7 @@ struct RunInfoDataCHelper : public RunInfoDictData {
         flow_cell_id = internal_data.flow_cell_id.c_str();
         flow_cell_product_code = internal_data.flow_cell_product_code.c_str();
         protocol_name = internal_data.protocol_name.c_str();
-        protocol_run_id = internal_data.protocol_name.c_str();
+        protocol_run_id = internal_data.protocol_run_id.c_str();
         protocol_start_time_ms = internal_data.protocol_start_time;
         sample_id = internal_data.sample_id.c_str();
         sample_rate = internal_data.sample_rate;
@@ -871,6 +900,24 @@ mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
 
     std::copy(buffer->data(), buffer->data() + buffer->size(), compressed_signal_out);
     *compressed_signal_size = buffer->size();
+
+    return MKR_OK;
+}
+
+mkr_error_t mkr_vbz_decompress_signal(char const* compressed_signal,
+                                      size_t compressed_signal_size,
+                                      size_t sample_count,
+                                      short* signal_out) {
+    mkr_reset_error();
+
+    if (!check_not_null(compressed_signal) || !check_output_pointer_not_null(signal_out)) {
+        return g_mkr_error_no;
+    }
+
+    auto const in_span =
+            gsl::make_span(compressed_signal, compressed_signal_size).as_span<std::uint8_t const>();
+    auto out_span = gsl::make_span(signal_out, sample_count);
+    MKR_C_RETURN_NOT_OK(mkr::decompress_signal(in_span, arrow::system_memory_pool(), out_span));
 
     return MKR_OK;
 }

@@ -27,6 +27,16 @@ private:
     arrow::MemoryPool* m_memory_pool;
 };
 
+class MKR_FORMAT_EXPORT FileLocation {
+public:
+    FileLocation(boost::filesystem::path const& file_path_, std::size_t offset_, std::size_t size_)
+            : file_path(file_path_), offset(offset_), size(size_) {}
+
+    boost::filesystem::path file_path;
+    std::size_t offset;
+    std::size_t size;
+};
+
 class ReadTableRecordBatch;
 class SignalTableRecordBatch;
 
@@ -41,6 +51,9 @@ public:
     virtual std::size_t num_signal_record_batches() const = 0;
     virtual Result<std::size_t> signal_batch_for_row_id(std::size_t row,
                                                         std::size_t* batch_start_row) const = 0;
+
+    virtual Result<FileLocation> read_table_location() const = 0;
+    virtual Result<FileLocation> signal_table_location() const = 0;
 };
 
 MKR_FORMAT_EXPORT mkr::Result<std::unique_ptr<FileReader>> open_split_file_reader(

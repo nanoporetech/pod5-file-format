@@ -15,6 +15,13 @@ dependencies = [
     "h5py",
     "more_itertools",
     "numpy",
+    "pyarrow",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest ~= 6.2",
+  "pytest-cov ~= 3.0",
 ]
 
 [project.scripts]

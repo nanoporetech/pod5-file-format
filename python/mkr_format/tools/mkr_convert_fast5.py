@@ -207,25 +207,25 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                     out_q.put(ReadList(fast5_file, reads))
         except Exception as exc:
             print(f"Error in file {fast5_file}: {exc}", file=sys.stderr)
-            pass
+            raise
 
         out_q.put(EndFile(fast5_file, file_read_sent_count))
 
 
 def add_reads(file, reads, pre_compressed_signal):
     pore_types = numpy.array(
-        [file.find_pore(**r.pore)[0].value for r in reads], dtype=numpy.int16
+        [file.find_pore(**r.pore)[0] for r in reads], dtype=numpy.int16
     )
     calib_types = numpy.array(
-        [file.find_calibration(**r.calibration)[0].value for r in reads],
+        [file.find_calibration(**r.calibration)[0] for r in reads],
         dtype=numpy.int16,
     )
     end_reason_types = numpy.array(
-        [file.find_end_reason(**r.end_reason)[0].value for r in reads],
+        [file.find_end_reason(**r.end_reason)[0] for r in reads],
         dtype=numpy.int16,
     )
     run_info_types = numpy.array(
-        [file.find_run_info(**r.run_info)[0].value for r in reads], dtype=numpy.int16
+        [file.find_run_info(**r.run_info)[0] for r in reads], dtype=numpy.int16
     )
 
     file.add_reads(
@@ -239,7 +239,7 @@ def add_reads(file, reads, pre_compressed_signal):
         run_info_types,
         [r.signal for r in reads],
         numpy.array([r.sample_count for r in reads], dtype=numpy.uint64),
-        pre_compressed_signal=True,
+        pre_compressed_signal=pre_compressed_signal,
     )
 
 
@@ -285,7 +285,7 @@ class OutputHandler:
                 reads_file = Path(str(output_path.with_suffix("")) + "_reads.mkr")
                 for file in [signal_file, reads_file]:
                     if self._force_overwrite:
-                        signal_file.remove(missing_ok=True)
+                        file.unlink(missing_ok=True)
                 mkr_file = mkr_format.create_split_file(signal_file, reads_file)
             else:
                 if self._force_overwrite:
@@ -342,7 +342,7 @@ def main():
     read_data_queue = ctx.Queue()
 
     # Always writing compressed files right now.
-    pre_compress_signal = False
+    pre_compress_signal = True
 
     # Divide up files between readers:
     pending_files = list(iterate_inputs(args.input))

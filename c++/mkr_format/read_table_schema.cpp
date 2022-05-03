@@ -32,7 +32,7 @@ std::shared_ptr<arrow::StructType> make_end_reason_struct_type() {
 std::shared_ptr<arrow::StructType> make_run_info_struct_type() {
     return std::static_pointer_cast<arrow::StructType>(arrow::struct_({
             arrow::field("acquisition_id", arrow::utf8()),
-            arrow::field("acquisition_start_time", arrow::timestamp(arrow::TimeUnit::MILLI)),
+            arrow::field("acquisition_start_time", arrow::timestamp(arrow::TimeUnit::MILLI, "UTC")),
             arrow::field("adc_max", arrow::int16()),
             arrow::field("adc_min", arrow::int16()),
             arrow::field("context_tags", arrow::map(arrow::utf8(), arrow::utf8())),
@@ -41,7 +41,7 @@ std::shared_ptr<arrow::StructType> make_run_info_struct_type() {
             arrow::field("flow_cell_product_code", arrow::utf8()),
             arrow::field("protocol_name", arrow::utf8()),
             arrow::field("protocol_run_id", arrow::utf8()),
-            arrow::field("protocol_start_time", arrow::timestamp(arrow::TimeUnit::MILLI)),
+            arrow::field("protocol_start_time", arrow::timestamp(arrow::TimeUnit::MILLI, "UTC")),
             arrow::field("sample_id", arrow::utf8()),
             arrow::field("sample_rate", arrow::uint16()),
             arrow::field("sequencing_kit", arrow::utf8()),
