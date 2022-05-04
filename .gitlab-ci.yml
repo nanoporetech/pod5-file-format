@@ -44,7 +44,7 @@ pre-commit checks:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake -DCMAKE_BUILD_TYPE=Release ..
+    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
@@ -94,6 +94,7 @@ win-x64-msvc2017-release-build:
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
     OUTPUT_SKU: "win-x64"
+    CMAKE_ARGS: "-A x64 -G \"Visual Studio 15 2017\""
 
 wheel-build:
   stage: build-python
