@@ -3,6 +3,7 @@
 import argparse
 import multiprocessing as mp
 from pathlib import Path
+import pickle
 from queue import Empty
 from uuid import UUID
 
@@ -47,17 +48,20 @@ def do_batch_bulk_work(
 
 
 def do_batch_search_work(
-    filename, batches, select_read_ids, get_columns, c_api, result_q
+    filename, batches, select_read_ids_pickled, get_columns, c_api, result_q
 ):
-    print("Start search")
     read_ids = []
     extracted_columns = {"read_id": read_ids}
 
-    file = mkr_format.open_combined_file(filename, use_c_api=c_api)
-    for read in file.select_reads(select_read_ids):
-        process_read(get_columns, read, read_ids, extracted_columns)
+    select_read_ids = pickle.loads(select_read_ids_pickled)
 
-    print("DONE")
+    file = mkr_format.open_combined_file(filename, use_c_api=c_api)
+    for batch in batches:
+        for read in filter(
+            lambda x: x.read_id in select_read_ids, file.get_batch(batch).reads()
+        ):
+            process_read(get_columns, read, read_ids, extracted_columns)
+
     result_q.put(pd.DataFrame(extracted_columns))
 
 
@@ -82,7 +86,9 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], c_api=False):
     if select_read_ids is not None:
         fn_to_call = do_batch_search_work
 
-    select_read_ids = set(UUID(s) for s in select_read_ids) if select_read_ids else None
+    select_read_ids = pickle.dumps(
+        set(UUID(s) for s in select_read_ids) if select_read_ids is not None else None
+    )
 
     processes = []
     for filename in files:
@@ -92,7 +98,6 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], c_api=False):
         start_index = 0
         while start_index < len(batches):
             select_batches = batches[start_index : start_index + approx_chunk_size]
-            print("start process with batches", select_batches)
             p = mp.Process(
                 target=fn_to_call,
                 args=(
@@ -104,11 +109,8 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], c_api=False):
                     result_queue,
                 ),
             )
-            print("start")
             p.start()
-            print("append")
             processes.append(p)
-            print("inc")
             start_index += len(select_batches)
 
     print("Wait for processes...")

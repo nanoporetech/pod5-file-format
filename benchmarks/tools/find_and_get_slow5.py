@@ -49,14 +49,12 @@ def do_search_work(files, select_read_ids, get_columns, result_q):
     not_aux_columns = ["sample_count", "samples"]
     aux_columns = list(filter(lambda x: x not in not_aux_columns, get_columns))
 
-    print("processing ", files)
     for file in files:
         file = pyslow5.Open(str(file), "r")
 
         for read in file.get_read_list(select_read_ids, pA=False, aux=aux_columns):
             process_read(get_columns, read, read_ids, extracted_columns)
 
-    print("done")
     result_q.put(pd.DataFrame(extracted_columns))
 
 
