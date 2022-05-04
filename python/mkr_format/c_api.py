@@ -181,6 +181,13 @@ mkr_open_split_file.argtypes = [
 ]
 mkr_open_split_file.restype = FILE_READER_PTR
 
+mkr_close_and_free_reader = mkr_format.mkr_close_and_free_reader
+mkr_close_and_free_reader.restype = ERROR_TYPE
+mkr_close_and_free_reader.argtypes = [
+    FILE_READER_PTR,
+]
+
+
 mkr_get_combined_file_read_table_location = (
     mkr_format.mkr_get_combined_file_read_table_location
 )

@@ -26,13 +26,13 @@ We have also chosen not to optimise for editing existing files.
 
 The aspects of this format that are designed to maximise write performance are:
 
-    Data can be written sequentially
-        The sequential access pattern makes it easy to use efficient operating system APIs (such as io_uring on Linux)
-        The sequential access pattern helps the operating system's I/O scheduler maximise throughput
-    Signal data from different reads can be interleaved, and data streams can be safely abandoned (at the cost of using more space than necessary)
-        This allows MinKNOW to write out data as it arrives, potentially avoiding the need have an intermediate caching format (this file format can be used for the cache and the final output)
-    Support for space- and CPU-efficient compression routines (VBZ)
-        This reduces the amount of data that needs to be written, which reduces I/O load
+- Data can be written sequentially
+  - The sequential access pattern makes it easy to use efficient operating system APIs (such as io_uring on Linux)
+  - The sequential access pattern helps the operating system's I/O scheduler maximise throughput
+- Signal data from different reads can be interleaved, and data streams can be safely abandoned (at the cost of using more space than necessary)
+  - This allows MinKNOW to write out data as it arrives, potentially avoiding the need have an intermediate caching format (this file format can be used for the cache and the final output)
+- Support for space- and CPU-efficient compression routines (VBZ)
+  - This reduces the amount of data that needs to be written, which reduces I/O load
 
 ### Recovery
 
