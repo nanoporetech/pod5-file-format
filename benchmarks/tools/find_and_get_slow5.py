@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+import numpy
 import pandas as pd
 
 import pyslow5
@@ -16,7 +17,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
     if get_columns is not None:
         print(f"Selecting columns: {get_columns}")
 
-    not_aux_columns = ["sample_count"]
+    not_aux_columns = ["sample_count", "samples"]
     aux_columns = list(filter(lambda x: x not in not_aux_columns, get_columns))
 
     read_ids = []
@@ -28,7 +29,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
         file = pyslow5.Open(str(file), "r")
 
         if select_read_ids is not None:
-            iterable = file.get_read_list(select_read_ids, aux=aux_columns)
+            iterable = file.get_read_list(select_read_ids, pA=False, aux=aux_columns)
         else:
             iterable = file.seq_reads(pA=False, aux=aux_columns)
 
@@ -40,7 +41,9 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
                     extracted_columns[c] = []
                 col = extracted_columns[c]
                 if c == "sample_count":
-                    col.append(len(read["signal"]))
+                    col.append(read["len_raw_signal"])
+                elif c == "samples":
+                    col.append(numpy.sum(read["signal"]))
                 else:
                     col.append(read[c])
 

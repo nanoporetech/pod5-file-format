@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 from uuid import UUID
 
+import numpy
 import pandas as pd
 
 import mkr_format
@@ -39,7 +40,10 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], c_api=False):
                 if not c in extracted_columns:
                     extracted_columns[c] = []
                 col = extracted_columns[c]
-                col.append(getattr(read, c))
+                if c == "samples":
+                    col.append(numpy.sum(read.signal))
+                else:
+                    col.append(getattr(read, c))
 
     df = pd.DataFrame(extracted_columns)
     print(f"Selected {len(read_ids)} items")

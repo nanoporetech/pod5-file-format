@@ -5,6 +5,7 @@ import h5py
 from pathlib import Path
 from uuid import UUID
 
+import numpy
 import pandas as pd
 
 import mkr_format
@@ -51,6 +52,8 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
                     col.append(file[f"{read_path}/Raw"].attrs["read_number"])
                 elif c == "sample_count":
                     col.append(len(file[f"{read_path}/Raw"]["Signal"]))
+                elif c == "samples":
+                    col.append(numpy.sum(file[f"{read_path}/Raw"]["Signal"]))
 
     df = pd.DataFrame(extracted_columns)
     print(f"Selected {len(read_ids)} items")
