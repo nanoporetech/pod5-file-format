@@ -61,35 +61,16 @@ Building the project requires several tools and libraries are available:
 - Flatbuffers
 
 ```bash
-> mkdir build
-> cd build
-> conan install .. # Optional step, but the source requires the libraries are available on the system in a way cmake can find them.
-> cmake ..
-```
-
-
-### Developing using conan
-
-Building the project requires several tools and libraries are available:
-
-- CMake
-- Arrow
-- Zstd
-- Boost
-- Flatbuffers
-
-```bash
 # Docs on installing arrow from here: https://arrow.apache.org/install/
 > sudo apt install -y -V ca-certificates lsb-release wget
 > wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
 > sudo apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
 > sudo apt update
 # Now install the rest of the dependencies:
-> sudo apt install cmake libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev
+> sudo apt install cmake libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
 # Finally start build of MKR:
 > mkdir build
 > cd build
-> conan install .. # Optional step, but the source requires the libraries are available on the system in a way cmake can find them.
 > cmake ..
 > make -j
 ```

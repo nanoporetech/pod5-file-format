@@ -41,14 +41,14 @@ build-standalone-ubu20:
   stage: build
   image: ubuntu:20.04
   script:
+    - apt update
     - apt install -y -V ca-certificates lsb-release wget
     - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt update
-    - apt install cmake libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
+    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
     - mkdir build
     - cd build
-    - conan install .. # Optional step, but the source requires the libraries are available on the system in a way cmake can find them.
     - cmake ..
     - make -j
 
@@ -59,12 +59,12 @@ build-standalone-ubu20:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release ..
-    - cmake --build . --config Release -DUSE_CONAN=ON
+    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
+    - cmake --build . --config Release
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - tar -czf ../mkr-file-format-{mkr_version}-${OUTPUT_SKU}.tar.gz .
+    - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
   artifacts:
     paths:
       - build/mkr-file-format*.tar.gz
@@ -106,10 +106,20 @@ win-x64-msvc2017-release-build:
     - cmake
     - VS2017
     - conan
+  script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - mkdir build
+    - cd build
+    - conan install --profile ${CONAN_PROFILE} ..
+    - cmake -A x64 -G "Visual Studio 15 2017" -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
+    - cd ./archive
+    - tar -czf ../mkr-file-format-{mkr_version}-${OUTPUT_SKU}.tar.gz .
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
     OUTPUT_SKU: "win-x64"
-    CMAKE_ARGS: -A x64 -G "Visual Studio 15 2017"
 
 wheel-build:
   stage: build-python
@@ -129,7 +139,7 @@ wheel-build:
     - conan install --profile linux-aarch64-gcc9-release ..
     - apt update
     - apt install -y cmake
-    - cmake ..
+    - cmake -DUSE_CONAN=ON ..
     - cd ..
     - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
     - mkdir wheels

@@ -135,7 +135,8 @@ mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(path.string(), pool));
+    ARROW_ASSIGN_OR_RAISE(
+            auto file, arrow::io::MemoryMappedFile::Open(path.string(), arrow::io::FileMode::READ));
 
     ARROW_ASSIGN_OR_RAISE(auto parsed_footer_metadata, combined_file_utils::read_footer(file));
 
