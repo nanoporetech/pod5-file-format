@@ -12,7 +12,7 @@ tag_version_check:
   stage: pre-flight
   only:
     - tags
-  image: ${PYTHON_IMAGE}
+  image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
   script:
     - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - tag_version="${CI_COMMIT_TAG/#v/}"
