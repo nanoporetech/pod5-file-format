@@ -37,6 +37,21 @@ pre-commit checks:
         paths:
             - ${PRE_COMMIT_HOME}
 
+build-standalone-ubu20:
+  stage: build
+  image: ubuntu:20.04
+  script:
+    - apt install -y -V ca-certificates lsb-release wget
+    - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+    - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+    - apt update
+    - apt install cmake libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
+    - mkdir build
+    - cd build
+    - conan install .. # Optional step, but the source requires the libraries are available on the system in a way cmake can find them.
+    - cmake ..
+    - make -j
+
 .build:
   stage: build
   script:
@@ -45,7 +60,7 @@ pre-commit checks:
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
     - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release ..
-    - cmake --build . --config Release
+    - cmake --build . --config Release -DUSE_CONAN=ON
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive

@@ -8,8 +8,9 @@ project(MKR
     VERSION ${MKR_NUMERIC_VERSION}
 )
 
-option(FORCE_CI_COMPATIBILITY "Change compiler flags to ensure compatibility with CI builds" ON)
-if (FORCE_CI_COMPATIBILITY AND CMAKE_COMPILER_IS_GNUCXX AND
+option(USE_CONAN "Use conan for dependency management" OFF)
+
+if (USE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
         CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0" AND
         CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0")
     # We build MKR on CentOS 7 in CI, where we have GCC 9 but only the pre-C++11 ABI
