@@ -109,7 +109,7 @@ win-x64-msvc2017-release-build:
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
     OUTPUT_SKU: "win-x64"
-    CMAKE_ARGS: "-A x64 -G \"Visual Studio 15 2017\""
+    CMAKE_ARGS: -A x64 -G "Visual Studio 15 2017"
 
 wheel-build:
   stage: build-python
