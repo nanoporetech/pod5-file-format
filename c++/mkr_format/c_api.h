@@ -69,6 +69,24 @@ MKR_FORMAT_EXPORT MkrFileReader_t* mkr_open_combined_file(char const* filename);
 /// \brief Close a file reader, releasing all memory held by the reader.
 MKR_FORMAT_EXPORT mkr_error_t mkr_close_and_free_reader(MkrFileReader_t* file);
 
+struct EmbeddedFileData {
+    size_t offset;
+    size_t length;
+};
+typedef struct EmbeddedFileData EmbeddedFileData_t;
+
+/// \brief Find the number of read batches in the file.
+/// \param[out] file        The combined file to be queried.
+/// \param      file_data   The output read table file data.
+MKR_FORMAT_EXPORT mkr_error_t
+mkr_get_combined_file_read_table_location(MkrFileReader_t* reader, EmbeddedFileData_t* file_data);
+
+/// \brief Find the number of read batches in the file.
+/// \param[out] file        The combined file to be queried.
+/// \param      file_data   The output signal table file data.
+MKR_FORMAT_EXPORT mkr_error_t
+mkr_get_combined_file_signal_table_location(MkrFileReader_t* reader, EmbeddedFileData_t* file_data);
+
 /// \brief Find the number of read batches in the file.
 /// \param[out] count   The number of read batches in the file
 /// \param      reader  The file reader to read from
@@ -476,6 +494,16 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_vbz_compress_signal(int16_t const* signal,
                                                       size_t signal_size,
                                                       char* compressed_signal_out,
                                                       size_t* compressed_signal_size);
+
+/// \brief VBZ decompress an array of samples.
+/// \param          compressed_signal           The signal to compress.
+/// \param          compressed_signal_size      The number of compressed bytes, should be set to the size of compressed_signal_out on call.
+/// \param          sample_count                The number of samples to decompress.
+/// \param[out]     signal_out                  The compressed signal.
+MKR_FORMAT_EXPORT mkr_error_t mkr_vbz_decompress_signal(char const* compressed_signal,
+                                                        size_t compressed_signal_size,
+                                                        size_t sample_count,
+                                                        short* signal_out);
 
 #ifdef __cplusplus
 }

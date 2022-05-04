@@ -3,9 +3,24 @@ stages:
   - build
   - build-python
   - test-python
+  - deploy
 
 variables:
   CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v24.zip
+
+tag_version_check:
+  stage: pre-flight
+  only:
+    - tags
+  image: ${PYTHON_IMAGE}
+  script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - tag_version="${CI_COMMIT_TAG/#v/}"
+    - if [[ "${mkr_version}" != "${tag_version}" ]]; then
+        echo "Tag is for release ${tag_version}, but MKR version is $mkr_version";
+        exit 1;
+      fi
+
 
 pre-commit checks:
     image: python:3.9
@@ -22,18 +37,35 @@ pre-commit checks:
         paths:
             - ${PRE_COMMIT_HOME}
 
+build-standalone-ubu20:
+  stage: build
+  image: ubuntu:20.04
+  script:
+    - export DEBIAN_FRONTEND=noninteractive
+    - apt update
+    - apt install -y -V ca-certificates lsb-release wget
+    - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+    - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+    - apt update
+    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev libarrow-dev
+    - mkdir build
+    - cd build
+    - cmake ..
+    - make -j
+
 .build:
   stage: build
   script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake -DCMAKE_BUILD_TYPE=Release ..
+    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - tar -czf ../mkr-file-format-${OUTPUT_SKU}.tar.gz .
+    - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
   artifacts:
     paths:
       - build/mkr-file-format*.tar.gz
@@ -75,6 +107,17 @@ win-x64-msvc2017-release-build:
     - cmake
     - VS2017
     - conan
+  script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - mkdir build
+    - cd build
+    - conan install --profile ${CONAN_PROFILE} ..
+    - cmake -A x64 -G "Visual Studio 15 2017" -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
+    - cd ./archive
+    - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
     OUTPUT_SKU: "win-x64"
@@ -97,7 +140,7 @@ wheel-build:
     - conan install --profile linux-aarch64-gcc9-release ..
     - apt update
     - apt install -y cmake
-    - cmake ..
+    - cmake -DUSE_CONAN=ON ..
     - cd ..
     - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
     - mkdir wheels
@@ -106,6 +149,19 @@ wheel-build:
   artifacts:
     paths:
       - wheels/*.whl
+
+pytest:
+  stage: test-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags: 
+    - linux
+  needs:
+    - wheel-build
+  script:
+    - pip install ./wheels/*
+    - cd python
+    - pip install pytest pytest-cov
+    - pytest
 
 wheel-test:
   stage: test-python
@@ -116,4 +172,16 @@ wheel-test:
     - wheel-build
   script:
     - pip install ./wheels/*
-    - mkr-convert-fast5 ./test_files/ ./output_files --output-one-to-one
+    - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
+    - python3 python/tests/tools/check_mkr_files_equal.py ./output_files/multi_fast5_zip.mkr ./test_data/multi_fast5_zip.mkr
+
+package_upload:
+  stage: deploy
+  image: ${UPLOAD_PYTHON_IMAGE}
+  needs:
+    - wheel-build
+  script:
+    - ls -lh wheels
+    - pip install twine
+    - twine upload wheels/*
+  only: ["tags"]

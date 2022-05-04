@@ -12,10 +12,15 @@ namespace mkr {
 
 FileReaderOptions::FileReaderOptions() : m_memory_pool(arrow::system_memory_pool()) {}
 
-class FileReaderBaseImpl : public FileReader {
+class FileReaderImpl : public FileReader {
 public:
-    FileReaderBaseImpl(ReadTableReader&& read_table_reader, SignalTableReader&& signal_table_reader)
-            : m_read_table_reader(std::move(read_table_reader)),
+    FileReaderImpl(FileLocation&& read_table_location,
+                   ReadTableReader&& read_table_reader,
+                   FileLocation&& signal_table_location,
+                   SignalTableReader&& signal_table_reader)
+            : m_read_table_location(std::move(read_table_location)),
+              m_signal_table_location(std::move(signal_table_location)),
+              m_read_table_reader(std::move(read_table_reader)),
               m_signal_table_reader(std::move(signal_table_reader)) {}
 
     Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const override {
@@ -39,15 +44,15 @@ public:
         return m_signal_table_reader.signal_batch_for_row_id(row, batch_start_row);
     }
 
+    Result<FileLocation> read_table_location() const override { return m_read_table_location; }
+
+    Result<FileLocation> signal_table_location() const override { return m_signal_table_location; }
+
 private:
+    FileLocation m_read_table_location;
+    FileLocation m_signal_table_location;
     ReadTableReader m_read_table_reader;
     SignalTableReader m_signal_table_reader;
-};
-
-class SplitFileReader : public FileReaderBaseImpl {
-public:
-    SplitFileReader(ReadTableReader&& read_table_reader, SignalTableReader&& signal_table_reader)
-            : FileReaderBaseImpl(std::move(read_table_reader), std::move(signal_table_reader)) {}
 };
 
 mkr::Result<std::unique_ptr<FileReader>> open_split_file_reader(
@@ -76,8 +81,11 @@ mkr::Result<std::unique_ptr<FileReader>> open_split_file_reader(
                                ", reads identifier: ", reads_metadata.file_identifier);
     }
 
-    return std::make_unique<SplitFileReader>(std::move(read_table_reader),
-                                             std::move(signal_table_reader));
+    ARROW_ASSIGN_OR_RAISE(auto const reads_table_size, read_table_file->GetSize());
+    ARROW_ASSIGN_OR_RAISE(auto const signal_table_size, signal_table_file->GetSize());
+    return std::make_unique<FileReaderImpl>(
+            FileLocation(reads_path, 0, reads_table_size), std::move(read_table_reader),
+            FileLocation(signal_path, 0, signal_table_size), std::move(signal_table_reader));
 }
 
 class SubFile : public arrow::io::RandomAccessFile {
@@ -127,7 +135,8 @@ mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(path.string(), pool));
+    ARROW_ASSIGN_OR_RAISE(
+            auto file, arrow::io::MemoryMappedFile::Open(path.string(), arrow::io::FileMode::READ));
 
     ARROW_ASSIGN_OR_RAISE(auto parsed_footer_metadata, combined_file_utils::read_footer(file));
 
@@ -159,8 +168,16 @@ mkr::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
                                ", reads identifier: ", reads_metadata.file_identifier);
     }
 
-    return std::make_unique<SplitFileReader>(std::move(read_table_reader),
-                                             std::move(signal_table_reader));
+    auto reads_table_location =
+            FileLocation(path, parsed_footer_metadata.reads_table.file_start_offset,
+                         parsed_footer_metadata.reads_table.file_length);
+    auto signal_table_location =
+            FileLocation(path, parsed_footer_metadata.signal_table.file_start_offset,
+                         parsed_footer_metadata.signal_table.file_length);
+
+    return std::make_unique<FileReaderImpl>(
+            std::move(reads_table_location), std::move(read_table_reader),
+            std::move(signal_table_location), std::move(signal_table_reader));
 }
 
 }  // namespace mkr

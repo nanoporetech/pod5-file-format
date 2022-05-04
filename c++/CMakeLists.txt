@@ -1,8 +1,20 @@
 
-find_package(Arrow REQUIRED CONFIG)
-find_package(Boost REQUIRED CONFIG)
-find_package(Flatbuffers REQUIRED CONFIG)
-find_package(zstd REQUIRED CONFIG)
+
+if (USE_CONAN)
+    find_package(Arrow REQUIRED CONFIG)
+    find_package(Boost REQUIRED CONFIG)
+    find_package(Flatbuffers REQUIRED CONFIG)
+    find_package(zstd REQUIRED CONFIG)
+else()
+    find_package(Arrow REQUIRED)
+    find_package(
+        Boost REQUIRED
+        COMPONENTS
+            filesystem
+    )
+    find_package(Flatbuffers REQUIRED)
+    find_package(zstd REQUIRED)
+endif()
 
 find_program(
     FLATBUFFERS_FLATC_EXECUTABLE
@@ -113,6 +125,7 @@ target_link_libraries(mkr_format
         arrow::arrow
         flatbuffers::flatbuffers
         Boost::headers
+        Boost::filesystem
     PRIVATE
         mkr_flatbuffers
         zstd::zstd
