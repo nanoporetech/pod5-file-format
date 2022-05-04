@@ -109,7 +109,6 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], c_api=False):
             item = result_queue.get(timeout=0.5)
             items.append(item)
         except Empty:
-            print("nothing")
             continue
 
     for p in processes:
