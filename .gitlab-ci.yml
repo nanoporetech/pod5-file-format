@@ -173,7 +173,7 @@ wheel-test:
   script:
     - pip install ./wheels/*
     - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
-    - python3 python/tests/
+    - python3 python/tests/tools/check_mkr_files_equal.py ./output_files/multi_fast5_zip.mkr ./test_data/multi_fast5_zip.mkr
 
 package_upload:
   stage: deploy
