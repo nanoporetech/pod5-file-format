@@ -116,7 +116,7 @@ win-x64-msvc2017-release-build:
     - ctest -C Release -VV
     - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
     - cd ./archive
-    - tar -czf ../mkr-file-format-{mkr_version}-${OUTPUT_SKU}.tar.gz .
+    - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
     OUTPUT_SKU: "win-x64"
