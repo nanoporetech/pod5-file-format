@@ -156,9 +156,16 @@ class FileReader:
     def __exit__(self, type, value, traceback):
         pass
 
+    @property
+    def batch_count(self):
+        return self._read_reader.reader.num_record_batches
+
+    def get_batch(self, i):
+        return ReadBatchPyArrow(self, self._read_reader.reader.get_record_batch(i))
+
     def read_batches(self):
         for i in range(self._read_reader.reader.num_record_batches):
-            yield ReadBatchPyArrow(self, self._read_reader.reader.get_record_batch(i))
+            yield self.get_batch(i)
 
     def reads(self):
         for batch in self.read_batches():

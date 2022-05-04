@@ -357,16 +357,22 @@ class FileReaderCApi:
     def __exit__(self, type, value, traceback):
         pass
 
-    def read_batches(self):
+    @property
+    def batch_count(self):
         size = ctypes.c_size_t()
         check_error(c_api.mkr_get_read_batch_count(ctypes.byref(size), self._reader))
+        return size.value
 
-        for i in range(size.value):
-            batch = ctypes.POINTER(c_api.MkrReadRecordBatch)()
+    def get_batch(self, i):
+        batch = ctypes.POINTER(c_api.MkrReadRecordBatch)()
 
-            check_error(c_api.mkr_get_read_batch(ctypes.byref(batch), self._reader, i))
+        check_error(c_api.mkr_get_read_batch(ctypes.byref(batch), self._reader, i))
 
-            yield ReadBatchCApi(self._reader, batch)
+        return ReadBatchCApi(self._reader, batch)
+
+    def read_batches(self):
+        for i in range(self.batch_count):
+            yield self.get_batch(i)
 
     def reads(self):
         for batch in self.read_batches():

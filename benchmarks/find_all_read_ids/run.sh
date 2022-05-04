@@ -17,10 +17,10 @@ echo "fast5"
 /benchmark-tools/time.py "fast5" -- /benchmark-tools/find_and_get_fast5.py /input_path/fast5_files /benchmark/outputs/fast5_files
 
 echo "mkr c_api"
-/benchmark-tools/time.py "mkr" -- /benchmark-tools/find_and_get_mkr.py /benchmark/outputs//mkr_files_c_api /benchmark/outputs/mkr_files_c_api --c-api
+/benchmark-tools/time.py "mkr_c_api" -- /benchmark-tools/find_and_get_mkr.py /benchmark/outputs//mkr_files_c_api /benchmark/outputs/mkr_files_c_api --c-api
 
 echo "mkr pyarrow"
-/benchmark-tools/time.py "mkr" -- /benchmark-tools/find_and_get_mkr.py /benchmark/outputs//mkr_files_pyarrow /benchmark/outputs/mkr_files_pyarrow
+/benchmark-tools/time.py "mkr_pyarrow" -- /benchmark-tools/find_and_get_mkr.py /benchmark/outputs//mkr_files_pyarrow /benchmark/outputs/mkr_files_pyarrow
 
 echo "slow5"
 /benchmark-tools/time.py "slow5" -- /benchmark-tools/find_and_get_slow5.py /benchmark/outputs/slow5_files /benchmark/outputs/slow5_files
