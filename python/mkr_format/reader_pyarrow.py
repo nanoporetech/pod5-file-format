@@ -1,3 +1,4 @@
+import ctypes
 from datetime import datetime
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from .reader_utils import (
     EndReasonData,
     RunInfoData,
     SignalRowInfo,
+    SearchOrder,
 )
 
 
@@ -226,13 +228,17 @@ class ReadBatchPyArrow:
         for i in range(self._batch.num_rows):
             yield ReadRowPyArrow(self._reader, self._batch, i)
 
+    def get_read(self, row):
+        return ReadRowPyArrow(self._reader, self._batch, row)
+
 
 class FileReader:
     """
     A reader for MKR data, opened using [open_combined_file], [open_split_file].
     """
 
-    def __init__(self, read_reader, signal_reader):
+    def __init__(self, reader, read_reader, signal_reader):
+        self._reader = reader
         self._read_reader = read_reader
         self._signal_reader = signal_reader
 
@@ -240,6 +246,9 @@ class FileReader:
             self._signal_batch_row_count = self._signal_reader.reader.get_record_batch(
                 0
             ).num_rows
+
+    def __del__(self):
+        check_error(c_api.mkr_close_and_free_reader(self._reader))
 
     def __enter__(self):
         return self
@@ -291,7 +300,9 @@ class FileReader:
             for read in batch.reads():
                 yield read
 
-    def select_reads(self, selection):
+    def select_reads(
+        self, selection, missing_ok=False, order=SearchOrder.READ_EFFICIENT
+    ):
         """
         Iterate a set of reads in the file
 
@@ -304,6 +315,47 @@ class FileReader:
         -------
         An iterable of reads (as ReadRowPyArrow) in the file.
         """
-        search_selection = set(selection)
+        steps, successful_finds = self._plan_traversal(selection, order)
 
-        return filter(lambda x: x.read_id in search_selection, self.reads())
+        if not missing_ok and successful_finds != len(steps):
+            raise Exception(
+                f"Failed to find {len(steps) - successful_finds} requested reads in the file"
+            )
+
+        batch_index = None
+        batch = None
+        for item in steps[:successful_finds]:
+            if batch_index != item.batch:
+                batch = self.get_batch(item.batch)
+                batch_index = item.batch
+
+            yield batch.get_read(item.batch_row)
+
+    def _plan_traversal(self, read_ids, order=SearchOrder.READ_EFFICIENT):
+        contiguous_ids = numpy.array(
+            [
+                numpy.frombuffer(read_id.bytes, dtype=numpy.uint8)
+                for read_id in read_ids
+            ],
+            dtype=numpy.uint8,
+        )
+        step_count = contiguous_ids.shape[0]
+
+        successful_finds = ctypes.c_size_t(0)
+        steps = (c_api.TraversalStep * step_count)()
+
+        sort_type = 0
+
+        read_id_data = contiguous_ids.ctypes.data_as(ctypes.POINTER(c_api.READ_ID))
+        check_error(
+            c_api.mkr_plan_traversal(
+                self._reader,
+                read_id_data,
+                step_count,
+                order.value,
+                steps,
+                ctypes.byref(successful_finds),
+            )
+        )
+
+        return steps, successful_finds.value

@@ -119,6 +119,14 @@ class EmbeddedFileData(ctypes.Structure):
     ]
 
 
+class TraversalStep(ctypes.Structure):
+    _fields_ = [
+        ("batch", ctypes.c_size_t),
+        ("batch_row", ctypes.c_size_t),
+        ("original_index", ctypes.c_size_t),
+    ]
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 # Init the MKR library
 mkr_format.mkr_init()
@@ -131,6 +139,7 @@ class Unloader:
 
 
 ERROR_TYPE = ctypes.c_int
+TRAVERSAL_SORT_TYPE = ctypes.c_int
 WRITER_OPTIONS_PTR = ctypes.POINTER(MkrWriterOptions)
 FILE_READER_PTR = ctypes.POINTER(MkrFileReader)
 FILE_WRITER_PTR = ctypes.POINTER(MkrFileWriter)
@@ -206,6 +215,16 @@ mkr_get_combined_file_signal_table_location.argtypes = [
     ctypes.POINTER(EmbeddedFileData),
 ]
 
+mkr_plan_traversal = mkr_format.mkr_plan_traversal
+mkr_plan_traversal.restype = ERROR_TYPE
+mkr_plan_traversal.argtypes = [
+    FILE_READER_PTR,
+    ctypes.POINTER(READ_ID),
+    ctypes.c_size_t,
+    TRAVERSAL_SORT_TYPE,
+    ctypes.POINTER(TraversalStep),
+    ctypes.POINTER(ctypes.c_size_t),
+]
 
 # ----------------------------------------------------------------------------------------------------------------------
 mkr_add_pore = mkr_format.mkr_add_pore

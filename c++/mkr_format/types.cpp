@@ -5,6 +5,11 @@
 
 namespace mkr {
 
+const boost::uuids::uuid *UuidArray::raw_values() const {
+    auto const array = static_cast<arrow::FixedSizeBinaryArray const *>(storage().get());
+    return reinterpret_cast<boost::uuids::uuid const *>(array->GetValue(0));
+}
+
 boost::uuids::uuid UuidArray::Value(int64_t i) const {
     auto const array = static_cast<arrow::FixedSizeBinaryArray const *>(storage().get());
     return *reinterpret_cast<boost::uuids::uuid const *>(array->GetValue(i));

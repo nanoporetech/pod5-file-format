@@ -44,6 +44,7 @@ add_library(mkr_format SHARED
     mkr_format/read_table_writer.h
     mkr_format/read_table_writer_utils.cpp
     mkr_format/read_table_writer_utils.h
+    mkr_format/read_table_utils.cpp
     mkr_format/read_table_utils.h
 
     mkr_format/signal_compression.cpp
@@ -181,4 +182,5 @@ add_custom_command(
         COMMENT "Copying mkr_format lib to python dir ${python_base_dest_dir}/${python_lib_subfolder}"
 )
 
+add_subdirectory(examples)
 add_subdirectory(test)

@@ -1,4 +1,5 @@
 from collections import namedtuple
+from enum import Enum
 
 SignalRowInfo = namedtuple(
     "SignalRowInfo", ["batch_index", "batch_row_index", "sample_count", "byte_count"]
@@ -31,3 +32,10 @@ RunInfoData = namedtuple(
         "tracking_id",
     ],
 )
+
+
+class SearchOrder(Enum):
+    # Sort the output so the reader can skip around in the file as little as possible.
+    READ_EFFICIENT = 0
+    # Sort the output traversal as the input data is.
+    ORIGINAL_ORDER = 1

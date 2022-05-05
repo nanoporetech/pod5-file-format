@@ -73,6 +73,10 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], c_api=False):
     files = list(input_dir.glob("*.mkr"))
     print(f"Searching for read ids in {[str(f) for f in files]}")
 
+    import time
+
+    file = mkr_format.open_combined_file(files[0], use_c_api=c_api)
+
     processes = []
     if select_read_ids is not None:
         approx_chunk_size = max(1, len(select_read_ids) // runners)

@@ -184,6 +184,7 @@ def run_writer_test(f):
 
 
 def run_reader_test(r):
+    print("Iterate boi")
     for idx, read in enumerate(r.reads()):
         print(idx)
         data = gen_test_read(idx)
@@ -209,6 +210,32 @@ def run_reader_test(r):
         assert (read.signal == data.signal).all()
         chunk_signals = [read.signal_for_chunk(i) for i in range(len(read.signal_rows))]
         assert (numpy.concatenate(chunk_signals) == data.signal).all()
+
+    reads = list(r.reads())
+    search_reads = [
+        reads[6],
+        reads[3],
+        reads[1],
+    ]
+
+    # Searching in original order returns reads in the correct order:
+    search = r.select_reads(
+        [r.read_id for r in search_reads],
+        order=mkr_format.reader_utils.SearchOrder.ORIGINAL_ORDER,
+    )
+    for i, searched_read in enumerate(search):
+        print("ZZ", searched_read, search_reads[i])
+        assert searched_read.read_id == search_reads[i].read_id
+
+    # Searching in original order returns read efficient order returns the right data:
+    search = r.select_reads(
+        [r.read_id for r in search_reads],
+        order=mkr_format.reader_utils.SearchOrder.READ_EFFICIENT,
+    )
+    found_ids = set()
+    for i, searched_read in enumerate(search):
+        found_ids.add(searched_read.read_id)
+    assert found_ids == set(r.read_id for r in search_reads)
 
 
 def test_c_api_combined():

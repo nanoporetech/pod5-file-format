@@ -81,10 +81,7 @@ def open_combined_file(filename: Path, use_c_api=False):
             filename, reader, c_api.mkr_get_combined_file_signal_table_location
         )
 
-        check_error(c_api.mkr_close_and_free_reader(reader))
-        reader = None
-
-        return reader_pyarrow.FileReader(read_reader, signal_reader)
+        return reader_pyarrow.FileReader(reader, read_reader, signal_reader)
 
 
 def open_split_file(file: Path, reads_file: Path = None, use_c_api=False):
@@ -121,8 +118,6 @@ def open_split_file(file: Path, reads_file: Path = None, use_c_api=False):
     if use_c_api:
         return reader_c_api.FileReaderCApi(reader)
     else:
-        check_error(c_api.mkr_close_and_free_reader(reader))
-        reader = None
 
         class ArrowReader:
             def __init__(self, reader):
@@ -130,4 +125,4 @@ def open_split_file(file: Path, reads_file: Path = None, use_c_api=False):
 
         read_reader = ArrowReader(reads_file)
         signal_reader = ArrowReader(signal_file)
-        return reader_pyarrow.FileReader(read_reader, signal_reader)
+        return reader_pyarrow.FileReader(reader, read_reader, signal_reader)

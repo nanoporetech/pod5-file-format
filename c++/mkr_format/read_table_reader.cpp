@@ -9,6 +9,8 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/ipc/reader.h>
 
+#include <algorithm>
+
 namespace mkr {
 
 namespace {
@@ -208,6 +210,104 @@ Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) c
         return record_batch.status();
     }
     return ReadTableRecordBatch{std::move(*record_batch), m_field_locations};
+}
+
+Status ReadTableReader::build_read_id_lookup() {
+    if (!m_sorted_file_read_ids.empty()) {
+        return Status::OK();
+    }
+
+    std::vector<IndexData> file_read_ids;
+
+    auto const batch_count = num_record_batches();
+    std::size_t abs_row_count = 0;
+
+    // Loop each batch and copy read ids out into the index:
+    for (std::size_t i = 0; i < batch_count; ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, read_record_batch(i));
+
+        if (file_read_ids.empty()) {
+            file_read_ids.reserve(batch.num_rows() * batch_count);
+        }
+        file_read_ids.resize(file_read_ids.size() + batch.num_rows());
+
+        auto read_id_col = batch.read_id_column();
+        auto raw_read_id_values = read_id_col->raw_values();
+        for (std::size_t row = 0; row < (std::size_t)read_id_col->length(); ++row) {
+            // Record the id, and its location within the file:
+            file_read_ids[abs_row_count].id = raw_read_id_values[row];
+            file_read_ids[abs_row_count].batch = i;
+            file_read_ids[abs_row_count].batch_row = row;
+            abs_row_count += 1;
+        }
+    }
+
+    // Sort by read id for searching later:
+    std::sort(file_read_ids.begin(), file_read_ids.end(),
+              [](auto const& a, auto const& b) { return a.id < b.id; });
+
+    // Move data out now we successfully build the index:
+    m_sorted_file_read_ids = std::move(file_read_ids);
+
+    return Status::OK();
+}
+
+Result<std::vector<TraversalStep>> ReadTableReader::search_for_read_ids(
+        ReadIdSearchInput const& search_input,
+        TraversalType sort_order,
+        std::size_t* successful_find_count) {
+    ARROW_RETURN_NOT_OK(build_read_id_lookup());
+
+    std::vector<TraversalStep> output_steps;
+    output_steps.resize(search_input.read_id_count());
+
+    std::size_t successes = 0;
+    std::size_t failures = 0;
+
+    auto file_ids_current_it = m_sorted_file_read_ids.begin();
+    auto const file_ids_end = m_sorted_file_read_ids.end();
+    for (std::size_t i = 0; i < output_steps.size(); ++i) {
+        auto const& search_item = search_input[i];
+
+        // Increment file pointer while less than the search term:
+        while (file_ids_current_it->id < search_item.id && file_ids_current_it != file_ids_end) {
+            ++file_ids_current_it;
+        }
+
+        // If we found it record the location:
+        if (file_ids_current_it->id == search_item.id) {
+            output_steps[successes].batch = file_ids_current_it->batch;
+            output_steps[successes].batch_row = file_ids_current_it->batch_row;
+            output_steps[successes].original_index = search_item.index;
+            successes += 1;
+        } else {
+            // Find the location of the next failure record:
+            auto failure_pt = output_steps.end() - 1 - failures;
+            // Otherwise record a failure, at the back of the array:
+            failure_pt->batch = std::numeric_limits<std::size_t>::max();
+            failure_pt->batch_row = std::numeric_limits<std::size_t>::max();
+            failure_pt->original_index = search_item.index;
+            failures += 1;
+        }
+    }
+
+    // Sort output as requested by user:
+    switch (sort_order) {
+    case TraversalType::read_efficient:
+        std::sort(output_steps.begin(), output_steps.end(), [](auto const& a, auto const& b) {
+            return std::make_tuple(a.batch, a.batch_row) < std::make_tuple(b.batch, b.batch_row);
+        });
+
+    case TraversalType::original_order:
+        std::sort(output_steps.begin(), output_steps.end(),
+                  [](auto const& a, auto const& b) { return a.original_index < b.original_index; });
+    }
+
+    if (successful_find_count) {
+        *successful_find_count = successes;
+    }
+
+    return output_steps;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
