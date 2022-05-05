@@ -17,3 +17,14 @@ target_link_libraries(find_specific_read_ids
     Boost::headers
     Boost::filesystem
 )
+
+
+add_executable(find_specific_read_ids_with_signal
+    find_specific_read_ids_with_signal.cpp
+)
+
+target_link_libraries(find_specific_read_ids_with_signal
+    mkr_format
+    Boost::headers
+    Boost::filesystem
+)
