@@ -1,5 +1,8 @@
 import argparse
+import csv
 from pathlib import Path
+import sys
+from uuid import UUID
 
 import mkr_format
 
@@ -9,7 +12,67 @@ def try_open_file(filename: Path, files_handled: set):
 
 
 def do_reads_command(file):
+    keys = [
+        "read_id",
+        "channel",
+        "well",
+        "pore_type",
+        "read_number",
+        "start_sample",
+        "end_reason",
+        "median_before",
+        "sample_count",
+        "byte_count",
+        "signal_compression_ratio",
+    ]
+
+    csv_read_writer = csv.DictWriter(sys.stdout, keys)
+    csv_read_writer.writeheader()
     for read in file.reads():
+        sample_count = read.sample_count
+        byte_count = read.byte_count
+
+        pore_data = read.pore
+        end_reason_data = read.end_reason
+
+        fields = {
+            "read_id": read.read_id,
+            "channel": pore_data.channel,
+            "well": pore_data.well,
+            "pore_type": pore_data.pore_type,
+            "read_number": read.read_number,
+            "start_sample": read.start_sample,
+            "end_reason": end_reason_data.name,
+            "median_before": f"{read.median_before:.1f}",
+            "sample_count": read.sample_count,
+            "byte_count": read.byte_count,
+            "signal_compression_ratio": f"{read.byte_count / float(read.sample_count*2):.3f}",
+        }
+        csv_read_writer.writerow(fields)
+
+
+def dump_run_info(run_info, indent=0):
+    indent_str = " " * indent
+    for name, value in run_info._asdict().items():
+        if isinstance(value, list):
+            print(f"{indent_str}  {name}")
+            for k, v in value:
+                print(f"{indent_str}    {k}: {v}")
+        else:
+            print(f"{indent_str}  {name}: {value}")
+
+
+def do_read_command(file, read_id_str):
+    try:
+        read_id = UUID(read_id_str)
+    except:
+        print(f"Supplied read_id '{read_id_str}' is not a valid UUID")
+        return
+
+    for read in file.reads():
+        if read.read_id != read_id:
+            continue
+
         sample_count = read.sample_count
         byte_count = read.byte_count
 
@@ -17,32 +80,26 @@ def do_reads_command(file):
         calibration_data = read.calibration
         end_reason_data = read.end_reason
 
-        fields = [
-            read.read_id,
-            pore_data.channel,
-            pore_data.well,
-            pore_data.pore_type,
-            read.read_number,
-            read.start_sample,
-            end_reason_data.name,
-            f"{read.median_before:.1f}",
-            f"{calibration_data.offset:.1f}",
-            f"{calibration_data.scale:.1f}",
-            read.sample_count,
-            read.byte_count,
-            f"{read.byte_count / float(read.sample_count*2):.3f}",
-        ]
-        print("\t".join(str(f) for f in fields))
+        print(f"read_id: {read.read_id}")
+        print(f"read_number:\t{read.read_number}")
+        print(f"start_sample:\t{read.start_sample}")
+        print(f"median_before:\t{read.median_before}")
+        print("channel data:")
+        print(
+            f"  channel: {pore_data.channel}\n  well: {pore_data.well}\n  pore_type: {pore_data.pore_type}"
+        )
+        print("end reason:")
+        print(f"  name: {end_reason_data.name}\n  forced {end_reason_data.forced}")
+        print("calibration:")
+        print(f"  offset: {calibration_data.offset}\n  scale: {calibration_data.scale}")
+        print("samples:")
+        print(
+            f"  sample_count: {sample_count}\n  byte_count: {byte_count}\n  compression ratio: {read.byte_count / float(read.sample_count*2):.3f}"
+        )
 
-
-def dump_run_info(run_info):
-    for name, value in run_info._asdict().items():
-        if isinstance(value, dict):
-            print(f"    {name}")
-            for k, v in value.items():
-                print(f"        {k}: {v}")
-        else:
-            print(f"    {name}: {value}")
+        print("run info")
+        dump_run_info(read.run_info, indent=2)
+        break
 
 
 def do_debug_command(file):
@@ -103,7 +160,7 @@ def do_summary_command(file):
 
 
 def main():
-    parser = argparse.ArgumentParser("Convert a fast5 file into an mkr file")
+    parser = argparse.ArgumentParser("Inspect the contents of an mkr file")
 
     subparser = parser.add_subparsers(title="command", dest="command")
     summary_parser = subparser.add_parser("summary")
@@ -111,6 +168,10 @@ def main():
 
     reads_parser = subparser.add_parser("reads")
     reads_parser.add_argument("input_files", type=Path, nargs="+")
+
+    reads_parser = subparser.add_parser("read")
+    reads_parser.add_argument("input_files", type=Path, nargs="+")
+    reads_parser.add_argument("read_id", type=str)
 
     debug_parser = subparser.add_parser("debug")
     debug_parser.add_argument("input_files", type=Path, nargs="+")
@@ -125,6 +186,8 @@ def main():
 
         if args.command == "reads":
             do_reads_command(file)
+        if args.command == "read":
+            do_read_command(file, args.read_id)
         elif args.command == "debug":
             do_debug_command(file)
         elif args.command == "summary":
