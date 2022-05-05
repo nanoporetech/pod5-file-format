@@ -13,6 +13,7 @@ from .reader_utils import (
     EndReasonData,
     RunInfoData,
     SignalRowInfo,
+    SearchOrder,
 )
 
 
@@ -332,6 +333,9 @@ class ReadBatchCApi:
         for i in range(size.value):
             yield ReadRowCApi(self._reader, self._batch, i)
 
+    def get_read(self, row):
+        return ReadRowCApi(self._reader, self._batch, row)
+
 
 class FileReaderCApi:
     """
@@ -340,6 +344,7 @@ class FileReaderCApi:
 
     def __init__(self, reader):
         self._reader = reader
+        self._batches = {}
 
     def __del__(self):
         check_error(c_api.mkr_close_and_free_reader(self._reader))
@@ -357,11 +362,16 @@ class FileReaderCApi:
         return size.value
 
     def get_batch(self, i):
+        if i in self._batches:
+            return self._batches[i]
+
         batch = ctypes.POINTER(c_api.MkrReadRecordBatch)()
 
         check_error(c_api.mkr_get_read_batch(ctypes.byref(batch), self._reader, i))
 
-        return ReadBatchCApi(self._reader, batch)
+        batch = ReadBatchCApi(self._reader, batch)
+        self._batches[i] = batch
+        return batch
 
     def read_batches(self):
         for i in range(self.batch_count):
@@ -372,7 +382,48 @@ class FileReaderCApi:
             for read in batch.reads():
                 yield read
 
-    def select_reads(self, selection):
-        search_selection = set(selection)
+    def select_reads(
+        self, selection, missing_ok=False, order=SearchOrder.READ_EFFICIENT
+    ):
+        steps, successful_finds = self._plan_traversal(selection)
 
-        return filter(lambda x: x.read_id in search_selection, self.reads())
+        if not missing_ok and successful_finds != len(steps):
+            raise Exception(
+                f"Failed to find {len(steps) - successful_finds} requested reads in the file"
+            )
+
+        batch_index = None
+        batch = None
+        for item in steps[:successful_finds]:
+            if batch_index != item.batch:
+                batch = self.get_batch(item.batch)
+                batch_index = item.batch
+
+            yield batch.get_read(item.batch_row)
+
+    def _plan_traversal(self, read_ids, order=SearchOrder.READ_EFFICIENT):
+        contiguous_ids = numpy.array(
+            [
+                numpy.frombuffer(read_id.bytes, dtype=numpy.uint8)
+                for read_id in read_ids
+            ],
+            dtype=numpy.uint8,
+        )
+        step_count = contiguous_ids.shape[0]
+
+        successful_finds = ctypes.c_size_t(0)
+        steps = (c_api.TraversalStep * step_count)()
+
+        read_id_data = contiguous_ids.ctypes.data_as(ctypes.POINTER(c_api.READ_ID))
+        check_error(
+            c_api.mkr_plan_traversal(
+                self._reader,
+                read_id_data,
+                step_count,
+                order.value,
+                steps,
+                ctypes.byref(successful_finds),
+            )
+        )
+
+        return steps, successful_finds.value

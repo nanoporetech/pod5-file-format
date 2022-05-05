@@ -34,11 +34,9 @@ def do_file_work(filename, get_columns, result_q):
     aux_columns = list(filter(lambda x: x not in not_aux_columns, get_columns))
 
     file = pyslow5.Open(str(filename), "r")
-    print("processing ", file)
     for read in file.seq_reads(pA=False, aux=aux_columns):
         process_read(get_columns, read, read_ids, extracted_columns)
 
-    print("done")
     result_q.put(pd.DataFrame(extracted_columns))
 
 

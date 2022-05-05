@@ -47,6 +47,11 @@ public:
     virtual Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const = 0;
     virtual std::size_t num_read_record_batches() const = 0;
 
+    virtual Result<std::vector<TraversalStep>> search_for_read_ids(
+            ReadIdSearchInput const& search_input,
+            ReadTableTraversalType sort_order,
+            std::size_t* successful_find_count) = 0;
+
     virtual Result<SignalTableRecordBatch> read_signal_record_batch(std::size_t i) const = 0;
     virtual std::size_t num_signal_record_batches() const = 0;
     virtual Result<std::size_t> signal_batch_for_row_id(std::size_t row,

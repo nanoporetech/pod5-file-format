@@ -14,6 +14,7 @@
 #include <arrow/type.h>
 
 #include <chrono>
+#include <iostream>
 
 //---------------------------------------------------------------------------------------------------------------------
 struct MkrFileReader {
@@ -235,6 +236,46 @@ mkr_error_t mkr_get_combined_file_read_table_location(MkrFileReader_t* reader,
 
     file_data->offset = read_table_location.offset;
     file_data->length = read_table_location.size;
+    return MKR_OK;
+}
+
+mkr_error_t mkr_plan_traversal(MkrFileReader_t* reader,
+                               uint8_t* read_id_array,
+                               size_t read_id_count,
+                               mkr_traversal_sort_type sort_type,
+                               TraversalStep* steps,
+                               size_t* find_success_count) {
+    mkr_reset_error();
+
+    if (!check_file_not_null(reader) || !check_not_null(read_id_array)) {
+        return g_mkr_error_no;
+    }
+
+    auto search_input = mkr::ReadIdSearchInput(
+            gsl::make_span(reinterpret_cast<boost::uuids::uuid*>(read_id_array), read_id_count));
+
+    auto traversal_type = mkr::ReadTableReader::TraversalType::read_efficient;
+    if (sort_type == MKR_TRAV_SORT_ORIGINAL_ORDER) {
+        traversal_type = mkr::ReadTableReader::TraversalType::original_order;
+    }
+
+    MKR_C_ASSIGN_OR_RAISE(auto results, reader->reader->search_for_read_ids(
+                                                search_input, traversal_type, find_success_count));
+    if (results.size() != read_id_count) {
+        mkr_set_error(mkr::Status::Invalid("Unexpected number of search results ", results.size(),
+                                           " from search execution (expected ", read_id_count,
+                                           ")"));
+        return g_mkr_error_no;
+    }
+
+    for (std::size_t i = 0; i < read_id_count; ++i) {
+        auto& step = steps[i];
+        auto const& result = results[i];
+        step.batch = result.batch;
+        step.batch_row = result.batch_row;
+        step.original_index = result.original_index;
+    }
+
     return MKR_OK;
 }
 

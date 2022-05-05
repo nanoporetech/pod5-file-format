@@ -87,6 +87,42 @@ mkr_get_combined_file_read_table_location(MkrFileReader_t* reader, EmbeddedFileD
 MKR_FORMAT_EXPORT mkr_error_t
 mkr_get_combined_file_signal_table_location(MkrFileReader_t* reader, EmbeddedFileData_t* file_data);
 
+struct TraversalStep {
+    /// \brief The read batch the data resides in:
+    size_t batch;
+    /// \brief The batch row the data resides in:
+    size_t batch_row;
+    /// \brief The original read_id index in the passed input data.
+    size_t original_index;
+};
+typedef struct TraversalStep TraversalStep_t;
+
+enum mkr_traversal_sort_type {
+    // Sort the output so the reader can skip around in the file as little as possible.
+    MKR_TRAV_SORT_READ_EFFICIENT = 0,
+    // Sort the output traversal as the input data is.
+    MKR_TRAV_SORT_ORIGINAL_ORDER = 1,
+};
+typedef enum mkr_traversal_sort_type mkr_traversal_sort_type_t;
+
+/// \brief Plan the most efficient route through the data for the given read ids
+/// \param      file                The file to be queried.
+/// \param      read_id_array       The read id array (contiguous array, 16 bytes per id).
+/// \param      read_id_count       The number of read ids.
+/// \param      sort_type           Control how the sort traversal order should be organised.
+/// \param[out] steps               The output steps in optimal order (must be an array of size read_id_count)
+/// \param[out] find_success_count  The number of read ids that were successfully found.
+/// \note The output array is sorted in file storage order, to improve read efficiency.
+///       [find_success_count] is the number of successful find steps in the result [steps].
+///       Failed finds are all sorted to the back of the [steps] array, and are marked with an
+///       invalid batch and batch_row value.
+MKR_FORMAT_EXPORT mkr_error_t mkr_plan_traversal(MkrFileReader_t* reader,
+                                                 uint8_t* read_id_array,
+                                                 size_t read_id_count,
+                                                 mkr_traversal_sort_type_t sort_type,
+                                                 TraversalStep_t* steps,
+                                                 size_t* find_success_count);
+
 /// \brief Find the number of read batches in the file.
 /// \param[out] count   The number of read batches in the file
 /// \param      reader  The file reader to read from

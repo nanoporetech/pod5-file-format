@@ -1,5 +1,7 @@
 #pragma once
 
+#include "mkr_format/mkr_format_export.h"
+
 #include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
@@ -222,5 +224,38 @@ public:
 inline bool operator==(EndReasonData const& a, EndReasonData const& b) {
     return a.name == b.name && a.forced == b.forced;
 }
+
+class TraversalStep {
+public:
+    /// \brief The read batch the data resides in:
+    std::size_t batch;
+    /// \brief The batch row the data resides in:
+    std::size_t batch_row;
+    /// \brief The original read_id index in the passed input data.
+    std::size_t original_index;
+};
+
+enum class ReadTableTraversalType {
+    read_efficient,
+    original_order,
+};
+
+/// \brief Input query to a search for a number of read ids in a file:
+class MKR_FORMAT_EXPORT ReadIdSearchInput {
+public:
+    struct InputId {
+        boost::uuids::uuid id;
+        std::size_t index;
+    };
+
+    ReadIdSearchInput(gsl::span<boost::uuids::uuid> const& input_ids);
+
+    std::size_t read_id_count() const { return m_search_read_ids.size(); }
+
+    InputId const& operator[](std::size_t i) const { return m_search_read_ids[i]; }
+
+private:
+    std::vector<InputId> m_search_read_ids;
+};
 
 }  // namespace mkr

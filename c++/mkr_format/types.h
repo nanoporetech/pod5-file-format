@@ -16,6 +16,8 @@ public:
 
     using ExtensionArray::ExtensionArray;
 
+    const boost::uuids::uuid *raw_values() const;
+
     boost::uuids::uuid Value(int64_t i) const;
 
     // this isn't actually a view - it copies the data - but

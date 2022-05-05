@@ -2,6 +2,7 @@
 
 #include "mkr_format/mkr_format_export.h"
 #include "mkr_format/read_table_schema.h"
+#include "mkr_format/read_table_utils.h"
 #include "mkr_format/result.h"
 #include "mkr_format/schema_metadata.h"
 #include "mkr_format/table_reader.h"
@@ -27,6 +28,8 @@ class CalibrationData;
 class EndReasonData;
 class PoreData;
 class RunInfoData;
+class TraversalStep;
+class ReadIdSearchInput;
 
 class MKR_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
 public:
@@ -54,6 +57,7 @@ private:
 
 class MKR_FORMAT_EXPORT ReadTableReader : public TableReader {
 public:
+    using TraversalType = ReadTableTraversalType;
     ReadTableReader(std::shared_ptr<void>&& input_source,
                     std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
                     std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
@@ -62,8 +66,21 @@ public:
 
     Result<ReadTableRecordBatch> read_record_batch(std::size_t i) const;
 
+    Status build_read_id_lookup();
+
+    Result<std::vector<TraversalStep>> search_for_read_ids(ReadIdSearchInput const& search_input,
+                                                           TraversalType sort_order,
+                                                           std::size_t* successful_find_count);
+
 private:
+    struct IndexData {
+        boost::uuids::uuid id;
+        std::size_t batch;
+        std::size_t batch_row;
+    };
+
     std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
+    std::vector<IndexData> m_sorted_file_read_ids;
 };
 
 MKR_FORMAT_EXPORT Result<ReadTableReader> make_read_table_reader(
