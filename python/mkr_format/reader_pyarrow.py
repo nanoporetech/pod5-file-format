@@ -96,8 +96,18 @@ class ReadRowPyArrow:
         -------
         The run info data (as RunInfoData).
         """
-        val = self._batch.column("run_info")[self._row]
         return RunInfoData(**self._batch.column("run_info")[self._row].as_py())
+
+    @property
+    def run_info_index(self):
+        """
+        Find the dictionary index of the run info data associated with the read.
+
+        Returns
+        -------
+        The run info data (as RunInfoData).
+        """
+        return self._batch.column("run_info")[self._row].index.as_py()
 
     @property
     def sample_count(self):
