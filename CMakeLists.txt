@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.16.0)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/bass/cmake")
+project(MKR)
 
-include(MKRVersion)
+include(${PROJECT_SOURCE_DIR}/cmake/MKRVersion.cmake)
 
-project(MKR
-    VERSION ${MKR_NUMERIC_VERSION}
-)
+set(CMAKE_PROJECT_VERSION ${MKR_NUMERIC_VERSION})
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 option(USE_CONAN "Use conan for dependency management" OFF)
 
