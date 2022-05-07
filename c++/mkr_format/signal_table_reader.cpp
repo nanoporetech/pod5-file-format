@@ -89,7 +89,24 @@ SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
                                      arrow::MemoryPool* pool)
         : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
           m_field_locations(field_locations),
-          m_pool(pool) {}
+          m_pool(pool),
+          m_batch_size(0) {}
+
+SignalTableReader::SignalTableReader(SignalTableReader&& other)
+        : TableReader(std::move(other)),
+          m_field_locations(std::move(other.m_field_locations)),
+          m_pool(other.m_pool),
+          m_last_batch(std::move(other.m_last_batch)),
+          m_batch_size(other.m_batch_size.load()) {}
+
+SignalTableReader& SignalTableReader::operator=(SignalTableReader&& other) {
+    m_field_locations = std::move(other.m_field_locations);
+    m_pool = other.m_pool;
+    m_last_batch = std::move(other.m_last_batch);
+    m_batch_size = other.m_batch_size.load();
+    static_cast<TableReader&>(*this) = std::move(static_cast<TableReader&>(other));
+    return *this;
+}
 
 Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t i) const {
     if (m_last_batch && m_last_batch->first == i) {
@@ -107,11 +124,11 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
 
 Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
                                                                std::size_t* batch_start_row) const {
-    if (!m_last_batch) {
-        ARROW_RETURN_NOT_OK(read_record_batch(0));
+    if (m_batch_size == 0) {
+        m_batch_size = read_record_batch(0)->num_rows();
     }
-    assert(!!m_last_batch);
-    auto const& batch_size = m_last_batch->second.num_rows();
+    auto batch_size = m_batch_size.load();
+    assert(batch_size != 0);
 
     auto batch = row / batch_size;
 
@@ -125,8 +142,8 @@ Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
 
     return batch;
 }
-//---------------------------------------------------------------------------------------------------------------------
 
+//---------------------------------------------------------------------------------------------------------------------
 Result<SignalTableReader> make_signal_table_reader(
         std::shared_ptr<arrow::io::RandomAccessFile> const& input,
         arrow::MemoryPool* pool) {
