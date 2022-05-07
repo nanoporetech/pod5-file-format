@@ -67,6 +67,7 @@ build-standalone-ubu20:
     - cd ./archive
     - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
   artifacts:
+    name: "${CI_JOB_NAME}-artifacts"
     paths:
       - build/mkr-file-format*.tar.gz
 
@@ -147,6 +148,7 @@ wheel-build:
     - cd python
     - pip wheel . --wheel-dir ../wheels
   artifacts:
+    name: "${CI_JOB_NAME}-artifacts"
     paths:
       - wheels/*.whl
 
