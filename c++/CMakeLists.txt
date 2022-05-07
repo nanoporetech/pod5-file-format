@@ -178,7 +178,14 @@ endif()
 add_custom_command(
     TARGET mkr_format
     POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:mkr_format>" "${python_base_dest_dir}/${python_lib_subfolder}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${python_base_dest_dir}/${python_lib_subfolder}/"
+        COMMENT "Making directory ${python_base_dest_dir}/${python_lib_subfolder}"
+)
+
+add_custom_command(
+    TARGET mkr_format
+    POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:mkr_format>" "${python_base_dest_dir}/${python_lib_subfolder}/"
         COMMENT "Copying mkr_format lib to python dir ${python_base_dest_dir}/${python_lib_subfolder}"
 )
 

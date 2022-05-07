@@ -12,6 +12,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
+#include <atomic>
+
 namespace arrow {
 class Schema;
 namespace io {
@@ -53,6 +55,9 @@ public:
                       SchemaMetadataDescription&& schema_metadata,
                       arrow::MemoryPool* pool);
 
+    SignalTableReader(SignalTableReader&&);
+    SignalTableReader& operator=(SignalTableReader&&);
+
     Result<SignalTableRecordBatch> read_record_batch(std::size_t i) const;
 
     Result<std::size_t> signal_batch_for_row_id(std::size_t row,
@@ -62,6 +67,8 @@ private:
     SignalTableSchemaDescription m_field_locations;
     arrow::MemoryPool* m_pool;
     mutable boost::optional<std::pair<std::size_t, SignalTableRecordBatch>> m_last_batch;
+    // Cached size of the standard signal table batch size (true for all batches except last).
+    mutable std::atomic<std::size_t> m_batch_size;
 };
 
 MKR_FORMAT_EXPORT Result<SignalTableReader> make_signal_table_reader(
