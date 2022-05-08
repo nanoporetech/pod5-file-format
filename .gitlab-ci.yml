@@ -150,7 +150,7 @@ wheel-build:
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - wheels/*.whl
+      - wheels/mkr*.whl
 
 pytest:
   stage: test-python
