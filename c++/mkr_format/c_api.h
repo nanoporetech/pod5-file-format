@@ -541,6 +541,15 @@ MKR_FORMAT_EXPORT mkr_error_t mkr_vbz_decompress_signal(char const* compressed_s
                                                         size_t sample_count,
                                                         short* signal_out);
 
+//---------------------------------------------------------------------------------------------------------------------
+// Global state
+//---------------------------------------------------------------------------------------------------------------------
+
+/// \brief Format a packed binary read id as a readable read id string:
+/// \param          read_id           A 16 byte binary formatted UUID.
+/// \param[out]     read_id_string    Output string containing the string formatted UUID (expects a string of at least 37 bytes, one null byte is written.)
+MKR_FORMAT_EXPORT mkr_error_t mkr_format_read_id(uint8_t* read_id, char* read_id_string);
+
 #ifdef __cplusplus
 }
 #endif
