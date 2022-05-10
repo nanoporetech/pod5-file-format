@@ -2,6 +2,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
 
@@ -135,6 +136,11 @@ SCENARIO("C API") {
                                               &calibration, &read_number, &start_sample,
                                               &median_before, &end_reason, &run_info,
                                               &signal_row_count) == MKR_OK);
+
+            std::string formatted_uuid(36, '\0');
+            CHECK(mkr_format_read_id((uint8_t*)read_id.begin(), &formatted_uuid[0]) == MKR_OK);
+            CHECK(formatted_uuid.size() == boost::uuids::to_string(read_id).size());
+            CHECK(formatted_uuid == boost::uuids::to_string(read_id));
 
             CHECK(read_number == 12);
             CHECK(start_sample == 10245);

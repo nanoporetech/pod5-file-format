@@ -12,6 +12,7 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
 #include <arrow/type.h>
+#include <boost/uuid/uuid_io.hpp>
 
 #include <chrono>
 #include <iostream>
@@ -959,6 +960,26 @@ mkr_error_t mkr_vbz_decompress_signal(char const* compressed_signal,
             gsl::make_span(compressed_signal, compressed_signal_size).as_span<std::uint8_t const>();
     auto out_span = gsl::make_span(signal_out, sample_count);
     MKR_C_RETURN_NOT_OK(mkr::decompress_signal(in_span, arrow::system_memory_pool(), out_span));
+
+    return MKR_OK;
+}
+
+mkr_error_t mkr_format_read_id(uint8_t* read_id, char* read_id_string) {
+    mkr_reset_error();
+
+    if (!check_not_null(read_id) || !check_output_pointer_not_null(read_id_string)) {
+        return g_mkr_error_no;
+    }
+
+    boost::uuids::uuid* uuid_data = reinterpret_cast<boost::uuids::uuid*>(read_id);
+    std::string string_data = boost::uuids::to_string(*uuid_data);
+    if (string_data.size() != 36) {
+        mkr_set_error(mkr::Status::Invalid("Unexpected length of UUID"));
+        return g_mkr_error_no;
+    }
+
+    std::copy(string_data.begin(), string_data.end(), read_id_string);
+    read_id_string[string_data.size()] = '\0';
 
     return MKR_OK;
 }
