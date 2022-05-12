@@ -323,7 +323,7 @@ pytest-win-x64:
   variables:
     WHEEL_GLOB: "mkr_format-*.whl"
 
-package_upload:
+internal_wheel_upload:
   stage: deploy
   image: ${UPLOAD_PYTHON_IMAGE}
   needs:
@@ -333,3 +333,19 @@ package_upload:
     - pip install twine
     - twine upload *.whl
   only: ["tags"]
+
+external_wheel_upload:
+  stage: deploy
+  image: ${UPLOAD_PYTHON_IMAGE}
+  needs:
+    - build-archive
+  script:
+    - ls -lh .
+    - pip install twine
+    - export TWINE_USERNAME=${EXTERNAL_TWINE_USERNAME}
+    - export TWINE_PASSWORD=${EXTERNAL_TWINE_PASSWORD}
+    - export TWINE_REPOSITORY_URL=
+    - export TWINE_CERT=
+    - twine upload wheels/*
+  only: ["tags"]
+  when: manual
