@@ -217,8 +217,11 @@ build-tools:
   tags:
     - linux
   script:
+    - apt update; apt install -y cmake
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - pip install mkr_format-*cp310*.whl
     - cd python/mkr_format_tools/
+    - echo "__version__ = \"${mkr_version}\"" >mkr_format_tools/_version.py
     - pip wheel . --wheel-dir ../../
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
@@ -342,10 +345,8 @@ external_wheel_upload:
   script:
     - ls -lh .
     - pip install twine
-    - export TWINE_USERNAME=${EXTERNAL_TWINE_USERNAME}
-    - export TWINE_PASSWORD=${EXTERNAL_TWINE_PASSWORD}
     - export TWINE_REPOSITORY_URL=
     - export TWINE_CERT=
-    - twine upload *.whl
+    - twine upload *.whl -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}""
   only: ["tags"]
   when: manual
