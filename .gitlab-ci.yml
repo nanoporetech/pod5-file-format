@@ -347,6 +347,6 @@ external_wheel_upload:
     - pip install twine
     - export TWINE_REPOSITORY_URL=
     - export TWINE_CERT=
-    - twine upload *.whl -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}""
+    - twine upload *.whl -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}"
   only: ["tags"]
   when: manual
