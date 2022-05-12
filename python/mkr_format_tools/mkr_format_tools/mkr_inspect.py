@@ -178,6 +178,10 @@ def main():
 
     args = parser.parse_args()
 
+    if args.command == None:
+        parser.print_help()
+        return
+
     files_handled = set()
 
     for filename in args.input_files:

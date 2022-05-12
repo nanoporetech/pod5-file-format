@@ -116,7 +116,9 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                         pore_type = {
                             "channel": int(channel_id.attrs["channel_number"]),
                             "well": raw.attrs["start_mux"],
-                            "pore_type": attrs["pore_type"].decode("utf-8"),
+                            "pore_type": attrs.get("pore_type", "not_set").decode(
+                                "utf-8"
+                            ),
                         }
                         calib_type = {
                             "offset": channel_id.attrs["offset"],

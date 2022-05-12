@@ -346,6 +346,6 @@ external_wheel_upload:
     - export TWINE_PASSWORD=${EXTERNAL_TWINE_PASSWORD}
     - export TWINE_REPOSITORY_URL=
     - export TWINE_CERT=
-    - twine upload wheels/*
+    - twine upload *.whl
   only: ["tags"]
   when: manual
