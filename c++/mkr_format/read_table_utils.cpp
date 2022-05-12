@@ -4,7 +4,7 @@
 
 namespace mkr {
 
-ReadIdSearchInput::ReadIdSearchInput(gsl::span<boost::uuids::uuid> const& input_ids)
+ReadIdSearchInput::ReadIdSearchInput(gsl::span<boost::uuids::uuid const> const& input_ids)
         : m_search_read_ids(input_ids.size()) {
     // Copy in search input:
     for (std::size_t i = 0; i < input_ids.size(); ++i) {

@@ -117,6 +117,9 @@ Building the project requires several tools and libraries are available:
 # Now install the rest of the dependencies:
 > sudo apt install cmake libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
 # Finally start build of MKR:
+> git clone https://github.com/nanoporetech/mkr-file-format.git
+> cd mkr-file-format
+> git submodule update --init --recursive
 > mkdir build
 > cd build
 > cmake ..

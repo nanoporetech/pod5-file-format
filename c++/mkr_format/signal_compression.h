@@ -16,6 +16,11 @@ using SampleType = std::int16_t;
 
 MKR_FORMAT_EXPORT std::size_t compressed_signal_max_size(std::size_t sample_count);
 
+MKR_FORMAT_EXPORT arrow::Result<std::size_t> compress_signal(
+        gsl::span<SampleType const> const& samples,
+        arrow::MemoryPool* pool,
+        gsl::span<std::uint8_t> const& destination);
+
 MKR_FORMAT_EXPORT arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
         gsl::span<SampleType const> const& samples,
         arrow::MemoryPool* pool);

@@ -1,12 +1,61 @@
 stages:
+  - .pre
   - pre-flight
   - build
-  - build-python
+  - build-tools
+  - build-archive
   - test-python
   - deploy
 
 variables:
   CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v24.zip
+  GIT_SUBMODULE_STRATEGY: recursive
+
+.build-docker-image:
+  stage: .pre
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-docker:latest
+  before_script:
+    - docker login --username ${CI_REGISTRY_USER} --password ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+  when: manual
+  retry:
+    max: 2
+    when: runner_system_failure
+  script:
+    - tag="${CI_REGISTRY_IMAGE}/${IMAGE_TAG}"
+    - docker image build --pull --target "${PLATFORM}"
+                         --tag "${tag}" --file ${DOCKERFILE} ci/docker
+    - docker image push ${tag}
+
+docker base aarch64:
+  tags:
+    - docker-builder-arm
+  extends:
+    - .build-docker-image
+  variables:
+    IMAGE_TAG: "build-arm64"
+    DOCKERFILE: "ci/docker/Dockerfile.py39.arm64"
+
+docker base x86-64:
+  tags:
+    - docker-builder
+  extends:
+    - .build-docker-image
+  variables:
+    IMAGE_TAG: "build-x64"
+    DOCKERFILE: "ci/docker/Dockerfile.py39.x64"
+
+#
+# Templates (docker)
+#
+.docker template:
+  stage: docker
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-docker:latest
+  before_script:
+    - docker login --username ${CI_REGISTRY_USER} --password ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+  retry:
+    max: 2
+    when: runner_system_failure
+
 
 tag_version_check:
   stage: pre-flight
@@ -50,8 +99,54 @@ build-standalone-ubu20:
     - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev libarrow-dev
     - mkdir build
     - cd build
-    - cmake ..
+    - cmake -DBUILD_PYTHON_WHEEL=OFF ..
     - make -j
+
+.build-linux:
+  stage: build
+  before_script:
+    - /opt/python/cp310-cp310/bin/pip install conan
+    - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+  script:
+    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - mkdir build
+    - cd build
+    - conan install --profile ${CONAN_PROFILE} ..
+    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - ../ci/package.sh ${OUTPUT_SKU}
+  artifacts:
+    name: "${CI_JOB_NAME}-artifacts"
+    paths:
+      - "mkr-file-format*.tar.gz"
+      - "*.whl"
+
+linux-x64-gcc9-release-build:
+  image: quay.io/pypa/manylinux2014_x86_64
+  extends: [".build-linux"]
+  tags:
+    - linux
+  variables:
+    CONAN_PROFILE: "linux-x86_64-gcc9-release"
+    OUTPUT_SKU: "linux-x64"
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+
+linux-aarch64-gcc9-release-build:
+  image: quay.io/pypa/manylinux2014_aarch64
+  extends: [".build-linux"]
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc9-release"
+    OUTPUT_SKU: "linux-arm64"
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
 
 .build:
   stage: build
@@ -63,32 +158,12 @@ build-standalone-ubu20:
     - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
     - cmake --build . --config Release
     - ctest -C Release -VV
-    - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
-    - cd ./archive
-    - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
+    - ../ci/package.sh ${OUTPUT_SKU}
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - build/mkr-file-format*.tar.gz
-
-linux-x64-gcc9-release-build:
-  image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
-  extends: [".build"]
-  tags:
-    - linux
-  variables:
-    CONAN_PROFILE: "linux-x86_64-gcc9-release"
-    OUTPUT_SKU: "linux-x64"
-
-linux-aarch64-gcc9-release-build:
-  image: git.oxfordnanolabs.local:4567/minknow/images/build-aarch64-gcc9:latest
-  extends: [".build"]
-  tags:
-    - linux_aarch64
-    - high-cpu
-  variables:
-    CONAN_PROFILE: "linux-aarch64-gcc9-release"
-    OUTPUT_SKU: "linux-arm64"
+      - "mkr-file-format*.tar.gz"
+      - "*.whl"
 
 osx-x64-clang12-release-build:
   extends: [".build"]
@@ -116,74 +191,130 @@ win-x64-msvc2017-release-build:
     - cmake -A x64 -G "Visual Studio 15 2017" -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
     - cmake --build . --config Release
     - ctest -C Release -VV
-    - cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -P "cmake_install.cmake"
-    - cd ./archive
-    - tar -czf ../mkr-file-format-${mkr_version}-${OUTPUT_SKU}.tar.gz .
+    - ../ci/package.sh ${OUTPUT_SKU}
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"
     OUTPUT_SKU: "win-x64"
-
-wheel-build:
-  stage: build-python
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
-  tags: 
+    
+build-tools:
+  stage: build-tools
+  needs: ["linux-x64-gcc9-release-build"]
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
+  tags:
     - linux
-  needs:
-    - win-x64-msvc2017-release-build
-    - osx-x64-clang12-release-build
-    - linux-aarch64-gcc9-release-build
-    - linux-x64-gcc9-release-build
   script:
-    - pip install --upgrade pip flit conan
-    - mkdir -p build
-    - cd build
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - conan install --profile linux-aarch64-gcc9-release ..
-    - apt update
-    - apt install -y cmake
-    - cmake -DUSE_CONAN=ON ..
-    - cd ..
-    - ci/unpack_libs_for_python.sh ./build ./python/mkr_format/libs
-    - mkdir wheels
-    - cd python
-    - pip wheel . --wheel-dir ../wheels
+    - pip install mkr_format-*cp310*.whl
+    - cd python/mkr_format_tools/
+    - pip wheel . --wheel-dir ../../
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - wheels/mkr*.whl
+      - "mkr_format_tools-*.whl"
 
-pytest:
+build-archive:
+  stage: build-archive
+  needs:
+    - linux-x64-gcc9-release-build
+    - linux-aarch64-gcc9-release-build
+    - osx-x64-clang12-release-build
+    - win-x64-msvc2017-release-build
+    - build-tools
+  script:
+    - find .
+  artifacts:
+    name: "${CI_JOB_NAME}-artifacts"
+    paths:
+      - ./*.tar.gz
+      - ./*.whl
+
+.pytest:
   stage: test-python
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.6
   tags: 
     - linux
-  needs:
-    - wheel-build
+  before_script:
+    - python3 -m venv .venv/
+    - source .venv/bin/activate
   script:
-    - pip install ./wheels/*
+    - pip install ./${WHEEL_GLOB}
     - cd python
     - pip install pytest pytest-cov
     - pytest
 
-wheel-test:
+    
+tools-linux-x64:
   stage: test-python
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
   tags: 
     - linux
+  before_script:
+    - python3 -m venv .venv/
+    - source .venv/bin/activate
   needs:
-    - wheel-build
+    - linux-x64-gcc9-release-build
+    - build-tools
   script:
-    - pip install ./wheels/*
+    - pip install mkr_format-*cp39*.whl mkr_format_tools*.whl
     - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
-    - python3 python/tests/tools/check_mkr_files_equal.py ./output_files/multi_fast5_zip.mkr ./test_data/multi_fast5_zip.mkr
+    - python3 python/mkr_format_tools/mkr_format_tools/test_utils/check_mkr_files_equal.py ./output_files/multi_fast5_zip.mkr ./test_data/multi_fast5_zip.mkr
+  variables:
+    WHEEL_GLOB: "*cp39*.whl"
+
+pytest-linux-x64:
+  extends: [".pytest"]
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags:
+    - linux
+  needs:
+    - linux-x64-gcc9-release-build
+  variables:
+    WHEEL_GLOB: "mkr_format-*cp39*.whl"
+
+pytest-linux-aarch64:
+  extends: [".pytest"]
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags:
+    - linux_aarch64
+    - high-cpu
+  needs:
+    - linux-aarch64-gcc9-release-build
+  variables:
+    WHEEL_GLOB: "mkr_format-*cp39*.whl"
+
+pytest-osx-x64:
+  extends: [".pytest"]
+  tags:
+    - osx_x86
+    - xcode-12.4
+    - high-cpu
+    - conan
+  needs:
+    - osx-x64-clang12-release-build
+  variables:
+    WHEEL_GLOB: "mkr_format-*.whl"
+
+pytest-win-x64:
+  extends: [".pytest"]
+  tags:
+    - windows
+    - cmake
+    - VS2017
+    - conan
+  needs:
+    - win-x64-msvc2017-release-build
+  before_script:
+    - python -m venv .venv/
+    - source .venv/Scripts/activate
+  variables:
+    WHEEL_GLOB: "mkr_format-*.whl"
 
 package_upload:
   stage: deploy
   image: ${UPLOAD_PYTHON_IMAGE}
   needs:
-    - wheel-build
+    - build-archive
   script:
-    - ls -lh wheels
+    - ls -lh .
     - pip install twine
     - twine upload wheels/*
   only: ["tags"]

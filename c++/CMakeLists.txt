@@ -27,7 +27,12 @@ configure_file(
     mkr_format/version.h
 )
 
-add_library(mkr_format SHARED
+set(mkr_library_type STATIC)
+if (BUILD_SHARED_LIB)
+    set(mkr_library_type SHARED)
+endif()
+
+add_library(mkr_format ${mkr_library_type}
     mkr_format/file_writer.cpp
     mkr_format/file_writer.h
     mkr_format/file_reader.cpp
@@ -156,38 +161,9 @@ install(
     PUBLIC_HEADER DESTINATION "include/mkr_format"
 )
 
-set(python_base_dest_dir "${CMAKE_SOURCE_DIR}/python/mkr_format/libs")
-
-if (WIN32)
-    set(python_lib_subfolder "win-x64")
-elseif (APPLE)
-    if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-        set(python_lib_subfolder "osx-arm64")
-    else()
-        set(python_lib_subfolder "osx-x64")
-    endif()
-else()
-    if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "aarch64")
-        set(python_lib_subfolder "linux-arm64")
-    else()
-        set(python_lib_subfolder "linux-x64")
-    endif()
-endif()
-
-# Copy lib to python dir for easy dev:
-add_custom_command(
-    TARGET mkr_format
-    POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${python_base_dest_dir}/${python_lib_subfolder}/"
-        COMMENT "Making directory ${python_base_dest_dir}/${python_lib_subfolder}"
-)
-
-add_custom_command(
-    TARGET mkr_format
-    POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:mkr_format>" "${python_base_dest_dir}/${python_lib_subfolder}/"
-        COMMENT "Copying mkr_format lib to python dir ${python_base_dest_dir}/${python_lib_subfolder}"
-)
-
 add_subdirectory(examples)
 add_subdirectory(test)
+
+if (BUILD_PYTHON_WHEEL)
+    add_subdirectory(mkr_format_pybind)
+endif()

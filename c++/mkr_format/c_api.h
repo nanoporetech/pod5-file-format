@@ -89,11 +89,11 @@ mkr_get_combined_file_signal_table_location(MkrFileReader_t* reader, EmbeddedFil
 
 struct TraversalStep {
     /// \brief The read batch the data resides in:
-    size_t batch;
+    uint32_t batch;
     /// \brief The batch row the data resides in:
-    size_t batch_row;
+    uint32_t batch_row;
     /// \brief The original read_id index in the passed input data.
-    size_t original_index;
+    uint32_t original_index;
 };
 typedef struct TraversalStep TraversalStep_t;
 
@@ -117,7 +117,7 @@ typedef enum mkr_traversal_sort_type mkr_traversal_sort_type_t;
 ///       Failed finds are all sorted to the back of the [steps] array, and are marked with an
 ///       invalid batch and batch_row value.
 MKR_FORMAT_EXPORT mkr_error_t mkr_plan_traversal(MkrFileReader_t* reader,
-                                                 uint8_t* read_id_array,
+                                                 uint8_t const* read_id_array,
                                                  size_t read_id_count,
                                                  mkr_traversal_sort_type_t sort_type,
                                                  TraversalStep_t* steps,

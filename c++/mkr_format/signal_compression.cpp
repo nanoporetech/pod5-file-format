@@ -14,9 +14,9 @@ std::size_t compressed_signal_max_size(std::size_t sample_count) {
     return zstd_compressed_max_size;
 }
 
-arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
-        gsl::span<SampleType const> const& samples,
-        arrow::MemoryPool* pool) {
+arrow::Result<std::size_t> compress_signal(gsl::span<SampleType const> const& samples,
+                                           arrow::MemoryPool* pool,
+                                           gsl::span<std::uint8_t> const& destination) {
     // First compress the data using svb:
     auto const max_size = svb16_max_encoded_length(samples.size());
     ARROW_ASSIGN_OR_RAISE(auto intermediate, arrow::AllocateResizableBuffer(max_size, pool));
@@ -32,18 +32,30 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
     if (ZSTD_isError(zstd_compressed_max_size)) {
         return mkr::Status::Invalid("Failed to find zstd max size for data");
     }
-    ARROW_ASSIGN_OR_RAISE(auto out, arrow::AllocateResizableBuffer(zstd_compressed_max_size, pool));
 
     /* Compress.
      * If you are doing many compressions, you may want to reuse the context.
      * See the multiple_simple_compression.c example.
      */
-    size_t const compressed_size = ZSTD_compress(out->mutable_data(), out->size(),
+    size_t const compressed_size = ZSTD_compress(destination.data(), destination.size(),
                                                  intermediate->data(), intermediate->size(), 1);
     if (ZSTD_isError(compressed_size)) {
         return mkr::Status::Invalid("Failed to compress data");
     }
-    ARROW_RETURN_NOT_OK(out->Resize(compressed_size));
+    return compressed_size;
+}
+
+arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
+        gsl::span<SampleType const> const& samples,
+        arrow::MemoryPool* pool) {
+    ARROW_ASSIGN_OR_RAISE(auto out, arrow::AllocateResizableBuffer(
+                                            compressed_signal_max_size(samples.size()), pool));
+
+    ARROW_ASSIGN_OR_RAISE(
+            auto final_size,
+            compress_signal(samples, pool, gsl::make_span(out->mutable_data(), out->size())));
+
+    ARROW_RETURN_NOT_OK(out->Resize(final_size));
     return out;
 }
 
