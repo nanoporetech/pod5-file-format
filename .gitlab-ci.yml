@@ -176,6 +176,20 @@ osx-x64-clang12-release-build:
     CONAN_PROFILE: "macos-x86_64-appleclang-12.0-release"
     OUTPUT_SKU: "osx-x64"
 
+osx-arm64-clang13-release-build:
+  extends: [".build"]
+  tags:
+    - osx_arm64
+    - xcode-13.3.1
+    - high-cpu
+    - conan
+  before_script:
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+  variables:
+    CONAN_PROFILE: "macos-aarch64-appleclang-13.1-release"
+    OUTPUT_SKU: "osx-arm64"
+    CMAKE_ARGS: "-DBUILD_PYTHON_WHEEL=OFF -DCMAKE_OSX_ARCHITECTURES=arm64" # Disable python while we get hold of a binary build of arrow
+
 win-x64-msvc2017-release-build:
   extends: [".build"]
   tags:
@@ -217,6 +231,7 @@ build-archive:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
     - osx-x64-clang12-release-build
+    - osx-arm64-clang13-release-build
     - win-x64-msvc2017-release-build
     - build-tools
   script:

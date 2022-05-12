@@ -22,6 +22,9 @@ cd ${CURRENT_DIR}
 # Find the wheel:
 (
     cmake -DCMAKE_INSTALL_PREFIX="wheel" -DBUILD_TYPE="Release" -DCOMPONENT="wheel" -P "cmake_install.cmake"
-    cd wheel/
-    mv *.whl ${REPO_ROOT}/
+    # Wheels are optional:
+    if [ -d "wheel/" ] ; then
+        cd wheel/
+        mv *.whl ${REPO_ROOT}/
+    fi
 )
