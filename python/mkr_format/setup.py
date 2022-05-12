@@ -77,7 +77,7 @@ setup(
         "iso8601",
         "more_itertools",
         "numpy",
-        "pyarrow",
+        "pyarrow ~= 7.0.0",
         "pytz",
     ],
     distclass=BinaryDistribution,
