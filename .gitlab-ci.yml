@@ -331,5 +331,5 @@ package_upload:
   script:
     - ls -lh .
     - pip install twine
-    - twine upload wheels/*
+    - twine upload *.whl
   only: ["tags"]
