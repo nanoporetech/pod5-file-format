@@ -1,0 +1,54 @@
+import ctypes
+
+import numpy
+
+import mkr_format.mkr_format_pybind
+
+
+def vbz_decompress_signal(compressed_signal, sample_count):
+    """
+    Decompress a numpy array of compressed signal data
+
+    Parameters
+    ----------
+    compressed_signal : numpy.array
+        The array of compressed signal data to decompress.
+    sample_count : int
+        The sample count of the decompressed data.
+
+    Returns
+    -------
+    A decompressed numpy int16 array
+    """
+    signal = numpy.empty(sample_count, dtype="i2")
+
+    mkr_format.mkr_format_pybind.decompress_signal(
+        compressed_signal,
+        signal,
+    )
+    return signal
+
+
+def vbz_compress_signal(signal):
+    """
+    Compress a numpy array of signal data
+
+    Parameters
+    ----------
+    signal : numpy.array
+        The array of signal data to compress.
+
+    Returns
+    -------
+    A compressed numpy byte array
+    """
+
+    max_signal_size = mkr_format.mkr_format_pybind.vbz_compressed_signal_max_size(
+        len(signal)
+    )
+    signal_bytes = numpy.zeros(max_signal_size, dtype="u1")
+
+    size = mkr_format.mkr_format_pybind.compress_signal(signal, signal_bytes)
+
+    signal_bytes = numpy.resize(signal_bytes, size)
+    return signal_bytes

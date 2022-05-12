@@ -241,7 +241,7 @@ mkr_error_t mkr_get_combined_file_read_table_location(MkrFileReader_t* reader,
 }
 
 mkr_error_t mkr_plan_traversal(MkrFileReader_t* reader,
-                               uint8_t* read_id_array,
+                               uint8_t const* read_id_array,
                                size_t read_id_count,
                                mkr_traversal_sort_type sort_type,
                                TraversalStep* steps,
@@ -252,8 +252,8 @@ mkr_error_t mkr_plan_traversal(MkrFileReader_t* reader,
         return g_mkr_error_no;
     }
 
-    auto search_input = mkr::ReadIdSearchInput(
-            gsl::make_span(reinterpret_cast<boost::uuids::uuid*>(read_id_array), read_id_count));
+    auto search_input = mkr::ReadIdSearchInput(gsl::make_span(
+            reinterpret_cast<boost::uuids::uuid const*>(read_id_array), read_id_count));
 
     auto traversal_type = mkr::ReadTableReader::TraversalType::read_efficient;
     if (sort_type == MKR_TRAV_SORT_ORIGINAL_ORDER) {

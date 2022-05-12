@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel", "Cython"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "mkr_format_tools"
+authors = []
+readme = "README.md"
+requires-python = "~= 3.7"
+dynamic = ["version", "description"]
+
+keywords = ['nanopore']
+
+classifiers=[
+    'Environment :: Console',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Mozilla Public License 2.0',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+]
+
+dependencies = [
+  "mkr_format",
+  "h5py",
+]
+
+[project.scripts]
+mkr-convert-fast5 = "mkr_format_tools.mkr_convert_fast5:main"
+mkr-inspect = "mkr_format_tools.mkr_inspect:main"
+
+[tool.black]
+target-version = ["py37"]

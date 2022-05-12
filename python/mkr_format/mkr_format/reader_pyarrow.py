@@ -5,8 +5,8 @@ from uuid import UUID
 import numpy
 import pyarrow as pa
 
-from . import c_api
-from .api_utils import check_error
+import mkr_format.mkr_format_pybind
+from .api_utils import pack_read_ids
 from .signal_tools import vbz_decompress_signal
 from .reader_utils import (
     PoreData,
@@ -137,7 +137,6 @@ class ReadRowPyArrow:
         output = []
         for r in self._batch.column("signal")[self._row]:
             output.append(self._get_signal_for_row(r.as_py()))
-
         return numpy.concatenate(output)
 
     def signal_for_chunk(self, i):
@@ -202,8 +201,9 @@ class ReadRowPyArrow:
         if isinstance(signal, pa.lib.LargeBinaryArray):
             sample_count = batch.column("samples")[batch_row_index].as_py()
             output = numpy.empty(sample_count, dtype=numpy.uint8)
-            compressed_signal = signal[batch_row_index].as_py()
-            return vbz_decompress_signal(compressed_signal, sample_count)
+            return vbz_decompress_signal(
+                memoryview(signal[batch_row_index].as_buffer()), sample_count
+            )
         else:
             return signal.to_numpy()
 
@@ -248,13 +248,20 @@ class FileReader:
             ).num_rows
 
     def __del__(self):
-        check_error(c_api.mkr_close_and_free_reader(self._reader))
+        self._reader.close()
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
-        pass
+        self.close()
+
+    def close(self):
+        self._read_reader.close()
+        self._read_reader = None
+        self._signal_reader.close()
+        self._signal_reader = None
+        self._reader.close()
 
     @property
     def batch_count(self):
@@ -325,37 +332,25 @@ class FileReader:
         batch_index = None
         batch = None
         for item in steps[:successful_finds]:
-            if batch_index != item.batch:
-                batch = self.get_batch(item.batch)
-                batch_index = item.batch
+            batch_idx = item[0]
+            batch_row = item[1]
+            if batch_index != batch_idx:
+                batch = self.get_batch(batch_idx)
+                batch_index = batch_idx
 
-            yield batch.get_read(item.batch_row)
+            yield batch.get_read(batch_row)
 
     def _plan_traversal(self, read_ids, order=SearchOrder.READ_EFFICIENT):
-        contiguous_ids = numpy.array(
-            [
-                numpy.frombuffer(read_id.bytes, dtype=numpy.uint8)
-                for read_id in read_ids
-            ],
-            dtype=numpy.uint8,
-        )
-        step_count = contiguous_ids.shape[0]
+        if not isinstance(read_ids, numpy.ndarray):
+            read_ids = pack_read_ids(read_ids)
 
-        successful_finds = ctypes.c_size_t(0)
-        steps = (c_api.TraversalStep * step_count)()
+        step_count = read_ids.shape[0]
+        traversal_plan = numpy.empty(dtype="u4", shape=(step_count, 3))
 
-        sort_type = 0
-
-        read_id_data = contiguous_ids.ctypes.data_as(ctypes.POINTER(c_api.READ_ID))
-        check_error(
-            c_api.mkr_plan_traversal(
-                self._reader,
-                read_id_data,
-                step_count,
-                order.value,
-                steps,
-                ctypes.byref(successful_finds),
-            )
+        successful_steps = self._reader.plan_traversal(
+            read_ids,
+            order.value,
+            traversal_plan,
         )
 
-        return steps, successful_finds.value
+        return traversal_plan, successful_steps

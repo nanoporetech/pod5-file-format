@@ -248,7 +248,7 @@ public:
         std::size_t index;
     };
 
-    ReadIdSearchInput(gsl::span<boost::uuids::uuid> const& input_ids);
+    ReadIdSearchInput(gsl::span<boost::uuids::uuid const> const& input_ids);
 
     std::size_t read_id_count() const { return m_search_read_ids.size(); }
 
