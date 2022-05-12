@@ -19,9 +19,16 @@ from setuptools import find_packages, setup
 from setuptools.dist import Distribution
 import sys
 
+PYTHON_ROOT = Path(__file__).resolve().parent
+
+sys.path.insert(0, str(PYTHON_ROOT / "mkr_format_tools"))
+from _version import __version__
+
+del sys.path[0]
+
 setup(
     name="mkr_format_tools",
-    version="0.0.1",
+    version=__version__,
     description="Tools for use with the MKR file format",
     author="Oxford Nanopore Technologies plc",
     author_email="support@nanoporetech.com",
