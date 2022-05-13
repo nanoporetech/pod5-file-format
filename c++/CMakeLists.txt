@@ -137,6 +137,18 @@ target_link_libraries(mkr_format
         zstd::zstd
 )
 
+if (NOT BUILD_SHARED_LIB)
+    set(mkr_libs arrow zstd)
+    foreach (lib ${mkr_libs})
+        get_target_property(lib_location arrow::arrow INTERFACE_LINK_LIBRARIES)
+            
+        install(
+            FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
+            TYPE LIB
+        )
+    endforeach()
+endif()
+
 target_include_directories(mkr_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}

@@ -226,11 +226,14 @@ osx-arm64-clang13-release-build:
     - conan
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - python3 -m venv .venv/
+    - source .venv/bin/activate
+    - pip install --upgrade pip
   variables:
     CONAN_PROFILE: "macos-aarch64-appleclang-13.1-release"
     OUTPUT_SKU: "osx-arm64"
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
-    BUILD_PYTHON_WHEEL: "OFF" # Disable python while we get hold of a binary build of arrow
+    BUILD_PYTHON_WHEEL: "ON"
 
 win-x64-msvc2017-release-build:
   extends: [".build"]
