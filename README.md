@@ -18,18 +18,24 @@ accessing this data in other languages.
 Usage
 -----
 
-The MKR is bundled as a python module for easy use in scripts, a user can install using:
+MKR is also bundled as a python module for easy use in scripts, a user can install using:
 
 ```bash
 > pip install mkr_format
 ```
 
-The python module comes with several tools to assist users with mkr files, and a python library to write custom scripts against.
+This python module provides the python library to write custom scripts against.
 
-Please see [examples](./python/mkr_format/examples) for documentation on using the library.
+Please see [examples](./python/mkr_format/mkr_format/examples) for documentation on using the library.
 
 Tools
 -----
+
+MKR also provides a selection of tools.
+
+```bash
+> pip install mkr_format_tools
+```
 
 ### mkr-convert-fast5
 
