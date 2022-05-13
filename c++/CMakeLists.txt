@@ -140,10 +140,25 @@ target_link_libraries(mkr_format
 if (NOT BUILD_SHARED_LIB)
     set(mkr_libs arrow zstd)
     foreach (lib ${mkr_libs})
-        get_target_property(lib_location arrow::arrow INTERFACE_LINK_LIBRARIES)
             
         install(
             FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
+            TYPE LIB
+        )
+    endforeach()
+
+    set(lib_ext ".a")
+    set(lib_prefix "lib")
+    if (WIN32)
+        set(lib_ext ".lib")
+    set(lib_prefix "")
+    endif()
+    foreach(boost_lib filesystem)
+        set(debug_path "${Boost_${boost_lib}_LIB_DIRS_DEBUG}/${lib_prefix}${Boost_${boost_lib}_LIBS_DEBUG}${lib_ext}")
+        set(release_path "${Boost_${boost_lib}_LIB_DIRS_RELEASE}/${lib_prefix}${Boost_${boost_lib}_LIBS_RELEASE}${lib_ext}")
+        
+        install(
+            FILES $<IF:$<CONFIG:Debug>,${debug_path},${release_path}>
             TYPE LIB
         )
     endforeach()
