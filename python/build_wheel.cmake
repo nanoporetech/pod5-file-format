@@ -8,11 +8,11 @@ set(output_dir "./dist")
 
 set(ENV{MKR_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
 
-file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/mkr_format/mkr_format")
+file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/mkr_format")
 
 execute_process(
     COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}
-    WORKING_DIRECTORY "${PYTHON_PROJECT_DIR}/mkr_format/"
+    WORKING_DIRECTORY "${PYTHON_PROJECT_DIR}/"
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE output
     ERROR_VARIABLE output

@@ -89,6 +89,9 @@ class RunCache:
 
 
 def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
+    # Persist this flag in case we encounter an error in a file.
+    has_request_for_reads = False
+
     for fast5_file in fast5_files:
         file_read_sent_count = 0
         try:
@@ -100,9 +103,10 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
 
                 for keys in more_itertools.chunked(inp.keys(), READ_CHUNK_SIZE):
                     # Allow the out queue to throttle us back if we are too far ahead.
-                    while True:
+                    while not has_request_for_reads:
                         try:
                             item = in_q.get(timeout=1)
+                            has_request_for_reads = True
                             break
                         except Empty:
                             continue
@@ -116,7 +120,7 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                         pore_type = {
                             "channel": int(channel_id.attrs["channel_number"]),
                             "well": raw.attrs["start_mux"],
-                            "pore_type": attrs.get("pore_type", "not_set").decode(
+                            "pore_type": attrs.get("pore_type", b"not_set").decode(
                                 "utf-8"
                             ),
                         }
@@ -131,7 +135,14 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                             else None
                         )
 
-                        acq_id = attrs["run_id"].decode("utf-8")
+                        acq_id = None
+                        if "run_id" in attrs:
+                            acq_id = attrs["run_id"].decode("utf-8")
+                        else:
+                            acq_id = (
+                                inp[key]["tracking_id"].attrs["run_id"].decode("utf-8")
+                            )
+
                         if not run_cache or run_cache.acquisition_id != acq_id:
                             adc_min = 0
                             adc_max = 0
@@ -211,6 +222,7 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
 
                     file_read_sent_count += len(reads)
                     out_q.put(ReadList(fast5_file, reads))
+                    has_request_for_reads = False
         except Exception as exc:
             print(f"Error in file {fast5_file}: {exc}", file=sys.stderr)
 
@@ -420,7 +432,10 @@ def main():
             out_file = output_handler.input_complete(item.file)
             files_ended += 1
 
-    assert reads_processed == read_count
+    if reads_processed != read_count:
+        print(
+            "!!! Some reads count not be converted due to errors !!!", file=sys.stderr
+        )
     print(
         f"{files_started}/{files_ended}/{file_count} files\t"
         f"{reads_processed}/{read_count} reads, {format_sample_count(sample_count)}"

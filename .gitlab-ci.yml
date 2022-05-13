@@ -105,7 +105,8 @@ build-standalone-ubu20:
 .build-linux:
   stage: build
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install conan
+    - /opt/python/cp310-cp310/bin/pip install conan auditwheel
+    - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   script:
@@ -113,10 +114,15 @@ build-standalone-ubu20:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
-    - ../ci/package.sh ${OUTPUT_SKU}
+    - ../ci/install.sh
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - ../ci/install.sh
+    - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -131,6 +137,7 @@ linux-x64-gcc9-release-build:
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9-release"
     OUTPUT_SKU: "linux-x64"
+    AUDITWHEEL_PLATFORM: manylinux2014_x86_64
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
@@ -144,6 +151,34 @@ linux-aarch64-gcc9-release-build:
   variables:
     CONAN_PROFILE: "linux-aarch64-gcc9-release"
     OUTPUT_SKU: "linux-arm64"
+    AUDITWHEEL_PLATFORM: manylinux2014_aarch64
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+
+linux-x64-gcc9-release-build:
+  image: quay.io/pypa/manylinux2014_x86_64
+  extends: [".build-linux"]
+  tags:
+    - linux
+  variables:
+    CONAN_PROFILE: "linux-x86_64-gcc9-release"
+    OUTPUT_SKU: "linux-x64"
+    AUDITWHEEL_PLATFORM: manylinux2014_x86_64
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+
+linux-aarch64-gcc9-release-build:
+  image: quay.io/pypa/manylinux2014_aarch64
+  extends: [".build-linux"]
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc9-release"
+    OUTPUT_SKU: "linux-arm64"
+    AUDITWHEEL_PLATFORM: manylinux2014_aarch64
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
@@ -155,9 +190,14 @@ linux-aarch64-gcc9-release-build:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
+    - ../ci/install.sh
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL} ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - ../ci/install.sh
     - ../ci/package.sh ${OUTPUT_SKU}
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
@@ -175,6 +215,7 @@ osx-x64-clang12-release-build:
   variables:
     CONAN_PROFILE: "macos-x86_64-appleclang-12.0-release"
     OUTPUT_SKU: "osx-x64"
+    BUILD_PYTHON_WHEEL: "ON"
 
 osx-arm64-clang13-release-build:
   extends: [".build"]
@@ -188,7 +229,8 @@ osx-arm64-clang13-release-build:
   variables:
     CONAN_PROFILE: "macos-aarch64-appleclang-13.1-release"
     OUTPUT_SKU: "osx-arm64"
-    CMAKE_ARGS: "-DBUILD_PYTHON_WHEEL=OFF -DCMAKE_OSX_ARCHITECTURES=arm64" # Disable python while we get hold of a binary build of arrow
+    CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
+    BUILD_PYTHON_WHEEL: "OFF" # Disable python while we get hold of a binary build of arrow
 
 win-x64-msvc2017-release-build:
   extends: [".build"]
@@ -202,9 +244,14 @@ win-x64-msvc2017-release-build:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} ..
-    - cmake -A x64 -G "Visual Studio 15 2017" -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON ..
+    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
+    - ../ci/install.sh
+    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+    - ../ci/install.sh
     - ../ci/package.sh ${OUTPUT_SKU}
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017-release"

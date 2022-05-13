@@ -1,2 +1,2 @@
 
-__version__ = "@MKR_NUMERIC_VERSION@";
+__version__ = "@MKR_NUMERIC_VERSION@"
