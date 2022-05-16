@@ -29,6 +29,29 @@ def vbz_decompress_signal(compressed_signal, sample_count):
     return signal
 
 
+def vbz_decompress_signal_into(compressed_signal, output_array):
+    """
+    Decompress a numpy array of compressed signal data
+
+    Parameters
+    ----------
+    compressed_signal : numpy.array
+        The array of compressed signal data to decompress.
+    output_array : numpy.array
+        The destination location for signal
+
+    Returns
+    -------
+    A decompressed numpy int16 array
+    """
+
+    mkr_format.mkr_format_pybind.decompress_signal(
+        compressed_signal,
+        output_array,
+    )
+    return output_array
+
+
 def vbz_compress_signal(signal):
     """
     Compress a numpy array of signal data

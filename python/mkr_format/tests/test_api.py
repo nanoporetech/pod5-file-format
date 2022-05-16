@@ -218,7 +218,7 @@ def run_reader_test(r):
     ]
 
     # Searching in original order returns reads in the correct order:
-    search = r.select_reads(
+    search = r.reads(
         [r.read_id for r in search_reads],
         order=mkr_format.reader_utils.SearchOrder.ORIGINAL_ORDER,
     )
@@ -226,7 +226,7 @@ def run_reader_test(r):
         assert searched_read.read_id == search_reads[i].read_id
 
     # Searching in original order returns read efficient order returns the right data:
-    search = r.select_reads(
+    search = r.reads(
         [r.read_id for r in search_reads],
         order=mkr_format.reader_utils.SearchOrder.READ_EFFICIENT,
     )
@@ -234,39 +234,6 @@ def run_reader_test(r):
     for i, searched_read in enumerate(search):
         found_ids.add(searched_read.read_id)
     assert found_ids == set(r.read_id for r in search_reads)
-
-
-"""
-def test_c_api_combined():
-    with tempfile.TemporaryDirectory() as td:
-        path = Path(td) / "combined.mkr"
-        with mkr_format.create_combined_file(path) as f:
-            run_writer_test(f)
-
-        with mkr_format.open_combined_file(path, use_c_api=True) as r:
-            run_reader_test(r)
-
-
-def test_c_api_split():
-    with tempfile.TemporaryDirectory() as td:
-        signal = Path(td) / "split_signal.mkr"
-        reads = Path(td) / "split_reads.mkr"
-        with mkr_format.create_split_file(signal, reads) as f:
-            run_writer_test(f)
-
-        with mkr_format.open_split_file(signal, reads, use_c_api=True) as r:
-            run_reader_test(r)
-
-
-def test_c_api_split_one_name():
-    with tempfile.TemporaryDirectory() as td:
-        p = Path(td) / "split.mkr"
-        with mkr_format.create_split_file(p) as f:
-            run_writer_test(f)
-
-        with mkr_format.open_split_file(p, use_c_api=True) as r:
-            run_reader_test(r)
-"""
 
 
 def test_pyarrow_combined():

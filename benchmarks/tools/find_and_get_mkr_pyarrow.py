@@ -18,57 +18,59 @@ SelectReadIdsData = namedtuple(
 )
 
 
-def get_mapped_ids(select_read_ids_data):
+def process_batch(get_columns, batch, extracted_columns):
+    new_read_ids = batch.read_id_column.to_pandas().map(lambda x: UUID(bytes=x))
+    extracted_columns["read_id"] = pd.concat(
+        [extracted_columns.get("read_id", None), new_read_ids]
+    )
+
+    for c in get_columns:
+        if c == "samples":
+            row = []
+            for read in batch.reads():
+                row.append(numpy.sum(read.signal))
+            extracted_columns[c] = pd.concat(
+                [extracted_columns.get(c, None), pd.Series(row)]
+            )
+        elif c == "read_number":
+            extracted_columns[c] = pd.concat(
+                [extracted_columns.get(c, None), batch.read_number_column.to_pandas()]
+            )
+        else:
+            assert False
+
+
+def do_batch_work(filename, batches, get_columns, result_q):
+    extracted_columns = {}
+
+    file = mkr_format.open_combined_file(filename)
+    for batch_id in batches:
+        process_batch(get_columns, file.get_batch(batch_id), extracted_columns)
+
+    result_q.put(pd.DataFrame(extracted_columns))
+
+
+def do_search_work(files, select_read_ids_data, get_columns, result_q):
     select_read_ids_all = numpy.memmap(
         select_read_ids_data.path,
         dtype=numpy.uint8,
         mode="r+",
         shape=select_read_ids_data.shape,
     )
-    return select_read_ids_all[
+    select_read_ids = select_read_ids_all[
         select_read_ids_data.slice_start : select_read_ids_data.slice_end
     ]
-
-
-def process_read(get_columns, read, read_ids, extracted_columns):
-    read_ids.append(read.read_id)
-
-    for c in get_columns:
-        if not c in extracted_columns:
-            extracted_columns[c] = []
-        col = extracted_columns[c]
-        if c == "samples":
-            col.append(numpy.sum(read.signal))
-        else:
-            col.append(getattr(read, c))
-
-
-def do_batch_work(filename, batches, get_columns, mode, result_q):
-    read_ids = []
-    extracted_columns = {"read_id": read_ids}
-
-    file = mkr_format.open_combined_file(filename)
-    for batch in batches:
-        for read in file.get_batch(batch).reads():
-            process_read(get_columns, read, read_ids, extracted_columns)
-
-    result_q.put(pd.DataFrame(extracted_columns))
-
-
-def do_search_work(files, select_read_ids_data, get_columns, mode, result_q):
-    select_read_ids = get_mapped_ids(select_read_ids_data)
-    read_ids = []
-    extracted_columns = {"read_id": read_ids}
+    extracted_columns = {}
     for file in files:
         file = mkr_format.open_combined_file(file)
 
-        for read in file.reads(select_read_ids):
-            process_read(get_columns, read, read_ids, extracted_columns)
+        for batch in file.select_reads_in_batches(select_read_ids):
+            process_batch(get_columns, batch, extracted_columns)
 
     result_q.put(pd.DataFrame(extracted_columns))
 
 
-def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
+def run(input_dir, output, select_read_ids=None, get_columns=[]):
     output.mkdir(parents=True, exist_ok=True)
 
     mp.set_start_method("spawn")
@@ -80,7 +82,13 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
 
     if select_read_ids is not None:
         print("Placing select read id data on disk for mmapping:")
-        numpy_select_read_ids = mkr_format.pack_read_ids(select_read_ids)
+        numpy_select_read_ids = numpy.array(
+            [
+                numpy.frombuffer(UUID(x).bytes, dtype=numpy.uint8)
+                for x in select_read_ids
+            ],
+            dtype=numpy.uint8,
+        )
 
         # Copy data to memory-map
         fp = tempfile.NamedTemporaryFile()
@@ -98,6 +106,8 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
     files = list(input_dir.glob("*.mkr"))
     print(f"Searching for read ids in {[str(f) for f in files]}")
 
+    file = mkr_format.open_combined_file(files[0])
+
     processes = []
     if select_read_ids is not None:
         approx_chunk_size = max(1, len(select_read_ids) // runners)
@@ -112,7 +122,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
 
             p = mp.Process(
                 target=do_search_work,
-                args=(files, select_read_ids_data, get_columns, mode, result_queue),
+                args=(files, select_read_ids_data, get_columns, result_queue),
             )
             p.start()
             processes.append(p)
@@ -127,14 +137,13 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
                 select_batches = batches[start_index : start_index + approx_chunk_size]
                 p = mp.Process(
                     target=do_batch_work,
-                    args=(filename, select_batches, get_columns, mode, result_queue),
+                    args=(filename, select_batches, get_columns, result_queue),
                 )
                 p.start()
                 processes.append(p)
                 start_index += len(select_batches)
 
     print("Wait for processes...")
-
     items = []
     while len(items) < len(processes):
         try:
@@ -170,20 +179,21 @@ def main():
         type=str,
         help="Add columns that should be extacted",
     )
+    parser.add_argument(
+        "--c-api", action="store_true", help="Use C API rather than PyArrow"
+    )
+
     args = parser.parse_args()
 
     select_read_ids = None
     if args.select_ids:
         select_read_ids = pd.read_csv(args.select_ids)["read_id"]
 
-    mode = None
-
     run(
         args.input,
         args.output,
         select_read_ids=select_read_ids,
         get_columns=args.get_column,
-        mode=mode,
     )
 
 
