@@ -1,8 +1,9 @@
-import argparse
-import csv
-from pathlib import Path
+import os
 import sys
+import csv
+import argparse
 from uuid import UUID
+from pathlib import Path
 
 import mkr_format
 
@@ -48,7 +49,12 @@ def do_reads_command(file):
             "byte_count": read.byte_count,
             "signal_compression_ratio": f"{read.byte_count / float(read.sample_count*2):.3f}",
         }
-        csv_read_writer.writerow(fields)
+        try:
+            csv_read_writer.writerow(fields)
+        except BrokenPipeError:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+            break
 
 
 def dump_run_info(run_info, indent=0):
