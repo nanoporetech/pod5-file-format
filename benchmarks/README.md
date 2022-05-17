@@ -26,11 +26,13 @@ Benchmarking Results
 
     Note preliminary results
 
-    *More work needed on splitting one blow5 file into batches for threading*
-
     Results run on:
         0.0.13 MKR
-        0.5.0a1 pyslow5
+        pyslow5 dev branch (commit 2643310a)
+
+    Benchmark numbers are produced using a GridION.
+
+    Note the benchmarks are run using python APIs, more work is required on C benchmarks.
 
 
 ## PCR Dataset
@@ -43,41 +45,41 @@ On dataset a PCR Zymo dataset PAM50264, on 10.4.1 e8.2 data (`pcr_zymo/20220419_
 
 |      | Fast5 | MKR      | blow5     |
 |------|-------|----------|-----------|
-| Time | N/A   | 212 secs | 772 secs* |
+| Time | N/A   | 212 secs | 242 secs* |
 | Size | 52 GB | 37GB     | 38GB      |
 
-```* Note blow5 times include merge and index operation, individual operation times: Convert 280s, Merge 275s, Index 217s```
+```* Note blow5 times include the index operation```
 
 
 ### Find all read ids
 
 |      | Fast5    | MKR      | blow5    |
 |------|----------|----------|----------|
-| Time | 6.1 secs | 4.7 secs | 275 secs |
+| Time | 6.1 secs | 4.7 secs | 1.8 secs |
 
 ### Find all samples
 
 |      | Fast5    | MKR     | blow5    |
 |------|----------|---------|----------|
-| Time | 524 secs | 26 secs | 317 secs |
+| Time | 524 secs | 26 secs | 78 secs |
 
 ### Find selected read ids + extract read number
 
 |      | Fast5    | MKR      | blow5  |
 |------|----------|----------|--------|
-| Time | 412 secs | 2.1 secs | 8 secs |
+| Time | 412 secs | 2 secs   | 5 secs |
 
 ### Find selected read ids + extract sample count
 
 |      | Fast5    | MKR       | blow5    |
 |------|----------|-----------|----------|
-| Time | 414 secs | 8.8 secs  | 8.7 secs |
+| Time | 414 secs | 8.8 secs  | 5.8 secs |
 
 ### Find selected read ids + samples
 
 |      | Fast5    | MKR      | blow5    |
 |------|----------|----------|----------|
-| Time | 476 secs | 8.2 secs | 9.6 secs |
+| Time | 476 secs | 6.2 secs | 6.1 secs |
 
 
 ## InterARTIC Dataset
@@ -90,23 +92,22 @@ https://github.com/Psy-Fer/interARTIC
 
 |      | Fast5 | MKR      | blow5    |
 |------|-------|----------|----------|
-| Time | N/A   | 26 secs  | 63 secs  |
+| Time | N/A   | 24 secs  | 21 secs* |
 | Size | 7 GB  | 3.3 GB   | 3.4 GB   |
 
-```* Note blow5 times include merge and index operation, individual operation times: Convert 24s, Merge 20s, Index 18s```
-
+```* Note blow5 times include the index operation```
 
 ### Find all read ids
 
-|      | Fast5    | MKR      | blow5    |
-|------|----------|----------|----------|
-| Time | 1 secs   | 1 secs   | 26 secs  |
+|      | Fast5    | MKR       | blow5    |
+|------|----------|-----------|----------|
+| Time | 1 secs   | ~1 secs   | ~1 secs  |
 
 ### Find all samples
 
 |      | Fast5    | MKR     | blow5    |
 |------|----------|---------|----------|
-| Time | 71 secs  | 3 secs  | 29 secs  |
+| Time | 71 secs  | 3 secs  | 8 secs   |
 
 ### Find selected read ids + extract read number
 
