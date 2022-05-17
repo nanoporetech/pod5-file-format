@@ -21,4 +21,4 @@ Note that trade-offs have been made between these goals, but we have mostly aime
 
 We have also chosen not to optimise for editing existing files.
 
-More detailed information around general format goals can be found in [DESIGN](./docs/DESIGN.md), more detailed format specification is available in [SPECIFICATION](./docs/SPECIFICATION.md).
+More detailed information around general format goals can be found in [DESIGN](./DESIGN.md), more detailed format specification is available in [SPECIFICATION](./SPECIFICATION.md).
