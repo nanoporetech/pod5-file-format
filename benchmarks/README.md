@@ -100,29 +100,28 @@ https://github.com/Psy-Fer/interARTIC
 
 |      | Fast5    | MKR      | blow5    |
 |------|----------|----------|----------|
-| Time | x   secs | x   secs | x   secs |
+| Time | 1 secs   | 1 secs   | 26 secs  |
 
 ### Find all samples
 
 |      | Fast5    | MKR     | blow5    |
 |------|----------|---------|----------|
-| Time | x   secs | x  secs | x   secs |
-
+| Time | 71 secs  | 3 secs  | 29 secs  |
 
 ### Find selected read ids + extract read number
 
 |      | Fast5    | MKR     | blow5  |
 |------|----------|---------|--------|
-| Time | x   secs | x  secs | x secs |
+| Time | 29 secs  | 1 secs  | 1 secs |
 
 ### Find selected read ids + extract sample count
 
 |      | Fast5    | MKR     | blow5  |
 |------|----------|---------|--------|
-| Time | x   secs | x secs  | x secs |
+| Time | 32 secs  | 1 secs  | 1 secs |
 
 ### Find selected read ids + samples
 
 |      | Fast5    | MKR     | blow5   |
 |------|----------|---------|---------|
-| Time | x   secs | x secs  | x  secs |
+| Time | 38 secs  | 1 secs  | 1 secs  |
