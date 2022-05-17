@@ -137,13 +137,14 @@ target_link_libraries(mkr_format
         zstd::zstd
 )
 
-if (NOT BUILD_SHARED_LIB)
+if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
     set(mkr_libs arrow zstd)
     foreach (lib ${mkr_libs})
             
         install(
             FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
             TYPE LIB
+            COMPONENT third_party
         )
     endforeach()
 
@@ -160,6 +161,7 @@ if (NOT BUILD_SHARED_LIB)
         install(
             FILES $<IF:$<CONFIG:Debug>,${debug_path},${release_path}>
             TYPE LIB
+            COMPONENT third_party
         )
     endforeach()
 endif()

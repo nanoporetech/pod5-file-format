@@ -113,7 +113,7 @@ build-standalone-ubu20:
     - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} ..
+    - conan install --profile ${CONAN_PROFILE} -omkr_file_format:nanopore_internal_build=True ..
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
@@ -189,7 +189,7 @@ linux-aarch64-gcc9-release-build:
     - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} ..
+    - conan install --profile ${CONAN_PROFILE} -omkr_file_format:nanopore_internal_build=True ..
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
@@ -246,7 +246,7 @@ win-x64-msvc2017-release-build:
     - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} ..
+    - conan install --profile ${CONAN_PROFILE} -omkr_file_format:nanopore_internal_build=True ..
     - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV

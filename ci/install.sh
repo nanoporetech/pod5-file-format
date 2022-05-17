@@ -11,6 +11,7 @@ REPO_ROOT="${SCRIPT_DIR}/../"
 # Tar up the archive build:
 (
     cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -DCOMPONENT="archive" -P "cmake_install.cmake"
+    cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -DCOMPONENT="third_party" -P "cmake_install.cmake"
 )
 
 # Find the wheel:

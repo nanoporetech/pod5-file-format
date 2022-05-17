@@ -10,6 +10,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
 option(USE_CONAN "Use conan for dependency management" OFF)
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
+option(INSTALL_THIRD_PARTY "Install third party libraries" ON)
 
 option(BUILD_PYTHON_WHEEL "Build a python wheel for mkr" ON)
 
