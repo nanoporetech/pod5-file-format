@@ -99,7 +99,10 @@ run info
 ...
 ```
 
-And then 
+Design
+------
+
+For information about the design of MKR, see the [docs](./docs/README.md).
 
 Development
 -----------

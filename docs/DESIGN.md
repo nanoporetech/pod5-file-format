@@ -1,13 +1,6 @@
 MKR File Format Design Details
 ==============================
 
-The MKR file format has been specifically designed to be suitable for Nanopore read data, we had some specific design goals:
-
-Design Goals
-------------
-
-The primary purpose of this file format is store reads produced by Oxford Nanopore sequencing, and in particular the signal data from those reads (which can then be basecalled or processed in other ways).
-
 This file format has the following design goals (roughly in priority order):
 
 - Good write performance for MinKNOW
@@ -74,29 +67,3 @@ The aspects of this format that are designed to make the format easy to implemen
 The aspects of this format that are designed to make the format extensible are:
 
 - Apache Arrow uses a self-describing schema with named columns, so it is straightfoward to write code that is resilient in the face of things like additional columns being added.
-
-
-Format Specification
---------------------
-
-### Overview
-
-The file format is, at its core, a collection of Apache Arrow tables, stored in the Apache Feather 2 (also know as Apache Arrow IPC File) format. These can be stored separately, linked by having a common filename component, or bundled into a single file for ease of file management.
-
-In its unbundled format, there are two required files:
-
-```
-    <prefix>_signal.arrow
-    <prefix>_reads.arrow
-```
-
-Optionally, index files can also be provided:
-
-```
-    <preifx>_index_read_id.arrow (index by read_id)
-    <preifx>_index_*.arrow (optional, extension point for other indexes)
-```
-
-Each of these is an Apache Feather 2 file, and can be opened directly using the Apache Arrow library's IPC routines. The schema of the tables is described below. The naming scheme above is recommended (and should be the default when creating these files), but tooling should provide a way for users to explicitly every filename when opening files (in case the user has renamed them to a different scheme).
-
-These can be stored in a bundled file, named <prefix>.mkr and described below.
