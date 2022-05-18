@@ -86,8 +86,6 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/svb16/intrinsics.hpp
     pod5_format/svb16/shuffle_tables.hpp
     pod5_format/svb16/simd_detect_x64.hpp
-    pod5_format/svb16/svb16.c
-    pod5_format/svb16/svb16.h
 )
 
 set(public_headers)

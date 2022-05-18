@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 input_dir=`readlink -f $1`
 
 script_dir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
