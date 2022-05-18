@@ -8,7 +8,8 @@ add_executable(pod5_unit_tests
     read_table_tests.cpp
     signal_compression_tests.cpp
     signal_table_tests.cpp
-    svb16_basic_tests.cpp
+    svb16_scalar_tests.cpp
+    svb16_x64_tests.cpp
     utils.h
 )
 

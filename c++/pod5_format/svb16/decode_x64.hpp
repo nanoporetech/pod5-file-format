@@ -78,7 +78,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
     // this isn't a problem, as the scalar code does the same
 
     // handle blocks of 32 values
-    if (count >= 32) {
+    if (count >= 64) {
         size_t const key_bytes = count / 8;
 
         __m128i prev_reg;
@@ -95,7 +95,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
             uint64_t keys = nextkeys;
             memcpy(&nextkeys, keyPtr64 + offset + 1, sizeof(nextkeys));
             // faster 16-bit delta since we only have 8-bit values
-            if (!keys) {  // 32 1-byte ints in a row
+            if (!keys) {  // 64 1-byte ints in a row
 
                 // _mm_cvtepu8_epi16: SSE4.1
                 data_reg =
@@ -110,40 +110,52 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
                 data_reg = _mm_cvtepu8_epi16(
                         _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 24)));
                 store_8(out + 24, data_reg, &prev_reg);
-                out += 32;
-                data += 32;
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 32)));
+                store_8(out + 32, data_reg, &prev_reg);
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + +40)));
+                store_8(out + 40, data_reg, &prev_reg);
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 48)));
+                store_8(out + 48, data_reg, &prev_reg);
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 56)));
+                store_8(out + 56, data_reg, &prev_reg);
+                out += 64;
+                data += 64;
                 continue;
             }
 
             data_reg = detail::unpack(keys & 0x00FF, &data);
             store_8(out, data_reg, &prev_reg);
             data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-            store_8(out + 4, data_reg, &prev_reg);
-
-            keys >>= 16;
-            data_reg = detail::unpack((keys & 0x00FF), &data);
             store_8(out + 8, data_reg, &prev_reg);
-            data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-            store_8(out + 12, data_reg, &prev_reg);
 
             keys >>= 16;
             data_reg = detail::unpack((keys & 0x00FF), &data);
             store_8(out + 16, data_reg, &prev_reg);
             data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-            store_8(out + 20, data_reg, &prev_reg);
+            store_8(out + 24, data_reg, &prev_reg);
 
             keys >>= 16;
             data_reg = detail::unpack((keys & 0x00FF), &data);
-            store_8(out + 24, data_reg, &prev_reg);
+            store_8(out + 32, data_reg, &prev_reg);
             data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-            store_8(out + 28, data_reg, &prev_reg);
+            store_8(out + 40, data_reg, &prev_reg);
 
-            out += 32;
+            keys >>= 16;
+            data_reg = detail::unpack((keys & 0x00FF), &data);
+            store_8(out + 48, data_reg, &prev_reg);
+            data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
+            store_8(out + 56, data_reg, &prev_reg);
+
+            out += 64;
         }
         {
             uint64_t keys = nextkeys;
             // faster 16-bit delta since we only have 8-bit values
-            if (!keys) {  // 32 1-byte ints in a row
+            if (!keys) {  // 64 1-byte ints in a row
                 data_reg =
                         _mm_cvtepu8_epi16(_mm_lddqu_si128(reinterpret_cast<__m128i const *>(data)));
                 store_8(out, data_reg, &prev_reg);
@@ -156,34 +168,46 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
                 data_reg = _mm_cvtepu8_epi16(
                         _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 24)));
                 store_8(out + 24, data_reg, &prev_reg);
-                out += 32;
-                data += 32;
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 32)));
+                store_8(out + 32, data_reg, &prev_reg);
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + +40)));
+                store_8(out + 40, data_reg, &prev_reg);
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 48)));
+                store_8(out + 48, data_reg, &prev_reg);
+                data_reg = _mm_cvtepu8_epi16(
+                        _mm_lddqu_si128(reinterpret_cast<__m128i const *>(data + 56)));
+                store_8(out + 56, data_reg, &prev_reg);
+                out += 64;
+                data += 64;
 
             } else {
                 data_reg = detail::unpack(keys & 0x00FF, &data);
                 store_8(out, data_reg, &prev_reg);
                 data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-                store_8(out + 4, data_reg, &prev_reg);
-
-                keys >>= 16;
-                data_reg = detail::unpack((keys & 0x00FF), &data);
                 store_8(out + 8, data_reg, &prev_reg);
-                data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-                store_8(out + 12, data_reg, &prev_reg);
 
                 keys >>= 16;
                 data_reg = detail::unpack((keys & 0x00FF), &data);
                 store_8(out + 16, data_reg, &prev_reg);
                 data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-                store_8(out + 20, data_reg, &prev_reg);
+                store_8(out + 24, data_reg, &prev_reg);
 
                 keys >>= 16;
                 data_reg = detail::unpack((keys & 0x00FF), &data);
-                store_8(out + 24, data_reg, &prev_reg);
+                store_8(out + 32, data_reg, &prev_reg);
                 data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
-                store_8(out + 28, data_reg, &prev_reg);
+                store_8(out + 40, data_reg, &prev_reg);
 
-                out += 32;
+                keys >>= 16;
+                data_reg = detail::unpack((keys & 0x00FF), &data);
+                store_8(out + 48, data_reg, &prev_reg);
+                data_reg = detail::unpack((keys & 0xFF00) >> 8, &data);
+                store_8(out + 56, data_reg, &prev_reg);
+
+                out += 64;
             }
         }
         prev = out[-1];
@@ -191,7 +215,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
         keys += key_bytes - (key_bytes & 7);
     }
 
-    return decode_scalar<Int16T, UseDelta, UseZigzag>(out, keys, data, count & 31, prev);
+    return decode_scalar<Int16T, UseDelta, UseZigzag>(out, keys, data, count & 63, prev);
 }
 
 #endif  // SVB16_X64

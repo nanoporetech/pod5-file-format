@@ -20,7 +20,7 @@ uint8_t* encode_scalar(Int16T const* in,
                        uint32_t count,
                        Int16T prev = 0) {
     if (count == 0) {
-        return 0;
+        return data;
     }
 
     uint8_t shift = 0;  // cycles 0 through 7 then resets

@@ -16,8 +16,7 @@ size_t decode(Int16T* out, uint8_t const* SVB_RESTRICT in, uint32_t count, Int16
     auto const data = keys + ::svb16_key_length(count);
 #ifdef SVB16_X64
     if (has_sse4_1()) {
-        // Gotta have some tests for this before we turn it on...
-        //return decode_sse<Int16T, UseDelta, UseZigzag>(out, keys, data, count, prev) - in;
+        return decode_sse<Int16T, UseDelta, UseZigzag>(out, keys, data, count, prev) - in;
     }
 #endif
     return decode_scalar<Int16T, UseDelta, UseZigzag>(out, keys, data, count, prev) - in;
