@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel", "Cython"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "pod5_format_tools"
+authors = []
+readme = "README.md"
+requires-python = "~= 3.7"
+dynamic = ["version", "description"]
+
+keywords = ['nanopore']
+
+classifiers=[
+    'Environment :: Console',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+]
+
+dependencies = [
+  "pod5_format",
+  "h5py",
+]
+
+[project.scripts]
+pod5-convert-fast5 = "pod5_format_tools.pod5_convert_fast5:main"
+pod5-inspect = "pod5_format_tools.pod5_inspect:main"
+
+[tool.black]
+target-version = ["py37"]

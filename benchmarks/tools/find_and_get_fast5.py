@@ -8,7 +8,7 @@ from uuid import UUID
 import numpy
 import pandas as pd
 
-import mkr_format
+import pod5_format
 
 
 def select_reads(file, selection):

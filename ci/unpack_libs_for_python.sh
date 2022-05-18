@@ -5,8 +5,8 @@ output_dir=$2
 
 echo "Unpacking builds from $input_dir to $output_dir"
 
-file_regex=".*/mkr-file-format-[0-9\.]*-(.*).tar.gz"
-for i in ${input_dir}/mkr-file-format*.tar.gz; do
+file_regex=".*/pod5-file-format-[0-9\.]*-(.*).tar.gz"
+for i in ${input_dir}/pod5-file-format*.tar.gz; do
 
     if [[ $i =~ $file_regex ]]
     then

@@ -1,56 +1,56 @@
-MKR File Format
+POD5 File Format
 ===============
 
-MKR is a file format for storing nanopore dna data in an easily accessible way.
+POD5 is a file format for storing nanopore dna data in an easily accessible way.
 The format is able to be written in a streaming manner which allows a sequencing
 instrument to directly write the format.
 
-Data in MKR is stored using [Apache Arrow](https://github.com/apache/arrow), allowing
+Data in POD5 is stored using [Apache Arrow](https://github.com/apache/arrow), allowing
 users to consume data in many languages using standard tools.
 
 What does this project contain
 ------------------------------
 
-This project contains a core library for reading and writing MKR data, and a toolkit for
+This project contains a core library for reading and writing POD5 data, and a toolkit for
 accessing this data in other languages.
 
 
 Usage
 -----
 
-MKR is also bundled as a python module for easy use in scripts, a user can install using:
+POD5 is also bundled as a python module for easy use in scripts, a user can install using:
 
 ```bash
-> pip install mkr_format
+> pip install pod5_format
 ```
 
 This python module provides the python library to write custom scripts against.
 
-Please see [examples](./python/mkr_format/mkr_format/examples) for documentation on using the library.
+Please see [examples](./python/pod5_format/pod5_format/examples) for documentation on using the library.
 
 Tools
 -----
 
-MKR also provides a selection of tools.
+POD5 also provides a selection of tools.
 
 ```bash
-> pip install mkr_format_tools
+> pip install pod5_format_tools
 ```
 
-### mkr-convert-fast5
+### pod5-convert-fast5
 
-Generate an mkr file from a set of input fast5 files:
+Generate an pod5 file from a set of input fast5 files:
 
 ```bash
-> mkr-convert-fast5 input_fast5_1.fast5 input_fast5_2.fast5 output_mkr_file.mkr
+> pod5-convert-fast5 input_fast5_1.fast5 input_fast5_2.fast5 output_pod5_file.pod5
 ```
 
-### mkr-inspect
+### pod5-inspect
 
-Inspect an mkr file to extract details about the contents:
+Inspect an pod5 file to extract details about the contents:
 
 ```bash
-> mkr-inspect reads mkr_file.mkr
+> pod5-inspect reads pod5_file.pod5
 
 # Sample Output:
 read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before,calibration_offset,calibration_scale,sample_count,byte_count,signal_compression_ratio
@@ -62,13 +62,13 @@ read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before
 ...
 ```
 
-Inspect an mkr file for a specific read:
+Inspect an pod5 file for a specific read:
 
 ```bash
-> mkr-inspect read mkr_file.mkr 00445e58-3c58-4050-bacf-3411bb716cc3
+> pod5-inspect read pod5_file.pod5 00445e58-3c58-4050-bacf-3411bb716cc3
 
 # Sample Output:
-File: out-tmp/output.mkr
+File: out-tmp/output.pod5
 read_id: 0e5d6827-45f6-462c-9f6b-21540eef4426
 read_number:    129227
 start_sample:   367096601
@@ -102,7 +102,7 @@ run info
 Design
 ------
 
-For information about the design of MKR, see the [docs](./docs/README.md).
+For information about the design of POD5, see the [docs](./docs/README.md).
 
 Development
 -----------
@@ -120,8 +120,8 @@ Conan version 1.48.0
 
 
 ```bash
-> git clone https://github.com/nanoporetech/mkr-file-format.git
-> cd mkr-file-format
+> git clone https://github.com/nanoporetech/pod5-file-format.git
+> cd pod5-file-format
 > git submodule update --init --recursive
 > mkdir build
 > cd build
@@ -156,9 +156,9 @@ Building the project requires several tools and libraries are available:
 > sudo apt update
 # Now install the rest of the dependencies:
 > sudo apt install cmake libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
-# Finally start build of MKR:
-> git clone https://github.com/nanoporetech/mkr-file-format.git
-> cd mkr-file-format
+# Finally start build of POD5:
+> git clone https://github.com/nanoporetech/pod5-file-format.git
+> cd pod5-file-format
 > git submodule update --init --recursive
 > mkdir build
 > cd build
@@ -172,8 +172,8 @@ The project uses pre-commit to ensure code is consistently formatted, you can se
 
 ```bash
 > pip install pre-commit
-# Install pre-commit hooks in your mkr-file-format repo:
-> cd mkr-file-format
+# Install pre-commit hooks in your pod5-file-format repo:
+> cd pod5-file-format
 > pre-commit install
 # Run hooks on all files:
 > pre-commit run --all-files

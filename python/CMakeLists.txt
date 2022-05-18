@@ -1,13 +1,13 @@
 
 configure_file(
-    mkr_format/mkr_format/_version.py.in
-    ${CMAKE_CURRENT_SOURCE_DIR}/mkr_format/mkr_format/_version.py
+    pod5_format/pod5_format/_version.py.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/pod5_format/pod5_format/_version.py
 )
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/mkr_format/mkr_format/_version.py
-    DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/mkr_format_tools/mkr_format_tools/
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/pod5_format/pod5_format/_version.py
+    DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/pod5_format_tools/pod5_format_tools/
 )
-message("${CMAKE_CURRENT_SOURCE_DIR}/mkr_format_tools/mkr_format_tools/_version.py")
+message("${CMAKE_CURRENT_SOURCE_DIR}/pod5_format_tools/pod5_format_tools/_version.py")
 
 set(wheel_output_stub "${CMAKE_BINARY_DIR}/wheel.touch")
 set(tools_wheel_output_stub "${CMAKE_BINARY_DIR}/tools_wheel.touch")
@@ -32,16 +32,16 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND}
     ARGS
         -D "PYTHON_EXECUTABLE=${Python_EXECUTABLE}"
-        -D "PYTHON_PROJECT_DIR=${CMAKE_CURRENT_SOURCE_DIR}/mkr_format/"
-        -D "PYBIND_INPUT_LIB=$<TARGET_FILE:mkr_format_pybind>"
+        -D "PYTHON_PROJECT_DIR=${CMAKE_CURRENT_SOURCE_DIR}/pod5_format/"
+        -D "PYBIND_INPUT_LIB=$<TARGET_FILE:pod5_format_pybind>"
         -D "WHEEL_OUTPUT_DIR=${wheel_output_dir}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/build_wheel.cmake"
     DEPENDS
-        mkr_format_pybind
+        pod5_format_pybind
     VERBATIM
 )
 
-add_custom_target(mkr_format_python_wheel ALL
+add_custom_target(pod5_format_python_wheel ALL
     SOURCES
         build_wheel.cmake
     DEPENDS
@@ -53,16 +53,16 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND}
     ARGS
         -D "PYTHON_EXECUTABLE=${Python_EXECUTABLE}"
-        -D "PYTHON_PROJECT_DIR=${CMAKE_CURRENT_SOURCE_DIR}/mkr_format_tools"
-        -D "PYBIND_INPUT_LIB=$<TARGET_FILE:mkr_format_pybind>"
+        -D "PYTHON_PROJECT_DIR=${CMAKE_CURRENT_SOURCE_DIR}/pod5_format_tools"
+        -D "PYBIND_INPUT_LIB=$<TARGET_FILE:pod5_format_pybind>"
         -D "WHEEL_OUTPUT_DIR=${wheel_output_dir}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/build_wheel.cmake"
     DEPENDS
-        mkr_format_pybind
+        pod5_format_pybind
     VERBATIM
 )
 
-add_custom_target(mkr_format_tools_python_wheel
+add_custom_target(pod5_format_tools_python_wheel
     SOURCES
         build_wheel.cmake
     DEPENDS
@@ -73,5 +73,5 @@ install(
     DIRECTORY "${wheel_output_dir}/"
     DESTINATION "."
     COMPONENT wheel
-    FILES_MATCHING PATTERN "mkr_format*.whl"
+    FILES_MATCHING PATTERN "pod5_format*.whl"
 )

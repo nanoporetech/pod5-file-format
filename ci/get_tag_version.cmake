@@ -1,3 +1,3 @@
 set(CANONICAL_TAG_BUILD TRUE)
-include("${CMAKE_CURRENT_LIST_DIR}/../cmake/MKRVersion.cmake")
-message("${MKR_NUMERIC_VERSION}")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/POD5Version.cmake")
+message("${POD5_NUMERIC_VERSION}")

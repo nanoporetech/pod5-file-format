@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.16.0)
 
-project(MKR)
+project(POD5)
 
-include(${PROJECT_SOURCE_DIR}/cmake/MKRVersion.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/POD5Version.cmake)
 
-set(CMAKE_PROJECT_VERSION ${MKR_NUMERIC_VERSION})
+set(CMAKE_PROJECT_VERSION ${POD5_NUMERIC_VERSION})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
@@ -12,12 +12,12 @@ option(USE_CONAN "Use conan for dependency management" OFF)
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
 option(INSTALL_THIRD_PARTY "Install third party libraries" ON)
 
-option(BUILD_PYTHON_WHEEL "Build a python wheel for mkr" ON)
+option(BUILD_PYTHON_WHEEL "Build a python wheel for pod5" ON)
 
 if (USE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
         CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0" AND
         CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0")
-    # We build MKR on CentOS 7 in CI, where we have GCC 9 but only the pre-C++11 ABI
+    # We build POD5 on CentOS 7 in CI, where we have GCC 9 but only the pre-C++11 ABI
     # See https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_dual_abi.html
     # This forces GCC 9 on other platforms (eg: Ubuntu Focal) to use the same ABI.
     # The main gain here is being able to use the same conan packages.
@@ -69,4 +69,4 @@ endif()
 
 add_subdirectory(c++)
 
-include(mkr_packaging)
+include(pod5_packaging)

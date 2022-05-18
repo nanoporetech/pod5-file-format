@@ -10,5 +10,5 @@ docker run --rm -it \
     -v"${script_dir}/tools":/benchmark-tools \
     -v"${source_files}":/input_path \
     -v"${script_dir}/${benchmark}":/benchmark \
-    mkr-benchmark-base /benchmark/run.sh
+    pod5-benchmark-base /benchmark/run.sh
 

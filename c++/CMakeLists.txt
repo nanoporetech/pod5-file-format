@@ -23,123 +23,123 @@ find_program(
 include(BuildFlatBuffers)
 
 configure_file(
-    mkr_format/version.h.in
-    mkr_format/version.h
+    pod5_format/version.h.in
+    pod5_format/version.h
 )
 
-set(mkr_library_type STATIC)
+set(pod5_library_type STATIC)
 if (BUILD_SHARED_LIB)
-    set(mkr_library_type SHARED)
+    set(pod5_library_type SHARED)
 endif()
 
-add_library(mkr_format ${mkr_library_type}
-    mkr_format/file_writer.cpp
-    mkr_format/file_writer.h
-    mkr_format/file_reader.cpp
-    mkr_format/file_reader.h
+add_library(pod5_format ${pod5_library_type}
+    pod5_format/file_writer.cpp
+    pod5_format/file_writer.h
+    pod5_format/file_reader.cpp
+    pod5_format/file_reader.h
 
-    mkr_format/schema_metadata.cpp
-    mkr_format/schema_metadata.h
+    pod5_format/schema_metadata.cpp
+    pod5_format/schema_metadata.h
 
-    mkr_format/read_table_reader.cpp
-    mkr_format/read_table_reader.h
-    mkr_format/read_table_schema.cpp
-    mkr_format/read_table_schema.h
-    mkr_format/read_table_writer.cpp
-    mkr_format/read_table_writer.h
-    mkr_format/read_table_writer_utils.cpp
-    mkr_format/read_table_writer_utils.h
-    mkr_format/read_table_utils.cpp
-    mkr_format/read_table_utils.h
+    pod5_format/read_table_reader.cpp
+    pod5_format/read_table_reader.h
+    pod5_format/read_table_schema.cpp
+    pod5_format/read_table_schema.h
+    pod5_format/read_table_writer.cpp
+    pod5_format/read_table_writer.h
+    pod5_format/read_table_writer_utils.cpp
+    pod5_format/read_table_writer_utils.h
+    pod5_format/read_table_utils.cpp
+    pod5_format/read_table_utils.h
 
-    mkr_format/signal_compression.cpp
-    mkr_format/signal_compression.h
-    mkr_format/signal_table_reader.cpp
-    mkr_format/signal_table_reader.h
-    mkr_format/signal_table_schema.cpp
-    mkr_format/signal_table_schema.h
-    mkr_format/signal_table_writer.cpp
-    mkr_format/signal_table_writer.h
-    mkr_format/signal_table_utils.h
+    pod5_format/signal_compression.cpp
+    pod5_format/signal_compression.h
+    pod5_format/signal_table_reader.cpp
+    pod5_format/signal_table_reader.h
+    pod5_format/signal_table_schema.cpp
+    pod5_format/signal_table_schema.h
+    pod5_format/signal_table_writer.cpp
+    pod5_format/signal_table_writer.h
+    pod5_format/signal_table_utils.h
     
-    mkr_format/c_api.cpp
-    mkr_format/c_api.h
+    pod5_format/c_api.cpp
+    pod5_format/c_api.h
 
-    mkr_format/errors.cpp
-    mkr_format/errors.h
-    mkr_format/result.h
-    mkr_format/table_reader.cpp
-    mkr_format/table_reader.h
-    mkr_format/types.cpp
-    mkr_format/types.h
+    pod5_format/errors.cpp
+    pod5_format/errors.h
+    pod5_format/result.h
+    pod5_format/table_reader.cpp
+    pod5_format/table_reader.h
+    pod5_format/types.cpp
+    pod5_format/types.h
 
-    mkr_format/internal/combined_file_utils.h
-    mkr_format/internal/schema_utils.h
+    pod5_format/internal/combined_file_utils.h
+    pod5_format/internal/schema_utils.h
 
-    mkr_format/svb16/common.hpp
-    mkr_format/svb16/decode.hpp
-    mkr_format/svb16/decode_scalar.hpp
-    mkr_format/svb16/decode_x64.hpp
-    mkr_format/svb16/encode.hpp
-    mkr_format/svb16/encode_scalar.hpp
-    mkr_format/svb16/encode_x64.hpp
-    mkr_format/svb16/intrinsics.hpp
-    mkr_format/svb16/shuffle_tables.hpp
-    mkr_format/svb16/simd_detect_x64.hpp
-    mkr_format/svb16/svb16.c
-    mkr_format/svb16/svb16.h
+    pod5_format/svb16/common.hpp
+    pod5_format/svb16/decode.hpp
+    pod5_format/svb16/decode_scalar.hpp
+    pod5_format/svb16/decode_x64.hpp
+    pod5_format/svb16/encode.hpp
+    pod5_format/svb16/encode_scalar.hpp
+    pod5_format/svb16/encode_x64.hpp
+    pod5_format/svb16/intrinsics.hpp
+    pod5_format/svb16/shuffle_tables.hpp
+    pod5_format/svb16/simd_detect_x64.hpp
+    pod5_format/svb16/svb16.c
+    pod5_format/svb16/svb16.h
 )
 
 set(public_headers)
 list(APPEND public_headers
-    mkr_format/file_writer.h
-    mkr_format/file_reader.h
+    pod5_format/file_writer.h
+    pod5_format/file_reader.h
 
-    mkr_format/schema_metadata.h
+    pod5_format/schema_metadata.h
 
-    mkr_format/read_table_reader.h
-    mkr_format/read_table_schema.h
-    mkr_format/read_table_writer.h
-    mkr_format/read_table_writer_utils.h
-    mkr_format/read_table_utils.h
+    pod5_format/read_table_reader.h
+    pod5_format/read_table_schema.h
+    pod5_format/read_table_writer.h
+    pod5_format/read_table_writer_utils.h
+    pod5_format/read_table_utils.h
 
-    mkr_format/signal_compression.h
-    mkr_format/signal_table_reader.h
-    mkr_format/signal_table_schema.h
-    mkr_format/signal_table_writer.h
-    mkr_format/signal_table_utils.h
+    pod5_format/signal_compression.h
+    pod5_format/signal_table_reader.h
+    pod5_format/signal_table_schema.h
+    pod5_format/signal_table_writer.h
+    pod5_format/signal_table_utils.h
 
-    mkr_format/c_api.h
+    pod5_format/c_api.h
 
-    mkr_format/errors.h
-    mkr_format/result.h
-    mkr_format/table_reader.h
-    mkr_format/types.h
+    pod5_format/errors.h
+    pod5_format/result.h
+    pod5_format/table_reader.h
+    pod5_format/types.h
 
-    ${CMAKE_CURRENT_BINARY_DIR}/mkr_format/mkr_format_export.h
+    ${CMAKE_CURRENT_BINARY_DIR}/pod5_format/pod5_format_export.h
 )
 
-set_target_properties(mkr_format 
+set_target_properties(pod5_format 
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
         CXX_STANDARD 14
         PUBLIC_HEADER "${public_headers}"
 )
 
-target_link_libraries(mkr_format
+target_link_libraries(pod5_format
     PUBLIC
         arrow::arrow
         flatbuffers::flatbuffers
         Boost::headers
         Boost::filesystem
     PRIVATE
-        mkr_flatbuffers
+        pod5_flatbuffers
         zstd::zstd
 )
 
 if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
-    set(mkr_libs arrow zstd)
-    foreach (lib ${mkr_libs})
+    set(pod5_libs arrow zstd)
+    foreach (lib ${pod5_libs})
             
         install(
             FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
@@ -166,33 +166,33 @@ if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
     endforeach()
 endif()
 
-target_include_directories(mkr_format
+target_include_directories(pod5_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 flatbuffers_generate_headers(
-    TARGET mkr_flatbuffers
+    TARGET pod5_flatbuffers
     SCHEMAS
-        mkr_format/flatbuffers/footer.fbs
+        pod5_format/flatbuffers/footer.fbs
     INCLUDE_PREFIX ""
     FLAGS --cpp
 )
 
 if (NOT MSVC)
-    target_compile_options(mkr_format PRIVATE -Werror -Wall -Wno-comment)
+    target_compile_options(pod5_format PRIVATE -Werror -Wall -Wno-comment)
 endif()
-generate_export_header(mkr_format EXPORT_FILE_NAME mkr_format/mkr_format_export.h)
+generate_export_header(pod5_format EXPORT_FILE_NAME pod5_format/pod5_format_export.h)
 
 install(
-    TARGETS mkr_format
-    PUBLIC_HEADER DESTINATION "include/mkr_format"
+    TARGETS pod5_format
+    PUBLIC_HEADER DESTINATION "include/pod5_format"
 )
 
 add_subdirectory(examples)
 add_subdirectory(test)
 
 if (BUILD_PYTHON_WHEEL)
-    add_subdirectory(mkr_format_pybind)
+    add_subdirectory(pod5_format_pybind)
 endif()

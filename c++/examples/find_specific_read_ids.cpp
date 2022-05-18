@@ -1,4 +1,4 @@
-#include "mkr_format/c_api.h"
+#include "pod5_format/c_api.h"
 
 #include <boost/filesystem/fstream.hpp>
 #include <boost/lexical_cast.hpp>
@@ -10,23 +10,23 @@
 int main(int argc, char** argv) {
     if (argc != 3) {
         std::cerr << "Expected two arguments:\n"
-                  << " - an mkr file to search\n"
+                  << " - an pod5 file to search\n"
                   << " - a file containing newline separated of read ids\n";
     }
 
-    // Initialise the MKR library:
-    mkr_init();
+    // Initialise the POD5 library:
+    pod5_init();
 
     // Open the file ready for walking:
-    MkrFileReader_t* file = mkr_open_combined_file(argv[1]);
+    Pod5FileReader_t* file = pod5_open_combined_file(argv[1]);
     if (!file) {
-        std::cerr << "Failed to open file " << argv[1] << ": " << mkr_get_error_string() << "\n";
+        std::cerr << "Failed to open file " << argv[1] << ": " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
     }
 
     std::size_t batch_count = 0;
-    if (mkr_get_read_batch_count(&batch_count, file) != MKR_OK) {
-        std::cerr << "Failed to query batch count: " << mkr_get_error_string() << "\n";
+    if (pod5_get_read_batch_count(&batch_count, file) != POD5_OK) {
+        std::cerr << "Failed to query batch count: " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
     }
 
@@ -51,10 +51,10 @@ int main(int argc, char** argv) {
     // Plan the most efficient route through the file for the required read ids:
     std::vector<TraversalStep_t> traversal_steps(search_uuids.size());
     std::size_t find_success_count = 0;
-    if (mkr_plan_traversal(file, (uint8_t*)search_uuids.data(), search_uuids.size(),
-                           MKR_TRAV_SORT_READ_EFFICIENT, traversal_steps.data(),
-                           &find_success_count) != MKR_OK) {
-        std::cerr << "Failed to plan traversal of file: " << mkr_get_error_string() << "\n";
+    if (pod5_plan_traversal(file, (uint8_t*)search_uuids.data(), search_uuids.size(),
+                            POD5_TRAV_SORT_READ_EFFICIENT, traversal_steps.data(),
+                            &find_success_count) != POD5_OK) {
+        std::cerr << "Failed to plan traversal of file: " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
     }
 
@@ -67,9 +67,9 @@ int main(int argc, char** argv) {
     // Walk the suggested traversal route, storing read data.
     std::size_t step_index = 0;
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
-        MkrReadRecordBatch_t* batch = nullptr;
-        if (mkr_get_read_batch(&batch, file, batch_index) != MKR_OK) {
-            std::cerr << "Failed to get batch: " << mkr_get_error_string() << "\n";
+        Pod5ReadRecordBatch_t* batch = nullptr;
+        if (pod5_get_read_batch(&batch, file, batch_index) != POD5_OK) {
+            std::cerr << "Failed to get batch: " << pod5_get_error_string() << "\n";
             return EXIT_FAILURE;
         }
 
@@ -89,10 +89,10 @@ int main(int argc, char** argv) {
             int16_t end_reason = 0;
             int16_t run_info = 0;
             int64_t signal_row_count = 0;
-            if (mkr_get_read_batch_row_info(batch, step.batch_row, read_id.begin(), &pore,
-                                            &calibration, &read_number, &start_sample,
-                                            &median_before, &end_reason, &run_info,
-                                            &signal_row_count) != MKR_OK) {
+            if (pod5_get_read_batch_row_info(batch, step.batch_row, read_id.begin(), &pore,
+                                             &calibration, &read_number, &start_sample,
+                                             &median_before, &end_reason, &run_info,
+                                             &signal_row_count) != POD5_OK) {
                 std::cerr << "Failed to get read " << step.batch_row << "\n";
                 return EXIT_FAILURE;
             }
@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
             read_count += 1;
         }
 
-        if (mkr_free_read_batch(batch) != MKR_OK) {
+        if (pod5_free_read_batch(batch) != POD5_OK) {
             std::cerr << "Failed to release batch\n";
             return EXIT_FAILURE;
         }

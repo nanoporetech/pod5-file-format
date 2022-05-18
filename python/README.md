@@ -1,4 +1,4 @@
-MKR Format
+POD5 Format
 ==========
 
-Python bindings for the MKR file format.
+Python bindings for the POD5 file format.

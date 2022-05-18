@@ -6,12 +6,12 @@ message("  into ${WHEEL_OUTPUT_DIR}")
 
 set(output_dir "./dist")
 
-set(ENV{MKR_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
+set(ENV{POD5_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
 
-file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/mkr_format")
+file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/pod5_format")
 
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}
+    COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}  --no-deps
     WORKING_DIRECTORY "${PYTHON_PROJECT_DIR}/"
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE output
@@ -22,7 +22,7 @@ if (NOT exit_code EQUAL 0)
     message(FATAL_ERROR "Could not generate wheel: ${output}")
 endif()
 
-file(GLOB mkr_wheel_names "${WHEEL_OUTPUT_DIR}/mkr_format*.whl")
-foreach(wheel ${mkr_wheel_names})
+file(GLOB pod5_wheel_names "${WHEEL_OUTPUT_DIR}/pod5_format*.whl")
+foreach(wheel ${pod5_wheel_names})
     message("Built wheel ${wheel}")
 endforeach()

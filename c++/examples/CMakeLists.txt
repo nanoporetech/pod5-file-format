@@ -3,7 +3,7 @@ add_executable(find_all_read_ids
 )
 
 target_link_libraries(find_all_read_ids
-    mkr_format
+    pod5_format
     Boost::headers
     Boost::filesystem
 )
@@ -13,7 +13,7 @@ add_executable(find_specific_read_ids
 )
 
 target_link_libraries(find_specific_read_ids
-    mkr_format
+    pod5_format
     Boost::headers
     Boost::filesystem
 )
@@ -24,7 +24,7 @@ add_executable(find_specific_read_ids_with_signal
 )
 
 target_link_libraries(find_specific_read_ids_with_signal
-    mkr_format
+    pod5_format
     Boost::headers
     Boost::filesystem
 )

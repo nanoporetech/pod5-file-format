@@ -1,9 +1,9 @@
-#include "mkr_format/schema_metadata.h"
-#include "mkr_format/signal_compression.h"
-#include "mkr_format/signal_table_reader.h"
-#include "mkr_format/signal_table_writer.h"
-#include "mkr_format/types.h"
-#include "mkr_format/version.h"
+#include "pod5_format/schema_metadata.h"
+#include "pod5_format/signal_compression.h"
+#include "pod5_format/signal_table_reader.h"
+#include "pod5_format/signal_table_writer.h"
+#include "pod5_format/types.h"
+#include "pod5_format/version.h"
 #include "utils.h"
 
 #include <arrow/array/array_nested.h>
@@ -17,10 +17,10 @@
 #include <numeric>
 
 SCENARIO("Signal table Tests") {
-    using namespace mkr;
+    using namespace pod5;
 
-    (void)mkr::register_extension_types();
-    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
+    (void)pod5::register_extension_types();
+    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
 
@@ -33,7 +33,7 @@ SCENARIO("Signal table Tests") {
     std::vector<std::int16_t> signal_2(10'000, 1);
 
     GIVEN("A signal table writer") {
-        auto filename = "./foo.mkr";
+        auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
         auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
@@ -42,12 +42,12 @@ SCENARIO("Signal table Tests") {
 
         {
             auto schema_metadata =
-                    make_schema_key_value_metadata({file_identifier, "test_software", MkrVersion});
+                    make_schema_key_value_metadata({file_identifier, "test_software", Pod5Version});
             REQUIRE(schema_metadata.ok());
             REQUIRE(file_out.ok());
 
-            auto writer = mkr::make_signal_table_writer(*file_out, *schema_metadata, 100,
-                                                        signal_type, pool);
+            auto writer = pod5::make_signal_table_writer(*file_out, *schema_metadata, 100,
+                                                         signal_type, pool);
             REQUIRE(writer.ok());
 
             WHEN("Writing a read") {
@@ -70,14 +70,14 @@ SCENARIO("Signal table Tests") {
         {
             REQUIRE(file_in.ok());
 
-            auto reader = mkr::make_signal_table_reader(*file_in, pool);
+            auto reader = pod5::make_signal_table_reader(*file_in, pool);
             CAPTURE(reader);
             REQUIRE(reader.ok());
 
             auto metadata = reader->schema_metadata();
             CHECK(metadata.file_identifier == file_identifier);
             CHECK(metadata.writing_software == "test_software");
-            CHECK(metadata.writing_mkr_version == MkrVersion);
+            CHECK(metadata.writing_pod5_version == Pod5Version);
 
             REQUIRE(reader->num_record_batches() == 1);
             auto const record_batch_0 = reader->read_record_batch(0);
@@ -96,8 +96,8 @@ SCENARIO("Signal table Tests") {
                 auto compare_compressed_signal =
                         [&](gsl::span<std::uint8_t const> compressed_actual,
                             std::vector<std::int16_t> const& expected) {
-                            auto decompressed = mkr::decompress_signal(compressed_actual,
-                                                                       expected.size(), pool);
+                            auto decompressed = pod5::decompress_signal(compressed_actual,
+                                                                        expected.size(), pool);
                             CAPTURE(decompressed);
                             REQUIRE(decompressed.ok());
 

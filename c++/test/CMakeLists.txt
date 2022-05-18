@@ -1,5 +1,5 @@
 
-add_executable(mkr_unit_tests
+add_executable(pod5_unit_tests
     main.cpp
     c_api_tests.cpp
     c_api_build_test.c
@@ -12,15 +12,15 @@ add_executable(mkr_unit_tests
     utils.h
 )
 
-target_link_libraries(mkr_unit_tests
+target_link_libraries(pod5_unit_tests
     PUBLIC
-        mkr_format
+        pod5_format
 )
 
-set_property(TARGET mkr_unit_tests PROPERTY CXX_STANDARD 14)
-#target_compile_options(mkr_unit_tests PRIVATE -Wall -Werror)
+set_property(TARGET pod5_unit_tests PROPERTY CXX_STANDARD 14)
+#target_compile_options(pod5_unit_tests PRIVATE -Wall -Werror)
 
 add_test(
-    NAME mkr_unit_tests
-    COMMAND mkr_unit_tests
+    NAME pod5_unit_tests
+    COMMAND pod5_unit_tests
 )

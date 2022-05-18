@@ -1,4 +1,4 @@
-#include "mkr_format/read_table_writer_utils.h"
+#include "pod5_format/read_table_writer_utils.h"
 
 #include "utils.h"
 
@@ -74,7 +74,7 @@ void check_timestamp_field(std::size_t index,
 void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
-                 mkr::RunInfoData::MapType const& data) {
+                 pod5::RunInfoData::MapType const& data) {
     auto field = get_field<arrow::MapArray>(struct_array, name);
 
     auto offsets = std::dynamic_pointer_cast<arrow::Int32Array>(field->offsets());
@@ -84,7 +84,7 @@ void check_field(std::size_t index,
     auto keys = std::dynamic_pointer_cast<arrow::StringArray>(field->keys());
     auto items = std::dynamic_pointer_cast<arrow::StringArray>(field->items());
 
-    mkr::RunInfoData::MapType extracted_data;
+    pod5::RunInfoData::MapType extracted_data;
     for (std::size_t i = start_data; i < end_data; ++i) {
         std::string key = nonstd::sv_lite::to_string(*((*keys)[i]));
         std::string item = nonstd::sv_lite::to_string(*((*items)[i]));
@@ -104,7 +104,7 @@ TEST_CASE("Pore Writer Tests") {
     };
 
     auto pool = arrow::system_memory_pool();
-    auto pore_writer = mkr::make_pore_writer(pool);
+    auto pore_writer = pod5::make_pore_writer(pool);
     REQUIRE(pore_writer.ok());
 
     std::uint16_t channel_1 = 511;
@@ -156,10 +156,10 @@ TEST_CASE("End Reason Writer Tests") {
     };
 
     auto pool = arrow::system_memory_pool();
-    auto end_reason_writer = mkr::make_end_reason_writer(pool);
+    auto end_reason_writer = pod5::make_end_reason_writer(pool);
     REQUIRE(end_reason_writer.ok());
 
-    auto end_reason_1 = mkr::EndReasonData::ReadEndReason::signal_negative;
+    auto end_reason_1 = pod5::EndReasonData::ReadEndReason::signal_negative;
     auto forced_1 = false;
     auto index = (*end_reason_writer)->add({end_reason_1, forced_1});
     CHECK(*index == 0);
@@ -178,7 +178,7 @@ TEST_CASE("End Reason Writer Tests") {
         check_values(0, *struct_value_array, "signal_negative", forced_1);
     }
 
-    auto end_reason_2 = mkr::EndReasonData::ReadEndReason::signal_positive;
+    auto end_reason_2 = pod5::EndReasonData::ReadEndReason::signal_positive;
     auto forced_2 = true;
     index = (*end_reason_writer)->add({end_reason_2, forced_2});
     CHECK(*index == 1);
@@ -206,7 +206,7 @@ TEST_CASE("Calibration Writer Tests") {
     };
 
     auto pool = arrow::system_memory_pool();
-    auto calibration_writer = mkr::make_calibration_writer(pool);
+    auto calibration_writer = pod5::make_calibration_writer(pool);
     REQUIRE(calibration_writer.ok());
 
     float offset_1 = 100;
@@ -249,7 +249,7 @@ TEST_CASE("Calibration Writer Tests") {
 
 TEST_CASE("Run Info Writer Tests") {
     auto check_values = [](std::size_t index, arrow::StructArray& struct_array,
-                           mkr::RunInfoData const& data) {
+                           pod5::RunInfoData const& data) {
         CHECK(struct_array.fields().size() == 20);
 
         check_field(index, struct_array, "acquisition_id", data.acquisition_id);
@@ -276,7 +276,7 @@ TEST_CASE("Run Info Writer Tests") {
     };
 
     auto pool = arrow::system_memory_pool();
-    auto run_info_writer = mkr::make_run_info_writer(pool);
+    auto run_info_writer = pod5::make_run_info_writer(pool);
     REQUIRE(run_info_writer.ok());
 
     auto data = get_test_run_info_data("_1", 0, 4000);

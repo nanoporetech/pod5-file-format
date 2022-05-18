@@ -1,11 +1,11 @@
 from conans import ConanFile, CMake, tools
 
 
-class MkrConan(ConanFile):
-    name = "mkr_file_format"
+class Pod5Conan(ConanFile):
+    name = "pod5_file_format"
     license = "MPL 2.0"
-    url = "https://github.com/nanoporetech/mkr-file-format"
-    description = "MKR File format"
+    url = "https://github.com/nanoporetech/pod5-file-format"
+    description = "POD5 File format"
     topics = "arrow"
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "nanopore_internal_build": [True, False]}

@@ -63,10 +63,10 @@ tag_version_check:
     - tags
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
   script:
-    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - tag_version="${CI_COMMIT_TAG/#v/}"
-    - if [[ "${mkr_version}" != "${tag_version}" ]]; then
-        echo "Tag is for release ${tag_version}, but MKR version is $mkr_version";
+    - if [[ "${pod5_version}" != "${tag_version}" ]]; then
+        echo "Tag is for release ${tag_version}, but POD5 version is $pod5_version";
         exit 1;
       fi
 
@@ -110,10 +110,10 @@ build-standalone-ubu20:
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   script:
-    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} -omkr_file_format:nanopore_internal_build=True ..
+    - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
@@ -126,7 +126,7 @@ build-standalone-ubu20:
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "mkr-file-format*.tar.gz"
+      - "pod5-file-format*.tar.gz"
       - "*.whl"
 
 linux-x64-gcc9-release-build:
@@ -186,10 +186,10 @@ linux-aarch64-gcc9-release-build:
 .build:
   stage: build
   script:
-    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} -omkr_file_format:nanopore_internal_build=True ..
+    - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
@@ -202,7 +202,7 @@ linux-aarch64-gcc9-release-build:
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "mkr-file-format*.tar.gz"
+      - "pod5-file-format*.tar.gz"
       - "*.whl"
 
 osx-x64-clang12-release-build:
@@ -243,10 +243,10 @@ win-x64-msvc2017-release-build:
     - VS2017
     - conan
   script:
-    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} -omkr_file_format:nanopore_internal_build=True ..
+    - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
     - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
@@ -268,15 +268,15 @@ build-tools:
     - linux
   script:
     - apt update; apt install -y cmake
-    - mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - pip install mkr_format-*cp310*.whl
-    - cd python/mkr_format_tools/
-    - echo "__version__ = \"${mkr_version}\"" >mkr_format_tools/_version.py
-    - pip wheel . --wheel-dir ../../
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - pip install pod5_format-*cp310*.whl
+    - cd python/pod5_format_tools/
+    - echo "__version__ = \"${pod5_version}\"" >pod5_format_tools/_version.py
+    - pip wheel . --wheel-dir ../../ --no-deps
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "mkr_format_tools-*.whl"
+      - "pod5_format_tools-*.whl"
 
 build-archive:
   stage: build-archive
@@ -322,9 +322,9 @@ tools-linux-x64:
     - linux-x64-gcc9-release-build
     - build-tools
   script:
-    - pip install mkr_format-*cp39*.whl mkr_format_tools*.whl
-    - mkr-convert-fast5 ./test_data/ ./output_files --output-one-to-one
-    - python3 python/mkr_format_tools/mkr_format_tools/test_utils/check_mkr_files_equal.py ./output_files/multi_fast5_zip.mkr ./test_data/multi_fast5_zip.mkr
+    - pip install pod5_format-*cp39*.whl pod5_format_tools*.whl
+    - pod5-convert-fast5 ./test_data/ ./output_files --output-one-to-one
+    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip.pod5
   variables:
     WHEEL_GLOB: "*cp39*.whl"
 
@@ -336,7 +336,7 @@ pytest-linux-x64:
   needs:
     - linux-x64-gcc9-release-build
   variables:
-    WHEEL_GLOB: "mkr_format-*cp39*.whl"
+    WHEEL_GLOB: "pod5_format-*cp39*.whl"
 
 pytest-linux-aarch64:
   extends: [".pytest"]
@@ -347,7 +347,7 @@ pytest-linux-aarch64:
   needs:
     - linux-aarch64-gcc9-release-build
   variables:
-    WHEEL_GLOB: "mkr_format-*cp39*.whl"
+    WHEEL_GLOB: "pod5_format-*cp39*.whl"
 
 pytest-osx-x64:
   extends: [".pytest"]
@@ -359,7 +359,7 @@ pytest-osx-x64:
   needs:
     - osx-x64-clang12-release-build
   variables:
-    WHEEL_GLOB: "mkr_format-*.whl"
+    WHEEL_GLOB: "pod5_format-*.whl"
 
 pytest-win-x64:
   extends: [".pytest"]
@@ -374,7 +374,7 @@ pytest-win-x64:
     - python -m venv .venv/
     - source .venv/Scripts/activate
   variables:
-    WHEEL_GLOB: "mkr_format-*.whl"
+    WHEEL_GLOB: "pod5_format-*.whl"
 
 internal_wheel_upload:
   stage: deploy
