@@ -1,4 +1,4 @@
-MKR File Format Design Details
+POD5 File Format Design Details
 ==============================
 
 This file format has the following design goals (roughly in priority order):

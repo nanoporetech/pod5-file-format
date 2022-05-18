@@ -1,7 +1,7 @@
-#include "mkr_format/file_reader.h"
-#include "mkr_format/file_writer.h"
-#include "mkr_format/read_table_reader.h"
-#include "mkr_format/signal_table_reader.h"
+#include "pod5_format/file_reader.h"
+#include "pod5_format/file_writer.h"
+#include "pod5_format/read_table_reader.h"
+#include "pod5_format/signal_table_reader.h"
 #include "utils.h"
 
 #include <arrow/array/array_binary.h>
@@ -15,15 +15,15 @@
 
 class FileInterface {
 public:
-    virtual mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
-            mkr::FileWriterOptions const& options) = 0;
+    virtual pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
+            pod5::FileWriterOptions const& options) = 0;
 
-    virtual mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() = 0;
+    virtual pod5::Result<std::unique_ptr<pod5::FileReader>> open_file() = 0;
 };
 
 void run_file_reader_writer_tests(FileInterface& file_ifc) {
-    (void)mkr::register_extension_types();
-    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
+    (void)pod5::register_extension_types();
+    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
     auto const run_info_data = get_test_run_info_data("_run_info");
     auto const end_reason_data = get_test_end_reason_data();
@@ -42,7 +42,7 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
 
     // Write a file:
     {
-        mkr::FileWriterOptions options;
+        pod5::FileWriterOptions options;
         options.set_max_signal_chunk_size(20'480);
         options.set_read_table_batch_size(1);
         options.set_signal_table_batch_size(5);
@@ -106,25 +106,25 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
 }
 
 SCENARIO("Split File Reader Writer Tests") {
-    static constexpr char const* split_file_signal = "./foo_signal.mkr";
-    static constexpr char const* split_file_reads = "./foo_reads.mkr";
+    static constexpr char const* split_file_signal = "./foo_signal.pod5";
+    static constexpr char const* split_file_reads = "./foo_reads.pod5";
 
     class SplitFileInterface : public FileInterface {
     public:
-        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
-                mkr::FileWriterOptions const& options) override {
+        pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
+                pod5::FileWriterOptions const& options) override {
             if (boost::filesystem::exists(split_file_signal)) {
                 boost::filesystem::remove(split_file_signal);
             }
             if (boost::filesystem::exists(split_file_reads)) {
                 boost::filesystem::remove(split_file_reads);
             }
-            return mkr::create_split_file_writer(split_file_signal, split_file_reads,
-                                                 "test_software", options);
+            return pod5::create_split_file_writer(split_file_signal, split_file_reads,
+                                                  "test_software", options);
         }
 
-        mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() override {
-            return mkr::open_split_file_reader(split_file_signal, split_file_reads, {});
+        pod5::Result<std::unique_ptr<pod5::FileReader>> open_file() override {
+            return pod5::open_split_file_reader(split_file_signal, split_file_reads, {});
         }
     };
 
@@ -133,20 +133,20 @@ SCENARIO("Split File Reader Writer Tests") {
 }
 
 SCENARIO("Combined File Reader Writer Tests") {
-    static constexpr char const* combined_file = "./foo.mkr";
+    static constexpr char const* combined_file = "./foo.pod5";
 
     class CombinedFileInterface : public FileInterface {
     public:
-        mkr::Result<std::unique_ptr<mkr::FileWriter>> create_file(
-                mkr::FileWriterOptions const& options) override {
+        pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
+                pod5::FileWriterOptions const& options) override {
             if (boost::filesystem::exists(combined_file)) {
                 boost::filesystem::remove(combined_file);
             }
-            return mkr::create_combined_file_writer(combined_file, "test_software", options);
+            return pod5::create_combined_file_writer(combined_file, "test_software", options);
         }
 
-        mkr::Result<std::unique_ptr<mkr::FileReader>> open_file() override {
-            return mkr::open_combined_file_reader(combined_file, {});
+        pod5::Result<std::unique_ptr<pod5::FileReader>> open_file() override {
+            return pod5::open_combined_file_reader(combined_file, {});
         }
     };
 

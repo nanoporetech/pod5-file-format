@@ -1,6 +1,6 @@
 #pragma once
 
-#include "mkr_format/read_table_utils.h"
+#include "pod5_format/read_table_utils.h"
 
 #include <arrow/result.h>
 #include <catch2/catch.hpp>
@@ -12,10 +12,10 @@ struct StringMaker<arrow::Result<T>> {
 };
 }  // namespace Catch
 
-inline mkr::RunInfoData get_test_run_info_data(std::string suffix = "",
-                                               std::int16_t adc_center_offset = 0,
-                                               std::int16_t sample_rate = 4000) {
-    return mkr::RunInfoData(
+inline pod5::RunInfoData get_test_run_info_data(std::string suffix = "",
+                                                std::int16_t adc_center_offset = 0,
+                                                std::int16_t sample_rate = 4000) {
+    return pod5::RunInfoData(
             "acquisition_id" + suffix, 1005, 4095 + adc_center_offset, -4096 + adc_center_offset,
             {{"context" + suffix, "tags" + suffix},
              {"other" + suffix, "tagz" + suffix},
@@ -27,12 +27,12 @@ inline mkr::RunInfoData get_test_run_info_data(std::string suffix = "",
             "system_type" + suffix, {{"tracking" + suffix, "id" + suffix}});
 }
 
-inline mkr::CalibrationData get_test_calibration_data() {
-    return mkr::CalibrationData(100.0f, 2.0f);
+inline pod5::CalibrationData get_test_calibration_data() {
+    return pod5::CalibrationData(100.0f, 2.0f);
 }
 
-inline mkr::EndReasonData get_test_end_reason_data() {
-    return mkr::EndReasonData(mkr::EndReasonData::ReadEndReason::mux_change, false);
+inline pod5::EndReasonData get_test_end_reason_data() {
+    return pod5::EndReasonData(pod5::EndReasonData::ReadEndReason::mux_change, false);
 }
 
-inline mkr::PoreData get_test_pore_data() { return mkr::PoreData(431, 3, "Pore_type"); }
+inline pod5::PoreData get_test_pore_data() { return pod5::PoreData(431, 3, "Pore_type"); }

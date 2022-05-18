@@ -11,7 +11,7 @@ import tempfile
 import numpy
 import pandas as pd
 
-import mkr_format
+import pod5_format
 
 SelectReadIdsData = namedtuple(
     "SelectReadIdsData", ["path", "slice_start", "slice_end", "shape"]
@@ -43,7 +43,7 @@ def process_batch(get_columns, batch, extracted_columns):
 def do_batch_work(filename, batches, get_columns, result_q):
     extracted_columns = {}
 
-    file = mkr_format.open_combined_file(filename)
+    file = pod5_format.open_combined_file(filename)
     for batch_id in batches:
         process_batch(get_columns, file.get_batch(batch_id), extracted_columns)
 
@@ -62,7 +62,7 @@ def do_search_work(files, select_read_ids_data, get_columns, result_q):
     ]
     extracted_columns = {}
     for file in files:
-        file = mkr_format.open_combined_file(file)
+        file = pod5_format.open_combined_file(file)
 
         for batch in file.select_reads_in_batches(select_read_ids):
             process_batch(get_columns, batch, extracted_columns)
@@ -103,10 +103,10 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
     runners = 10
 
     print(f"Search for input files in {input_dir}")
-    files = list(input_dir.glob("*.mkr"))
+    files = list(input_dir.glob("*.pod5"))
     print(f"Searching for read ids in {[str(f) for f in files]}")
 
-    file = mkr_format.open_combined_file(files[0])
+    file = pod5_format.open_combined_file(files[0])
 
     processes = []
     if select_read_ids is not None:
@@ -129,7 +129,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
             start_index += approx_chunk_size
     else:
         for filename in files:
-            file = mkr_format.open_combined_file(filename)
+            file = pod5_format.open_combined_file(filename)
             batches = list(range(file.batch_count))
             approx_chunk_size = max(1, len(batches) // runners)
             start_index = 0

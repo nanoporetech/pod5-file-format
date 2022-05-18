@@ -1,8 +1,8 @@
-#include "mkr_format/read_table_reader.h"
-#include "mkr_format/read_table_writer.h"
-#include "mkr_format/schema_metadata.h"
-#include "mkr_format/types.h"
-#include "mkr_format/version.h"
+#include "pod5_format/read_table_reader.h"
+#include "pod5_format/read_table_writer.h"
+#include "pod5_format/schema_metadata.h"
+#include "pod5_format/types.h"
+#include "pod5_format/version.h"
 #include "utils.h"
 
 #include <arrow/array/array_dict.h>
@@ -29,10 +29,10 @@ bool operator==(std::shared_ptr<arrow::UInt64Array> const& array,
 }
 
 SCENARIO("Read table Tests") {
-    using namespace mkr;
+    using namespace pod5;
 
-    (void)mkr::register_extension_types();
-    auto fin = gsl::finally([] { (void)mkr::unregister_extension_types(); });
+    (void)pod5::register_extension_types();
+    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
 
@@ -46,7 +46,7 @@ SCENARIO("Read table Tests") {
         std::copy(uuid_source.begin(), uuid_source.end(), read_id.begin());
 
         return std::make_tuple(
-                mkr::ReadData{
+                pod5::ReadData{
                         read_id, 0, 0, std::uint32_t(index * 2), std::uint64_t(index * 10),
                         index * 5.0f, 0,
                         0  //std::int16_t(index % 2)
@@ -56,7 +56,7 @@ SCENARIO("Read table Tests") {
     };
 
     GIVEN("A read table writer") {
-        auto filename = "./foo.mkr";
+        auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
         auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
@@ -69,22 +69,22 @@ SCENARIO("Read table Tests") {
 
         {
             auto schema_metadata =
-                    make_schema_key_value_metadata({file_identifier, "test_software", MkrVersion});
+                    make_schema_key_value_metadata({file_identifier, "test_software", Pod5Version});
             REQUIRE(schema_metadata.ok());
             REQUIRE(file_out.ok());
 
-            auto pore_writer = mkr::make_pore_writer(pool);
+            auto pore_writer = pod5::make_pore_writer(pool);
             REQUIRE(pore_writer.ok());
-            auto calibration_writer = mkr::make_calibration_writer(pool);
+            auto calibration_writer = pod5::make_calibration_writer(pool);
             REQUIRE(calibration_writer.ok());
-            auto end_reason_writer = mkr::make_end_reason_writer(pool);
+            auto end_reason_writer = pod5::make_end_reason_writer(pool);
             REQUIRE(end_reason_writer.ok());
-            auto run_info_writer = mkr::make_run_info_writer(pool);
+            auto run_info_writer = pod5::make_run_info_writer(pool);
             REQUIRE(run_info_writer.ok());
 
-            auto writer = mkr::make_read_table_writer(*file_out, *schema_metadata, read_count,
-                                                      *pore_writer, *calibration_writer,
-                                                      *end_reason_writer, *run_info_writer, pool);
+            auto writer = pod5::make_read_table_writer(*file_out, *schema_metadata, read_count,
+                                                       *pore_writer, *calibration_writer,
+                                                       *end_reason_writer, *run_info_writer, pool);
             REQUIRE(writer.ok());
 
             auto const pore_1 = (*pore_writer)->add({12, 2, "Well Type"});
@@ -93,7 +93,7 @@ SCENARIO("Read table Tests") {
             REQUIRE(calib_1.ok());
             auto const end_reason_1 =
                     (*end_reason_writer)
-                            ->add({mkr::EndReasonData::ReadEndReason::mux_change, false});
+                            ->add({pod5::EndReasonData::ReadEndReason::mux_change, false});
             REQUIRE(end_reason_1.ok());
             auto const run_info_1 = (*run_info_writer)->add(run_info_data_0);
             REQUIRE(run_info_1.ok());
@@ -104,7 +104,7 @@ SCENARIO("Read table Tests") {
                 for (std::size_t j = 0; j < read_count; ++j) {
                     auto const idx = j + i * read_count;
 
-                    mkr::ReadData read_data;
+                    pod5::ReadData read_data;
                     std::vector<std::uint64_t> signal;
                     std::tie(read_data, signal) = data_for_index(idx);
                     auto row = writer->add_read(read_data, signal);
@@ -120,14 +120,14 @@ SCENARIO("Read table Tests") {
         {
             REQUIRE(file_in.ok());
 
-            auto reader = mkr::make_read_table_reader(*file_in, pool);
+            auto reader = pod5::make_read_table_reader(*file_in, pool);
             CAPTURE(reader);
             REQUIRE(reader.ok());
 
             auto metadata = reader->schema_metadata();
             CHECK(metadata.file_identifier == file_identifier);
             CHECK(metadata.writing_software == "test_software");
-            CHECK(metadata.writing_mkr_version == MkrVersion);
+            CHECK(metadata.writing_pod5_version == Pod5Version);
 
             REQUIRE(reader->num_record_batches() == record_batch_count);
             for (std::size_t i = 0; i < record_batch_count; ++i) {
@@ -173,7 +173,7 @@ SCENARIO("Read table Tests") {
                 for (auto j = 0; j < read_count; ++j) {
                     auto idx = j + i * read_count;
 
-                    mkr::ReadData read_data;
+                    pod5::ReadData read_data;
                     std::vector<std::uint64_t> expected_signal;
                     std::tie(read_data, expected_signal) = data_for_index(idx);
 

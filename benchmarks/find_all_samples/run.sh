@@ -10,12 +10,12 @@ echo "selecting read ids"
 echo "fast5"
 /benchmark-tools/time.py "fast5" -- /benchmark-tools/find_and_get_fast5.py /input_path/fast5_files /benchmark/outputs/fast5_files --get-column samples
 
-echo "mkr"
-/benchmark-tools/time.py "mkr" -- /benchmark-tools/find_and_get_mkr.py /input_path/mkr_files /benchmark/outputs/mkr_files --get-column samples
+echo "pod5"
+/benchmark-tools/time.py "pod5" -- /benchmark-tools/find_and_get_pod5.py /input_path/pod5_files /benchmark/outputs/pod5_files --get-column samples
 
 echo "slow5"
 /benchmark-tools/time.py "slow5" -- /benchmark-tools/find_and_get_slow5.py /input_path/slow5_files /benchmark/outputs/slow5_files --get-column samples
 
 echo "check"
 /benchmark-tools/check_csvs_consistent.py /benchmark/outputs/fast5_files/read_ids.csv /benchmark/outputs/slow5_files/read_ids.csv
-/benchmark-tools/check_csvs_consistent.py /benchmark/outputs/mkr_files/read_ids.csv /benchmark/outputs/slow5_files/read_ids.csv
+/benchmark-tools/check_csvs_consistent.py /benchmark/outputs/pod5_files/read_ids.csv /benchmark/outputs/slow5_files/read_ids.csv

@@ -11,7 +11,7 @@ import tempfile
 import numpy
 import pandas as pd
 
-import mkr_format
+import pod5_format
 
 SelectReadIdsData = namedtuple(
     "SelectReadIdsData", ["path", "slice_start", "slice_end", "shape"]
@@ -47,7 +47,7 @@ def do_batch_work(filename, batches, get_columns, mode, result_q):
     read_ids = []
     extracted_columns = {"read_id": read_ids}
 
-    file = mkr_format.open_combined_file(filename)
+    file = pod5_format.open_combined_file(filename)
     for batch in batches:
         for read in file.get_batch(batch).reads():
             process_read(get_columns, read, read_ids, extracted_columns)
@@ -60,7 +60,7 @@ def do_search_work(files, select_read_ids_data, get_columns, mode, result_q):
     read_ids = []
     extracted_columns = {"read_id": read_ids}
     for file in files:
-        file = mkr_format.open_combined_file(file)
+        file = pod5_format.open_combined_file(file)
 
         for read in file.reads(select_read_ids):
             process_read(get_columns, read, read_ids, extracted_columns)
@@ -80,7 +80,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
 
     if select_read_ids is not None:
         print("Placing select read id data on disk for mmapping:")
-        numpy_select_read_ids = mkr_format.pack_read_ids(select_read_ids)
+        numpy_select_read_ids = pod5_format.pack_read_ids(select_read_ids)
 
         # Copy data to memory-map
         fp = tempfile.NamedTemporaryFile()
@@ -95,7 +95,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
     runners = 10
 
     print(f"Search for input files in {input_dir}")
-    files = list(input_dir.glob("*.mkr"))
+    files = list(input_dir.glob("*.pod5"))
     print(f"Searching for read ids in {[str(f) for f in files]}")
 
     processes = []
@@ -119,7 +119,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[], mode=None):
             start_index += approx_chunk_size
     else:
         for filename in files:
-            file = mkr_format.open_combined_file(filename)
+            file = pod5_format.open_combined_file(filename)
             batches = list(range(file.batch_count))
             approx_chunk_size = max(1, len(batches) // runners)
             start_index = 0

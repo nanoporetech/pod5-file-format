@@ -1,7 +1,7 @@
-Design documentation for MKR
+Design documentation for POD5
 ============================
 
-The MKR file format has been specifically designed to be suitable for Nanopore read data, we had some specific design goals:
+The POD5 file format has been specifically designed to be suitable for Nanopore read data, we had some specific design goals:
 
 Design Goals
 ------------

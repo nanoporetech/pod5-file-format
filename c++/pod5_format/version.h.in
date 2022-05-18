@@ -1,0 +1,9 @@
+#pragma once
+
+#include <string>
+
+namespace pod5 {
+
+std::string const Pod5Version = "@POD5_NUMERIC_VERSION@";
+
+}

@@ -9,7 +9,7 @@ RUN wget "https://github.com/hasindu2008/slow5tools/releases/download/$SLOW_5_VE
 ENV PATH="/slow5tools-$SLOW_5_VERSION/:${PATH}"
 RUN pip install pyslow5==0.5.0a1
 
-COPY ./mkr_format*.whl /
+COPY ./pod5_format*.whl /
 RUN pip install *.whl && rm *.whl
 
 RUN pip install pandas h5py

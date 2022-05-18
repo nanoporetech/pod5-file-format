@@ -1,6 +1,6 @@
 
 
-MKR Format Specification
+POD5 Format Specification
 ------------------------
 
 ### Overview
@@ -23,17 +23,17 @@ Optionally, index files can also be provided:
 
 Each of these is an Apache Feather 2 file, and can be opened directly using the Apache Arrow library's IPC routines. The schema of the tables is described below. The naming scheme above is recommended (and should be the default when creating these files), but tooling should provide a way for users to explicitly every filename when opening files (in case the user has renamed them to a different scheme).
 
-These can be stored in a bundled file, named <prefix>.mkr and described below.
+These can be stored in a bundled file, named <prefix>.pod5 and described below.
 
 ### Table Schemas
 
-MKR files are contain several [arrow tables](https://arrow.apache.org/docs/python/data.html#tables).
+POD5 files are contain several [arrow tables](https://arrow.apache.org/docs/python/data.html#tables).
 
 All the tables should have the following `custom_metadata` fields set on them:
 
 | Name                    | Example Value                        | Notes                                                                                                                                       |
 |-------------------------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| MINKNOW:mkr_version     | 1.0.0                                | The version of this specification that the schema was based on.                                                                             |
+| MINKNOW:pod5_version     | 1.0.0                                | The version of this specification that the schema was based on.                                                                             |
 | MINKNOW:software        | MinNOW Core 5.2.3                    | A free-form description of the software that wrote the file, intended to  help pin down the source of files that violate the specification. |
 | MINKNOW:file_identifier | cbf91180-0684-4a39-bf56-41eaf437de9e | Must be identical across all tables. Allows checking that the files correspond to each other.                                               |
 
@@ -76,7 +76,7 @@ Several fields of the Reads table are [dictionaries](https://arrow.apache.org/do
 #### Layout
 
 ```
-<signature "\213MKR\r\n\032\n">
+<signature "\213POD\r\n\032\n">
 <section marker: 16 bytes>
 <embedded file 1 (padded to 8-byte boundary)><section marker: 16 bytes>
 ...
@@ -85,7 +85,7 @@ Several fields of the Reads table are [dictionaries](https://arrow.apache.org/do
 <footer (padded to 8-byte boundary)>
 <footer length: 8 bytes little-endian signed integer>
 <section marker: 16 bytes>
-<signature "\213MKR\r\n\032\n">
+<signature "\213POD\r\n\032\n">
 ```
 
     All padding bytes should be zero. They ensure memory mapped files have the alignment that Arrow expects.
@@ -94,10 +94,9 @@ Several fields of the Reads table are [dictionaries](https://arrow.apache.org/do
 
 The first and last eight bytes of the file are both a fixed set of values:
 
-| Decimal          | 139  | 77   | 75   | 82   | 13   | 10   | 26   | 10   |
-|------------------|------|------|------|------|------|------|------|------|
-| Hexadecimal      | 0x8B | 0x4D | 0x4B | 0x52 | 0x0D | 0x0A | 0x1A | 0x0A |
-| ASCII C Notation | \213 | M    | K    | R    | \r   | \n   | \032 | \n   |
+| Decimal          | 139  | 80   | 79   | 68   | 13   | 10   | 26   | 10   |
+| Hexadecimal      | 0x8B | 0x50 | 0x4F | 0x44 | 0x0D | 0x0A | 0x1A | 0x0A |
+| ASCII C Notation | \213 | P    | O    | D    | \r   | \n   | \032 | \n   |
 
     *Rationale*
 
@@ -165,7 +164,7 @@ table Footer {
     // A free-form description of the software that wrote the file, intended to help pin down the source of files that violate the specification.
     software: string;
     // The version of this specification that the table schemas are based on (1.0.0).
-    mkr_version: string;
+    pod5_version: string;
     // The Apache Arrow tables stored in the file.
     contents: [ EmbeddedFile ];
 }

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel", "Cython"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "pod5_format"
+authors = []
+readme = "README.md"
+requires-python = "~= 3.7"
+dynamic = ["version", "description"]
+
+keywords = ['nanopore']
+
+classifiers=[
+    'Environment :: Console',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+]
+
+dependencies = [
+    "iso8601",
+    "more_itertools",
+    "numpy",
+    "pyarrow ~= 7.0.0",
+    "pytz",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest ~= 6.2",
+  "pytest-cov ~= 3.0",
+]
+
+[tool.black]
+target-version = ["py37"]

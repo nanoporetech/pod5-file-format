@@ -1,4 +1,4 @@
-#include "mkr_format/signal_compression.h"
+#include "pod5_format/signal_compression.h"
 
 #include "utils.h"
 
@@ -15,11 +15,11 @@ SCENARIO("Signal compression Tests") {
     std::vector<std::int16_t> signal(100'00);
     std::iota(signal.begin(), signal.end(), 0);
 
-    auto compressed = mkr::compress_signal(gsl::make_span(signal), pool);
+    auto compressed = pod5::compress_signal(gsl::make_span(signal), pool);
     REQUIRE(compressed.ok());
     auto compressed_span = gsl::make_span((*compressed)->data(), (*compressed)->size());
 
-    auto decompressed = mkr::decompress_signal(compressed_span, signal.size(), pool);
+    auto decompressed = pod5::decompress_signal(compressed_span, signal.size(), pool);
     CAPTURE(decompressed);
     REQUIRE(decompressed.ok());
     auto decompressed_span = gsl::make_span((*decompressed)->data(), (*decompressed)->size())

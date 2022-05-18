@@ -9,14 +9,14 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 REPO_ROOT="${SCRIPT_DIR}/../"
 
 cd ${REPO_ROOT}
-mkr_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
 
 cd ${CURRENT_DIR}
 
 # Tar up the archive build:
 (
     cd ./archive
-    tar -cvzf ${REPO_ROOT}/mkr-file-format-${mkr_version}-${output_sku}.tar.gz .
+    tar -cvzf ${REPO_ROOT}/pod5-file-format-${pod5_version}-${output_sku}.tar.gz .
 )
 
 # Find the wheel:
