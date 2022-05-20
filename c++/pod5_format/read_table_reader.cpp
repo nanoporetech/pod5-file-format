@@ -252,21 +252,22 @@ Status ReadTableReader::build_read_id_lookup() {
     return Status::OK();
 }
 
-Result<std::vector<TraversalStep>> ReadTableReader::search_for_read_ids(
-        ReadIdSearchInput const& search_input,
-        TraversalType sort_order,
-        std::size_t* successful_find_count) {
+Result<std::size_t> ReadTableReader::search_for_read_ids(ReadIdSearchInput const& search_input,
+                                                         gsl::span<uint32_t> const& batch_counts,
+                                                         gsl::span<uint32_t> const& batch_rows) {
     ARROW_RETURN_NOT_OK(build_read_id_lookup());
 
-    std::vector<TraversalStep> output_steps;
-    output_steps.resize(search_input.read_id_count());
-
     std::size_t successes = 0;
-    std::size_t failures = 0;
+
+    std::vector<std::vector<std::size_t>> batch_data(batch_counts.size());
+    auto const initial_reserve_size = search_input.read_id_count() / batch_counts.size();
+    for (auto& br : batch_data) {
+        br.reserve(initial_reserve_size);
+    }
 
     auto file_ids_current_it = m_sorted_file_read_ids.begin();
     auto const file_ids_end = m_sorted_file_read_ids.end();
-    for (std::size_t i = 0; i < output_steps.size(); ++i) {
+    for (std::size_t i = 0; i < search_input.read_id_count(); ++i) {
         auto const& search_item = search_input[i];
 
         // Increment file pointer while less than the search term:
@@ -276,38 +277,26 @@ Result<std::vector<TraversalStep>> ReadTableReader::search_for_read_ids(
 
         // If we found it record the location:
         if (file_ids_current_it->id == search_item.id) {
-            output_steps[successes].batch = file_ids_current_it->batch;
-            output_steps[successes].batch_row = file_ids_current_it->batch_row;
-            output_steps[successes].original_index = search_item.index;
+            batch_data[file_ids_current_it->batch].push_back(file_ids_current_it->batch_row);
             successes += 1;
-        } else {
-            // Find the location of the next failure record:
-            auto failure_pt = output_steps.end() - 1 - failures;
-            // Otherwise record a failure, at the back of the array:
-            failure_pt->batch = std::numeric_limits<std::size_t>::max();
-            failure_pt->batch_row = std::numeric_limits<std::size_t>::max();
-            failure_pt->original_index = search_item.index;
-            failures += 1;
         }
     }
 
-    // Sort output as requested by user:
-    switch (sort_order) {
-    case TraversalType::read_efficient:
-        std::sort(output_steps.begin(), output_steps.end(), [](auto const& a, auto const& b) {
-            return std::make_tuple(a.batch, a.batch_row) < std::make_tuple(b.batch, b.batch_row);
-        });
+    std::size_t full_size_so_far = 0;
+    for (std::size_t i = 0; i < batch_data.size(); ++i) {
+        auto& data = batch_data[i];
+        batch_counts[i] = data.size();
 
-    case TraversalType::original_order:
-        std::sort(output_steps.begin(), output_steps.end(),
-                  [](auto const& a, auto const& b) { return a.original_index < b.original_index; });
+        // Ensure the batch indices within the batch are sorted:
+        std::sort(data.begin(), data.end());
+
+        // Copy the row indices into the packed vector:
+        std::copy(data.begin(), data.end(), batch_rows.begin() + full_size_so_far);
+
+        full_size_so_far += data.size();
     }
 
-    if (successful_find_count) {
-        *successful_find_count = successes;
-    }
-
-    return output_steps;
+    return successes;
 }
 
 //---------------------------------------------------------------------------------------------------------------------

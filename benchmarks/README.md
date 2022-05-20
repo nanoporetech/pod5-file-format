@@ -53,33 +53,33 @@ On dataset a PCR Zymo dataset PAM50264, on 10.4.1 e8.2 data (`pcr_zymo/20220419_
 
 ### Find all read ids
 
-|      | Fast5    | POD5      | blow5    |
-|------|----------|----------|----------|
-| Time | 6.1 secs | 4.7 secs | 1.8 secs |
+|      | Fast5    | POD5   | blow5  |
+|------|----------|--------|--------|
+| Time | 6.1 secs | 3 secs | 2 secs |
 
 ### Find all samples
 
-|      | Fast5    | POD5     | blow5    |
-|------|----------|---------|----------|
-| Time | 524 secs | 26 secs | 78 secs |
+|      | Fast5    | POD5    | blow5   |
+|------|----------|---------|---------|
+| Time | 524 secs | 20 secs | 78 secs |
 
 ### Find selected read ids + extract read number
 
-|      | Fast5    | POD5      | blow5  |
-|------|----------|----------|--------|
-| Time | 412 secs | 2 secs   | 5 secs |
+|      | Fast5    | POD5   | blow5  |
+|------|----------|--------|--------|
+| Time | 412 secs | 1 secs | 5 secs |
 
 ### Find selected read ids + extract sample count
 
-|      | Fast5    | POD5       | blow5    |
-|------|----------|-----------|----------|
-| Time | 414 secs | 8.8 secs  | 5.8 secs |
+|      | Fast5    | POD5   | blow5  |
+|------|----------|--------|--------|
+| Time | 414 secs | 2 secs | 6 secs |
 
 ### Find selected read ids + samples
 
-|      | Fast5    | POD5      | blow5    |
-|------|----------|----------|----------|
-| Time | 476 secs | 6.2 secs | 6.1 secs |
+|      | Fast5    | POD5   | blow5  |
+|------|----------|--------|--------|
+| Time | 476 secs | 4 secs | 6 secs |
 
 
 ## InterARTIC Dataset

@@ -49,10 +49,11 @@ int main(int argc, char** argv) {
     boost::filesystem::ofstream output_stream(output_path);
 
     // Plan the most efficient route through the file for the required read ids:
-    std::vector<TraversalStep_t> traversal_steps(search_uuids.size());
+    std::vector<std::uint32_t> traversal_batch_counts(batch_count);
+    std::vector<std::uint32_t> traversal_row_indices(search_uuids.size());
     std::size_t find_success_count = 0;
     if (pod5_plan_traversal(file, (uint8_t*)search_uuids.data(), search_uuids.size(),
-                            POD5_TRAV_SORT_READ_EFFICIENT, traversal_steps.data(),
+                            traversal_batch_counts.data(), traversal_row_indices.data(),
                             &find_success_count) != POD5_OK) {
         std::cerr << "Failed to plan traversal of file: " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
@@ -63,6 +64,7 @@ int main(int argc, char** argv) {
     }
 
     std::size_t read_count = 0;
+    std::size_t row_offset = 0;
 
     // Walk the suggested traversal route, storing read data.
     std::size_t step_index = 0;
@@ -73,12 +75,10 @@ int main(int argc, char** argv) {
             return EXIT_FAILURE;
         }
 
-        for (; step_index < find_success_count; ++step_index) {
-            TraversalStep_t const& step = traversal_steps[step_index];
-            // Check we are still in this batch if not, break and open the next batch.
-            if (step.batch != batch_index) {
-                break;
-            }
+        std::cout << "Processing batch " << (batch_index + 1) << " of " << batch_count << "\n";
+        for (std::size_t row_index = 0; row_index < traversal_batch_counts[batch_index];
+             ++row_index) {
+            std::uint32_t batch_row = traversal_row_indices[row_index + row_offset];
 
             boost::uuids::uuid read_id;
             int16_t pore = 0;
@@ -89,16 +89,17 @@ int main(int argc, char** argv) {
             int16_t end_reason = 0;
             int16_t run_info = 0;
             int64_t signal_row_count = 0;
-            if (pod5_get_read_batch_row_info(batch, step.batch_row, read_id.begin(), &pore,
-                                             &calibration, &read_number, &start_sample,
-                                             &median_before, &end_reason, &run_info,
+            if (pod5_get_read_batch_row_info(batch, batch_row, read_id.begin(), &pore, &calibration,
+                                             &read_number, &start_sample, &median_before,
+                                             &end_reason, &run_info,
                                              &signal_row_count) != POD5_OK) {
-                std::cerr << "Failed to get read " << step.batch_row << "\n";
+                std::cerr << "Failed to get read " << batch_row << "\n";
                 return EXIT_FAILURE;
             }
             output_stream << read_number << "\n";
             read_count += 1;
         }
+        row_offset += traversal_batch_counts[batch_index];
 
         if (pod5_free_read_batch(batch) != POD5_OK) {
             std::cerr << "Failed to release batch\n";

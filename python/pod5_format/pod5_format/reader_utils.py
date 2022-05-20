@@ -32,10 +32,3 @@ RunInfoData = namedtuple(
         "tracking_id",
     ],
 )
-
-
-class SearchOrder(Enum):
-    # Sort the output so the reader can skip around in the file as little as possible.
-    READ_EFFICIENT = 0
-    # Sort the output traversal as the input data is.
-    ORIGINAL_ORDER = 1

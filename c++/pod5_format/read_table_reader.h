@@ -28,7 +28,6 @@ class CalibrationData;
 class EndReasonData;
 class PoreData;
 class RunInfoData;
-class TraversalStep;
 class ReadIdSearchInput;
 
 class POD5_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
@@ -57,7 +56,6 @@ private:
 
 class POD5_FORMAT_EXPORT ReadTableReader : public TableReader {
 public:
-    using TraversalType = ReadTableTraversalType;
     ReadTableReader(std::shared_ptr<void>&& input_source,
                     std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
                     std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
@@ -68,9 +66,9 @@ public:
 
     Status build_read_id_lookup();
 
-    Result<std::vector<TraversalStep>> search_for_read_ids(ReadIdSearchInput const& search_input,
-                                                           TraversalType sort_order,
-                                                           std::size_t* successful_find_count);
+    Result<std::size_t> search_for_read_ids(ReadIdSearchInput const& search_input,
+                                            gsl::span<uint32_t> const& batch_counts,
+                                            gsl::span<uint32_t> const& batch_rows);
 
 private:
     struct IndexData {

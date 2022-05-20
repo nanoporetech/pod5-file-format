@@ -243,38 +243,29 @@ pod5_error_t pod5_get_combined_file_read_table_location(Pod5FileReader_t* reader
 pod5_error_t pod5_plan_traversal(Pod5FileReader_t* reader,
                                  uint8_t const* read_id_array,
                                  size_t read_id_count,
-                                 pod5_traversal_sort_type sort_type,
-                                 TraversalStep* steps,
-                                 size_t* find_success_count) {
+                                 uint32_t* batch_counts,
+                                 uint32_t* batch_rows,
+                                 size_t* find_success_count_out) {
     pod5_reset_error();
 
-    if (!check_file_not_null(reader) || !check_not_null(read_id_array)) {
+    if (!check_file_not_null(reader) || !check_not_null(read_id_array) ||
+        !check_output_pointer_not_null(batch_counts) ||
+        !check_output_pointer_not_null(batch_rows)) {
         return g_pod5_error_no;
     }
 
     auto search_input = pod5::ReadIdSearchInput(gsl::make_span(
             reinterpret_cast<boost::uuids::uuid const*>(read_id_array), read_id_count));
 
-    auto traversal_type = pod5::ReadTableReader::TraversalType::read_efficient;
-    if (sort_type == POD5_TRAV_SORT_ORIGINAL_ORDER) {
-        traversal_type = pod5::ReadTableReader::TraversalType::original_order;
-    }
+    POD5_C_ASSIGN_OR_RAISE(
+            auto find_success_count,
+            reader->reader->search_for_read_ids(
+                    search_input,
+                    gsl::make_span(batch_counts, reader->reader->num_read_record_batches()),
+                    gsl::make_span(batch_rows, read_id_count)));
 
-    POD5_C_ASSIGN_OR_RAISE(auto results, reader->reader->search_for_read_ids(
-                                                 search_input, traversal_type, find_success_count));
-    if (results.size() != read_id_count) {
-        pod5_set_error(pod5::Status::Invalid("Unexpected number of search results ", results.size(),
-                                             " from search execution (expected ", read_id_count,
-                                             ")"));
-        return g_pod5_error_no;
-    }
-
-    for (std::size_t i = 0; i < read_id_count; ++i) {
-        auto& step = steps[i];
-        auto const& result = results[i];
-        step.batch = result.batch;
-        step.batch_row = result.batch_row;
-        step.original_index = result.original_index;
+    if (find_success_count_out) {
+        *find_success_count_out = find_success_count;
     }
 
     return POD5_OK;
@@ -967,14 +958,14 @@ pod5_error_t pod5_vbz_decompress_signal(char const* compressed_signal,
     return POD5_OK;
 }
 
-pod5_error_t pod5_format_read_id(uint8_t* read_id, char* read_id_string) {
+pod5_error_t pod5_format_read_id(uint8_t const* read_id, char* read_id_string) {
     pod5_reset_error();
 
     if (!check_not_null(read_id) || !check_output_pointer_not_null(read_id_string)) {
         return g_pod5_error_no;
     }
 
-    boost::uuids::uuid* uuid_data = reinterpret_cast<boost::uuids::uuid*>(read_id);
+    auto uuid_data = reinterpret_cast<boost::uuids::uuid const*>(read_id);
     std::string string_data = boost::uuids::to_string(*uuid_data);
     if (string_data.size() != 36) {
         pod5_set_error(pod5::Status::Invalid("Unexpected length of UUID"));

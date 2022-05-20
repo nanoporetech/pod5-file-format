@@ -88,31 +88,16 @@ POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_combined_file_signal_table_location(Pod5FileReader_t* reader,
                                              EmbeddedFileData_t* file_data);
 
-struct TraversalStep {
-    /// \brief The read batch the data resides in:
-    uint32_t batch;
-    /// \brief The batch row the data resides in:
-    uint32_t batch_row;
-    /// \brief The original read_id index in the passed input data.
-    uint32_t original_index;
-};
-typedef struct TraversalStep TraversalStep_t;
-
-enum pod5_traversal_sort_type {
-    // Sort the output so the reader can skip around in the file as little as possible.
-    POD5_TRAV_SORT_READ_EFFICIENT = 0,
-    // Sort the output traversal as the input data is.
-    POD5_TRAV_SORT_ORIGINAL_ORDER = 1,
-};
-typedef enum pod5_traversal_sort_type pod5_traversal_sort_type_t;
-
 /// \brief Plan the most efficient route through the data for the given read ids
 /// \param      file                The file to be queried.
 /// \param      read_id_array       The read id array (contiguous array, 16 bytes per id).
 /// \param      read_id_count       The number of read ids.
-/// \param      sort_type           Control how the sort traversal order should be organised.
-/// \param[out] steps               The output steps in optimal order (must be an array of size read_id_count)
-/// \param[out] find_success_count  The number of read ids that were successfully found.
+/// \param[out] batch_counts        The number of rows per batch that need to be visited (rows listed in batch_rows),
+///                                 input array length should be the number of read table batches.
+/// \param[out] batch_rows          Rows to visit per batch, packed into one array. Offsets into this array from
+///                                 [batch_counts] provide the per-batch row data. Input array length should
+///                                 equal read_id_count.
+/// \param[out] find_success_count  The number of requested read ids that were found.
 /// \note The output array is sorted in file storage order, to improve read efficiency.
 ///       [find_success_count] is the number of successful find steps in the result [steps].
 ///       Failed finds are all sorted to the back of the [steps] array, and are marked with an
@@ -120,8 +105,8 @@ typedef enum pod5_traversal_sort_type pod5_traversal_sort_type_t;
 POD5_FORMAT_EXPORT pod5_error_t pod5_plan_traversal(Pod5FileReader_t* reader,
                                                     uint8_t const* read_id_array,
                                                     size_t read_id_count,
-                                                    pod5_traversal_sort_type_t sort_type,
-                                                    TraversalStep_t* steps,
+                                                    uint32_t* batch_counts,
+                                                    uint32_t* batch_rows,
                                                     size_t* find_success_count);
 
 /// \brief Find the number of read batches in the file.
@@ -550,7 +535,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_vbz_decompress_signal(char const* compresse
 /// \brief Format a packed binary read id as a readable read id string:
 /// \param          read_id           A 16 byte binary formatted UUID.
 /// \param[out]     read_id_string    Output string containing the string formatted UUID (expects a string of at least 37 bytes, one null byte is written.)
-POD5_FORMAT_EXPORT pod5_error_t pod5_format_read_id(uint8_t* read_id, char* read_id_string);
+POD5_FORMAT_EXPORT pod5_error_t pod5_format_read_id(uint8_t const* read_id, char* read_id_string);
 
 #ifdef __cplusplus
 }
