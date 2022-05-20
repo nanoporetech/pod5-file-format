@@ -27,7 +27,7 @@ Benchmarking Results
     Note preliminary results
 
     Results run on:
-        0.0.13 POD5
+        0.0.15 POD5
         pyslow5 dev branch (commit 2643310a)
 
     Benchmark numbers are produced using a GridION.
