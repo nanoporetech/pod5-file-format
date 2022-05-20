@@ -217,18 +217,8 @@ def run_reader_test(r):
         reads[1],
     ]
 
-    # Searching in original order returns reads in the correct order:
     search = r.reads(
         [r.read_id for r in search_reads],
-        order=pod5_format.reader_utils.SearchOrder.ORIGINAL_ORDER,
-    )
-    for i, searched_read in enumerate(search):
-        assert searched_read.read_id == search_reads[i].read_id
-
-    # Searching in original order returns read efficient order returns the right data:
-    search = r.reads(
-        [r.read_id for r in search_reads],
-        order=pod5_format.reader_utils.SearchOrder.READ_EFFICIENT,
     )
     found_ids = set()
     for i, searched_read in enumerate(search):

@@ -15,7 +15,6 @@ from .reader_utils import (
     EndReasonData,
     RunInfoData,
     SignalRowInfo,
-    SearchOrder,
 )
 
 Columns = namedtuple(
@@ -280,8 +279,12 @@ class ReadBatchPyArrow:
     def __init__(self, reader, batch):
         self._reader = reader
         self._batch = batch
+        self._signal_cache = None
 
         self._columns = Columns(*[self._batch.column(name) for name in Columns._fields])
+
+    def set_cached_siganl(self, signal_cache):
+        self._signal_cache = signal_cache
 
     def reads(self):
         """
@@ -296,6 +299,26 @@ class ReadBatchPyArrow:
 
     def get_read(self, row):
         return ReadRowPyArrow(self._reader, self, row)
+
+    @property
+    def read_id_column(self):
+        return self._columns.read_id
+
+    @property
+    def read_number_column(self):
+        return self._columns.read_number
+
+    @property
+    def cached_sample_count_column(self):
+        if not self._signal_cache:
+            raise Exception("No cached signal data available")
+        return self._signal_cache.sample_count
+
+    @property
+    def cached_samples_column(self):
+        if not self._signal_cache:
+            raise Exception("No cached signal data available")
+        return self._signal_cache.samples
 
 
 class FileReader:
@@ -361,82 +384,122 @@ class FileReader:
         """
         return ReadBatchPyArrow(self, self._read_reader.reader.get_batch(i))
 
-    def read_batches(self):
+    def read_batches(self, selection=None, missing_ok=False, preload=None):
         """
-        Iterate all read batches in the file.
-
-        Returns
-        -------
-        An iterable of batches (as ReadBatchPyArrow) in the file.
-        """
-        for i in range(self._read_reader.reader.num_record_batches):
-            yield self.get_batch(i)
-
-    def reads(self, selection=None, missing_ok=False, order=SearchOrder.READ_EFFICIENT):
-        if selection is None:
-            yield from self._reads()
-        else:
-            yield from self._select_reads(selection, missing_ok=missing_ok, order=order)
-
-    def _reads(self):
-        """
-        Iterate all reads in the file.
-
-        Returns
-        -------
-        An iterable of reads (as ReadRowPyArrow) in the file.
-        """
-        for batch in self.read_batches():
-            for read in batch.reads():
-                yield read
-
-    def _select_reads(
-        self, selection, missing_ok=False, order=SearchOrder.READ_EFFICIENT
-    ):
-        """
-        Iterate a set of reads in the file
+        Iterate batches in the file, optionally selecting certain rows.
 
         Parameters
         ----------
         selection : iterable[str]
             The read ids to walk in the file.
+        missing_ok : bool
+            If selection contains entries not found in the file, an error will be raised.
+        preload : set[str]
+            Columns to preload - "samples" and "sample_count" are valid values
+
+        Returns
+        -------
+        An iterable of batches (as ReadBatchPyArrow) in the file.
+        """
+        if selection is None:
+            yield from self._reads_batches(preload=preload)
+        else:
+            yield from self._select_read_batches(
+                selection, missing_ok=missing_ok, preload=preload
+            )
+
+    def reads(self, selection=None, missing_ok=False):
+        """
+        Iterate reads in the file, optionally filtering for certain read ids.
+
+        Parameters
+        ----------
+        selection : iterable[str]
+            The read ids to walk in the file.
+        missing_ok : bool
+            If selection contains entries not found in the file, an error will be raised.
 
         Returns
         -------
         An iterable of reads (as ReadRowPyArrow) in the file.
         """
-        steps, successful_finds = self._plan_traversal(selection, order)
+        if selection is None:
+            yield from self._reads()
+        else:
+            yield from self._select_reads(selection, missing_ok=missing_ok)
 
-        if not missing_ok and successful_finds != len(steps):
-            raise Exception(
-                f"Failed to find {len(steps) - successful_finds} requested reads in the file"
+    def _reads(self):
+        for batch in self.read_batches():
+            for read in batch.reads():
+                yield read
+
+    def _select_reads(self, selection, missing_ok=False):
+        for batch, rows in self._select_read_batches(selection, missing_ok):
+            for row in rows:
+                yield batch.get_read(row)
+
+    def _reads_batches(self, preload=None):
+        signal_cache = None
+        if preload:
+            signal_cache = self._reader.batch_get_signal(
+                "samples" in preload,
+                "sample_count" in preload,
+                numpy.empty(shape=(0), dtype=numpy.uint32),
+                numpy.empty(shape=(0), dtype=numpy.uint32),
             )
 
-        batch_index = None
-        batch = None
-        for item in steps[:successful_finds]:
-            batch_idx = item[0]
-            batch_row = item[1]
-            if batch_index != batch_idx:
-                batch = self.get_batch(batch_idx)
-                batch_index = batch_idx
+        for i in range(self._read_reader.reader.num_record_batches):
+            batch = self.get_batch(i)
+            if signal_cache:
+                batch.set_cached_siganl(signal_cache.release_next_batch())
+            yield batch
 
-            yield batch.get_read(batch_row)
+    def _select_read_batches(self, selection, missing_ok=False, preload=None):
+        successful_finds, per_batch_counts, all_batch_rows = self._plan_traversal(
+            selection
+        )
 
-    def _plan_traversal(self, read_ids, order=SearchOrder.READ_EFFICIENT):
+        if not missing_ok and successful_finds != len(selection):
+            raise Exception(
+                f"Failed to find {len(selection) - successful_finds} requested reads in the file"
+            )
+
+        signal_cache = None
+        if preload:
+            signal_cache = self._reader.batch_get_signal(
+                "samples" in preload,
+                "sample_count" in preload,
+                per_batch_counts,
+                all_batch_rows,
+            )
+
+        current_offset = 0
+        for batch_idx, batch_count in enumerate(per_batch_counts):
+            current_batch_rows = all_batch_rows[
+                current_offset : current_offset + batch_count
+            ]
+
+            batch = self.get_batch(batch_idx)
+            if signal_cache:
+                batch.set_cached_siganl(signal_cache.release_next_batch())
+            yield batch, current_batch_rows
+
+            current_offset += batch_count
+
+    def _plan_traversal(self, read_ids):
         if not isinstance(read_ids, numpy.ndarray):
             read_ids = pack_read_ids(read_ids)
 
-        step_count = read_ids.shape[0]
-        traversal_plan = numpy.empty(dtype="u4", shape=(step_count, 3))
+        batch_rows = numpy.empty(dtype="u4", shape=read_ids.shape[0])
+        per_batch_counts = numpy.empty(dtype="u4", shape=self.batch_count)
 
-        successful_steps = self._reader.plan_traversal(
+        successful_find_count = self._reader.plan_traversal(
             read_ids,
-            order.value,
-            traversal_plan,
+            per_batch_counts,
+            batch_rows,
         )
 
-        return traversal_plan, successful_steps
+        return successful_find_count, per_batch_counts, batch_rows
 
     def _get_signal_batch(self, batch_id):
         if batch_id in self._cached_signal_batches:

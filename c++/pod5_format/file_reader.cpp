@@ -31,12 +31,10 @@ public:
         return m_read_table_reader.num_record_batches();
     }
 
-    Result<std::vector<TraversalStep>> search_for_read_ids(
-            ReadIdSearchInput const& search_input,
-            ReadTableTraversalType sort_order,
-            std::size_t* successful_find_count) override {
-        return m_read_table_reader.search_for_read_ids(search_input, sort_order,
-                                                       successful_find_count);
+    Result<std::size_t> search_for_read_ids(ReadIdSearchInput const& search_input,
+                                            gsl::span<uint32_t> const& batch_counts,
+                                            gsl::span<uint32_t> const& batch_rows) override {
+        return m_read_table_reader.search_for_read_ids(search_input, batch_counts, batch_rows);
     }
 
     Result<SignalTableRecordBatch> read_signal_record_batch(std::size_t i) const override {

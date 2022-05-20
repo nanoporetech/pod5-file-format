@@ -11,7 +11,7 @@ set(ENV{POD5_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
 file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/pod5_format")
 
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}  --no-deps
+    COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR} --no-deps
     WORKING_DIRECTORY "${PYTHON_PROJECT_DIR}/"
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE output

@@ -225,21 +225,6 @@ inline bool operator==(EndReasonData const& a, EndReasonData const& b) {
     return a.name == b.name && a.forced == b.forced;
 }
 
-class TraversalStep {
-public:
-    /// \brief The read batch the data resides in:
-    std::size_t batch;
-    /// \brief The batch row the data resides in:
-    std::size_t batch_row;
-    /// \brief The original read_id index in the passed input data.
-    std::size_t original_index;
-};
-
-enum class ReadTableTraversalType {
-    read_efficient,
-    original_order,
-};
-
 /// \brief Input query to a search for a number of read ids in a file:
 class POD5_FORMAT_EXPORT ReadIdSearchInput {
 public:
