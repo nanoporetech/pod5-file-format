@@ -84,45 +84,37 @@ Status SignalTableRecordBatch::extract_signal_row(std::size_t row_index,
 
 SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
                                      std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
+                                     std::vector<pod5::SignalTableRecordBatch>&& table_batches,
                                      SignalTableSchemaDescription field_locations,
                                      SchemaMetadataDescription&& schema_metadata,
                                      arrow::MemoryPool* pool)
         : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
           m_field_locations(field_locations),
           m_pool(pool),
+          m_table_batches(std::move(table_batches)),
           m_batch_size(0) {}
 
 SignalTableReader::SignalTableReader(SignalTableReader&& other)
         : TableReader(std::move(other)),
           m_field_locations(std::move(other.m_field_locations)),
           m_pool(other.m_pool),
-          m_last_batch(std::move(other.m_last_batch)),
+          m_table_batches(std::move(other.m_table_batches)),
           m_batch_size(other.m_batch_size.load()) {}
 
 SignalTableReader& SignalTableReader::operator=(SignalTableReader&& other) {
     m_field_locations = std::move(other.m_field_locations);
     m_pool = other.m_pool;
-    m_last_batch = std::move(other.m_last_batch);
     m_batch_size = other.m_batch_size.load();
+    m_table_batches = std::move(other.m_table_batches);
     static_cast<TableReader&>(*this) = std::move(static_cast<TableReader&>(other));
     return *this;
 }
 
 Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t i) const {
-    if (m_last_batch && m_last_batch->first == i) {
-        return m_last_batch->second;
-    }
-
-    auto record_batch = reader()->ReadRecordBatch(i);
-    if (!record_batch.ok()) {
-        return record_batch.status();
-    }
-    auto batch = SignalTableRecordBatch{std::move(*record_batch), m_field_locations, m_pool};
-    m_last_batch.emplace(i, batch);
-    return batch;
+    return m_table_batches[i];
 }
 
-Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
+Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::uint64_t row,
                                                                std::size_t* batch_start_row) const {
     if (m_batch_size == 0) {
         m_batch_size = read_record_batch(0)->num_rows();
@@ -143,6 +135,45 @@ Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::size_t row,
     return batch;
 }
 
+Result<std::size_t> SignalTableReader::extract_sample_count(
+        gsl::span<std::uint64_t const> const& row_indices) const {
+    std::size_t sample_count = 0;
+    for (auto const& signal_row : row_indices) {
+        std::size_t batch_row = 0;
+        ARROW_ASSIGN_OR_RAISE(auto const signal_batch_index,
+                              signal_batch_for_row_id(signal_row, &batch_row));
+
+        auto const& signal_batch = m_table_batches[signal_batch_index];
+        auto const& samples_column = signal_batch.samples_column();
+        sample_count += samples_column->Value(batch_row);
+    }
+    return sample_count;
+}
+
+Status SignalTableReader::extract_samples(gsl::span<std::uint64_t const> const& row_indices,
+                                          gsl::span<std::int16_t> const& output_samples) const {
+    std::size_t sample_count = 0;
+
+    for (auto const& signal_row : row_indices) {
+        std::size_t batch_row = 0;
+        ARROW_ASSIGN_OR_RAISE(auto const signal_batch_index,
+                              signal_batch_for_row_id(signal_row, &batch_row));
+
+        auto const& signal_batch = m_table_batches[signal_batch_index];
+        auto const& samples_column = signal_batch.samples_column();
+        auto const row_samples_count = samples_column->Value(batch_row);
+        std::size_t const sample_start = sample_count;
+        sample_count += row_samples_count;
+        if (sample_count > output_samples.size()) {
+            return Status::Invalid("Too few samples in input samples array");
+        }
+
+        ARROW_RETURN_NOT_OK(signal_batch.extract_signal_row(
+                batch_row, output_samples.subspan(sample_start, row_samples_count)));
+    }
+    return Status::OK();
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 Result<SignalTableReader> make_signal_table_reader(
         std::shared_ptr<arrow::io::RandomAccessFile> const& input,
@@ -161,8 +192,16 @@ Result<SignalTableReader> make_signal_table_reader(
                           read_schema_key_value_metadata(read_metadata_key_values));
     ARROW_ASSIGN_OR_RAISE(auto field_locations, read_signal_table_schema(reader->schema()));
 
-    return SignalTableReader({input}, std::move(reader), field_locations, std::move(read_metadata),
-                             pool);
+    std::vector<pod5::SignalTableRecordBatch> table_batches;
+    table_batches.reserve(reader->num_record_batches());
+    for (int i = 0; i < reader->num_record_batches(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto record_batch, reader->ReadRecordBatch(i))
+
+        table_batches.emplace_back(std::move(record_batch), field_locations, pool);
+    }
+
+    return SignalTableReader({input}, std::move(reader), std::move(table_batches), field_locations,
+                             std::move(read_metadata), pool);
 }
 
 }  // namespace pod5

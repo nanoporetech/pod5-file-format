@@ -164,27 +164,12 @@ public:
               m_total_batch_count_so_far(0),
               m_batch_rows_ref(std::move(batch_rows)),
               m_batch_rows(gsl::make_span(m_batch_rows_ref.data(), m_batch_rows_ref.size())),
-              m_signal_batch_size(0),
               m_worker_job_size(std::max<std::size_t>(
                       50,
                       m_batch_rows.size() / (m_reads_batch_count * worker_count * 2))),
               m_current_batch(0),
               m_finished(false),
-              m_has_error(false),
-              m_batches_size(0) {
-        auto signal_batch_count = m_reader->reader->num_signal_record_batches();
-        m_signal_table_batches.reserve(signal_batch_count);
-        for (std::size_t i = 0; i < signal_batch_count; ++i) {
-            auto batch = m_reader->reader->read_signal_record_batch(i);
-            if (!batch.ok()) {
-                throw std::runtime_error("Failed to get read batch");
-            }
-            m_signal_table_batches.emplace_back(std::move(*batch));
-        }
-        if (!m_signal_table_batches.empty()) {
-            m_signal_batch_size = m_signal_table_batches.front().num_rows();
-        }
-
+              m_has_error(false) {
         {
             std::unique_lock<std::mutex> l(m_worker_sync);
             setup_next_in_progress_batch(l);
@@ -304,33 +289,27 @@ private:
             auto signal_rows = std::static_pointer_cast<arrow::UInt64Array>(
                     sample_counts->value_slice(actual_batch_row));
 
-            std::uint64_t sample_count = 0;
-            std::vector<std::int16_t> samples;
+            auto const signal_rows_span =
+                    gsl::make_span(signal_rows->raw_values(), signal_rows->length());
 
-            //std::cout << "read table batch row " << i << " " << actual_batch_row << "\n";
-            for (std::size_t row = 0; row < signal_rows->length(); ++row) {
-                auto const signal_row = signal_rows->Value(row);
-                auto const signal_batch_index = signal_row / m_signal_batch_size;
+            auto sample_count_result = m_reader->reader->extract_sample_count(signal_rows_span);
+            if (!sample_count_result.ok()) {
+                m_error = sample_count_result.status();
+                m_has_error = true;
+                return;
+            }
+            std::uint64_t sample_count = *sample_count_result;
 
-                auto const& signal_batch = m_signal_table_batches[signal_batch_index];
-                auto signal_batch_row = signal_row - (signal_batch_index * m_signal_batch_size);
-
-                auto const& samples_column = signal_batch.samples_column();
-                auto const row_samples_count = samples_column->Value(signal_batch_row);
-                sample_count += row_samples_count;
-
-                if (m_get_samples) {
-                    std::size_t sample_start = samples.size();
-                    samples.resize(sample_count);
-                    auto samples_result = signal_batch.extract_signal_row(
-                            signal_batch_row,
-                            gsl::make_span(samples).subspan(sample_start, row_samples_count));
-                    if (!samples_result.ok()) {
-                        m_error = samples_result;
-                        m_has_error = true;
-                        return;
-                    }
+            std::vector<std::int16_t> samples(sample_count);
+            if (m_get_samples) {
+                auto samples_result = m_reader->reader->extract_samples(signal_rows_span,
+                                                                        gsl::make_span(samples));
+                if (!samples_result.ok()) {
+                    m_error = samples_result;
+                    m_has_error = true;
+                    return;
                 }
+                sample_count = samples.size();
             }
 
             batch->set_samples(i, sample_count, std::move(samples));
@@ -371,9 +350,6 @@ private:
     std::size_t m_total_batch_count_so_far;
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> m_batch_rows_ref;
     gsl::span<std::uint32_t const> m_batch_rows;
-
-    std::vector<pod5::SignalTableRecordBatch> m_signal_table_batches;
-    std::size_t m_signal_batch_size;
 
     std::uint32_t const m_worker_job_size;
 

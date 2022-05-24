@@ -108,39 +108,12 @@ int main(int argc, char** argv) {
                 return EXIT_FAILURE;
             }
 
-            // Find the absolute indices of the signal rows in the signal table
-            std::vector<std::uint64_t> signal_rows_indices(signal_row_count);
-            if (pod5_get_signal_row_indices(batch, batch_row, signal_row_count,
-                                            signal_rows_indices.data()) != POD5_OK) {
-                std::cerr << "Failed to get read " << batch_row
-                          << " signal row indices: " << pod5_get_error_string() << "\n";
-                return EXIT_FAILURE;
-            }
+            std::size_t sample_count = 0;
+            pod5_get_read_complete_sample_count(file, batch, batch_row, &sample_count);
 
-            // Find the locations of each row in signal batches:
-            std::vector<SignalRowInfo_t*> signal_rows(signal_row_count);
-            if (pod5_get_signal_row_info(file, signal_row_count, signal_rows_indices.data(),
-                                         signal_rows.data()) != POD5_OK) {
-                std::cerr << "Failed to get read " << batch_row
-                          << " signal row locations: " << pod5_get_error_string() << "\n";
-            }
-
-            std::size_t total_sample_count = 0;
-            for (std::size_t i = 0; i < signal_row_count; ++i) {
-                total_sample_count += signal_rows[i]->stored_sample_count;
-            }
-
-            std::vector<std::int16_t> samples(total_sample_count);
-            std::size_t samples_read_so_far = 0;
-            for (std::size_t i = 0; i < signal_row_count; ++i) {
-                if (pod5_get_signal(file, signal_rows[i], signal_rows[i]->stored_sample_count,
-                                    samples.data() + samples_read_so_far) != POD5_OK) {
-                    std::cerr << "Failed to get read " << batch_row
-                              << " signal: " << pod5_get_error_string() << "\n";
-                }
-
-                samples_read_so_far += signal_rows[i]->stored_sample_count;
-            }
+            std::vector<std::int16_t> samples;
+            samples.resize(sample_count);
+            pod5_get_read_complete_signal(file, batch, batch_row, samples.size(), samples.data());
 
             std::int64_t samples_sum = 0;
             for (std::size_t i = 0; i < samples.size(); ++i) {
@@ -148,7 +121,6 @@ int main(int argc, char** argv) {
             }
 
             pod5_release_calibration(calib_data);
-            pod5_free_signal_row_info(signal_row_count, signal_rows.data());
 
             output_stream << calib_data->offset << " " << calib_data->scale << " " << samples_sum
                           << "\n";

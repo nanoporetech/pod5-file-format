@@ -50,6 +50,16 @@ public:
         return m_signal_table_reader.signal_batch_for_row_id(row, batch_start_row);
     }
 
+    Result<std::size_t> extract_sample_count(
+            gsl::span<std::uint64_t const> const& row_indices) const override {
+        return m_signal_table_reader.extract_sample_count(row_indices);
+    }
+
+    Status extract_samples(gsl::span<std::uint64_t const> const& row_indices,
+                           gsl::span<std::int16_t> const& output_samples) const override {
+        return m_signal_table_reader.extract_samples(row_indices, output_samples);
+    }
+
     Result<FileLocation> read_table_location() const override { return m_read_table_location; }
 
     Result<FileLocation> signal_table_location() const override { return m_signal_table_location; }

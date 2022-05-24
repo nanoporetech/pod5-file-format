@@ -286,6 +286,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal_row_info(Pod5FileReader_t* reade
 /// \param      signal_rows_count           The number of signal rows to release.
 /// \param      signal_row_info             The signal row infos to release.
 /// \note Calls to pod5_free_signal_row_info must be 1:1 with [pod5_get_signal_row_info], you cannot free part of the returned data.
+
 POD5_FORMAT_EXPORT pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count,
                                                           SignalRowInfo_t** signal_row_info);
 
@@ -294,10 +295,35 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_free_signal_row_info(size_t signal_rows_cou
 /// \param      row_info        The signal row info batch index to query data for.
 /// \param      sample_count    The number of samples allocated in [sample_data] (must equal the length of signal data in the row).
 /// \param[out] sample_data     The output location for the queried samples.
+/// \note The signal data is allocated by the caller and should be released as appropriate by the caller.
+/// \todo MAJOR_VERSION Rename to include "chunk" or "row" or similar to indicate this gets only part of read signal.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal(Pod5FileReader_t* reader,
                                                 SignalRowInfo_t* row_info,
                                                 size_t sample_count,
                                                 int16_t* sample_data);
+
+/// \brief Find the sample count for a full read.
+/// \param      reader          The reader to query.
+/// \param      batch           The read batch to query.
+/// \param      batch_row       The read row to query data for.
+/// \param[out] sample_count    The number of samples in the read - including all chunks of raw data.
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_complete_sample_count(Pod5FileReader_t* reader,
+                                                                    Pod5ReadRecordBatch_t* batch,
+                                                                    size_t batch_row,
+                                                                    size_t* sample_count);
+
+/// \brief Find the signal for a full read.
+/// \param      reader          The reader to query.
+/// \param      batch           The read batch to query.
+/// \param      batch_row       The read row to query data for.
+/// \param      sample_count    The number of samples allocated in [sample_data] (must equal the length of signal data in the queryied read row).
+/// \param[out] sample_data     The output location for the queried samples.
+/// \note The signal data is allocated by pod5 and should be released as appropriate by the caller.
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_complete_signal(Pod5FileReader_t* reader,
+                                                              Pod5ReadRecordBatch_t* batch,
+                                                              size_t batch_row,
+                                                              size_t sample_count,
+                                                              int16_t* signal);
 
 //---------------------------------------------------------------------------------------------------------------------
 // Writing files
