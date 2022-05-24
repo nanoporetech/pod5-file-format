@@ -631,6 +631,48 @@ pod5_error_t pod5_get_signal(Pod5FileReader* reader,
     return POD5_OK;
 }
 
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_complete_sample_count(Pod5FileReader_t* reader,
+                                                                    Pod5ReadRecordBatch_t* batch,
+                                                                    size_t batch_row,
+                                                                    size_t* sample_count) {
+    pod5_reset_error();
+
+    if (!check_not_null(reader) || !check_output_pointer_not_null(sample_count)) {
+        return g_pod5_error_no;
+    }
+
+    auto const& signal_col = batch->batch.signal_column();
+    auto const& signal_rows =
+            std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
+
+    std::vector<std::int16_t> output_samples;
+    POD5_C_ASSIGN_OR_RAISE(*sample_count,
+                           reader->reader->extract_sample_count(gsl::make_span(
+                                   signal_rows->raw_values(), signal_rows->length())));
+    return POD5_OK;
+}
+
+pod5_error_t pod5_get_read_complete_signal(Pod5FileReader_t* reader,
+                                           Pod5ReadRecordBatch_t* batch,
+                                           size_t batch_row,
+                                           size_t sample_count,
+                                           int16_t* signal) {
+    pod5_reset_error();
+
+    if (!check_not_null(reader) || !check_output_pointer_not_null(signal)) {
+        return g_pod5_error_no;
+    }
+
+    auto const& signal_col = batch->batch.signal_column();
+    auto const& signal_rows =
+            std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
+
+    POD5_C_RETURN_NOT_OK(reader->reader->extract_samples(
+            gsl::make_span(signal_rows->raw_values(), signal_rows->length()),
+            gsl::make_span(signal, sample_count)));
+    return POD5_OK;
+}
+
 //---------------------------------------------------------------------------------------------------------------------
 Pod5FileWriter* pod5_create_split_file(char const* signal_filename,
                                        char const* reads_filename,

@@ -55,6 +55,17 @@ public:
     virtual std::size_t num_signal_record_batches() const = 0;
     virtual Result<std::size_t> signal_batch_for_row_id(std::size_t row,
                                                         std::size_t* batch_start_row) const = 0;
+    /// \brief Find the number of samples in a given list of rows.
+    /// \param row_indices      The rows to query for sample ount.
+    /// \returns The sum of all sample counts on input rows.
+    virtual Result<std::size_t> extract_sample_count(
+            gsl::span<std::uint64_t const> const& row_indices) const = 0;
+
+    /// \brief Extract the samples for a list of rows.
+    /// \param row_indices      The rows to query for samples.
+    /// \param output_samples   The output samples from the rows.
+    virtual Status extract_samples(gsl::span<std::uint64_t const> const& row_indices,
+                                   gsl::span<std::int16_t> const& output_samples) const = 0;
 
     virtual Result<FileLocation> read_table_location() const = 0;
     virtual Result<FileLocation> signal_table_location() const = 0;

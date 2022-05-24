@@ -51,6 +51,7 @@ class POD5_FORMAT_EXPORT SignalTableReader : public TableReader {
 public:
     SignalTableReader(std::shared_ptr<void>&& input_source,
                       std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
+                      std::vector<pod5::SignalTableRecordBatch>&& table_batches,
                       SignalTableSchemaDescription field_locations,
                       SchemaMetadataDescription&& schema_metadata,
                       arrow::MemoryPool* pool);
@@ -60,13 +61,27 @@ public:
 
     Result<SignalTableRecordBatch> read_record_batch(std::size_t i) const;
 
-    Result<std::size_t> signal_batch_for_row_id(std::size_t row,
+    Result<std::size_t> signal_batch_for_row_id(std::uint64_t row,
                                                 std::size_t* batch_start_row) const;
+
+    /// \brief Find the number of samples in a given list of rows.
+    /// \param row_indices      The rows to query for sample ount.
+    /// \returns The sum of all sample counts on input rows.
+    Result<std::size_t> extract_sample_count(
+            gsl::span<std::uint64_t const> const& row_indices) const;
+
+    /// \brief Extract the samples for a list of rows.
+    /// \param row_indices      The rows to query for samples.
+    /// \param output_samples   The output samples from the rows. Data in the vector is cleared before appending.
+    Status extract_samples(gsl::span<std::uint64_t const> const& row_indices,
+                           gsl::span<std::int16_t> const& output_samples) const;
 
 private:
     SignalTableSchemaDescription m_field_locations;
     arrow::MemoryPool* m_pool;
-    mutable boost::optional<std::pair<std::size_t, SignalTableRecordBatch>> m_last_batch;
+
+    std::vector<pod5::SignalTableRecordBatch> m_table_batches;
+
     // Cached size of the standard signal table batch size (true for all batches except last).
     mutable std::atomic<std::size_t> m_batch_size;
 };

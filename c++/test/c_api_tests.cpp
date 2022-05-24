@@ -164,11 +164,18 @@ SCENARIO("C API") {
             CHECK(pod5_get_signal(combined_file, signal_row_info.front(),
                                   signal_row_info.front()->stored_sample_count,
                                   read_signal.data()) == POD5_OK);
+            CHECK(read_signal == signal);
+
+            std::size_t sample_count = 0;
+            CHECK(pod5_get_read_complete_sample_count(combined_file, batch_0, row, &sample_count) ==
+                  POD5_OK);
+            CHECK(sample_count == signal_row_info.front()->stored_sample_count);
+            CHECK(pod5_get_read_complete_signal(combined_file, batch_0, row, sample_count,
+                                                read_signal.data()) == POD5_OK);
+            CHECK(read_signal == signal);
 
             CHECK(pod5_free_signal_row_info(signal_row_indices.size(), signal_row_info.data()) ==
                   POD5_OK);
-
-            CHECK(read_signal == signal);
         }
 
         RunInfoDictData* run_info_data_out = nullptr;
