@@ -111,8 +111,8 @@ def run_writer_test(f):
         test_read.median_before,
         f.find_end_reason(**test_read.end_reason._asdict())[0],
         f.find_run_info(**test_read.run_info._asdict())[0],
-        pod5_format.signal_tools.vbz_compress_signal(test_read.signal),
-        test_read.signal.shape[0],
+        [pod5_format.signal_tools.vbz_compress_signal(test_read.signal)],
+        [test_read.signal.shape[0]],
         pre_compressed_signal=True,
     )
 
@@ -177,8 +177,12 @@ def run_writer_test(f):
             [f.find_run_info(**r.run_info._asdict())[0] for r in test_reads],
             dtype=numpy.int16,
         ),
-        [pod5_format.signal_tools.vbz_compress_signal(r.signal) for r in test_reads],
-        numpy.array([len(r.signal) for r in test_reads], dtype=numpy.uint64),
+        # Pass an array of arrays here, as we have pre compressed data
+        # top level array is per read, then the sub arrays are chunks within the reads.
+        # the two arrays here should have the same dimensions, first contains compressed
+        # sample array, the second contains the sample counts
+        [[pod5_format.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads],
+        numpy.array([[len(r.signal)] for r in test_reads], dtype=numpy.uint64),
         pre_compressed_signal=True,
     )
 

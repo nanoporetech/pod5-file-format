@@ -194,13 +194,17 @@ class ReadRowPyArrow:
 
         for i, (batch, batch_index, batch_row_index) in enumerate(batch_data):
             signal = batch.signal
-            output_slice = output[current_sample_index : sample_counts[i]]
+            current_row_count = sample_counts[i]
+            output_slice = output[
+                current_sample_index : current_sample_index + current_row_count
+            ]
             if self._reader._is_vbz_compressed:
                 vbz_decompress_signal_into(
                     memoryview(signal[batch_row_index].as_buffer()), output_slice
                 )
             else:
                 output_slice[:] = signal.to_numpy()
+            current_sample_index += current_row_count
         return output
 
     def signal_for_chunk(self, i):
