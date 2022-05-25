@@ -88,7 +88,9 @@ class RunCache:
         self.run_info = run_info
 
 
-def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
+def get_reads_from_files(
+    in_q, out_q, fast5_files, pre_compress_signal, signal_chunk_size
+):
     # Persist this flag in case we encounter an error in a file.
     has_request_for_reads = False
 
@@ -203,9 +205,16 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                         signal = raw["Signal"][()]
                         sample_count = signal.shape[0]
                         if pre_compress_signal:
-                            signal = pod5_format.signal_tools.vbz_compress_signal(
-                                signal
-                            )
+                            sample_count = []
+                            signal_arr = []
+                            for start in range(0, len(signal), signal_chunk_size):
+                                signal_slice = signal[start : start + signal_chunk_size]
+                                signal_arr.append(
+                                    pod5_format.signal_tools.vbz_compress_signal(
+                                        signal_slice
+                                    )
+                                )
+                                sample_count.append(len(signal_slice))
 
                         reads.append(
                             Read(
@@ -217,7 +226,7 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                                 raw.attrs["median_before"],
                                 end_reason_type,
                                 run_info_type,
-                                signal,
+                                signal_arr,
                                 sample_count,
                             )
                         )
@@ -226,6 +235,9 @@ def get_reads_from_files(in_q, out_q, fast5_files, pre_compress_signal):
                     out_q.put(ReadList(fast5_file, reads))
                     has_request_for_reads = False
         except Exception as exc:
+            import traceback
+
+            traceback.print_exc()
             print(f"Error in file {fast5_file}: {exc}", file=sys.stderr)
 
         out_q.put(EndFile(fast5_file, file_read_sent_count))
@@ -256,8 +268,12 @@ def add_reads(file, reads, pre_compressed_signal):
         numpy.array([r.median_before for r in reads], dtype=numpy.float32),
         end_reason_types,
         run_info_types,
+        # Pass an array of arrays here, as we have pre compressed data
+        # top level array is per read, then the sub arrays are chunks within the reads.
+        # the two arrays here should have the same dimensions, first contains compressed
+        # sample array, the second contains the sample counts
         [r.signal for r in reads],
-        numpy.array([r.sample_count for r in reads], dtype=numpy.uint64),
+        [numpy.array(r.sample_count, dtype=numpy.uint64) for r in reads],
         pre_compressed_signal=pre_compressed_signal,
     )
 
@@ -352,6 +368,11 @@ def main():
     parser.add_argument(
         "--force-overwrite", action="store_true", help="Overwrite destination files"
     )
+    parser.add_argument(
+        "--signal-chunk-size",
+        default=102400,
+        help="Chunk size to use for signal data set",
+    )
 
     args = parser.parse_args()
 
@@ -372,7 +393,13 @@ def main():
         pending_files = pending_files[items_per_reads:]
         p = ctx.Process(
             target=get_reads_from_files,
-            args=(read_request_queue, read_data_queue, files, pre_compress_signal),
+            args=(
+                read_request_queue,
+                read_data_queue,
+                files,
+                pre_compress_signal,
+                args.signal_chunk_size,
+            ),
         )
         p.start()
         active_processes.append(p)
@@ -422,7 +449,7 @@ def main():
             reads_in_this_chunk = len(item.reads)
             reads_processed += reads_in_this_chunk
 
-            sample_count += sum(r.signal.shape[0] for r in item.reads)
+            sample_count += sum(sum(r.sample_count) for r in item.reads)
 
             # Inform the input queues we can handle another read now:
             read_request_queue.put(ReadRequest())

@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 import pytz
 import typing
@@ -149,8 +150,13 @@ class FileWriter:
         run_infos = run_infos.astype(numpy.int16, copy=False)
 
         if pre_compressed_signal:
-            sample_counts = sample_counts.astype(numpy.uint32, copy=False)
-            signal_chunk_counts = numpy.ones(dtype=numpy.uint32, shape=(len(signals)))
+            # Find an array of the number of chunks per read
+            signal_chunk_counts = numpy.array(
+                [len(sample_count) for sample_count in sample_counts],
+                dtype=numpy.uint32,
+            )
+            # Join all read sample counts into one array
+            sample_counts = numpy.concatenate(sample_counts).astype(numpy.uint32)
 
             self._writer.add_reads_pre_compressed(
                 read_ids.shape[0],
@@ -162,7 +168,8 @@ class FileWriter:
                 median_befores,
                 end_reasons,
                 run_infos,
-                signals,
+                # Join all signal data into one list
+                list(itertools.chain(*signals)),
                 sample_counts,
                 signal_chunk_counts,
             )

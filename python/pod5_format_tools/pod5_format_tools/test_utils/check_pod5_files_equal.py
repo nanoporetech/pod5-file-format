@@ -56,7 +56,9 @@ def main():
                     errors += 1
 
         if (a.signal != b.signal).any():
-            print(f"{read_id} signal not equal: {a_val} vs {b_val}")
+            print(
+                f"Read {read_count} {read_id} signal not equal: {len(a.signal)} elements: {a.signal} vs {len(b.signal)} elements: {b.signal}"
+            )
             errors += 1
 
     if errors == 0:
