@@ -42,9 +42,7 @@ def do_batch_work(filename, batches, column, mode, result_q):
 
     if column == "samples":
         file = pod5_format.open_combined_file(filename)
-        # todo: not currently possible to pre-load samples for only certain batches...
-        for batch_id in batches:
-            batch = file.get_batch(batch_id)
+        for batch in file.read_batches(batch_selection=batches, preload={"samples"}):
             read_ids.extend(pod5_format.format_read_ids(batch.read_id_column))
 
             for read in batch.reads():
@@ -67,9 +65,8 @@ def do_search_work(files, select_read_ids_data, column, mode, result_q):
     if column == "samples":
         for filename in files:
             file = pod5_format.open_combined_file(filename)
-            for batch, rows in file.read_batches(select_read_ids, preload={"samples"}):
-                read_id_selection = batch.read_id_column.take(rows)
-                read_ids.extend(pod5_format.format_read_ids(read_id_selection))
+            for batch in file.read_batches(select_read_ids, preload={"samples"}):
+                read_ids.extend(pod5_format.format_read_ids(batch.read_id_column))
                 vals.extend([numpy.sum(s) for s in batch.cached_samples_column])
     else:
         print(f"Unknown column {column}")
@@ -177,19 +174,17 @@ def run_select(files, select_read_ids, column):
     for filename in files:
         file = pod5_format.open_combined_file(filename)
         if column == "sample_count":
-            for batch, rows in file.read_batches(
-                select_read_ids, preload={"sample_count"}
-            ):
-                read_id_selection = batch.read_id_column.take(rows)
+            for batch in file.read_batches(select_read_ids, preload={"sample_count"}):
+                read_id_selection = batch.read_id_column
                 read_ids.extend(pod5_format.format_read_ids(read_id_selection))
                 vals.extend(batch.cached_sample_count_column)
         else:
             col_name = f"{column}_column"
-            for batch, rows in file.read_batches(select_read_ids):
-                read_id_selection = batch.read_id_column.take(rows)
+            for batch in file.read_batches(select_read_ids):
+                read_id_selection = batch.read_id_column
                 read_ids.extend(pod5_format.format_read_ids(read_id_selection))
 
-                read_number_selection = getattr(batch, col_name).take(rows)
+                read_number_selection = getattr(batch, col_name)
                 vals.extend(read_number_selection)
 
     return pd.DataFrame(extracted_columns)

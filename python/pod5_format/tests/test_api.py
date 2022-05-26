@@ -210,9 +210,31 @@ def run_reader_test(r):
         assert 0 < read.byte_count < (len(data.signal) * data.signal.itemsize + 24)
         assert len(read.signal_rows) >= 1
 
+        assert not read.has_cached_signal
         assert (read.signal == data.signal).all()
         chunk_signals = [read.signal_for_chunk(i) for i in range(len(read.signal_rows))]
         assert (numpy.concatenate(chunk_signals) == data.signal).all()
+
+    # Try to walk through the file in read batches:
+    for idx, batch in enumerate(r.read_batches(preload={"samples"})):
+        assert len(batch.cached_samples_column) == batch.num_reads
+
+    # Try to walk through specific batches in the file:
+    for batch in r.read_batches(batch_selection=[0], preload={"samples"}):
+        print(idx)
+        assert len(batch.cached_samples_column) == batch.num_reads
+        for idx, read in enumerate(batch.reads()):
+            data = gen_test_read(idx)
+            assert read.has_cached_signal
+            assert (read.signal == data.signal).all()
+
+    # Try to walk through all reads in the file:
+    for idx, read in enumerate(r.reads(preload={"samples"})):
+        print(idx)
+        data = gen_test_read(idx)
+
+        assert read.has_cached_signal
+        assert (read.signal == data.signal).all()
 
     reads = list(r.reads())
     search_reads = [

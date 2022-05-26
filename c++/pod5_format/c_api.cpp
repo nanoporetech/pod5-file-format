@@ -19,12 +19,12 @@
 
 //---------------------------------------------------------------------------------------------------------------------
 struct Pod5FileReader {
-    Pod5FileReader(std::unique_ptr<pod5::FileReader> reader_) : reader(std::move(reader_)) {}
-    std::unique_ptr<pod5::FileReader> reader;
+    Pod5FileReader(std::shared_ptr<pod5::FileReader>&& reader_) : reader(std::move(reader_)) {}
+    std::shared_ptr<pod5::FileReader> reader;
 };
 
 struct Pod5FileWriter {
-    Pod5FileWriter(std::unique_ptr<pod5::FileWriter> writer_) : writer(std::move(writer_)) {}
+    Pod5FileWriter(std::unique_ptr<pod5::FileWriter>&& writer_) : writer(std::move(writer_)) {}
     std::unique_ptr<pod5::FileWriter> writer;
 };
 

@@ -82,8 +82,7 @@ private:
 
     std::vector<pod5::SignalTableRecordBatch> m_table_batches;
 
-    // Cached size of the standard signal table batch size (true for all batches except last).
-    mutable std::atomic<std::size_t> m_batch_size;
+    std::size_t m_batch_size;
 };
 
 POD5_FORMAT_EXPORT Result<SignalTableReader> make_signal_table_reader(

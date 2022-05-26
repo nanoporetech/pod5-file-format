@@ -16,6 +16,8 @@ else()
     find_package(zstd REQUIRED)
 endif()
 
+find_package(Threads REQUIRED)
+
 find_program(
     FLATBUFFERS_FLATC_EXECUTABLE
     flatc
@@ -37,6 +39,9 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/file_writer.h
     pod5_format/file_reader.cpp
     pod5_format/file_reader.h
+
+    pod5_format/async_signal_loader.cpp
+    pod5_format/async_signal_loader.h
 
     pod5_format/schema_metadata.cpp
     pod5_format/schema_metadata.h
@@ -133,6 +138,7 @@ target_link_libraries(pod5_format
     PRIVATE
         pod5_flatbuffers
         zstd::zstd
+        Threads::Threads
 )
 
 if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)

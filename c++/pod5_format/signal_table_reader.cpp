@@ -52,7 +52,7 @@ Status SignalTableRecordBatch::extract_signal_row(std::size_t row_index,
                                                   gsl::span<std::int16_t> samples) const {
     if (row_index >= num_rows()) {
         return pod5::Status::Invalid("Queried signal row ", row_index,
-                                     " is outside the available rows (", num_rows(), "in batch)");
+                                     " is outside the available rows (", num_rows(), " in batch)");
     }
 
     auto sample_count = samples_column();
@@ -92,19 +92,19 @@ SignalTableReader::SignalTableReader(std::shared_ptr<void>&& input_source,
           m_field_locations(field_locations),
           m_pool(pool),
           m_table_batches(std::move(table_batches)),
-          m_batch_size(0) {}
+          m_batch_size(num_record_batches() > 0 ? read_record_batch(0)->num_rows() : 0) {}
 
 SignalTableReader::SignalTableReader(SignalTableReader&& other)
         : TableReader(std::move(other)),
           m_field_locations(std::move(other.m_field_locations)),
           m_pool(other.m_pool),
           m_table_batches(std::move(other.m_table_batches)),
-          m_batch_size(other.m_batch_size.load()) {}
+          m_batch_size(other.m_batch_size) {}
 
 SignalTableReader& SignalTableReader::operator=(SignalTableReader&& other) {
     m_field_locations = std::move(other.m_field_locations);
     m_pool = other.m_pool;
-    m_batch_size = other.m_batch_size.load();
+    m_batch_size = other.m_batch_size;
     m_table_batches = std::move(other.m_table_batches);
     static_cast<TableReader&>(*this) = std::move(static_cast<TableReader&>(other));
     return *this;
@@ -116,16 +116,10 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
 
 Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::uint64_t row,
                                                                std::size_t* batch_start_row) const {
-    if (m_batch_size == 0) {
-        m_batch_size = read_record_batch(0)->num_rows();
-    }
-    auto batch_size = m_batch_size.load();
-    assert(batch_size != 0);
-
-    auto batch = row / batch_size;
+    auto batch = row / m_batch_size;
 
     if (batch_start_row) {
-        *batch_start_row = batch * batch_size;
+        *batch_start_row = row - (batch * m_batch_size);
     }
 
     if (batch >= num_record_batches()) {

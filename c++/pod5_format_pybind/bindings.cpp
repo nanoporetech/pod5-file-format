@@ -1,3 +1,4 @@
+#include "pod5_format/async_signal_loader.h"
 #include "pod5_format/c_api.h"
 #include "pod5_format/file_reader.h"
 #include "pod5_format/file_writer.h"
@@ -5,20 +6,14 @@
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_reader.h"
 
-#include <arrow/array/array_nested.h>
-#include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
 #include <boost/lexical_cast.hpp>
-#include <boost/thread/synchronized_value.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <condition_variable>
 #include <iostream>
-#include <mutex>
-#include <thread>
 
 #define POD5_PYTHON_RETURN_NOT_OK(result)                     \
     if (!result.ok()) {                                       \
@@ -78,367 +73,194 @@ std::shared_ptr<pod5::FileWriter> create_split_file(char const* signal_path,
 
 class Pod5SignalCacheBatch {
 public:
-    Pod5SignalCacheBatch(std::uint32_t batch_index,
-                         std::size_t batch_rows_start_offset,
-                         std::size_t batch_row_count,
-                         pod5::ReadTableRecordBatch&& read_batch)
-            : m_batch_index(batch_index),
-              m_batch_rows_start_offset(batch_rows_start_offset),
-              m_batch_row_count(batch_row_count),
-              m_next_row_to_start(0),
-              m_completed_rows(0),
-              m_sample_counts(batch_row_count),
-              m_samples(batch_row_count),
-              m_read_batch(std::move(read_batch)) {}
+    Pod5SignalCacheBatch(pod5::AsyncSignalLoader::SamplesMode samples_mode,
+                         pod5::CachedBatchSignalData&& cached_data)
+            : m_samples_mode(samples_mode), m_cached_data(std::move(cached_data)) {}
 
     py::array_t<std::uint64_t> sample_count() const {
-        return py::array_t<std::uint64_t>(m_sample_counts.size(), m_sample_counts.data());
+        return py::array_t<std::uint64_t>(m_cached_data.sample_count().size(),
+                                          m_cached_data.sample_count().data());
     }
 
     py::list samples() const {
         py::list py_samples;
-        for (auto const& row_samples : m_samples) {
+        if (m_samples_mode != pod5::AsyncSignalLoader::SamplesMode::Samples) {
+            return py_samples;
+        }
+        for (auto const& row_samples : m_cached_data.samples()) {
             py_samples.append(py::array_t<std::int16_t>(row_samples.size(), row_samples.data()));
         }
 
         return py_samples;
     }
 
-    void set_samples(std::size_t row,
-                     std::uint64_t sample_count,
-                     std::vector<std::int16_t>&& samples) {
-        m_sample_counts[row] = sample_count;
-        m_samples[row] = std::move(samples);
-    }
-
-    std::uint32_t batch_index() const { return m_batch_index; }
-    std::size_t batch_rows_start_offset() const { return m_batch_rows_start_offset; }
-    std::uint32_t batch_row_count() const { return m_batch_row_count; }
-
-    pod5::ReadTableRecordBatch const& read_batch() const { return m_read_batch; }
-
-    std::uint32_t start_rows(std::unique_lock<std::mutex>& l, std::size_t row_count) {
-        auto row = m_next_row_to_start;
-        m_next_row_to_start += row_count;
-        return row;
-    }
-
-    void complete_rows(std::uint32_t row_count) { m_completed_rows += row_count; }
-
-    bool has_work_left() const { return m_next_row_to_start < m_batch_row_count; }
-
-    bool is_complete() const { return m_completed_rows.load() >= m_batch_row_count; }
+    std::uint32_t batch_index() const { return m_cached_data.batch_index(); }
 
 private:
-    std::uint32_t m_batch_index;
-    std::size_t m_batch_rows_start_offset;
-    std::uint32_t m_batch_row_count;
-
-    std::uint32_t m_next_row_to_start;
-    std::atomic<std::uint32_t> m_completed_rows;
-
-    std::vector<std::uint64_t> m_sample_counts;
-    std::vector<std::vector<std::int16_t>> m_samples;
-    pod5::ReadTableRecordBatch m_read_batch;
+    pod5::AsyncSignalLoader::SamplesMode m_samples_mode;
+    pod5::CachedBatchSignalData m_cached_data;
 };
 
-class Pod5SignalCache {
+class Pod5AsyncSignalLoader {
 public:
-    struct CppReader {
-        std::unique_ptr<pod5::FileReader> reader;
-    };
+    // Make an async loader for all reads in the file
+    Pod5AsyncSignalLoader(std::shared_ptr<pod5::FileReader> const& reader,
+                          pod5::AsyncSignalLoader::SamplesMode samples_mode,
+                          std::size_t worker_count = std::thread::hardware_concurrency(),
+                          std::size_t max_pending_batches = 10)
+            : m_samples_mode(samples_mode),
+              m_batch_counts_ref({}),
+              m_batch_rows_ref({}),
+              m_async_loader(reader, samples_mode, {}, {}, worker_count, max_pending_batches) {}
 
-    Pod5SignalCache(
-            Pod5FileReader_t* reader,
-            bool get_samples,
-            bool get_sample_count,
+    // Make an async loader for specific batches
+    Pod5AsyncSignalLoader(
+            std::shared_ptr<pod5::FileReader> const& reader,
+            pod5::AsyncSignalLoader::SamplesMode samples_mode,
+            py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batches,
+            std::size_t worker_count = std::thread::hardware_concurrency(),
+            std::size_t max_pending_batches = 10)
+            : m_samples_mode(samples_mode),
+              m_batch_sizes(make_batch_counts(reader, batches)),
+              m_async_loader(reader,
+                             samples_mode,
+                             gsl::make_span(m_batch_sizes),
+                             {},
+                             worker_count,
+                             max_pending_batches) {}
+
+    // Make an async loader for specific reads in specific batches
+    Pod5AsyncSignalLoader(
+            std::shared_ptr<pod5::FileReader> const& reader,
+            pod5::AsyncSignalLoader::SamplesMode samples_mode,
             py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batch_counts,
             py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batch_rows,
-            std::size_t worker_count = 10)
-            : m_reader((CppReader*)reader),
-              m_get_samples(get_samples),
-              m_get_sample_count(get_sample_count),
-              m_reads_batch_count(m_reader->reader->num_read_record_batches()),
+            std::size_t worker_count = std::thread::hardware_concurrency(),
+            std::size_t max_pending_batches = 10)
+            : m_samples_mode(samples_mode),
               m_batch_counts_ref(std::move(batch_counts)),
-              m_batch_counts(gsl::make_span(m_batch_counts_ref.data(), m_batch_counts_ref.size())),
-              m_total_batch_count_so_far(0),
               m_batch_rows_ref(std::move(batch_rows)),
-              m_batch_rows(gsl::make_span(m_batch_rows_ref.data(), m_batch_rows_ref.size())),
-              m_worker_job_size(std::max<std::size_t>(
-                      50,
-                      m_batch_rows.size() / (m_reads_batch_count * worker_count * 2))),
-              m_current_batch(0),
-              m_finished(false),
-              m_has_error(false) {
-        {
-            std::unique_lock<std::mutex> l(m_worker_sync);
-            setup_next_in_progress_batch(l);
-        }
-        for (std::size_t i = 0; i < worker_count; ++i) {
-            m_workers.emplace_back([&] { run_worker(); });
-        }
-    }
-
-    ~Pod5SignalCache() {
-        //std::cout << "dtor start\n";
-        m_finished = true;
-        for (std::size_t i = 0; i < m_workers.size(); ++i) {
-            m_workers[i].join();
-        }
-        //std::cout << "dtor done\n";
-    }
+              m_async_loader(reader,
+                             samples_mode,
+                             gsl::make_span(m_batch_counts_ref.data(), m_batch_counts_ref.size()),
+                             gsl::make_span(m_batch_rows_ref.data(), m_batch_rows_ref.size()),
+                             worker_count,
+                             max_pending_batches) {}
 
     std::shared_ptr<Pod5SignalCacheBatch> release_next_batch() {
-        std::shared_ptr<Pod5SignalCacheBatch> batch;
-        do {
-            std::unique_lock<std::mutex> l(m_batches_sync);
-            m_batch_done.wait_until(
-                    l, std::chrono::steady_clock::now() + std::chrono::milliseconds(10),
-                    [&] { return m_batches.size() || m_finished; });
-            if (!m_batches.empty()) {
-                batch = std::move(m_batches.front());
-                assert(batch);
-                m_batches.pop_front();
-                m_batches_size -= 1;
-                break;
-            }
-        } while (!m_finished);
-
-        if (m_has_error) {
-            throw std::runtime_error(m_error->ToString());
+        auto batch = m_async_loader.release_next_batch();
+        if (!batch.ok()) {
+            throw std::runtime_error(batch.status().ToString());
         }
 
-        if (batch) {
-            // Wait if we are ahead of the loader:
-            while (!batch->is_complete()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-
-            //std::cout << "Return batch " << batch->batch_index() << "\n";
-            return batch;
+        if (!*batch) {
+            assert(m_async_loader.is_finished());
+            throw pybind11::stop_iteration();
         }
 
-        assert(m_finished);
-        throw pybind11::stop_iteration();
+        return std::make_shared<Pod5SignalCacheBatch>(m_samples_mode, std::move(**batch));
     }
 
-private:
-    static constexpr std::size_t MAX_PENDING_BATCHES = 10;
-
-    void run_worker() {
-        while (!m_finished) {
-            std::shared_ptr<Pod5SignalCacheBatch> batch;
-            std::uint32_t row_start = 0;
-            {
-                std::unique_lock<std::mutex> l(m_worker_sync);
-                if (m_current_batch >= m_reads_batch_count) {
-                    release_in_progress_batch();
-                    break;
-                }
-
-                if (!m_in_progress_batch->has_work_left()) {
-                    // If we have many batches complete that have not been queried, wait for it to get taken:
-                    if (m_batches_size > MAX_PENDING_BATCHES) {
-                        l.unlock();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                        continue;
-                    }
-
-                    // Then release our now complete batch, and setup the next:
-                    if (!m_batch_counts.empty()) {
-                        m_total_batch_count_so_far += m_batch_counts[m_current_batch];
-                    }
-                    m_current_batch += 1;
-                    //std::cout << "start next batch " << m_current_batch << "\n";
-
-                    release_in_progress_batch();
-                    if (m_current_batch >= m_reads_batch_count) {
-                        // No more work to do.
-                        //std::cout << "all work done";
-                        m_finished = true;
-                        break;
-                    }
-
-                    setup_next_in_progress_batch(l);
-                }
-
-                batch = m_in_progress_batch;
-                row_start = m_in_progress_batch->start_rows(l, m_worker_job_size);
+    std::vector<std::uint32_t> make_batch_counts(
+            std::shared_ptr<pod5::FileReader> const& reader,
+            py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& batches) {
+        std::vector<std::uint32_t> batch_counts(reader->num_read_record_batches(), 0);
+        for (auto const& batch_idx : gsl::make_span(batches.data(), batches.shape(0))) {
+            auto read_batch = reader->read_read_record_batch(batch_idx);
+            if (!read_batch.ok()) {
+                throw std::runtime_error("Failed to query read batch count: " +
+                                         read_batch.status().ToString());
             }
 
-            std::uint32_t const row_end =
-                    std::min(row_start + m_worker_job_size, batch->batch_row_count());
-
-            do_work(batch, row_start, row_end);
-            batch->complete_rows(m_worker_job_size);
+            batch_counts[batch_idx] = read_batch->num_rows();
         }
-        //std::cout << "worker done\n";
+        return batch_counts;
     }
 
-    void do_work(std::shared_ptr<Pod5SignalCacheBatch> const& batch,
-                 std::uint32_t row_start,
-                 std::uint32_t row_end) {
-        auto sample_counts = batch->read_batch().signal_column();
-
-        std::size_t abs_batch_row_offset = batch->batch_rows_start_offset();
-        for (std::uint32_t i = row_start; i < row_end; ++i) {
-            auto actual_batch_row = i;
-            if (!m_batch_rows.empty()) {
-                actual_batch_row = m_batch_rows[i + abs_batch_row_offset];
-            }
-            auto signal_rows = std::static_pointer_cast<arrow::UInt64Array>(
-                    sample_counts->value_slice(actual_batch_row));
-
-            auto const signal_rows_span =
-                    gsl::make_span(signal_rows->raw_values(), signal_rows->length());
-
-            auto sample_count_result = m_reader->reader->extract_sample_count(signal_rows_span);
-            if (!sample_count_result.ok()) {
-                m_error = sample_count_result.status();
-                m_has_error = true;
-                return;
-            }
-            std::uint64_t sample_count = *sample_count_result;
-
-            std::vector<std::int16_t> samples(sample_count);
-            if (m_get_samples) {
-                auto samples_result = m_reader->reader->extract_samples(signal_rows_span,
-                                                                        gsl::make_span(samples));
-                if (!samples_result.ok()) {
-                    m_error = samples_result;
-                    m_has_error = true;
-                    return;
-                }
-                sample_count = samples.size();
-            }
-
-            batch->set_samples(i, sample_count, std::move(samples));
-        }
-    }
-
-    void setup_next_in_progress_batch(std::unique_lock<std::mutex>& lock) {
-        assert(!m_in_progress_batch);
-        auto read_batch = m_reader->reader->read_read_record_batch(m_current_batch);
-        if (!read_batch.ok()) {
-            m_error = read_batch.status();
-            m_has_error = true;
-            return;
-        }
-        std::size_t row_count = read_batch->num_rows();
-        if (!m_batch_counts.empty()) {
-            row_count = m_batch_counts[m_current_batch];
-        }
-        m_in_progress_batch = std::make_shared<Pod5SignalCacheBatch>(
-                m_current_batch, m_total_batch_count_so_far, row_count, std::move(*read_batch));
-    }
-
-    void release_in_progress_batch() {
-        if (m_in_progress_batch) {
-            std::lock_guard<std::mutex> l2(m_batches_sync);
-            m_batches.emplace_back(std::move(m_in_progress_batch));
-            m_batches_size += 1;
-            m_batch_done.notify_all();
-        }
-    }
-
-    CppReader* m_reader;
-    bool m_get_samples;
-    bool m_get_sample_count;
-    std::size_t m_reads_batch_count;
+    pod5::AsyncSignalLoader::SamplesMode m_samples_mode;
+    std::vector<std::uint32_t> m_batch_sizes;
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> m_batch_counts_ref;
-    gsl::span<std::uint32_t const> m_batch_counts;
-    std::size_t m_total_batch_count_so_far;
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> m_batch_rows_ref;
-    gsl::span<std::uint32_t const> m_batch_rows;
-
-    std::uint32_t const m_worker_job_size;
-
-    std::mutex m_worker_sync;
-    std::condition_variable m_batch_done;
-    std::uint32_t m_current_batch;
-
-    std::atomic<bool> m_finished;
-    std::atomic<bool> m_has_error;
-    boost::synchronized_value<pod5::Status> m_error;
-    std::shared_ptr<Pod5SignalCacheBatch> m_in_progress_batch;
-
-    std::mutex m_batches_sync;
-    std::atomic<std::uint32_t> m_batches_size;
-    std::deque<std::shared_ptr<Pod5SignalCacheBatch>> m_batches;
-
-    std::vector<std::thread> m_workers;
+    pod5::AsyncSignalLoader m_async_loader;
 };
 
 struct Pod5FileReaderPtr {
-    Pod5FileReader_t* reader = nullptr;
+    std::shared_ptr<pod5::FileReader> reader = nullptr;
 
-    Pod5FileReaderPtr(Pod5FileReader_t* reader_) : reader(reader_) {}
+    Pod5FileReaderPtr(std::shared_ptr<pod5::FileReader>&& reader_) : reader(std::move(reader_)) {}
 
-    EmbeddedFileData get_combined_file_read_table_location() const {
-        EmbeddedFileData result;
-        auto error = pod5_get_combined_file_read_table_location(reader, &result);
-        if (error != POD5_OK) {
-            throw std::runtime_error(pod5_get_error_string());
-        }
-        return result;
+    pod5::FileLocation get_combined_file_read_table_location() const {
+        POD5_PYTHON_ASSIGN_OR_RAISE(auto file_location, reader->read_table_location());
+        return file_location;
     }
 
-    EmbeddedFileData get_combined_file_signal_table_location() const {
-        EmbeddedFileData result;
-        auto error = pod5_get_combined_file_signal_table_location(reader, &result);
-        if (error != POD5_OK) {
-            throw std::runtime_error(pod5_get_error_string());
-        }
-        return result;
+    pod5::FileLocation get_combined_file_signal_table_location() const {
+        POD5_PYTHON_ASSIGN_OR_RAISE(auto file_location, reader->signal_table_location());
+        return file_location;
     }
 
-    void close() {
-        auto error = pod5_close_and_free_reader(reader);
-        if (error != POD5_OK) {
-            throw std::runtime_error(pod5_get_error_string());
-        }
-        reader = nullptr;
-    }
+    void close() { reader = nullptr; }
 
     std::size_t plan_traversal(
             py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const&
                     read_id_data,
             py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>& batch_counts,
             py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>& batch_rows) {
-        std::size_t successful_find_count = 0;
-        auto error = pod5_plan_traversal(reader, read_id_data.data(), read_id_data.shape(0),
-                                         batch_counts.mutable_data(), batch_rows.mutable_data(),
-                                         &successful_find_count);
-        if (error != POD5_OK) {
-            throw std::runtime_error(pod5_get_error_string());
-        }
-        return successful_find_count;
+        auto const read_id_count = read_id_data.shape(0);
+        auto search_input = pod5::ReadIdSearchInput(gsl::make_span(
+                reinterpret_cast<boost::uuids::uuid const*>(read_id_data.data()), read_id_count));
+
+        POD5_PYTHON_ASSIGN_OR_RAISE(
+                auto find_success_count,
+                reader->search_for_read_ids(
+                        search_input,
+                        gsl::make_span(batch_counts.mutable_data(),
+                                       reader->num_read_record_batches()),
+                        gsl::make_span(batch_rows.mutable_data(), read_id_count)));
+
+        return find_success_count;
     }
 
-    std::shared_ptr<Pod5SignalCache> batch_get_signal(
+    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal(bool get_samples,
+                                                            bool get_sample_count) {
+        return std::make_shared<Pod5AsyncSignalLoader>(
+                reader, get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
+                                    : pod5::AsyncSignalLoader::SamplesMode::NoSamples);
+    }
+
+    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal_batches(
+            bool get_samples,
+            bool get_sample_count,
+            py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batches) {
+        return std::make_shared<Pod5AsyncSignalLoader>(
+                reader,
+                get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
+                            : pod5::AsyncSignalLoader::SamplesMode::NoSamples,
+                std::move(batches));
+    }
+
+    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal_selection(
             bool get_samples,
             bool get_sample_count,
             py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batch_counts,
             py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batch_rows) {
-        return std::make_shared<Pod5SignalCache>(reader, get_samples, get_sample_count,
-                                                 std::move(batch_counts), std::move(batch_rows));
+        return std::make_shared<Pod5AsyncSignalLoader>(
+                reader,
+                get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
+                            : pod5::AsyncSignalLoader::SamplesMode::NoSamples,
+                std::move(batch_counts), std::move(batch_rows));
     }
 };
 
 Pod5FileReaderPtr open_combined_file(char const* filename) {
-    auto reader = pod5_open_combined_file(filename);
-    if (!reader) {
-        throw std::runtime_error(pod5_get_error_string());
-    }
-    return Pod5FileReaderPtr(reader);
+    POD5_PYTHON_ASSIGN_OR_RAISE(auto reader, pod5::open_combined_file_reader(filename, {}));
+    return Pod5FileReaderPtr(std::move(reader));
 }
 
 Pod5FileReaderPtr open_split_file(char const* signal_filename, char const* reads_filename) {
-    auto reader = pod5_open_split_file(signal_filename, reads_filename);
-    if (!reader) {
-        throw std::runtime_error(pod5_get_error_string());
-    }
-    return Pod5FileReaderPtr(reader);
+    POD5_PYTHON_ASSIGN_OR_RAISE(auto reader,
+                                pod5::open_split_file_reader(signal_filename, reads_filename, {}));
+    return Pod5FileReaderPtr(std::move(reader));
 }
 
 pod5::RunInfoDictionaryIndex FileWriter_add_run_info(
@@ -673,12 +495,13 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
             .def("add_reads", FileWriter_add_reads)
             .def("add_reads_pre_compressed", FileWriter_add_reads_pre_compressed);
 
-    py::class_<EmbeddedFileData>(m, "EmbeddedFileData")
-            .def_readonly("offset", &EmbeddedFileData::offset)
-            .def_readonly("length", &EmbeddedFileData::length);
+    py::class_<pod5::FileLocation>(m, "EmbeddedFileData")
+            .def_readonly("offset", &pod5::FileLocation::offset)
+            .def_readonly("length", &pod5::FileLocation::size);
 
-    py::class_<Pod5SignalCache, std::shared_ptr<Pod5SignalCache>>(m, "Pod5SignalCache")
-            .def("release_next_batch", &Pod5SignalCache::release_next_batch);
+    py::class_<Pod5AsyncSignalLoader, std::shared_ptr<Pod5AsyncSignalLoader>>(
+            m, "Pod5AsyncSignalLoader")
+            .def("release_next_batch", &Pod5AsyncSignalLoader::release_next_batch);
 
     py::class_<Pod5SignalCacheBatch, std::shared_ptr<Pod5SignalCacheBatch>>(m,
                                                                             "Pod5SignalCacheBatch")
@@ -693,6 +516,8 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
                  &Pod5FileReaderPtr::get_combined_file_signal_table_location)
             .def("plan_traversal", &Pod5FileReaderPtr::plan_traversal)
             .def("batch_get_signal", &Pod5FileReaderPtr::batch_get_signal)
+            .def("batch_get_signal_selection", &Pod5FileReaderPtr::batch_get_signal_selection)
+            .def("batch_get_signal_batches", &Pod5FileReaderPtr::batch_get_signal_batches)
             .def("close", &Pod5FileReaderPtr::close);
 
     // Errors API

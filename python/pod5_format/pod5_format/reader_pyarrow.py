@@ -39,10 +39,14 @@ class ReadRowPyArrow:
     Represents the data for a single read.
     """
 
-    def __init__(self, reader, batch, row):
+    def __init__(
+        self, reader, batch, row, batch_signal_cache=None, selected_batch_index=None
+    ):
         self._reader = reader
         self._batch = batch
         self._row = row
+        self._batch_signal_cache = batch_signal_cache
+        self._selected_batch_index = selected_batch_index
 
     @property
     def read_id(self):
@@ -175,6 +179,13 @@ class ReadRowPyArrow:
         return sum(r.byte_count for r in self.signal_rows)
 
     @property
+    def has_cached_signal(self):
+        """
+        Find if cached signal is available for this read.
+        """
+        return self._batch_signal_cache
+
+    @property
     def signal(self):
         """
         Find the full signal for the read.
@@ -183,6 +194,11 @@ class ReadRowPyArrow:
         -------
         A numpy array of signal data with int16 type.
         """
+        if self.has_cached_signal:
+            if self._selected_batch_index is not None:
+                return self._batch_signal_cache[self._selected_batch_index]
+            return self._batch_signal_cache[self._row]
+
         rows = self._batch._columns.signal[self._row]
         batch_data = [self._find_signal_row_index(r.as_py()) for r in rows]
         sample_counts = []
@@ -284,11 +300,15 @@ class ReadBatchPyArrow:
         self._reader = reader
         self._batch = batch
         self._signal_cache = None
+        self._selected_batch_rows = None
 
         self._columns = Columns(*[self._batch.column(name) for name in Columns._fields])
 
     def set_cached_siganl(self, signal_cache):
         self._signal_cache = signal_cache
+
+    def set_selected_batch_rows(self, selected_batch_rows):
+        self._selected_batch_rows = selected_batch_rows
 
     def reads(self):
         """
@@ -298,18 +318,43 @@ class ReadBatchPyArrow:
         -------
         An iterable of reads (as ReadRowPyArrow) in the file.
         """
-        for i in range(self._batch.num_rows):
-            yield ReadRowPyArrow(self._reader, self, i)
+
+        signal_cache = None
+        if self._signal_cache and self._signal_cache.samples:
+            signal_cache = self._signal_cache.samples
+
+        if self._selected_batch_rows is not None:
+            for idx, row in enumerate(self._selected_batch_rows):
+                yield ReadRowPyArrow(
+                    self._reader,
+                    self,
+                    row,
+                    batch_signal_cache=signal_cache,
+                    selected_batch_index=idx,
+                )
+        else:
+            for i in range(self._batch.num_rows):
+                yield ReadRowPyArrow(
+                    self._reader, self, i, batch_signal_cache=signal_cache
+                )
 
     def get_read(self, row):
         return ReadRowPyArrow(self._reader, self, row)
 
     @property
+    def num_reads(self):
+        return self._batch.num_rows
+
+    @property
     def read_id_column(self):
+        if self._selected_batch_rows is not None:
+            return self._columns.read_id.take(self._selected_batch_rows)
         return self._columns.read_id
 
     @property
     def read_number_column(self):
+        if self._selected_batch_rows is not None:
+            return self._columns.read_number.take(self._selected_batch_rows)
         return self._columns.read_number
 
     @property
@@ -388,9 +433,41 @@ class FileReader:
         """
         return ReadBatchPyArrow(self, self._read_reader.reader.get_batch(i))
 
-    def read_batches(self, selection=None, missing_ok=False, preload=None):
+    def read_batches(
+        self, selection=None, batch_selection=None, missing_ok=False, preload=None
+    ):
         """
         Iterate batches in the file, optionally selecting certain rows.
+
+        Parameters
+        ----------
+        selection : iterable[str]
+            The read ids to walk in the file.
+        batch_selection : iterable[int]
+            The read batches to walk in the file.
+        missing_ok : bool
+            If selection contains entries not found in the file, an error will be raised.
+        preload : set[str]
+            Columns to preload - "samples" and "sample_count" are valid values
+
+        Returns
+        -------
+        An iterable of batches (as ReadBatchPyArrow) in the file.
+        """
+        if selection is not None:
+            assert not batch_selection
+            yield from self._select_read_batches(
+                selection, missing_ok=missing_ok, preload=preload
+            )
+        elif batch_selection is not None:
+            assert not selection
+            yield from self._read_some_batches(batch_selection, preload=preload)
+        else:
+            yield from self._reads_batches(preload=preload)
+
+    def reads(self, selection=None, missing_ok=False, preload=None):
+        """
+        Iterate reads in the file, optionally filtering for certain read ids.
 
         Parameters
         ----------
@@ -403,44 +480,24 @@ class FileReader:
 
         Returns
         -------
-        An iterable of batches (as ReadBatchPyArrow) in the file.
-        """
-        if selection is None:
-            yield from self._reads_batches(preload=preload)
-        else:
-            yield from self._select_read_batches(
-                selection, missing_ok=missing_ok, preload=preload
-            )
-
-    def reads(self, selection=None, missing_ok=False):
-        """
-        Iterate reads in the file, optionally filtering for certain read ids.
-
-        Parameters
-        ----------
-        selection : iterable[str]
-            The read ids to walk in the file.
-        missing_ok : bool
-            If selection contains entries not found in the file, an error will be raised.
-
-        Returns
-        -------
         An iterable of reads (as ReadRowPyArrow) in the file.
         """
         if selection is None:
-            yield from self._reads()
+            yield from self._reads(preload=preload)
         else:
-            yield from self._select_reads(selection, missing_ok=missing_ok)
+            yield from self._select_reads(
+                selection, missing_ok=missing_ok, preload=preload
+            )
 
-    def _reads(self):
-        for batch in self.read_batches():
+    def _reads(self, preload=None):
+        for batch in self.read_batches(preload=preload):
             for read in batch.reads():
                 yield read
 
-    def _select_reads(self, selection, missing_ok=False):
-        for batch, rows in self._select_read_batches(selection, missing_ok):
-            for row in rows:
-                yield batch.get_read(row)
+    def _select_reads(self, selection, missing_ok=False, preload=None):
+        for batch in self._select_read_batches(selection, missing_ok, preload=preload):
+            for read in batch.reads():
+                yield read
 
     def _reads_batches(self, preload=None):
         signal_cache = None
@@ -448,11 +505,24 @@ class FileReader:
             signal_cache = self._reader.batch_get_signal(
                 "samples" in preload,
                 "sample_count" in preload,
-                numpy.empty(shape=(0), dtype=numpy.uint32),
-                numpy.empty(shape=(0), dtype=numpy.uint32),
             )
 
         for i in range(self._read_reader.reader.num_record_batches):
+            batch = self.get_batch(i)
+            if signal_cache:
+                batch.set_cached_siganl(signal_cache.release_next_batch())
+            yield batch
+
+    def _read_some_batches(self, batch_selection, preload=None):
+        signal_cache = None
+        if preload:
+            signal_cache = self._reader.batch_get_signal_batches(
+                "samples" in preload,
+                "sample_count" in preload,
+                numpy.array(batch_selection, dtype=numpy.uint32),
+            )
+
+        for i in batch_selection:
             batch = self.get_batch(i)
             if signal_cache:
                 batch.set_cached_siganl(signal_cache.release_next_batch())
@@ -470,7 +540,7 @@ class FileReader:
 
         signal_cache = None
         if preload:
-            signal_cache = self._reader.batch_get_signal(
+            signal_cache = self._reader.batch_get_signal_selection(
                 "samples" in preload,
                 "sample_count" in preload,
                 per_batch_counts,
@@ -484,9 +554,10 @@ class FileReader:
             ]
 
             batch = self.get_batch(batch_idx)
+            batch.set_selected_batch_rows(current_batch_rows)
             if signal_cache:
                 batch.set_cached_siganl(signal_cache.release_next_batch())
-            yield batch, current_batch_rows
+            yield batch
 
             current_offset += batch_count
 
