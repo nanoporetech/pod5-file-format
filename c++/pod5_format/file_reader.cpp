@@ -71,7 +71,7 @@ private:
     SignalTableReader m_signal_table_reader;
 };
 
-pod5::Result<std::unique_ptr<FileReader>> open_split_file_reader(
+pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(
         boost::filesystem::path const& signal_path,
         boost::filesystem::path const& reads_path,
         FileReaderOptions const& options) {
@@ -99,7 +99,7 @@ pod5::Result<std::unique_ptr<FileReader>> open_split_file_reader(
 
     ARROW_ASSIGN_OR_RAISE(auto const reads_table_size, read_table_file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto const signal_table_size, signal_table_file->GetSize());
-    return std::make_unique<FileReaderImpl>(
+    return std::make_shared<FileReaderImpl>(
             FileLocation(reads_path, 0, reads_table_size), std::move(read_table_reader),
             FileLocation(signal_path, 0, signal_table_size), std::move(signal_table_reader));
 }
@@ -143,7 +143,7 @@ private:
     std::int64_t m_sub_file_length;
 };
 
-pod5::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
+pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
         boost::filesystem::path const& path,
         FileReaderOptions const& options) {
     auto pool = options.memory_pool();
@@ -191,7 +191,7 @@ pod5::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
             FileLocation(path, parsed_footer_metadata.signal_table.file_start_offset,
                          parsed_footer_metadata.signal_table.file_length);
 
-    return std::make_unique<FileReaderImpl>(
+    return std::make_shared<FileReaderImpl>(
             std::move(reads_table_location), std::move(read_table_reader),
             std::move(signal_table_location), std::move(signal_table_reader));
 }

@@ -71,12 +71,12 @@ public:
     virtual Result<FileLocation> signal_table_location() const = 0;
 };
 
-POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileReader>> open_split_file_reader(
+POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(
         boost::filesystem::path const& signal_path,
         boost::filesystem::path const& reads_path,
         FileReaderOptions const& options);
 
-POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileReader>> open_combined_file_reader(
+POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
         boost::filesystem::path const& path,
         FileReaderOptions const& options);
 

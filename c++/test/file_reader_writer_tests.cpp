@@ -1,3 +1,4 @@
+#include "pod5_format/async_signal_loader.h"
 #include "pod5_format/file_reader.h"
 #include "pod5_format/file_writer.h"
 #include "pod5_format/read_table_reader.h"
@@ -18,7 +19,7 @@ public:
     virtual pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
             pod5::FileWriterOptions const& options) = 0;
 
-    virtual pod5::Result<std::unique_ptr<pod5::FileReader>> open_file() = 0;
+    virtual pod5::Result<std::shared_ptr<pod5::FileReader>> open_file() = 0;
 };
 
 void run_file_reader_writer_tests(FileInterface& file_ifc) {
@@ -102,6 +103,33 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
             CHECK(samples_array->Value(3) == 20'480);
             CHECK(samples_array->Value(4) == 18'080);
         }
+
+        auto const samples_mode = GENERATE(pod5::AsyncSignalLoader::SamplesMode::NoSamples,
+                                           pod5::AsyncSignalLoader::SamplesMode::Samples);
+
+        pod5::AsyncSignalLoader async_no_samples_loader(*reader, samples_mode,
+                                                        {},  // Read all the batches
+                                                        {}   // No specific rows within batches)
+        );
+
+        for (std::size_t i = 0; i < 10; ++i) {
+            CAPTURE(i);
+            auto first_batch_res = async_no_samples_loader.release_next_batch();
+            CAPTURE(first_batch_res);
+            REQUIRE(first_batch_res.ok());
+            auto first_batch = std::move(*first_batch_res);
+            CHECK(first_batch->batch_index() == i);
+
+            CHECK(first_batch->sample_count().size() == 1);
+            CHECK(first_batch->sample_count()[0] == signal_1.size());
+
+            CHECK(first_batch->samples().size() == 1);
+            if (samples_mode == pod5::AsyncSignalLoader::SamplesMode::Samples) {
+                CHECK(first_batch->samples()[0] == signal_1);
+            } else {
+                CHECK(first_batch->samples()[0].size() == 0);
+            }
+        }
     }
 }
 
@@ -123,7 +151,7 @@ SCENARIO("Split File Reader Writer Tests") {
                                                   "test_software", options);
         }
 
-        pod5::Result<std::unique_ptr<pod5::FileReader>> open_file() override {
+        pod5::Result<std::shared_ptr<pod5::FileReader>> open_file() override {
             return pod5::open_split_file_reader(split_file_signal, split_file_reads, {});
         }
     };
@@ -145,7 +173,7 @@ SCENARIO("Combined File Reader Writer Tests") {
             return pod5::create_combined_file_writer(combined_file, "test_software", options);
         }
 
-        pod5::Result<std::unique_ptr<pod5::FileReader>> open_file() override {
+        pod5::Result<std::shared_ptr<pod5::FileReader>> open_file() override {
             return pod5::open_combined_file_reader(combined_file, {});
         }
     };
