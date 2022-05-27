@@ -12,10 +12,16 @@ class Pod5Conan(ConanFile):
     default_options = {
         "shared": False,
         "nanopore_internal_build": False,
-        "arrow:with_boost": False,
     }
     generators = "cmake_find_package_multi"
-    exports_sources = "*"
+    exports_sources = [
+        "c++/*",
+        "cmake/*",
+        "python/*",
+        "third_party/*",
+        "CMakeLists.txt",
+        "LICENSE.md",
+    ]
 
     def requirements(self):
         package_suffix = ""
@@ -26,10 +32,6 @@ class Pod5Conan(ConanFile):
         self.requires(f"boost/1.78.0{package_suffix}")
         self.requires(f"flatbuffers/2.0.0{package_suffix}")
         self.requires(f"zstd/1.4.8{package_suffix}")
-
-    def configure(self):
-        if self.options.nanopore_internal_build:
-            self.options["arrow"].with_boost = True
 
     def build(self):
         cmake = CMake(self)
@@ -42,3 +44,6 @@ class Pod5Conan(ConanFile):
     def package(self):
         cmake = CMake(self)
         cmake.install()
+
+    def package_info(self):
+        self.cpp_info.libs = tools.collect_libs(self)

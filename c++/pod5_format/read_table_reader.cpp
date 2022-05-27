@@ -259,7 +259,7 @@ Result<std::size_t> ReadTableReader::search_for_read_ids(ReadIdSearchInput const
 
     std::size_t successes = 0;
 
-    std::vector<std::vector<std::size_t>> batch_data(batch_counts.size());
+    std::vector<std::vector<std::uint32_t>> batch_data(batch_counts.size());
     auto const initial_reserve_size = search_input.read_id_count() / batch_counts.size();
     for (auto& br : batch_data) {
         br.reserve(initial_reserve_size);
