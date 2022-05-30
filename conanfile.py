@@ -45,5 +45,8 @@ class Pod5Conan(ConanFile):
         cmake = CMake(self)
         cmake.install()
 
+        # Copy the license files
+        self.copy("LICENSE.md", src=".", dst="licenses")
+
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
