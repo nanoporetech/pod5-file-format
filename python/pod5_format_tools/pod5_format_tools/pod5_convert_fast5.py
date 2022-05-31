@@ -147,10 +147,12 @@ def get_reads_from_files(
 
                         if not run_cache or run_cache.acquisition_id != acq_id:
                             adc_min = 0
-                            adc_max = 0
+                            adc_max = 1024
+                            device_type_guess = b"promethion"
                             if channel_id.attrs["digitisation"] == 8192:
                                 adc_min = -4096
-                                adc_max = 4095
+                                adc_max = 4096
+                                device_type_guess = b"minion"
 
                             tracking_id = dict(inp[key]["tracking_id"].attrs)
                             context_tags = dict(inp[key]["context_tags"].attrs)
@@ -186,9 +188,9 @@ def get_reads_from_files(
                                 "sequencer_position": tracking_id.get(
                                     "device_id", b""
                                 ).decode("utf-8"),
-                                "sequencer_position_type": tracking_id[
-                                    "device_type"
-                                ].decode("utf-8"),
+                                "sequencer_position_type": tracking_id.get(
+                                    "device_type", device_type_guess
+                                ).decode("utf-8"),
                                 "software": "python-pod5-converter",
                                 "system_name": tracking_id.get(
                                     "host_product_serial_number", b""
@@ -347,8 +349,8 @@ class OutputHandler:
 def main():
     parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
 
-    parser.add_argument("input", type=Path, nargs="+")
-    parser.add_argument("output", type=Path)
+    parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
+    parser.add_argument("output", type=Path, help="Output path for the pod5 file(s)")
     parser.add_argument(
         "--active-readers",
         default=10,

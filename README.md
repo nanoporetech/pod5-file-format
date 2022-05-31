@@ -42,7 +42,7 @@ POD5 also provides a selection of tools.
 Generate an pod5 file from a set of input fast5 files:
 
 ```bash
-> pod5-convert-fast5 input_fast5_1.fast5 input_fast5_2.fast5 output_pod5_file.pod5
+> pod5-convert-fast5 input_fast5_1.fast5 input_fast5_2.fast5 ./output_pod5_files/
 ```
 
 ### pod5-inspect
