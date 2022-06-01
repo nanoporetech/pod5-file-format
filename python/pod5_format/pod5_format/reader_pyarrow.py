@@ -99,6 +99,24 @@ class ReadRowPyArrow:
         return self._reader._lookup_calibration(self._batch, self._row)
 
     @property
+    def calibration_digitisation(self):
+        """
+        Find the digitisation value used by the sequencer.
+
+        Intended to assist workflows ported from legacy file formats.
+        """
+        return self.run_info.adc_max - self.run_info.adc_min
+
+    @property
+    def calibration_range(self):
+        """
+        Find the calibration range value.
+
+        Intended to assist workflows ported from legacy file formats.
+        """
+        return self.calibration.scale * self.calibration_digitisation
+
+    @property
     def end_reason(self):
         """
         Find the end reason data associated with the read.
@@ -223,6 +241,17 @@ class ReadRowPyArrow:
             current_sample_index += current_row_count
         return output
 
+    @property
+    def signal_pa(self):
+        """
+        Find the full signal for the read, calibrated in pico amps.
+
+        Returns
+        -------
+        A numpy array of signal data with float type.
+        """
+        return self.calibrate_signal_array(self.signal)
+
     def signal_for_chunk(self, i):
         """
         Find the signal for a given chunk of the read.
@@ -259,6 +288,13 @@ class ReadRowPyArrow:
             )
 
         return [map_signal_row(r) for r in self._batch._columns.signal[self._row]]
+
+    def calibrate_signal_array(self, signal_array_adc):
+        """
+        Transform an array of int16 signal data from ADC space to pA.
+        """
+        calibration = self.calibration
+        return (signal_array_adc + calibration.offset) * calibration.scale
 
     def _find_signal_row_index(self, signal_row):
         """

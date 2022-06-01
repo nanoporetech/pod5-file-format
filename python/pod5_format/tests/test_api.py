@@ -200,6 +200,16 @@ def run_reader_test(r):
         assert data.pore == read.pore
         assert pytest.approx(data.calibration.offset) == read.calibration.offset
         assert pytest.approx(data.calibration.scale) == read.calibration.scale
+        assert (
+            data.run_info.adc_max - data.run_info.adc_min
+            == read.calibration_digitisation
+        )
+        assert (
+            pytest.approx(
+                data.calibration.scale * (data.run_info.adc_max - data.run_info.adc_min)
+            )
+            == read.calibration_range
+        )
         assert str(data.end_reason.name).split(".")[1].lower() == read.end_reason.name
         assert data.end_reason.forced == read.end_reason.forced
 
@@ -212,6 +222,10 @@ def run_reader_test(r):
 
         assert not read.has_cached_signal
         assert (read.signal == data.signal).all()
+        assert (
+            pytest.approx(read.signal_pa)
+            == (data.signal + data.calibration.offset) * data.calibration.scale
+        )
         chunk_signals = [read.signal_for_chunk(i) for i in range(len(read.signal_rows))]
         assert (numpy.concatenate(chunk_signals) == data.signal).all()
 
