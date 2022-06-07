@@ -105,7 +105,7 @@ class ReadRowPyArrow:
 
         Intended to assist workflows ported from legacy file formats.
         """
-        return self.run_info.adc_max - self.run_info.adc_min
+        return self.run_info.adc_max - self.run_info.adc_min + 1
 
     @property
     def calibration_range(self):

@@ -201,12 +201,13 @@ def run_reader_test(r):
         assert pytest.approx(data.calibration.offset) == read.calibration.offset
         assert pytest.approx(data.calibration.scale) == read.calibration.scale
         assert (
-            data.run_info.adc_max - data.run_info.adc_min
+            data.run_info.adc_max - data.run_info.adc_min + 1
             == read.calibration_digitisation
         )
         assert (
             pytest.approx(
-                data.calibration.scale * (data.run_info.adc_max - data.run_info.adc_min)
+                data.calibration.scale
+                * (data.run_info.adc_max - data.run_info.adc_min + 1)
             )
             == read.calibration_range
         )

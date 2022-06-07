@@ -147,11 +147,11 @@ def get_reads_from_files(
 
                         if not run_cache or run_cache.acquisition_id != acq_id:
                             adc_min = 0
-                            adc_max = 1024
+                            adc_max = 2047
                             device_type_guess = b"promethion"
                             if channel_id.attrs["digitisation"] == 8192:
                                 adc_min = -4096
-                                adc_max = 4096
+                                adc_max = 4095
                                 device_type_guess = b"minion"
 
                             tracking_id = dict(inp[key]["tracking_id"].attrs)
