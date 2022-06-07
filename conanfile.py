@@ -37,7 +37,7 @@ class Pod5Conan(ConanFile):
         cmake = CMake(self)
         shared = "ON" if self.options.shared else "OFF"
         self.run(
-            f"cmake . -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF -DINSTALL_THIRD_PARTY=OFF {cmake.command_line} -DBUILD_SHARED_LIB={shared}"
+            f"cmake . -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF -DINSTALL_THIRD_PARTY=OFF {cmake.command_line} -DBUILD_SHARED_LIB={shared}"
         )
         self.run(f"cmake --build . {cmake.build_config}")
 

@@ -123,11 +123,11 @@ build-standalone-ubu20:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
@@ -201,11 +201,11 @@ linux-aarch64-gcc9-release-build:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL} ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL} ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
@@ -258,11 +258,11 @@ win-x64-msvc2017-release-build:
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
-    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
+    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
-    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DUSE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON ..
+    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
