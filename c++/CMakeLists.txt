@@ -1,6 +1,6 @@
 
 
-if (USE_CONAN)
+if (ENABLE_CONAN)
     find_package(Arrow REQUIRED CONFIG)
     find_package(Boost REQUIRED CONFIG)
     find_package(Flatbuffers REQUIRED CONFIG)

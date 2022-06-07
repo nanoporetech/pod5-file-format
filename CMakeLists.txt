@@ -8,13 +8,19 @@ set(CMAKE_PROJECT_VERSION ${POD5_NUMERIC_VERSION})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
-option(USE_CONAN "Use conan for dependency management" OFF)
+if (NOT DEFINED ENABLE_CONAN)
+    option(ENABLE_CONAN "Enable conan for dependency installation" OFF)
+endif()
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
 option(INSTALL_THIRD_PARTY "Install third party libraries" ON)
 
+if (NOT DEFINED ENABLE_POD5_PACKAGING)
+    option(ENABLE_POD5_PACKAGING "Enable packaging support" ON)
+endif()
+
 option(BUILD_PYTHON_WHEEL "Build a python wheel for pod5" ON)
 
-if (USE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
+if (ENABLE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
         CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.0" AND
         CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10.0")
     # We build POD5 on CentOS 7 in CI, where we have GCC 9 but only the pre-C++11 ABI
@@ -69,4 +75,6 @@ endif()
 
 add_subdirectory(c++)
 
-include(pod5_packaging)
+if (ENABLE_POD5_PACKAGING)
+    include(pod5_packaging)
+endif()
