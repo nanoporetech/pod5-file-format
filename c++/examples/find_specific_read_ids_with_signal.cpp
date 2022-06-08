@@ -1,11 +1,12 @@
 #include "pod5_format/c_api.h"
 
-#include <boost/filesystem/fstream.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include <fstream>
 #include <iostream>
+#include <vector>
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -31,11 +32,11 @@ int main(int argc, char** argv) {
     }
 
     std::vector<boost::uuids::uuid> search_uuids;
-    boost::filesystem::path input_path(argv[2]);
+    std::string input_path(argv[2]);
     try {
         std::cout << "Reading input read ids from " << input_path << "\n";
         std::string line;
-        boost::filesystem::ifstream input_stream(input_path);
+        std::ifstream input_stream(input_path);
         while (std::getline(input_stream, line)) {
             search_uuids.push_back(boost::lexical_cast<boost::uuids::uuid>(line));
         }
@@ -44,9 +45,9 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to parse UUID values from " << input_path << ": " << e.what() << "\n";
     }
 
-    boost::filesystem::path output_path("read_numbers.txt");
+    std::string output_path("read_ids.txt");
     std::cout << "Writing selected read numbers to " << output_path << "\n";
-    boost::filesystem::ofstream output_stream(output_path);
+    std::ofstream output_stream(output_path);
 
     // Plan the most efficient route through the file for the required read ids:
     std::vector<std::uint32_t> traversal_batch_counts(batch_count);

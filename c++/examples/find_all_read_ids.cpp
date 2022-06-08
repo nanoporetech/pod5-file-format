@@ -1,10 +1,9 @@
 #include "pod5_format/c_api.h"
 
-#include <boost/filesystem/fstream.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include <fstream>
 #include <iostream>
 
 int main(int argc, char** argv) {
@@ -28,9 +27,9 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    boost::filesystem::path output_path("read_ids.txt");
+    std::string output_path("read_ids.txt");
     std::cout << "Writing read ids to " << output_path << "\n";
-    boost::filesystem::ofstream output_stream(output_path);
+    std::ofstream output_stream(output_path);
 
     std::size_t read_count = 0;
 

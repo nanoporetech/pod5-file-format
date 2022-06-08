@@ -36,6 +36,7 @@ SCENARIO("C API") {
         }
 
         auto combined_file = pod5_create_combined_file(combined_filename, "c_software", NULL);
+        CAPTURE(pod5_get_error_string());
         REQUIRE(combined_file);
         CHECK(pod5_get_error_no() == POD5_OK);
 

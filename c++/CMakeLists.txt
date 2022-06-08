@@ -10,7 +10,7 @@ else()
     find_package(
         Boost REQUIRED
         COMPONENTS
-            filesystem
+            headers
     )
     find_package(Flatbuffers REQUIRED)
     find_package(zstd REQUIRED)
@@ -134,7 +134,6 @@ target_link_libraries(pod5_format
         arrow::arrow
         flatbuffers::flatbuffers
         Boost::headers
-        Boost::filesystem
     PRIVATE
         pod5_flatbuffers
         zstd::zstd
@@ -147,23 +146,6 @@ if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
             
         install(
             FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
-            TYPE LIB
-            COMPONENT third_party
-        )
-    endforeach()
-
-    set(lib_ext ".a")
-    set(lib_prefix "lib")
-    if (WIN32)
-        set(lib_ext ".lib")
-    set(lib_prefix "")
-    endif()
-    foreach(boost_lib filesystem)
-        set(debug_path "${Boost_${boost_lib}_LIB_DIRS_DEBUG}/${lib_prefix}${Boost_${boost_lib}_LIBS_DEBUG}${lib_ext}")
-        set(release_path "${Boost_${boost_lib}_LIB_DIRS_RELEASE}/${lib_prefix}${Boost_${boost_lib}_LIBS_RELEASE}${lib_ext}")
-        
-        install(
-            FILES $<IF:$<CONFIG:Debug>,${debug_path},${release_path}>
             TYPE LIB
             COMPONENT third_party
         )
@@ -194,8 +176,12 @@ install(
     PUBLIC_HEADER DESTINATION "include/pod5_format"
 )
 
-add_subdirectory(examples)
-add_subdirectory(test)
+if (POD5_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+if (NOT POD5_DISABLE_TESTS)
+    add_subdirectory(test)
+endif()
 
 if (BUILD_PYTHON_WHEEL)
     add_subdirectory(pod5_format_pybind)

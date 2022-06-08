@@ -12,6 +12,7 @@ class Pod5Conan(ConanFile):
     default_options = {
         "shared": False,
         "nanopore_internal_build": False,
+        "boost:header_only": True,
     }
     generators = "cmake_find_package_multi"
     exports_sources = [
@@ -22,6 +23,10 @@ class Pod5Conan(ConanFile):
         "CMakeLists.txt",
         "LICENSE.md",
     ]
+
+    def configure(self):
+        if self.options.nanopore_internal_build:
+            self.options["boost"].header_only = False
 
     def requirements(self):
         package_suffix = ""

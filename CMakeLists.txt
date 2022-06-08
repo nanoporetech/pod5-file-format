@@ -14,6 +14,9 @@ endif()
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
 option(INSTALL_THIRD_PARTY "Install third party libraries" ON)
 
+option(POD5_DISABLE_TESTS "Disable building all tests" ON)
+option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)
+
 if (NOT DEFINED ENABLE_POD5_PACKAGING)
     option(ENABLE_POD5_PACKAGING "Enable packaging support" ON)
 endif()
