@@ -387,12 +387,47 @@ pytest-win-x64:
   variables:
     WHEEL_GLOB: "pod5_format-*.whl"
 
+.benchmark:
+  stage: test-python
+  before_script:
+    - python3 -m venv .venv/
+    - source .venv/bin/activate
+  script:
+    - pip install ./${WHEEL_GLOB} pod5_format_tools*.whl
+    - pip install -r ./benchmarks/image/requirements-benchmarks.txt
+    - ./benchmarks/image/install_slow5.sh
+    - export PATH="$(pwd)/slow5tools-v0.5.0/:$PATH"
+    - ./benchmarks/run_benchmarks.py ./test_data/ ./benchmark-outputs
+
+benchmark-linux-x64:
+  extends: [".benchmark"]
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags:
+    - linux
+  needs:
+    - linux-x64-gcc9-release-build
+    - build-tools
+  variables:
+    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+
+benchmark-linux-aarch64:
+  extends: [".benchmark"]
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags:
+    - linux_aarch64
+    - high-cpu
+  needs:
+    - linux-aarch64-gcc9-release-build
+    - build-tools
+  variables:
+    WHEEL_GLOB: "pod5_format-*cp39*.whl"
 .capture-version-for-conan:
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install conan
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
+
 
 # Conan build packages:
 build-conan:windows-x86_64-vs2017:
