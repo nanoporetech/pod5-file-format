@@ -5,8 +5,6 @@
 #include "pod5_format/result.h"
 #include "pod5_format/signal_table_utils.h"
 
-#include <boost/filesystem/path.hpp>
-
 #include <cstdint>
 #include <memory>
 
@@ -84,13 +82,13 @@ private:
 };
 
 POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
-        boost::filesystem::path const& signal_path,
-        boost::filesystem::path const& reads_path,
+        std::string const& signal_path,
+        std::string const& reads_path,
         std::string const& writing_software_name,
         FileWriterOptions const& options);
 
 POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
-        boost::filesystem::path const& path,
+        std::string const& path,
         std::string const& writing_software_name,
         FileWriterOptions const& options);
 

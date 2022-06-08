@@ -10,7 +10,7 @@
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
 #include <arrow/util/future.h>
-#include <boost/filesystem.hpp>
+#include <arrow/util/io_util.h>
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
 
@@ -151,8 +151,8 @@ private:
 
 class CombinedFileWriterImpl : public FileWriterImpl {
 public:
-    CombinedFileWriterImpl(boost::filesystem::path const& path,
-                           boost::filesystem::path const& reads_tmp_path,
+    CombinedFileWriterImpl(std::string const& path,
+                           std::string const& reads_tmp_path,
                            std::int64_t signal_file_start_offset,
                            boost::uuids::uuid const& section_marker,
                            boost::uuids::uuid const& file_identifier,
@@ -182,7 +182,7 @@ public:
         ARROW_RETURN_NOT_OK(close_signal_table_writer());
 
         // Open main path with append set:
-        ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(m_path.string(), true));
+        ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(m_path, true));
 
         // Record signal table length:
         combined_file_utils::FileInfo signal_table;
@@ -202,9 +202,8 @@ public:
 
             {
                 // Stream out the reads table into the main file:
-                ARROW_ASSIGN_OR_RAISE(
-                        auto reads_table_file_in,
-                        arrow::io::ReadableFile::Open(m_reads_tmp_path.string(), pool()));
+                ARROW_ASSIGN_OR_RAISE(auto reads_table_file_in,
+                                      arrow::io::ReadableFile::Open(m_reads_tmp_path, pool()));
                 ARROW_ASSIGN_OR_RAISE(auto file_size, reads_table_file_in->GetSize());
                 std::int64_t copied_bytes = 0;
                 std::int64_t target_chunk_size =
@@ -224,11 +223,9 @@ public:
             }
 
             // Clean up the tmp read path:
-            boost::system::error_code ec;
-            boost::filesystem::remove(m_reads_tmp_path, ec);
-            if (ec) {
-                return arrow::Status::Invalid("Failed to remove temporary file: ", ec.message());
-            }
+            ARROW_ASSIGN_OR_RAISE(auto arrow_path, ::arrow::internal::PlatformFilename::FromString(
+                                                           m_reads_tmp_path));
+            ARROW_RETURN_NOT_OK(arrow::internal::DeleteFile(arrow_path));
         }
         // Padd file to 8 bytes and mark section:
         ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
@@ -242,8 +239,8 @@ public:
     }
 
 private:
-    boost::filesystem::path m_path;
-    boost::filesystem::path m_reads_tmp_path;
+    std::string m_path;
+    std::string m_reads_tmp_path;
     std::int64_t m_signal_file_start_offset;
     boost::uuids::uuid m_section_marker;
     boost::uuids::uuid m_file_identifier;
@@ -302,8 +299,8 @@ pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::M
 }
 
 pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
-        boost::filesystem::path const& signal_path,
-        boost::filesystem::path const& reads_path,
+        std::string const& signal_path,
+        std::string const& reads_path,
         std::string const& writing_software_name,
         FileWriterOptions const& options) {
     auto pool = options.memory_pool();
@@ -311,14 +308,18 @@ pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    if (boost::filesystem::exists(reads_path)) {
-        return Status::Invalid("Unable to create new file '", reads_path.string(),
-                               "', already exists");
+    ARROW_ASSIGN_OR_RAISE(auto arrow_reads_path,
+                          ::arrow::internal::PlatformFilename::FromString(reads_path));
+    ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_reads_path));
+    if (file_exists) {
+        return Status::Invalid("Unable to create new file '", reads_path, "', already exists");
     }
 
-    if (boost::filesystem::exists(signal_path)) {
-        return Status::Invalid("Unable to create new file '", signal_path.string(),
-                               "', already exists");
+    ARROW_ASSIGN_OR_RAISE(auto arrow_signal_path,
+                          ::arrow::internal::PlatformFilename::FromString(signal_path));
+    ARROW_ASSIGN_OR_RAISE(file_exists, arrow::internal::FileExists(arrow_signal_path));
+    if (file_exists) {
+        return Status::Invalid("Unable to create new file '", signal_path, "', already exists");
     }
 
     // Open dictionary writrs:
@@ -333,7 +334,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
 
     // Open read file table:
     ARROW_ASSIGN_OR_RAISE(auto read_table_file,
-                          arrow::io::FileOutputStream::Open(reads_path.string(), false));
+                          arrow::io::FileOutputStream::Open(reads_path, false));
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_writer,
             make_read_table_writer(read_table_file, file_schema_metadata,
@@ -343,7 +344,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
 
     // Open signal file table:
     ARROW_ASSIGN_OR_RAISE(auto signal_table_file,
-                          arrow::io::FileOutputStream::Open(signal_path.string(), false));
+                          arrow::io::FileOutputStream::Open(signal_path, false));
     ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
                           make_signal_table_writer(signal_table_file, file_schema_metadata,
                                                    options.signal_table_batch_size(),
@@ -391,7 +392,7 @@ private:
 };
 
 pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
-        boost::filesystem::path const& path,
+        std::string const& path,
         std::string const& writing_software_name,
         FileWriterOptions const& options) {
     auto pool = options.memory_pool();
@@ -399,8 +400,10 @@ pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    if (boost::filesystem::exists(path)) {
-        return Status::Invalid("Unable to create new file '", path.string(), "', already exists");
+    ARROW_ASSIGN_OR_RAISE(auto arrow_path, ::arrow::internal::PlatformFilename::FromString(path));
+    ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_path));
+    if (file_exists) {
+        return Status::Invalid("Unable to create new file '", path, "', already exists");
     }
 
     // Open dictionary writrs:
@@ -415,11 +418,12 @@ pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
             auto file_schema_metadata,
             make_schema_key_value_metadata({file_identifier, writing_software_name, Pod5Version}));
 
-    auto reads_tmp_path = path.parent_path() / ("." + path.filename().string() + ".tmp-reads");
+    auto reads_tmp_path = arrow_path.Parent().ToString() + "/" +
+                          ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");
 
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(auto read_table_file,
-                          arrow::io::FileOutputStream::Open(reads_tmp_path.string(), false));
+                          arrow::io::FileOutputStream::Open(reads_tmp_path, false));
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_tmp_writer,
             make_read_table_writer(read_table_file, file_schema_metadata,
@@ -428,7 +432,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
                                    dict_writers.run_info_writer, pool));
 
     // Prepare the main file - and set up the signal table to write here:
-    ARROW_ASSIGN_OR_RAISE(auto main_file, arrow::io::FileOutputStream::Open(path.string(), false));
+    ARROW_ASSIGN_OR_RAISE(auto main_file, arrow::io::FileOutputStream::Open(path, false));
 
     // Write the initial header to the combined file:
     ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(main_file, section_marker));
