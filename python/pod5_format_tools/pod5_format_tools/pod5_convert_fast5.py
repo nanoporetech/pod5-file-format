@@ -10,9 +10,18 @@ import h5py
 import iso8601
 import numpy
 import more_itertools
+from ont_fast5_api.compression_settings import register_plugin
 import pod5_format
 import multiprocessing as mp
 from queue import Empty
+
+register_plugin()
+
+
+def h5py_get_str(value):
+    if isinstance(value, str):
+        return value
+    return value.decode("utf-8")
 
 
 def format_sample_count(count):
@@ -54,7 +63,7 @@ def get_datetime_as_epoch_ms(time_str):
     if time_str == None:
         return 0
     try:
-        return iso8601.parse_date(time_str.decode("utf-8"))
+        return iso8601.parse_date(h5py_get_str(time_str))
     except iso8601.iso8601.ParseError:
         return 0
 
@@ -122,8 +131,8 @@ def get_reads_from_files(
                         pore_type = {
                             "channel": int(channel_id.attrs["channel_number"]),
                             "well": raw.attrs["start_mux"],
-                            "pore_type": attrs.get("pore_type", b"not_set").decode(
-                                "utf-8"
+                            "pore_type": h5py_get_str(
+                                attrs.get("pore_type", b"not_set")
                             ),
                         }
                         calib_type = {
@@ -139,10 +148,10 @@ def get_reads_from_files(
 
                         acq_id = None
                         if "run_id" in attrs:
-                            acq_id = attrs["run_id"].decode("utf-8")
+                            acq_id = h5py_get_str(attrs["run_id"])
                         else:
-                            acq_id = (
-                                inp[key]["tracking_id"].attrs["run_id"].decode("utf-8")
+                            acq_id = h5py_get_str(
+                                inp[key]["tracking_id"].attrs["run_id"]
                             )
 
                         if not run_cache or run_cache.acquisition_id != acq_id:
@@ -165,39 +174,39 @@ def get_reads_from_files(
                                 "adc_min": adc_min,
                                 "context_tags": tuple(context_tags.items()),
                                 "experiment_name": "",
-                                "flow_cell_id": tracking_id.get(
-                                    "flow_cell_id", b""
-                                ).decode("utf-8"),
-                                "flow_cell_product_code": tracking_id.get(
-                                    "flow_cell_product_code", b""
-                                ).decode("utf-8"),
-                                "protocol_name": tracking_id["exp_script_name"].decode(
-                                    "utf-8"
+                                "flow_cell_id": h5py_get_str(
+                                    tracking_id.get("flow_cell_id", b"")
                                 ),
-                                "protocol_run_id": tracking_id[
-                                    "protocol_run_id"
-                                ].decode("utf-8"),
+                                "flow_cell_product_code": h5py_get_str(
+                                    tracking_id.get("flow_cell_product_code", b"")
+                                ),
+                                "protocol_name": h5py_get_str(
+                                    tracking_id["exp_script_name"]
+                                ),
+                                "protocol_run_id": h5py_get_str(
+                                    tracking_id["protocol_run_id"]
+                                ),
                                 "protocol_start_time": get_datetime_as_epoch_ms(
                                     tracking_id.get("protocol_start_time", None)
                                 ),
-                                "sample_id": tracking_id["sample_id"].decode("utf-8"),
+                                "sample_id": h5py_get_str(tracking_id["sample_id"]),
                                 "sample_rate": int(channel_id.attrs["sampling_rate"]),
-                                "sequencing_kit": context_tags.get(
-                                    "sequencing_kit", b""
-                                ).decode("utf-8"),
-                                "sequencer_position": tracking_id.get(
-                                    "device_id", b""
-                                ).decode("utf-8"),
-                                "sequencer_position_type": tracking_id.get(
-                                    "device_type", device_type_guess
-                                ).decode("utf-8"),
+                                "sequencing_kit": h5py_get_str(
+                                    context_tags.get("sequencing_kit", b"")
+                                ),
+                                "sequencer_position": h5py_get_str(
+                                    tracking_id.get("device_id", b"")
+                                ),
+                                "sequencer_position_type": h5py_get_str(
+                                    tracking_id.get("device_type", device_type_guess)
+                                ),
                                 "software": "python-pod5-converter",
-                                "system_name": tracking_id.get(
-                                    "host_product_serial_number", b""
-                                ).decode("utf-8"),
-                                "system_type": tracking_id.get(
-                                    "host_product_code", b""
-                                ).decode("utf-8"),
+                                "system_name": h5py_get_str(
+                                    tracking_id.get("host_product_serial_number", b"")
+                                ),
+                                "system_type": h5py_get_str(
+                                    tracking_id.get("host_product_code", b"")
+                                ),
                                 "tracking_id": tuple(tracking_id.items()),
                             }
                             run_cache = RunCache(acq_id, run_info_type)
@@ -220,7 +229,7 @@ def get_reads_from_files(
 
                         reads.append(
                             Read(
-                                uuid.UUID(raw.attrs["read_id"].decode("utf-8")).bytes,
+                                uuid.UUID(h5py_get_str(raw.attrs["read_id"])).bytes,
                                 pore_type,
                                 calib_type,
                                 raw.attrs["read_number"],

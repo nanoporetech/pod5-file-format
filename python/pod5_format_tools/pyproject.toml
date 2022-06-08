@@ -25,10 +25,12 @@ classifiers=[
 dependencies = [
   "pod5_format",
   "h5py",
+  "ont-fast5-api",
 ]
 
 [project.scripts]
 pod5-convert-fast5 = "pod5_format_tools.pod5_convert_fast5:main"
+pod5-unconvert-fast5 = "pod5_format_tools.pod5_unconvert_fast5:main"
 pod5-inspect = "pod5_format_tools.pod5_inspect:main"
 
 [tool.black]
