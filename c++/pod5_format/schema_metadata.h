@@ -14,7 +14,7 @@ class KeyValueMetadata;
 
 namespace boost {
 namespace uuids {
-class uuid;
+struct uuid;
 }
 }  // namespace boost
 
