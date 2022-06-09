@@ -48,8 +48,9 @@ arrow::Result<std::size_t> compress_signal(gsl::span<SampleType const> const& sa
 arrow::Result<std::shared_ptr<arrow::Buffer>> compress_signal(
         gsl::span<SampleType const> const& samples,
         arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto out, arrow::AllocateResizableBuffer(
-                                            compressed_signal_max_size(samples.size()), pool));
+    ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<arrow::ResizableBuffer> out,
+            arrow::AllocateResizableBuffer(compressed_signal_max_size(samples.size()), pool));
 
     ARROW_ASSIGN_OR_RAISE(
             auto final_size,
@@ -97,7 +98,7 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> decompress_signal(
         gsl::span<std::uint8_t const> const& compressed_bytes,
         std::uint32_t samples_count,
         arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto out,
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::ResizableBuffer> out,
                           arrow::AllocateResizableBuffer(samples_count * sizeof(SampleType), pool));
 
     auto signal_span = gsl::make_span(out->mutable_data(), out->size()).as_span<std::int16_t>();

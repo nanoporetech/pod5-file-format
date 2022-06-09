@@ -470,6 +470,19 @@ build-conan:linux-aarch64-gcc9:
         - .profile-linux-aarch64-gcc9
         - .build-package
         - .capture-version-for-conan
+build-conan:linux-aarch64-gcc7:
+    stage: build-conan
+    extends:
+        - .build-package
+        - .profile-linux-aarch64-gcc7
+        - .capture-version-for-conan
+build-conan:macos-x86_64-appleclang10.0:
+    stage: build-conan
+    extends:
+        - .build-package
+        - .profile-macos-x86_64-appleclang-10.0
+        - .capture-version-for-conan
+
 
 .capture-version-for-conan-upload:
   before_script:
@@ -516,6 +529,18 @@ upload-conan:linux-aarch64-gcc9:
         - .upload-package
         - .capture-version-for-conan-upload
     dependencies: [ "build-conan:linux-aarch64-gcc9" ]
+upload-conan:linux-aarch64-gcc7:
+    stage: deploy
+    extends:
+        - .upload-package
+        - .capture-version-for-conan-upload
+    dependencies: [ "build-conan:linux-aarch64-gcc7" ]
+upload-conan:macos-x86_64-appleclang10.0:
+    stage: deploy
+    extends:
+        - .upload-package
+        - .capture-version-for-conan-upload
+    dependencies: [ "build-conan:macos-x86_64-appleclang10.0" ]
 
 
 internal_wheel_upload:
