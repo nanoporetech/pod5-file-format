@@ -3,6 +3,7 @@
 #include "pod5_format/read_table_utils.h"
 
 #include <arrow/result.h>
+#include <arrow/util/io_util.h>
 #include <catch2/catch.hpp>
 
 namespace Catch {
@@ -36,3 +37,13 @@ inline pod5::EndReasonData get_test_end_reason_data() {
 }
 
 inline pod5::PoreData get_test_pore_data() { return pod5::PoreData(431, 3, "Pore_type"); }
+
+inline arrow::Status remove_file_if_exists(std::string const& file) {
+    ARROW_ASSIGN_OR_RAISE(auto arrow_reads_path,
+                          ::arrow::internal::PlatformFilename::FromString(file));
+    ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_reads_path));
+    if (file_exists) {
+        ARROW_RETURN_NOT_OK(arrow::internal::DeleteFile(arrow_reads_path));
+    }
+    return arrow::Status::OK();
+}
