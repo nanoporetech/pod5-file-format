@@ -71,21 +71,18 @@ private:
     SignalTableReader m_signal_table_reader;
 };
 
-pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(
-        boost::filesystem::path const& signal_path,
-        boost::filesystem::path const& reads_path,
-        FileReaderOptions const& options) {
+pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(std::string const& signal_path,
+                                                                 std::string const& reads_path,
+                                                                 FileReaderOptions const& options) {
     auto pool = options.memory_pool();
     if (!pool) {
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto read_table_file,
-                          arrow::io::ReadableFile::Open(reads_path.string(), pool));
+    ARROW_ASSIGN_OR_RAISE(auto read_table_file, arrow::io::ReadableFile::Open(reads_path, pool));
     ARROW_ASSIGN_OR_RAISE(auto read_table_reader, make_read_table_reader(read_table_file, pool));
 
-    ARROW_ASSIGN_OR_RAISE(auto signal_table_file,
-                          arrow::io::ReadableFile::Open(signal_path.string(), pool));
+    ARROW_ASSIGN_OR_RAISE(auto signal_table_file, arrow::io::ReadableFile::Open(signal_path, pool));
     ARROW_ASSIGN_OR_RAISE(auto signal_table_reader,
                           make_signal_table_reader(signal_table_file, pool));
 
@@ -144,15 +141,15 @@ private:
 };
 
 pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
-        boost::filesystem::path const& path,
+        std::string const& path,
         FileReaderOptions const& options) {
     auto pool = options.memory_pool();
     if (!pool) {
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-            auto file, arrow::io::MemoryMappedFile::Open(path.string(), arrow::io::FileMode::READ));
+    ARROW_ASSIGN_OR_RAISE(auto file,
+                          arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ));
 
     ARROW_ASSIGN_OR_RAISE(auto parsed_footer_metadata, combined_file_utils::read_footer(file));
 

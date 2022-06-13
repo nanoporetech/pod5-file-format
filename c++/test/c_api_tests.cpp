@@ -1,6 +1,7 @@
 #include "pod5_format/c_api.h"
 
-#include <boost/filesystem.hpp>
+#include "utils.h"
+
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <catch2/catch.hpp>
@@ -31,9 +32,7 @@ SCENARIO("C API") {
         CHECK(!pod5_create_combined_file("", NULL, NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
 
-        if (boost::filesystem::exists(combined_filename)) {
-            boost::filesystem::remove(combined_filename);
-        }
+        REQUIRE(remove_file_if_exists(combined_filename).ok());
 
         auto combined_file = pod5_create_combined_file(combined_filename, "c_software", NULL);
         CAPTURE(pod5_get_error_string());

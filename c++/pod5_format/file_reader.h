@@ -5,8 +5,6 @@
 #include "pod5_format/result.h"
 #include "pod5_format/signal_table_utils.h"
 
-#include <boost/filesystem/path.hpp>
-
 #include <cstdint>
 #include <memory>
 
@@ -29,10 +27,10 @@ private:
 
 class POD5_FORMAT_EXPORT FileLocation {
 public:
-    FileLocation(boost::filesystem::path const& file_path_, std::size_t offset_, std::size_t size_)
+    FileLocation(std::string const& file_path_, std::size_t offset_, std::size_t size_)
             : file_path(file_path_), offset(offset_), size(size_) {}
 
-    boost::filesystem::path file_path;
+    std::string file_path;
     std::size_t offset;
     std::size_t size;
 };
@@ -72,12 +70,12 @@ public:
 };
 
 POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(
-        boost::filesystem::path const& signal_path,
-        boost::filesystem::path const& reads_path,
+        std::string const& signal_path,
+        std::string const& reads_path,
         FileReaderOptions const& options);
 
 POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
-        boost::filesystem::path const& path,
+        std::string const& path,
         FileReaderOptions const& options);
 
 }  // namespace pod5
