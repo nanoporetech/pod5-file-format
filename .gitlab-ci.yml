@@ -196,9 +196,15 @@ linux-aarch64-gcc9-release-build:
   stage: build
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-  script:
     - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
     - export PATH="$(pwd)/python/Python.framework/Versions/Current/bin/:${PATH}"
+    - python3 -m venv .venv/
+    - source .venv/bin/activate
+    - pip install --upgrade pip wheel
+    - which python
+    - python --version
+  script:
+    - python3 -c "import sysconfig; print(sysconfig.get_platform())"
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir build
     - cd build
@@ -227,11 +233,17 @@ osx-x64-clang12-release-build:
     - conan
   variables:
     CONAN_PROFILE: "macos-x86_64-appleclang-12.0-release"
-    OUTPUT_SKU: "osx-x64"
     BUILD_PYTHON_WHEEL: "ON"
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.7.4", "3.8.9", "3.9.13", "3.10.5"]
+      - PYTHON_VERSION: ["3.7.4", "3.8.9", "3.9.13"]
+        MACOSX_DEPLOYMENT_TARGET: "10.9"
+        OUTPUT_SKU: "osx-10.9-x64"
+        POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_10_9_x86_64"
+      - PYTHON_VERSION: ["3.10.5"]
+        MACOSX_DEPLOYMENT_TARGET: "11.0"
+        OUTPUT_SKU: "osx-11.0-x64"
+        POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_11_0_x86_64"
 
 osx-arm64-clang13-release-build:
   extends: [".build-osx-common"]
@@ -240,19 +252,20 @@ osx-arm64-clang13-release-build:
     - xcode-13.3.1
     - high-cpu
     - conan
-  before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - python3 -m venv .venv/
-    - source .venv/bin/activate
-    - pip install --upgrade pip
   variables:
     CONAN_PROFILE: "macos-aarch64-appleclang-13.1-release"
-    OUTPUT_SKU: "osx-arm64"
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
     BUILD_PYTHON_WHEEL: "ON"
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.7.4", "3.8.9", "3.9.13", "3.10.5"]
+      - PYTHON_VERSION: ["3.7.4", "3.8.9", "3.9.13"]
+        MACOSX_DEPLOYMENT_TARGET: "10.9"
+        OUTPUT_SKU: "osx-10.9-arm64"
+        POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_10_9_universal2"
+      - PYTHON_VERSION: ["3.10.5"]
+        MACOSX_DEPLOYMENT_TARGET: "11.0"
+        OUTPUT_SKU: "osx-11.0-arm64"
+        POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_11_0_universal2"
 
 win-x64-msvc2017-release-build:
   stage: build
@@ -265,6 +278,7 @@ win-x64-msvc2017-release-build:
     - conan
   script:
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - pip install wheel
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
