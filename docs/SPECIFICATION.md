@@ -27,7 +27,7 @@ These can be stored in a bundled file, named <prefix>.pod5 and described below.
 
 ### Table Schemas
 
-POD5 files are contain several [arrow tables](https://arrow.apache.org/docs/python/data.html#tables).
+POD5 files are a custom wrapper format around arrow that contain several [arrow tables](https://arrow.apache.org/docs/python/data.html#tables).
 
 All the tables should have the following `custom_metadata` fields set on them:
 
