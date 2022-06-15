@@ -241,9 +241,9 @@ osx-x64-clang12-release-build:
         OUTPUT_SKU: "osx-10.9-x64"
         POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_10_9_x86_64"
       - PYTHON_VERSION: ["3.10.5"]
-        MACOSX_DEPLOYMENT_TARGET: "11.0"
-        OUTPUT_SKU: "osx-11.0-x64"
-        POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_11_0_x86_64"
+        MACOSX_DEPLOYMENT_TARGET: "10.9"
+        OUTPUT_SKU: "osx-10.9-x64"
+        POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_10.9_x86_64"
 
 osx-arm64-clang13-release-build:
   extends: [".build-osx-common"]
