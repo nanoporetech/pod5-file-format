@@ -47,6 +47,14 @@ gsl::span<std::uint8_t const> VbzSignalArray::Value(int64_t i) const {
     return gsl::make_span(value_ptr, value_length);
 }
 
+std::shared_ptr<arrow::Array> VbzSignalArray::ValueAsArray(int64_t i) const {
+    auto const array = static_cast<arrow::LargeBinaryArray const *>(storage().get());
+
+    auto offset = array->value_offset(i);
+    auto length = array->value_length(i);
+    return array->Slice(offset, length);
+}
+
 bool VbzSignalType::ExtensionEquals(const ExtensionType &other) const {
     // no parameters to consider
     return other.extension_name() == extension_name();
@@ -81,26 +89,25 @@ std::shared_ptr<UuidType> uuid() {
     return uuid;
 }
 
-struct ExtensionTypes {
-    ExtensionTypes() {}
-
-    ~ExtensionTypes() {}
-};
-
-ExtensionTypes *g_extension_types;
+std::atomic<std::size_t> g_pod5_register_count(0);
 
 pod5::Status register_extension_types() {
-    ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(uuid()));
-    ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(vbz_signal()));
+    if (++g_pod5_register_count == 1) {
+        ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(uuid()));
+        ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(vbz_signal()));
+    }
     return pod5::Status::OK();
 }
 
 pod5::Status unregister_extension_types() {
-    if (arrow::GetExtensionType("minknow.uuid")) {
-        ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.uuid"));
-    }
-    if (arrow::GetExtensionType("minknow.vbz")) {
-        ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.vbz"));
+    auto register_count = --g_pod5_register_count;
+    if (register_count == 0) {
+        if (arrow::GetExtensionType("minknow.uuid")) {
+            ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.uuid"));
+        }
+        if (arrow::GetExtensionType("minknow.vbz")) {
+            ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.vbz"));
+        }
     }
     return pod5::Status::OK();
 }

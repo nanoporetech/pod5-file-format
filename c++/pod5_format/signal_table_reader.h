@@ -13,6 +13,7 @@
 #include <gsl/gsl-lite.hpp>
 
 #include <atomic>
+#include <mutex>
 
 namespace arrow {
 class Schema;
@@ -41,6 +42,7 @@ public:
 
     /// \brief Extract a row of sample data into [samples], decompressing if required.
     Status extract_signal_row(std::size_t row_index, gsl::span<std::int16_t> samples) const;
+    Result<gsl::span<std::uint8_t const>> extract_signal_row_inplace(std::size_t row_index) const;
 
 private:
     SignalTableSchemaDescription m_field_locations;
@@ -51,7 +53,6 @@ class POD5_FORMAT_EXPORT SignalTableReader : public TableReader {
 public:
     SignalTableReader(std::shared_ptr<void>&& input_source,
                       std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-                      std::vector<pod5::SignalTableRecordBatch>&& table_batches,
                       SignalTableSchemaDescription field_locations,
                       SchemaMetadataDescription&& schema_metadata,
                       arrow::MemoryPool* pool);
@@ -76,11 +77,21 @@ public:
     Status extract_samples(gsl::span<std::uint64_t const> const& row_indices,
                            gsl::span<std::int16_t> const& output_samples) const;
 
+    /// \brief Extract the samples as written in the arrow table for a list of rows.
+    /// \param row_indices      The rows to query for samples.
+    Result<std::vector<gsl::span<std::uint8_t const>>> extract_samples_inplace(
+            gsl::span<std::uint64_t const> const& row_indices,
+            std::vector<std::uint32_t>& sample_count) const;
+
+    /// \brief Find the signal type of this writer
+    SignalType signal_type() const;
+
 private:
     SignalTableSchemaDescription m_field_locations;
     arrow::MemoryPool* m_pool;
 
-    std::vector<pod5::SignalTableRecordBatch> m_table_batches;
+    mutable std::mutex m_batch_get_mutex;
+    mutable std::vector<boost::optional<pod5::SignalTableRecordBatch>> m_table_batches;
 
     std::size_t m_batch_size;
 };

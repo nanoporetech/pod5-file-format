@@ -170,7 +170,7 @@ void AsyncSignalLoader::do_work(std::shared_ptr<SignalCacheWorkPackage> const& b
                                 std::uint32_t row_start,
                                 std::uint32_t row_end) {
     // First secure the sample counts column for the batch we are processing:
-    auto sample_counts = batch->read_batch().signal_column();
+    auto signal_column = batch->read_batch().signal_column();
 
     // And record where we are starting in the batch rows array, if it exists:
     for (std::uint32_t i = row_start; i < row_end; ++i) {
@@ -178,7 +178,7 @@ void AsyncSignalLoader::do_work(std::shared_ptr<SignalCacheWorkPackage> const& b
         auto const actual_batch_row = batch->get_batch_row_to_query(i);
         // Get the signal row data for the read:
         auto const signal_rows = std::static_pointer_cast<arrow::UInt64Array>(
-                sample_counts->value_slice(actual_batch_row));
+                signal_column->value_slice(actual_batch_row));
         auto const signal_rows_span =
                 gsl::make_span(signal_rows->raw_values(), signal_rows->length());
 

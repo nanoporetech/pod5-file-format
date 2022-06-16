@@ -70,11 +70,11 @@ public:
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();
 
-    /// \brief Compress the signal, intended for use with #add_pre_compressed_read
-    /// \param signal The input signal to be compressed.
-    /// \param[out] compressed_signal The compressed signal
-    Status compress_signal(gsl::span<std::int16_t> const& signal,
-                           std::vector<std::uint8_t> const& compressed_signal);
+    /// \brief Find the signal type of this writer
+    SignalType signal_type() const;
+
+    /// \brief Reserve space for future row writes, called automatically when a flush occurs.
+    Status reserve_rows();
 
 private:
     /// \brief Flush buffered data into the writer as a record batch.
