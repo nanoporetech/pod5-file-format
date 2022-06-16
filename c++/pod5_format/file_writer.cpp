@@ -69,24 +69,12 @@ public:
             return arrow::Status::Invalid("File writer closed, cannot write further data");
         }
 
-        arrow::TypedBufferBuilder<std::uint64_t> signal_row_builder(m_pool);
-
-        // Chunk and write each piece of signal to the file:
-        for (std::size_t chunk_start = 0; chunk_start < signal.size();
-             chunk_start += m_signal_chunk_size) {
-            std::size_t chunk_size =
-                    std::min<std::size_t>(signal.size() - chunk_start, m_signal_chunk_size);
-
-            auto const chunk_span = signal.subspan(chunk_start, chunk_size);
-
-            ARROW_ASSIGN_OR_RAISE(auto row_index,
-                                  m_signal_table_writer->add_signal(read_data.read_id, chunk_span));
-            ARROW_RETURN_NOT_OK(signal_row_builder.Append(row_index));
-        }
+        ARROW_ASSIGN_OR_RAISE(std::vector<std::uint64_t> signal_rows,
+                              add_signal(read_data.read_id, signal));
 
         // Write read data and signal row entries:
         auto read_table_row = m_read_table_writer->add_read(
-                read_data, gsl::make_span(signal_row_builder.data(), signal_row_builder.length()));
+                read_data, gsl::make_span(signal_rows.data(), signal_rows.size()));
         return read_table_row.status();
     }
 
@@ -101,6 +89,31 @@ public:
         return read_table_row.status();
     }
 
+    pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
+            boost::uuids::uuid const& read_id,
+            gsl::span<std::int16_t const> const& signal) {
+        if (!m_signal_table_writer || !m_read_table_writer) {
+            return arrow::Status::Invalid("File writer closed, cannot write further data");
+        }
+
+        std::vector<SignalTableRowIndex> signal_rows;
+        signal_rows.reserve((signal.size() / m_signal_chunk_size) + 1);
+
+        // Chunk and write each piece of signal to the file:
+        for (std::size_t chunk_start = 0; chunk_start < signal.size();
+             chunk_start += m_signal_chunk_size) {
+            std::size_t chunk_size =
+                    std::min<std::size_t>(signal.size() - chunk_start, m_signal_chunk_size);
+
+            auto const chunk_span = signal.subspan(chunk_start, chunk_size);
+
+            ARROW_ASSIGN_OR_RAISE(auto row_index,
+                                  m_signal_table_writer->add_signal(read_id, chunk_span));
+            signal_rows.push_back(row_index);
+        }
+        return signal_rows;
+    }
+
     pod5::Result<std::uint64_t> add_pre_compressed_signal(
             boost::uuids::uuid const& read_id,
             gsl::span<std::uint8_t const> const& signal_bytes,
@@ -112,6 +125,8 @@ public:
         return m_signal_table_writer->add_pre_compressed_signal(read_id, signal_bytes,
                                                                 sample_count);
     }
+
+    SignalType signal_type() const { return m_signal_table_writer->signal_type(); }
 
     pod5::Status close_read_table_writer() {
         if (m_read_table_writer) {
@@ -263,6 +278,12 @@ arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
     return m_impl->add_complete_read(read_data, signal_rows);
 }
 
+pod5::Result<std::vector<SignalTableRowIndex>> FileWriter::add_signal(
+        boost::uuids::uuid const& read_id,
+        gsl::span<std::int16_t const> const& signal) {
+    return m_impl->add_signal(read_id, signal);
+}
+
 pod5::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
         boost::uuids::uuid const& read_id,
         gsl::span<std::uint8_t const> const& signal_bytes,
@@ -287,6 +308,8 @@ pod5::Result<EndReasonDictionaryIndex> FileWriter::add_end_reason(
 pod5::Result<RunInfoDictionaryIndex> FileWriter::add_run_info(RunInfoData const& run_info_data) {
     return m_impl->add_run_info(run_info_data);
 }
+
+SignalType FileWriter::signal_type() const { return m_impl->signal_type(); }
 
 pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::MemoryPool* pool) {
     FileWriterImpl::DictionaryWriters writers;

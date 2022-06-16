@@ -33,6 +33,7 @@ pod5-convert-from-fast5 = "pod5_format_tools.pod5_convert_from_fast5:main"
 pod5-convert-fast5 = "pod5_format_tools.pod5_convert_from_fast5:main"
 pod5-convert-to-fast5 = "pod5_format_tools.pod5_convert_to_fast5:main"
 pod5-inspect = "pod5_format_tools.pod5_inspect:main"
+pod5-repack = "pod5_format_tools.pod5_repack:main"
 
 [tool.black]
 target-version = ["py37"]

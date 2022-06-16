@@ -128,6 +128,11 @@ Result<PoreData> ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
     auto pore_data = std::static_pointer_cast<arrow::StructArray>(pore_column()->dictionary());
     StructHelper hlp(pore_data);
 
+    if (pore_index >= pore_data->length()) {
+        return arrow::Status::IndexError("Invalid index ", pore_index, " for pore array of length ",
+                                         pore_data->length());
+    }
+
     return PoreData{hlp.get_uint16(m_field_locations->pore_fields.channel, pore_index),
                     hlp.get_uint8(m_field_locations->pore_fields.well, pore_index),
                     hlp.get_string(m_field_locations->pore_fields.pore_type, pore_index)};
@@ -139,6 +144,12 @@ Result<CalibrationData> ReadTableRecordBatch::get_calibration(
             std::static_pointer_cast<arrow::StructArray>(calibration_column()->dictionary());
     StructHelper hlp(calibration_data);
 
+    if (calibration_index >= calibration_data->length()) {
+        return arrow::Status::IndexError("Invalid index ", calibration_index,
+                                         " for calibration array of length ",
+                                         calibration_data->length());
+    }
+
     return CalibrationData{
             hlp.get_float(m_field_locations->calibration_fields.offset, calibration_index),
             hlp.get_float(m_field_locations->calibration_fields.scale, calibration_index)};
@@ -148,6 +159,12 @@ Result<EndReasonData> ReadTableRecordBatch::get_end_reason(std::int16_t end_reas
     auto end_reason_data =
             std::static_pointer_cast<arrow::StructArray>(end_reason_column()->dictionary());
     StructHelper hlp(end_reason_data);
+
+    if (end_reason_index >= end_reason_data->length()) {
+        return arrow::Status::IndexError("Invalid index ", end_reason_index,
+                                         " for end reason array of length ",
+                                         end_reason_data->length());
+    }
 
     return EndReasonData{
             hlp.get_string(m_field_locations->end_reason_fields.end_reason, end_reason_index),
@@ -159,6 +176,11 @@ Result<RunInfoData> ReadTableRecordBatch::get_run_info(std::int16_t run_info_ind
     auto run_info_data =
             std::static_pointer_cast<arrow::StructArray>(run_info_column()->dictionary());
     StructHelper hlp(run_info_data);
+
+    if (run_info_index >= run_info_data->length()) {
+        return arrow::Status::IndexError("Invalid index ", run_info_index,
+                                         " for run info array of length ", run_info_data->length());
+    }
 
     ARROW_ASSIGN_OR_RAISE(
             auto context_tags,
@@ -204,7 +226,20 @@ ReadTableReader::ReadTableReader(std::shared_ptr<void>&& input_source,
         : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
           m_field_locations(field_locations) {}
 
+ReadTableReader::ReadTableReader(ReadTableReader&& other)
+        : TableReader(std::move(other)),
+          m_field_locations(std::move(other.m_field_locations)),
+          m_sorted_file_read_ids(std::move(other.m_sorted_file_read_ids)) {}
+
+ReadTableReader& ReadTableReader::operator=(ReadTableReader&& other) {
+    static_cast<TableReader&>(*this) = std::move(static_cast<TableReader&>(*this));
+    m_field_locations = std::move(other.m_field_locations);
+    m_sorted_file_read_ids = std::move(other.m_sorted_file_read_ids);
+    return *this;
+}
+
 Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) const {
+    std::lock_guard<std::mutex> l(m_batch_get_mutex);
     auto record_batch = reader()->ReadRecordBatch(i);
     if (!record_batch.ok()) {
         return record_batch.status();

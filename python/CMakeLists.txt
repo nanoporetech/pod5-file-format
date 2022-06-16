@@ -24,7 +24,7 @@ else()
     set(os_str "linux-x64")
 endif()
 
-set(wheel_output_dir "${CMAKE_CURRENT_BINARY_DIR}/wheel")
+set(wheel_output_dir "${CMAKE_CURRENT_BINARY_DIR}/wheel_${POD5_FULL_VERSION}")
 file(MAKE_DIRECTORY ${wheel_output_dir})
 
 add_custom_command(

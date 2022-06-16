@@ -4,6 +4,7 @@
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_table_reader.h"
 
+#include <arrow/io/concurrency.h>
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
 #include <boost/uuid/uuid_io.hpp>
@@ -60,9 +61,17 @@ public:
         return m_signal_table_reader.extract_samples(row_indices, output_samples);
     }
 
+    Result<std::vector<gsl::span<std::uint8_t const>>> extract_samples_inplace(
+            gsl::span<std::uint64_t const> const& row_indices,
+            std::vector<std::uint32_t>& sample_count) const override {
+        return m_signal_table_reader.extract_samples_inplace(row_indices, sample_count);
+    }
+
     Result<FileLocation> read_table_location() const override { return m_read_table_location; }
 
     Result<FileLocation> signal_table_location() const override { return m_signal_table_location; }
+
+    SignalType signal_type() const override { return m_signal_table_reader.signal_type(); }
 
 private:
     FileLocation m_read_table_location;
@@ -101,7 +110,7 @@ pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(std::string con
             FileLocation(signal_path, 0, signal_table_size), std::move(signal_table_reader));
 }
 
-class SubFile : public arrow::io::RandomAccessFile {
+class SubFile : public arrow::io::internal::RandomAccessFileConcurrencyWrapper<SubFile> {
 public:
     SubFile(std::shared_ptr<arrow::io::RandomAccessFile>&& main_file,
             std::int64_t sub_file_offset,
@@ -110,31 +119,42 @@ public:
               m_sub_file_offset(sub_file_offset),
               m_sub_file_length(sub_file_length) {}
 
-    arrow::Status Close() override { return m_file->Close(); }
+protected:
+    arrow::Status DoClose() { return m_file->Close(); }
 
     bool closed() const override { return m_file->closed(); }
 
-    arrow::Result<std::int64_t> Tell() const override {
+    arrow::Result<std::int64_t> DoTell() const {
         ARROW_ASSIGN_OR_RAISE(auto t, m_file->Tell());
         return t - m_sub_file_offset;
     }
 
-    arrow::Status Seek(int64_t offset) override {
+    arrow::Status DoSeek(int64_t offset) {
         offset += m_sub_file_offset;
         return m_file->Seek(offset);
     }
 
-    arrow::Result<std::int64_t> Read(int64_t length, void* data) override {
+    arrow::Result<std::int64_t> DoRead(int64_t length, void* data) {
         return m_file->Read(length, data);
     }
 
-    arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t length) override {
+    arrow::Result<std::shared_ptr<arrow::Buffer>> DoRead(int64_t length) {
         return m_file->Read(length);
     }
 
-    arrow::Result<std::int64_t> GetSize() override { return m_sub_file_length; }
+    Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out) {
+        return m_file->ReadAt(position + m_sub_file_offset, nbytes, out);
+    }
+
+    Result<std::shared_ptr<arrow::Buffer>> DoReadAt(int64_t position, int64_t nbytes) {
+        return m_file->ReadAt(position + m_sub_file_offset, nbytes);
+    }
+
+    arrow::Result<std::int64_t> DoGetSize() { return m_sub_file_length; }
 
 private:
+    friend RandomAccessFileConcurrencyWrapper<SubFile>;
+
     std::shared_ptr<arrow::io::RandomAccessFile> m_file;
     std::int64_t m_sub_file_offset;
     std::int64_t m_sub_file_length;

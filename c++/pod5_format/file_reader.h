@@ -10,7 +10,8 @@
 
 namespace arrow {
 class MemoryPool;
-}
+class Array;
+}  // namespace arrow
 
 namespace pod5 {
 
@@ -65,17 +66,26 @@ public:
     virtual Status extract_samples(gsl::span<std::uint64_t const> const& row_indices,
                                    gsl::span<std::int16_t> const& output_samples) const = 0;
 
+    /// \brief Extract the samples as written in the arrow table for a list of rows.
+    /// \param row_indices      The rows to query for samples.
+    /// \param output_samples   The output samples from the rows.
+    virtual Result<std::vector<gsl::span<std::uint8_t const>>> extract_samples_inplace(
+            gsl::span<std::uint64_t const> const& row_indices,
+            std::vector<std::uint32_t>& sample_count) const = 0;
+
     virtual Result<FileLocation> read_table_location() const = 0;
     virtual Result<FileLocation> signal_table_location() const = 0;
+
+    virtual SignalType signal_type() const = 0;
 };
 
 POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(
         std::string const& signal_path,
         std::string const& reads_path,
-        FileReaderOptions const& options);
+        FileReaderOptions const& options = {});
 
 POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
         std::string const& path,
-        FileReaderOptions const& options);
+        FileReaderOptions const& options = {});
 
 }  // namespace pod5

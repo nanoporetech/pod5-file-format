@@ -15,6 +15,25 @@ namespace pod5 {
 
 namespace {
 namespace visitors {
+class reserve_rows : boost::static_visitor<Status> {
+public:
+    reserve_rows(std::size_t row_count, std::size_t approx_read_samples)
+            : m_row_count(row_count), m_approx_read_samples(approx_read_samples) {}
+
+    Status operator()(UncompressedSignalBuilder& builder) const {
+        ARROW_RETURN_NOT_OK(builder.signal_builder->Reserve(m_row_count));
+        return builder.signal_data_builder->Reserve(m_row_count * m_approx_read_samples);
+    }
+
+    Status operator()(VbzSignalBuilder& builder) const {
+        ARROW_RETURN_NOT_OK(builder.signal_builder->Reserve(m_row_count));
+        return builder.signal_builder->ReserveData(m_row_count * m_approx_read_samples);
+    }
+
+    std::size_t m_row_count;
+    std::size_t m_approx_read_samples;
+};
+
 class append_pre_compressed_signal : boost::static_visitor<Status> {
 public:
     append_pre_compressed_signal(gsl::span<std::uint8_t const> const& signal) : m_signal(signal) {}
@@ -157,6 +176,8 @@ Status SignalTableWriter::close() {
     return Status::OK();
 }
 
+SignalType SignalTableWriter::signal_type() const { return m_field_locations.signal_type; }
+
 Status SignalTableWriter::write_batch() {
     if (m_current_batch_row_count == 0) {
         return Status::OK();
@@ -180,7 +201,19 @@ Status SignalTableWriter::write_batch() {
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    return Status();
+
+    // Reserve space for next batch:
+    return reserve_rows();
+}
+
+Status SignalTableWriter::reserve_rows() {
+    ARROW_RETURN_NOT_OK(m_read_id_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_samples_builder->Reserve(m_table_batch_size));
+
+    static constexpr std::uint32_t APPROX_READ_SIZE = 102'400;
+
+    return boost::apply_visitor(visitors::reserve_rows{m_table_batch_size, APPROX_READ_SIZE},
+                                m_signal_builder);
 }
 
 Result<SignalTableWriter> make_signal_table_writer(
@@ -210,8 +243,12 @@ Result<SignalTableWriter> make_signal_table_writer(
         };
     }
 
-    return SignalTableWriter(std::move(writer), std::move(schema), std::move(signal_builder),
-                             field_locations, table_batch_size, pool);
+    auto signal_table_writer =
+            SignalTableWriter(std::move(writer), std::move(schema), std::move(signal_builder),
+                              field_locations, table_batch_size, pool);
+
+    RETURN_NOT_OK(signal_table_writer.reserve_rows());
+    return signal_table_writer;
 }
 
 }  // namespace pod5

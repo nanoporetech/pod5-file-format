@@ -147,7 +147,20 @@ Status ReadTableWriter::write_batch() {
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    return Status();
+    return reserve_rows();
+}
+
+Status ReadTableWriter::reserve_rows() {
+    ARROW_RETURN_NOT_OK(m_read_id_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_signal_array_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_signal_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_read_number_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_start_sample_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_median_before_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_pore_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_calibration_builder->Reserve(m_table_batch_size));
+    ARROW_RETURN_NOT_OK(m_end_reason_builder->Reserve(m_table_batch_size));
+    return m_run_info_builder->Reserve(m_table_batch_size);
 }
 
 Result<ReadTableWriter> make_read_table_writer(
@@ -170,9 +183,13 @@ Result<ReadTableWriter> make_read_table_writer(
 
     ARROW_ASSIGN_OR_RAISE(auto writer, arrow::ipc::MakeFileWriter(sink, schema, options, metadata));
 
-    return ReadTableWriter(std::move(writer), std::move(schema), field_locations, table_batch_size,
-                           pore_writer, calibration_writer, end_reason_writer, run_info_writer,
-                           pool);
+    auto read_table_writer = ReadTableWriter(std::move(writer), std::move(schema), field_locations,
+                                             table_batch_size, pore_writer, calibration_writer,
+                                             end_reason_writer, run_info_writer, pool);
+
+    ARROW_RETURN_NOT_OK(read_table_writer.reserve_rows());
+
+    return read_table_writer;
 }
 
 }  // namespace pod5

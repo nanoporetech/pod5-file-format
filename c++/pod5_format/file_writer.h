@@ -66,6 +66,10 @@ public:
     pod5::Status add_complete_read(ReadData const& read_data,
                                    gsl::span<std::uint64_t const> const& signal_rows);
 
+    pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
+            boost::uuids::uuid const& read_id,
+            gsl::span<std::int16_t const> const& signal);
+
     pod5::Result<SignalTableRowIndex> add_pre_compressed_signal(
             boost::uuids::uuid const& read_id,
             gsl::span<std::uint8_t const> const& signal_bytes,
@@ -77,6 +81,8 @@ public:
     pod5::Result<EndReasonDictionaryIndex> add_end_reason(EndReasonData const& end_reason_data);
     pod5::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data);
 
+    SignalType signal_type() const;
+
 private:
     std::unique_ptr<FileWriterImpl> m_impl;
 };
@@ -85,11 +91,11 @@ POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_split_file_w
         std::string const& signal_path,
         std::string const& reads_path,
         std::string const& writing_software_name,
-        FileWriterOptions const& options);
+        FileWriterOptions const& options = {});
 
 POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
         std::string const& path,
         std::string const& writing_software_name,
-        FileWriterOptions const& options);
+        FileWriterOptions const& options = {});
 
 }  // namespace pod5

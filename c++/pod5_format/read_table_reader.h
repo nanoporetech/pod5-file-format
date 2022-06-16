@@ -12,6 +12,8 @@
 #include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
+#include <mutex>
+
 namespace arrow {
 class Schema;
 namespace io {
@@ -62,6 +64,9 @@ public:
                     SchemaMetadataDescription&& schema_metadata,
                     arrow::MemoryPool* pool);
 
+    ReadTableReader(ReadTableReader&& other);
+    ReadTableReader& operator=(ReadTableReader&& other);
+
     Result<ReadTableRecordBatch> read_record_batch(std::size_t i) const;
 
     Status build_read_id_lookup();
@@ -79,6 +84,8 @@ private:
 
     std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
     std::vector<IndexData> m_sorted_file_read_ids;
+
+    mutable std::mutex m_batch_get_mutex;
 };
 
 POD5_FORMAT_EXPORT Result<ReadTableReader> make_read_table_reader(

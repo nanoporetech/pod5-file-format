@@ -49,6 +49,9 @@ public:
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();
 
+    /// \brief Reserve space for future row writes, called automatically when a flush occurs.
+    Status reserve_rows();
+
 private:
     /// \brief Flush buffered data into the writer as a record batch.
     Status write_batch();

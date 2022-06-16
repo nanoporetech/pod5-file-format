@@ -374,20 +374,6 @@ class ReadBatchPyArrow:
                     self._reader, self, i, batch_signal_cache=signal_cache
                 )
 
-    @property
-    def read_id_column(self):
-        """
-        Get the column of read ids for this batch
-        """
-        return self._columns.read_id
-
-    @property
-    def read_number_column(self):
-        """
-        Get the column of read numbers for this batch
-        """
-        return self._columns.read_number
-
     def get_read(self, row):
         return ReadRowPyArrow(self._reader, self, row)
 
