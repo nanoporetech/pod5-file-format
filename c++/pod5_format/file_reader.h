@@ -53,7 +53,7 @@ public:
     virtual Result<SignalTableRecordBatch> read_signal_record_batch(std::size_t i) const = 0;
     virtual std::size_t num_signal_record_batches() const = 0;
     virtual Result<std::size_t> signal_batch_for_row_id(std::size_t row,
-                                                        std::size_t* batch_start_row) const = 0;
+                                                        std::size_t* batch_row) const = 0;
     /// \brief Find the number of samples in a given list of rows.
     /// \param row_indices      The rows to query for sample ount.
     /// \returns The sum of all sample counts on input rows.

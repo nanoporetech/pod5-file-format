@@ -148,11 +148,11 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
 }
 
 Result<std::size_t> SignalTableReader::signal_batch_for_row_id(std::uint64_t row,
-                                                               std::size_t* batch_start_row) const {
+                                                               std::size_t* batch_row) const {
     auto batch = row / m_batch_size;
 
-    if (batch_start_row) {
-        *batch_start_row = row - (batch * m_batch_size);
+    if (batch_row) {
+        *batch_row = row - (batch * m_batch_size);
     }
 
     if (batch >= num_record_batches()) {
