@@ -17,8 +17,11 @@ SCENARIO("C API") {
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
     auto read_id = uuid_gen();
-    std::vector<int16_t> signal(20'000);
-    std::iota(signal.begin(), signal.end(), 0);
+    std::vector<int16_t> signal_1(10);
+    std::iota(signal_1.begin(), signal_1.end(), -20000);
+
+    std::vector<int16_t> signal_2(20);
+    std::iota(signal_2.begin(), signal_2.end(), 0);
 
     std::size_t read_count = 0;
 
@@ -73,32 +76,37 @@ SCENARIO("C API") {
         float median_before = 200.0f;
         auto read_id_array = (read_id_t const*)read_id.begin();
 
-        std::int16_t const* signal_arr[] = {signal.data()};
-        std::uint32_t signal_size[] = {(std::uint32_t)signal.size()};
+        {
+            std::int16_t const* signal_arr[] = {signal_1.data()};
+            std::uint32_t signal_size[] = {(std::uint32_t)signal_1.size()};
 
-        CHECK(pod5_add_reads(combined_file, 1, read_id_array, &pore_id, &calibration_id,
-                             &read_number, &start_sample, &median_before, &end_reason_id,
-                             &run_info_id, signal_arr, signal_size) == POD5_OK);
-        read_count += 1;
+            CHECK(pod5_add_reads(combined_file, 1, read_id_array, &pore_id, &calibration_id,
+                                 &read_number, &start_sample, &median_before, &end_reason_id,
+                                 &run_info_id, signal_arr, signal_size) == POD5_OK);
+            read_count += 1;
+        }
 
-        auto compressed_read_max_size = pod5_vbz_compressed_signal_max_size(signal.size());
-        std::vector<char> compressed_signal(compressed_read_max_size);
-        char const* compressed_data[] = {compressed_signal.data()};
-        char const** compressed_data_ptr = compressed_data;
-        std::size_t compressed_size[] = {compressed_signal.size()};
-        std::size_t const* compressed_size_ptr = compressed_size;
-        std::uint32_t const* signal_size_ptr = signal_size;
-        pod5_vbz_compress_signal(signal.data(), signal.size(), compressed_signal.data(),
-                                 compressed_size);
+        {
+            auto compressed_read_max_size = pod5_vbz_compressed_signal_max_size(signal_2.size());
+            std::vector<char> compressed_signal(compressed_read_max_size);
+            char const* compressed_data[] = {compressed_signal.data()};
+            char const** compressed_data_ptr = compressed_data;
+            std::size_t compressed_size[] = {compressed_signal.size()};
+            std::size_t const* compressed_size_ptr = compressed_size;
+            std::uint32_t signal_size[] = {(std::uint32_t)signal_2.size()};
+            std::uint32_t const* signal_size_ptr = signal_size;
+            pod5_vbz_compress_signal(signal_2.data(), signal_2.size(), compressed_signal.data(),
+                                     compressed_size);
 
-        std::size_t signal_counts = 1;
+            std::size_t signal_counts = 1;
 
-        CHECK(pod5_add_reads_pre_compressed(combined_file, 1, read_id_array, &pore_id,
-                                            &calibration_id, &read_number, &start_sample,
-                                            &median_before, &end_reason_id, &run_info_id,
-                                            &compressed_data_ptr, &compressed_size_ptr,
-                                            &signal_size_ptr, &signal_counts) == POD5_OK);
-        read_count += 1;
+            CHECK(pod5_add_reads_pre_compressed(combined_file, 1, read_id_array, &pore_id,
+                                                &calibration_id, &read_number, &start_sample,
+                                                &median_before, &end_reason_id, &run_info_id,
+                                                &compressed_data_ptr, &compressed_size_ptr,
+                                                &signal_size_ptr, &signal_counts) == POD5_OK);
+            read_count += 1;
+        }
 
         CHECK(pod5_close_and_free_writer(combined_file) == POD5_OK);
         CHECK(pod5_get_error_no() == POD5_OK);
@@ -160,7 +168,13 @@ SCENARIO("C API") {
                                            signal_row_indices.data(),
                                            signal_row_info.data()) == POD5_OK);
 
+            auto signal = signal_1;
+            if (row == 1) {
+                signal = signal_2;
+            }
+
             std::vector<int16_t> read_signal(signal_row_info.front()->stored_sample_count);
+            REQUIRE(signal_row_info.front()->stored_sample_count == signal.size());
             CHECK(pod5_get_signal(combined_file, signal_row_info.front(),
                                   signal_row_info.front()->stored_sample_count,
                                   read_signal.data()) == POD5_OK);

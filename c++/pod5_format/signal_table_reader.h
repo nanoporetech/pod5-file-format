@@ -62,8 +62,7 @@ public:
 
     Result<SignalTableRecordBatch> read_record_batch(std::size_t i) const;
 
-    Result<std::size_t> signal_batch_for_row_id(std::uint64_t row,
-                                                std::size_t* batch_start_row) const;
+    Result<std::size_t> signal_batch_for_row_id(std::uint64_t row, std::size_t* batch_row) const;
 
     /// \brief Find the number of samples in a given list of rows.
     /// \param row_indices      The rows to query for sample ount.

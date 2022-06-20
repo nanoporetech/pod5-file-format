@@ -15,7 +15,6 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <chrono>
-#include <iostream>
 
 //---------------------------------------------------------------------------------------------------------------------
 struct Pod5FileReader {
@@ -569,34 +568,22 @@ pod5_error_t pod5_get_signal_row_info(Pod5FileReader* reader,
          signal_rows_sorted.size();) {  // No increment here, we do it below when we succeed.
         auto const start_row = signal_rows_sorted[completed_rows];
 
-        std::size_t batch_start_row = 0;
-        POD5_C_ASSIGN_OR_RAISE(std::size_t row_batch, (reader->reader->signal_batch_for_row_id(
-                                                              start_row, &batch_start_row)));
+        std::size_t batch_row = 0;
+        POD5_C_ASSIGN_OR_RAISE(std::size_t row_batch,
+                               (reader->reader->signal_batch_for_row_id(start_row, &batch_row)));
         POD5_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(row_batch));
-        auto const batch_num_rows = batch.num_rows();
 
-        // Try to find answers for as many of the rows as possible, incrementing for loop index when we succeed
-        while (completed_rows < signal_rows_sorted.size()) {
-            auto const row = signal_rows_sorted[completed_rows];
-            if (row >= (batch_start_row + batch_num_rows)) {
-                break;
-            }
+        auto output = std::make_unique<SignalRowInfoCHelper>(batch);
 
-            auto const batch_row_index = row - batch_start_row;
+        output->batch_index = start_row;
+        output->batch_row_index = batch_row;
 
-            auto output = std::make_unique<SignalRowInfoCHelper>(batch);
+        auto samples = batch.samples_column();
+        output->stored_sample_count = samples->Value(batch_row);
+        POD5_C_ASSIGN_OR_RAISE(output->stored_byte_count, batch.samples_byte_count(batch_row));
 
-            output->batch_index = row_batch;
-            output->batch_row_index = batch_row_index;
-
-            auto samples = batch.samples_column();
-            output->stored_sample_count = samples->Value(batch_row_index);
-            POD5_C_ASSIGN_OR_RAISE(output->stored_byte_count,
-                                   batch.samples_byte_count(batch_row_index));
-
-            signal_row_info[completed_rows] = output.release();
-            completed_rows += 1;
-        }
+        signal_row_info[completed_rows] = output.release();
+        completed_rows += 1;
     }
 
     return POD5_OK;

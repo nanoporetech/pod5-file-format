@@ -47,8 +47,8 @@ public:
     }
 
     Result<std::size_t> signal_batch_for_row_id(std::size_t row,
-                                                std::size_t* batch_start_row) const override {
-        return m_signal_table_reader.signal_batch_for_row_id(row, batch_start_row);
+                                                std::size_t* batch_row) const override {
+        return m_signal_table_reader.signal_batch_for_row_id(row, batch_row);
     }
 
     Result<std::size_t> extract_sample_count(
