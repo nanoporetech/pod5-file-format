@@ -12,12 +12,10 @@ not actually installed there. See INSTALL.md for further details.
 
 """
 
-import os
 from pathlib import Path
-import platform
-from setuptools import find_packages, setup
-from setuptools.dist import Distribution
 import sys
+
+from setuptools import find_packages, setup
 
 PYTHON_ROOT = Path(__file__).resolve().parent
 
@@ -35,7 +33,10 @@ setup(
     url="http://www.nanoporetech.com",
     packages=find_packages(),
     install_requires=[
-        "pod5_format",
         "h5py",
+        "jsonschema",
+        "ont-fast5-api",
+        "pandas",
+        "pod5_format",
     ],
 )

@@ -1,3 +1,7 @@
+"""
+Tool for converting fast5 files to the pod5 format
+"""
+
 import argparse
 from collections import namedtuple
 import datetime
@@ -5,6 +9,8 @@ from pathlib import Path
 import sys
 import time
 import uuid
+import multiprocessing as mp
+from queue import Empty
 
 import h5py
 import iso8601
@@ -12,8 +18,6 @@ import numpy
 import more_itertools
 from ont_fast5_api.compression_settings import register_plugin
 import pod5_format
-import multiprocessing as mp
-from queue import Empty
 
 register_plugin()
 

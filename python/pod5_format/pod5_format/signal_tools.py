@@ -1,11 +1,14 @@
-import ctypes
+"""
+Tools for handling pod5 signals
+"""
 
 import numpy
+import pod5_format.pod5_format_pybind as pod5_bind
 
-import pod5_format.pod5_format_pybind
 
-
-def vbz_decompress_signal(compressed_signal, sample_count):
+def vbz_decompress_signal(
+    compressed_signal: numpy.ndarray, sample_count: int
+) -> numpy.ndarray:
     """
     Decompress a numpy array of compressed signal data
 
@@ -22,14 +25,16 @@ def vbz_decompress_signal(compressed_signal, sample_count):
     """
     signal = numpy.empty(sample_count, dtype="i2")
 
-    pod5_format.pod5_format_pybind.decompress_signal(
+    pod5_bind.decompress_signal(
         compressed_signal,
         signal,
     )
     return signal
 
 
-def vbz_decompress_signal_into(compressed_signal, output_array):
+def vbz_decompress_signal_into(
+    compressed_signal: numpy.ndarray, output_array: numpy.ndarray
+) -> numpy.ndarray:
     """
     Decompress a numpy array of compressed signal data
 
@@ -45,14 +50,14 @@ def vbz_decompress_signal_into(compressed_signal, output_array):
     A decompressed numpy int16 array
     """
 
-    pod5_format.pod5_format_pybind.decompress_signal(
+    pod5_bind.decompress_signal(
         compressed_signal,
         output_array,
     )
     return output_array
 
 
-def vbz_compress_signal(signal):
+def vbz_compress_signal(signal: numpy.ndarray) -> numpy.ndarray:
     """
     Compress a numpy array of signal data
 
@@ -66,12 +71,10 @@ def vbz_compress_signal(signal):
     A compressed numpy byte array
     """
 
-    max_signal_size = pod5_format.pod5_format_pybind.vbz_compressed_signal_max_size(
-        len(signal)
-    )
+    max_signal_size = pod5_bind.vbz_compressed_signal_max_size(len(signal))
     signal_bytes = numpy.zeros(max_signal_size, dtype="u1")
 
-    size = pod5_format.pod5_format_pybind.compress_signal(signal, signal_bytes)
+    size = pod5_bind.compress_signal(signal, signal_bytes)
 
     signal_bytes = numpy.resize(signal_bytes, size)
     return signal_bytes

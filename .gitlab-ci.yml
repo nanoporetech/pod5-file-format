@@ -345,9 +345,10 @@ build-archive:
     - source .venv/bin/activate
   script:
     - pip install ./${WHEEL_GLOB}
-    - cd python
     - pip install pytest pytest-cov
-    - pytest
+    - pytest python/pod5_format/ -v
+    - pip install pod5_format_tools*.whl
+    - pytest python/pod5_format_tools/ -v
 
     
 tools-linux-x64:
@@ -379,6 +380,7 @@ pytest-linux-x64:
     - linux
   needs:
     - linux-x64-gcc9-release-build
+    - build-tools
   variables:
     WHEEL_GLOB: "pod5_format-*cp39*.whl"
 
@@ -390,6 +392,7 @@ pytest-linux-aarch64:
     - high-cpu
   needs:
     - linux-aarch64-gcc9-release-build
+    - build-tools
   variables:
     WHEEL_GLOB: "pod5_format-*cp39*.whl"
 
@@ -402,6 +405,7 @@ pytest-osx-x64:
     - conan
   needs:
     - osx-x64-clang12-release-build
+    - build-tools
   variables:
     WHEEL_GLOB: "pod5_format-*cp39*.whl"
 
@@ -414,6 +418,7 @@ pytest-win-x64:
     - conan
   needs:
     - win-x64-msvc2017-release-build
+    - build-tools
   before_script:
     - python -m venv .venv/
     - source .venv/Scripts/activate

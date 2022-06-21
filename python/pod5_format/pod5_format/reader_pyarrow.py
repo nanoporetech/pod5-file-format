@@ -1,21 +1,19 @@
-import ctypes
+"""
+Tools for accessing POD5 data from PyArrow files
+"""
+
 from collections import namedtuple
-from datetime import datetime
+import mmap
+from pathlib import Path
+import typing
 from uuid import UUID
 
 import numpy
+import pod5_format.pod5_format_pybind as pod5_bind
 import pyarrow as pa
 
-import pod5_format.pod5_format_pybind
 from .api_utils import pack_read_ids
 from .signal_tools import vbz_decompress_signal_into, vbz_decompress_signal
-from .reader_utils import (
-    PoreData,
-    CalibrationData,
-    EndReasonData,
-    RunInfoData,
-    SignalRowInfo,
-)
 
 Columns = namedtuple(
     "Columns",
@@ -32,6 +30,38 @@ Columns = namedtuple(
     ],
 )
 SignalColumns = namedtuple("SignalColumns", ["signal", "samples"])
+
+SignalRowInfo = namedtuple(
+    "SignalRowInfo", ["batch_index", "batch_row_index", "sample_count", "byte_count"]
+)
+PoreData = namedtuple("PoreData", ["channel", "well", "pore_type"])
+CalibrationData = namedtuple("CalibrationData", ["offset", "scale"])
+EndReasonData = namedtuple("EndReasonData", ["name", "forced"])
+RunInfoData = namedtuple(
+    "RunInfoData",
+    [
+        "acquisition_id",
+        "acquisition_start_time",
+        "adc_max",
+        "adc_min",
+        "context_tags",
+        "experiment_name",
+        "flow_cell_id",
+        "flow_cell_product_code",
+        "protocol_name",
+        "protocol_run_id",
+        "protocol_start_time",
+        "sample_id",
+        "sample_rate",
+        "sequencing_kit",
+        "sequencer_position",
+        "sequencer_position_type",
+        "software",
+        "system_name",
+        "system_type",
+        "tracking_id",
+    ],
+)
 
 
 class ReadRowPyArrow:
@@ -232,7 +262,7 @@ class ReadRowPyArrow:
             output_slice = output[
                 current_sample_index : current_sample_index + current_row_count
             ]
-            if self._reader._is_vbz_compressed:
+            if self._reader.is_vbz_compressed:
                 vbz_decompress_signal_into(
                     memoryview(signal[batch_row_index].as_buffer()), output_slice
                 )
@@ -262,7 +292,6 @@ class ReadRowPyArrow:
         -------
         A numpy array of signal data with int16 type.
         """
-        output = []
         chunk_abs_row_index = self._batch._columns.signal[self._row][i]
         return self._get_signal_for_row(chunk_abs_row_index.as_py())
 
@@ -311,20 +340,20 @@ class ReadRowPyArrow:
             signal_row - (sig_batch_idx * sig_row_count),
         )
 
-    def _get_signal_for_row(self, r):
+    def _get_signal_for_row(self, signal_row):
         """
         Find the signal data for a given absolute signal row index
         """
-        batch, batch_index, batch_row_index = self._find_signal_row_index(r)
+        batch, _, batch_row_index = self._find_signal_row_index(signal_row)
 
         signal = batch.signal
-        if self._reader._is_vbz_compressed:
+        if self._reader.is_vbz_compressed:
             sample_count = batch.samples[batch_row_index].as_py()
             return vbz_decompress_signal(
                 memoryview(signal[batch_row_index].as_buffer()), sample_count
             )
-        else:
-            return signal.to_numpy()
+
+        return signal.to_numpy()
 
 
 class ReadBatchPyArrow:
@@ -340,7 +369,7 @@ class ReadBatchPyArrow:
 
         self._columns = Columns(*[self._batch.column(name) for name in Columns._fields])
 
-    def set_cached_siganl(self, signal_cache):
+    def set_cached_signal(self, signal_cache):
         self._signal_cache = signal_cache
 
     def set_selected_batch_rows(self, selected_batch_rows):
@@ -383,27 +412,106 @@ class ReadBatchPyArrow:
 
     @property
     def read_id_column(self):
+        """
+        Get the column of read ids for this batch
+        """
         if self._selected_batch_rows is not None:
             return self._columns.read_id.take(self._selected_batch_rows)
         return self._columns.read_id
 
     @property
     def read_number_column(self):
+        """
+        Get the column of read numbers for this batch
+        """
         if self._selected_batch_rows is not None:
             return self._columns.read_number.take(self._selected_batch_rows)
         return self._columns.read_number
 
     @property
     def cached_sample_count_column(self):
+        """
+        Get the sample count from the cached signal
+        """
         if not self._signal_cache:
             raise Exception("No cached signal data available")
         return self._signal_cache.sample_count
 
     @property
     def cached_samples_column(self):
+        """
+        Get the sample from the cached signal
+        """
         if not self._signal_cache:
             raise Exception("No cached signal data available")
         return self._signal_cache.samples
+
+
+class ArrowReaderHandle:
+    """Class for handling arrow file handles and memory view mapping"""
+
+    def __init__(
+        self, path: Path, location: typing.Optional[pod5_bind.EmbeddedFileData] = None
+    ) -> None:
+        """
+        Open an arrow file at the given path. If location is given perform the
+        table splitting of combined arrow files into separate read and signal readers.
+        """
+        self._path = path
+        self._location = location
+
+        self._reader: typing.Optional[pa.ipc.RecordBatchFileReader] = None
+        self._fh: typing.Optional[typing.IO] = None
+
+        self._open_arrow_reader()
+
+    @property
+    def reader(self) -> pa.ipc.RecordBatchFileReader:
+        """Return the pyarrow file reader object"""
+        if self._reader is None:
+            self._open_arrow_reader()
+
+        if self._reader is not None:
+            return self._reader
+
+        raise RuntimeError("Could not open pyarrow reader")
+
+    def _open_arrow_reader(self) -> None:
+        """
+        Open the arrow file. If location is given take a non-copying slice of the
+        file.
+        """
+        if self._reader is not None:
+            return
+
+        if self._location is None:
+            self._reader = pa.ipc.open_file(self._path)
+        else:
+            self._fh = self._path.open("r")
+            _mmap = mmap.mmap(self._fh.fileno(), length=0, access=mmap.ACCESS_READ)
+            map_view = memoryview(_mmap)
+            sub_file = map_view[
+                self._location.offset : self._location.offset + self._location.length
+            ]
+            self._reader = pa.ipc.open_file(pa.BufferReader(sub_file))
+
+    def close(self):
+        """
+        Cleanly close the open file handles and memory views
+        """
+        self._reader = None
+        if self._fh is not None:
+            self._fh.close()
+            self._fh = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_details):
+        self.close()
+
+    def __del__(self) -> None:
+        self.close()
 
 
 class FileReader:
@@ -411,7 +519,12 @@ class FileReader:
     A reader for POD5 data, opened using [open_combined_file], [open_split_file].
     """
 
-    def __init__(self, reader, read_reader, signal_reader):
+    def __init__(
+        self,
+        reader: pod5_bind.Pod5FileReader,
+        read_reader: ArrowReaderHandle,
+        signal_reader: ArrowReaderHandle,
+    ):
         self._reader = reader
         self._read_reader = read_reader
         self._signal_reader = signal_reader
@@ -432,21 +545,30 @@ class FileReader:
             ).num_rows
 
     def __del__(self):
-        self._reader.close()
+        self.close()
+        self._reader = None
+        self._signal_reader = None
+        self._read_reader = None
 
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, *exc_details):
         self.close()
 
     def close(self):
-        self._cached_signal_batches = None
-        self._read_reader.close()
-        self._read_reader = None
+        """Close files handles"""
         self._signal_reader.close()
-        self._signal_reader = None
+        self._read_reader.close()
         self._reader.close()
+        self._cached_signal_batches = None
+
+    @property
+    def is_vbz_compressed(self) -> bool:
+        """
+        Return if this file's signal is compressed
+        """
+        return self._is_vbz_compressed
 
     @property
     def batch_count(self):
@@ -546,7 +668,7 @@ class FileReader:
         for i in range(self._read_reader.reader.num_record_batches):
             batch = self.get_batch(i)
             if signal_cache:
-                batch.set_cached_siganl(signal_cache.release_next_batch())
+                batch.set_cached_signal(signal_cache.release_next_batch())
             yield batch
 
     def _read_some_batches(self, batch_selection, preload=None):
@@ -561,7 +683,7 @@ class FileReader:
         for i in batch_selection:
             batch = self.get_batch(i)
             if signal_cache:
-                batch.set_cached_siganl(signal_cache.release_next_batch())
+                batch.set_cached_signal(signal_cache.release_next_batch())
             yield batch
 
     def _select_read_batches(self, selection, missing_ok=False, preload=None):
@@ -592,7 +714,7 @@ class FileReader:
             batch = self.get_batch(batch_idx)
             batch.set_selected_batch_rows(current_batch_rows)
             if signal_cache:
-                batch.set_cached_siganl(signal_cache.release_next_batch())
+                batch.set_cached_signal(signal_cache.release_next_batch())
             yield batch
 
             current_offset += batch_count

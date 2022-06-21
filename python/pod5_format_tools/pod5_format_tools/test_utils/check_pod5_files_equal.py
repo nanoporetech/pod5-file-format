@@ -1,5 +1,6 @@
 import argparse
 import itertools
+from pathlib import Path
 import sys
 
 import pod5_format
@@ -7,8 +8,8 @@ import pod5_format
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_a")
-    parser.add_argument("input_b")
+    parser.add_argument("input_a", type=Path)
+    parser.add_argument("input_b", type=Path)
 
     args = parser.parse_args()
 

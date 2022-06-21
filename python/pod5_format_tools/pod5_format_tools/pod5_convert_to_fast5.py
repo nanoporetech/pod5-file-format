@@ -1,17 +1,16 @@
+"""
+Tool for converting pod5 files to the legacy fast5 format
+"""
 import argparse
 from collections import namedtuple
-import datetime
 from pathlib import Path
-import sys
+import multiprocessing as mp
 import time
 
 import h5py
 import numpy
 from ont_fast5_api.compression_settings import register_plugin
-from ont_fast5_api.compression_settings import VBZ
 import pod5_format
-import multiprocessing as mp
-from queue import Empty
 
 register_plugin()
 
