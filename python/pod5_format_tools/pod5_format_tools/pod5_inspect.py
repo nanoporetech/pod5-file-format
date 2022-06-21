@@ -1,3 +1,6 @@
+"""
+Tool for inspecting the contents of pod5 files
+"""
 import os
 import sys
 import csv

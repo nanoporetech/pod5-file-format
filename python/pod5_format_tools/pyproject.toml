@@ -26,12 +26,23 @@ dependencies = [
   "pod5_format",
   "h5py",
   "ont-fast5-api",
+  "pandas",
+  "jsonschema"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest ~= 6.2",
+  "pytest-cov ~= 3.0",
+  "black == 22.3.0",
+  "pre-commit"
 ]
 
 [project.scripts]
 pod5-convert-from-fast5 = "pod5_format_tools.pod5_convert_from_fast5:main"
 pod5-convert-fast5 = "pod5_format_tools.pod5_convert_from_fast5:main"
 pod5-convert-to-fast5 = "pod5_format_tools.pod5_convert_to_fast5:main"
+pod5-demux = "pod5_format_tools.pod5_demux:main"
 pod5-inspect = "pod5_format_tools.pod5_inspect:main"
 pod5-repack = "pod5_format_tools.pod5_repack:main"
 

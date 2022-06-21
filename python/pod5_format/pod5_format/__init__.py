@@ -7,5 +7,6 @@ from ._version import __version__
 
 
 from .api_utils import *
-from .reader import *
+from .reader_pyarrow import *
+from .reader_utils import *
 from .writer import *

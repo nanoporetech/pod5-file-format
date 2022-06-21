@@ -1,8 +1,11 @@
+""" 
+Tool for repacking pod5 files into a single output
+"""
 import argparse
 from pathlib import Path
+
 import random
 import time
-from uuid import UUID
 
 import pod5_format.repack
 
@@ -11,18 +14,16 @@ def open_file(input_filename):
     return pod5_format.open_combined_file(input_filename)
 
 
-def repack(inputs_names, output_name):
-    print(
-        f"Repacking inputs {' '.join(str(i) for i in inputs_names)} into {output_name}"
-    )
+def repack(inputs: list[Path], output: Path):
+    print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
 
-    output_name.parent.mkdir(parents=True, exist_ok=True)
+    output.parent.mkdir(parents=True, exist_ok=True)
 
     # Create 10 output files we can write some reads to:
-    inputs = [open_file(i) for i in inputs_names]
+    inputs = [open_file(i) for i in inputs]
     outputs = []
     for i in range(10):
-        filename = Path(str(output_name) + str(i))
+        filename = Path(str(output) + str(i))
         if filename.exists():
             filename.unlink()
         outputs.append(pod5_format.create_combined_file(filename))
@@ -49,6 +50,7 @@ def repack(inputs_names, output_name):
     last_bytes_complete = 0
     while not repacker.is_complete:
         time.sleep(15)
+
         new_bytes_complete = repacker.reads_sample_bytes_completed
         bytes_delta = new_bytes_complete - last_bytes_complete
         last_bytes_complete = new_bytes_complete
@@ -70,12 +72,12 @@ def repack(inputs_names, output_name):
         )
 
     repacker.finish()
-    for output in outputs:
-        output.close()
+    for _output in outputs:
+        _output.close()
 
 
 def main():
-    parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
+    parser = argparse.ArgumentParser("Repack a pod5 files into a single output")
 
     parser.add_argument("input", type=Path, nargs="+")
     parser.add_argument("output", type=Path)
@@ -86,9 +88,12 @@ def main():
 
     args = parser.parse_args()
 
-    if args.force_overwrite:
-        if args.output.exists():
+    if args.output.exists():
+        if args.force_overwrite:
             args.output.unlink()
+        else:
+            print("Refusing to overwrite output without --force-overwrite")
+            return
 
     repack(args.input, args.output)
 

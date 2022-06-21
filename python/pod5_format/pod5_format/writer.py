@@ -1,13 +1,13 @@
 import itertools
 from pathlib import Path
-import pytz
 import typing
+import pytz
 
 import numpy
 
-import pod5_format.pod5_format_pybind
+import pod5_format.pod5_format_pybind as pod5_bind
 from .api_utils import EndReason
-from .utils import make_split_filename
+from . import make_split_filename
 
 
 def map_to_tuple(tup):
@@ -25,10 +25,7 @@ def timestamp_to_int(ts):
 class FileWriter:
     def __init__(self, writer):
         if not writer:
-            raise Exception(
-                "Failed to open writer: "
-                + c_api.pod5_get_error_string().decode("utf-8")
-            )
+            raise Exception(f"Failed to open writer: {pod5_bind.get_error_string()}")
         self._writer = writer
         self._pore_types = {}
         self._calibration_types = {}
@@ -289,23 +286,22 @@ def create_combined_file(
 ) -> FileWriter:
     options = None
     return FileWriter(
-        pod5_format.pod5_format_pybind.create_combined_file(
-            str(filename), software_name, options
-        )
+        pod5_bind.create_combined_file(str(filename), software_name, options)
     )
 
 
 def create_split_file(
-    file: Path, reads_file: Path = None, software_name: str = "Python API"
+    file: Path,
+    reads_file: typing.Optional[Path] = None,
+    software_name: str = "Python API",
 ) -> FileWriter:
     options = None
-
     signal_file = file
-    if reads_file == None:
+    if reads_file is None:
         signal_file, reads_file = make_split_filename(file)
 
     return FileWriter(
-        pod5_format.pod5_format_pybind.create_split_file(
+        pod5_bind.create_split_file(
             str(signal_file),
             str(reads_file),
             software_name,

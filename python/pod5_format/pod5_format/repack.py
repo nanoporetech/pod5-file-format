@@ -1,10 +1,15 @@
 """
 Tools to assist repacking pod5 data into other pod5 files
 """
+import time
+
 from . import reader_pyarrow
 from . import writer
 
 import pod5_format.pod5_format_pybind
+
+# The default interval in seconds to check for completion
+DEFAULT_INTERVAL = 15
 
 
 class Repacker:
@@ -77,6 +82,54 @@ class Repacker:
         Add all read ids in a source file to an output file.
         """
         self._repacker.add_reads_to_output(output_ref, reader._reader)
+
+    def run_to_completion(
+        self,
+        interval: float = DEFAULT_INTERVAL,
+        status_updates: bool = True,
+        finish: bool = True,
+    ) -> None:
+        """
+        Run the repacker (blocking) until it is done by checking is_complete every
+        interval seconds. Optionally report status_updates to stdout and call
+        finish when done.
+        """
+        if interval <= 0:
+            print(f"Invalid interval {interval}sec. Using {DEFAULT_INTERVAL}sec")
+            interval = DEFAULT_INTERVAL
+
+        last_time = time.time()
+        last_bytes_complete = 0
+
+        while not self.is_complete:
+            time.sleep(interval)
+
+            if not status_updates:
+                continue
+
+            # Compute the bytes completed since last check
+            bytes_completed = self.reads_sample_bytes_completed
+            bytes_delta = bytes_completed - last_bytes_complete
+            last_bytes_complete = bytes_completed
+
+            # Update the time stamp
+            time_now = time.time()
+            time_delta = time_now - last_time
+            last_time = time_now
+
+            # Compute write rate and completion percentage
+            mb_per_sec = (bytes_delta / (1000 * 1000)) / time_delta
+            pct_complete = 100 * (self.batches_completed / self.batches_requested)
+
+            print(
+                f"{pct_complete:.1f} % complete, " f"{mb_per_sec:.1f} MB/s. ",
+                f"Batches complete: {self.batches_completed}, "
+                f"requested: {self.batches_requested}, "
+                f"pending: {self.pending_batch_writes}, ",
+            )
+
+        if finish:
+            self.finish()
 
     def finish(self):
         return self._repacker.finish()

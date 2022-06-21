@@ -26,6 +26,7 @@ Conan version 1.48.0
 # Note the build=missing, will build any libs not available on your current platfrom as binaries:
 > conan install --build=missing -s build_type=Release ..
 > cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release ..
+> make -j
 ```
 
 ### Arm 64 MacOS Builds:
@@ -74,4 +75,16 @@ The project uses pre-commit to ensure code is consistently formatted, you can se
 > pre-commit install
 # Run hooks on all files:
 > pre-commit run --all-files
+```
+
+Python Development
+==================
+
+After completing the required build stages above, to create a Python virtual environment for development follow the instructions below .
+
+```bash
+
+> cd python
+> make install
+
 ```

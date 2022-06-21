@@ -187,8 +187,8 @@ def run_writer_test(f):
     )
 
 
-def run_reader_test(r):
-    for idx, read in enumerate(r.reads()):
+def run_reader_test(reader):
+    for idx, read in enumerate(reader.reads()):
         print(idx)
         data = gen_test_read(idx)
 
@@ -231,11 +231,11 @@ def run_reader_test(r):
         assert (numpy.concatenate(chunk_signals) == data.signal).all()
 
     # Try to walk through the file in read batches:
-    for idx, batch in enumerate(r.read_batches(preload={"samples"})):
+    for idx, batch in enumerate(reader.read_batches(preload={"samples"})):
         assert len(batch.cached_samples_column) == batch.num_reads
 
     # Try to walk through specific batches in the file:
-    for batch in r.read_batches(batch_selection=[0], preload={"samples"}):
+    for batch in reader.read_batches(batch_selection=[0], preload={"samples"}):
         print(idx)
         assert len(batch.cached_samples_column) == batch.num_reads
         for idx, read in enumerate(batch.reads()):
@@ -244,21 +244,20 @@ def run_reader_test(r):
             assert (read.signal == data.signal).all()
 
     # Try to walk through all reads in the file:
-    for idx, read in enumerate(r.reads(preload={"samples"})):
-        print(idx)
+    for idx, read in enumerate(reader.reads(preload={"samples"})):
         data = gen_test_read(idx)
 
         assert read.has_cached_signal
         assert (read.signal == data.signal).all()
 
-    reads = list(r.reads())
+    reads = list(reader.reads())
     search_reads = [
         reads[6],
         reads[3],
         reads[1],
     ]
 
-    search = r.reads(
+    search = reader.reads(
         [r.read_id for r in search_reads],
     )
     found_ids = set()
@@ -268,31 +267,31 @@ def run_reader_test(r):
 
 
 def test_pyarrow_combined():
-    with tempfile.TemporaryDirectory() as td:
-        path = Path(td) / "combined.pod5"
-        with pod5_format.create_combined_file(path) as f:
-            run_writer_test(f)
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / "combined.pod5"
+        with pod5_format.create_combined_file(path) as _fh:
+            run_writer_test(_fh)
 
-        with pod5_format.open_combined_file(path, use_c_api=False) as r:
-            run_reader_test(r)
+        with pod5_format.open_combined_file(path) as _fh:
+            run_reader_test(_fh)
 
 
 def test_pyarrow_split():
-    with tempfile.TemporaryDirectory() as td:
-        signal = Path(td) / "split_signal.pod5"
-        reads = Path(td) / "split_reads.pod5"
-        with pod5_format.create_split_file(signal, reads) as f:
-            run_writer_test(f)
+    with tempfile.TemporaryDirectory() as temp:
+        signal = Path(temp) / "split_signal.pod5"
+        reads = Path(temp) / "split_reads.pod5"
+        with pod5_format.create_split_file(signal, reads) as _fh:
+            run_writer_test(_fh)
 
-        with pod5_format.open_split_file(signal, reads, use_c_api=False) as r:
-            run_reader_test(r)
+        with pod5_format.open_split_file(signal, reads) as _fh:
+            run_reader_test(_fh)
 
 
 def test_pyarrow_split_one_name():
-    with tempfile.TemporaryDirectory() as td:
-        p = Path(td) / "split.pod5"
-        with pod5_format.create_split_file(p) as f:
-            run_writer_test(f)
+    with tempfile.TemporaryDirectory() as temp:
+        split_path = Path(temp) / "split.pod5"
+        with pod5_format.create_split_file(split_path) as _fh:
+            run_writer_test(_fh)
 
-        with pod5_format.open_split_file(p, use_c_api=False) as r:
-            run_reader_test(r)
+        with pod5_format.open_split_file(split_path) as _fh:
+            run_reader_test(_fh)
