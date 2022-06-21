@@ -447,8 +447,6 @@ public:
             throw std::runtime_error("Invalid input passed to repacker, no reader");
         }
 
-        std::cout << "Creating batch read tasks for file with "
-                  << input.reader->num_read_record_batches() << " batches:\n";
         auto pending_batch_reads = m_pending_batch_reads.synchronize();
         for (std::size_t i = 0; i < input.reader->num_read_record_batches(); ++i) {
             pending_batch_reads->emplace_back(
@@ -476,9 +474,6 @@ public:
         auto batch_counts_span = gsl::make_span(batch_counts.data(), batch_counts.size());
         auto all_batch_rows_span = gsl::make_span(all_batch_rows.data(), all_batch_rows.size());
 
-        std::cout << "Creating batch read tasks for file with "
-                  << input.reader->num_read_record_batches() << " batches, for "
-                  << all_batch_rows.size() << " rows:\n";
         auto pending_batch_reads = m_pending_batch_reads.synchronize();
         std::size_t current_start_point = 0;
         for (std::size_t i = 0; i < batch_counts_span.size(); ++i) {

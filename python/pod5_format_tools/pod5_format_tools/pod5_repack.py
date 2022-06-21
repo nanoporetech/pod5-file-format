@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 
 import random
+import sys
 import time
 
 import pod5_format.repack
@@ -14,36 +15,38 @@ def open_file(input_filename):
     return pod5_format.open_combined_file(input_filename)
 
 
-def repack(inputs: list[Path], output: Path):
+def repack(inputs: list[Path], output: Path, force_overwrite: bool):
     print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    # Create 10 output files we can write some reads to:
-    inputs = [open_file(i) for i in inputs]
-    outputs = []
-    for i in range(10):
-        filename = Path(str(output) + str(i))
-        if filename.exists():
-            filename.unlink()
-        outputs.append(pod5_format.create_combined_file(filename))
 
     repacker = pod5_format.repack.Repacker()
 
-    # Add all output files to the repacker
-    output_refs = [repacker.add_output(output) for output in outputs]
+    outputs = []
+    for input_filename in inputs:
+        input_file = open_file(input_filename)
 
-    # Grab random 10% of input file and throw it in each output file
-    for i in inputs:
-        print("get read ids")
-        read_ids = []
-        for batch in i.read_batches():
-            read_ids.extend(pod5_format.format_read_ids(batch.read_id_column))
-        sampled_read_ids = random.sample(read_ids, int(len(read_ids) / 10))
-        print("Find read locations")
+        output_filename = output / input_filename.name
+        output_filename.parent.mkdir(parents=True, exist_ok=True)
 
-        for output_ref in output_refs:
-            repacker.add_selected_reads_to_output(output_ref, i, sampled_read_ids)
+        if output_filename.exists():
+            if force_overwrite:
+                if output_filename == input_filename:
+                    print(
+                        f"Refusing to overwrite {input_filename} - output directory is the same as input directory"
+                    )
+                    sys.exit(1)
+                # Otherwise remove the output path
+                output_filename.unlink()
+
+            else:
+                print("Refusing to overwrite output  without --force-overwrite")
+                sys.exit(1)
+
+        output = pod5_format.create_combined_file(output_filename)
+        outputs.append(output)
+        output_ref = repacker.add_output(output)
+
+        # Add all reads to the repacker
+        repacker.add_all_reads_to_output(output_ref, input_file)
 
     # Wait for repacking to complete:
     last_time = time.time()
@@ -72,15 +75,17 @@ def repack(inputs: list[Path], output: Path):
         )
 
     repacker.finish()
-    for _output in outputs:
-        _output.close()
+    for output in outputs:
+        output.close()
 
 
 def main():
     parser = argparse.ArgumentParser("Repack a pod5 files into a single output")
 
-    parser.add_argument("input", type=Path, nargs="+")
-    parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "input", type=Path, nargs="+", help="Input pod5 file(s) to repack"
+    )
+    parser.add_argument("output", type=Path, help="Output path for pod5 files")
 
     parser.add_argument(
         "--force-overwrite", action="store_true", help="Overwrite destination files"
@@ -88,14 +93,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.output.exists():
-        if args.force_overwrite:
-            args.output.unlink()
-        else:
-            print("Refusing to overwrite output without --force-overwrite")
-            return
-
-    repack(args.input, args.output)
+    repack(args.input, args.output, args.force_overwrite)
 
 
 if __name__ == "__main__":

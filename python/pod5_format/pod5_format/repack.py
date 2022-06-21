@@ -77,11 +77,11 @@ class Repacker:
             output_ref, reader._reader, per_batch_counts, all_batch_rows
         )
 
-    def add_reads_to_output(self, output_ref, reader: reader_pyarrow.FileReader):
+    def add_all_reads_to_output(self, output_ref, reader: reader_pyarrow.FileReader):
         """
         Add all read ids in a source file to an output file.
         """
-        self._repacker.add_reads_to_output(output_ref, reader._reader)
+        self._repacker.add_all_reads_to_output(output_ref, reader._reader)
 
     def run_to_completion(
         self,
