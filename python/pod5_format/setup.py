@@ -70,7 +70,7 @@ setup(
     description="Python bindings for the POD5 file format",
     author="Oxford Nanopore Technologies plc",
     author_email="support@nanoporetech.com",
-    url="http://www.nanoporetech.com",
+    url="https://github.com/nanoporetech/pod5-file-format",
     packages=find_packages(),
     package_data={"pod5_format": data_files},
     install_requires=[

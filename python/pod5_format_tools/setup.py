@@ -30,7 +30,7 @@ setup(
     description="Tools for use with the POD5 file format",
     author="Oxford Nanopore Technologies plc",
     author_email="support@nanoporetech.com",
-    url="http://www.nanoporetech.com",
+    url="https://github.com/nanoporetech/pod5-file-format",
     packages=find_packages(),
     install_requires=[
         "h5py",
