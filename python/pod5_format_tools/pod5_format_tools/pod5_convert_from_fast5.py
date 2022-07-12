@@ -18,6 +18,7 @@ import numpy
 import more_itertools
 from ont_fast5_api.compression_settings import register_plugin
 import pod5_format
+from .utils import iterate_inputs
 
 register_plugin()
 
@@ -293,15 +294,6 @@ def add_reads(file, reads, pre_compressed_signal):
     )
 
 
-def iterate_inputs(input_items):
-    for input_item in input_items:
-        if input_item.is_dir():
-            for file in input_item.glob("*.fast5"):
-                yield file
-        else:
-            yield input_item
-
-
 class FileWrapper:
     def __init__(self, file):
         self.pod5_file = file
@@ -365,6 +357,13 @@ def main():
     parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
     parser.add_argument("output", type=Path, help="Output path for the pod5 file(s)")
     parser.add_argument(
+        "-r",
+        "--recursive",
+        default=False,
+        action="store_true",
+        help="Search for input files recursively",
+    )
+    parser.add_argument(
         "--active-readers",
         default=10,
         type=int,
@@ -399,7 +398,7 @@ def main():
     pre_compress_signal = True
 
     # Divide up files between readers:
-    pending_files = list(iterate_inputs(args.input))
+    pending_files = list(iterate_inputs(args.input, args.recursive, "*.fast5"))
     file_count = len(pending_files)
     items_per_reads = max(1, len(pending_files) // args.active_readers)
     active_processes = []
