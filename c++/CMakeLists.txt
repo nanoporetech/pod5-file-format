@@ -72,6 +72,7 @@ add_library(pod5_format ${pod5_library_type}
 
     pod5_format/errors.cpp
     pod5_format/errors.h
+    pod5_format/expandable_buffer.h
     pod5_format/result.h
     pod5_format/table_reader.cpp
     pod5_format/table_reader.h

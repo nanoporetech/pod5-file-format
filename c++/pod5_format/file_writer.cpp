@@ -1,5 +1,6 @@
 #include "pod5_format/file_writer.h"
 
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/read_table_writer.h"
 #include "pod5_format/read_table_writer_utils.h"
@@ -14,11 +15,13 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
 
+#include <iostream>
+
 namespace pod5 {
 
 FileWriterOptions::FileWriterOptions()
         : m_max_signal_chunk_size(DEFAULT_SIGNAL_CHUNK_SIZE),
-          m_memory_pool(arrow::system_memory_pool()),
+          m_memory_pool(arrow::default_memory_pool()),
           m_signal_type(DEFAULT_SIGNAL_TYPE),
           m_signal_table_batch_size(DEFAULT_SIGNAL_TABLE_BATCH_SIZE),
           m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE) {}
@@ -379,41 +382,6 @@ pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
             options.max_signal_chunk_size(), pool));
 }
 
-class SubFileOutputStream : public arrow::io::OutputStream {
-public:
-    SubFileOutputStream(std::shared_ptr<OutputStream> const& main_stream, std::int64_t offset)
-            : m_main_stream(main_stream), m_offset(offset) {}
-
-    virtual arrow::Status Close() override { return m_main_stream->Close(); }
-
-    arrow::Future<> CloseAsync() override { return m_main_stream->CloseAsync(); }
-
-    arrow::Status Abort() override { return m_main_stream->Abort(); }
-
-    arrow::Result<int64_t> Tell() const override {
-        ARROW_ASSIGN_OR_RAISE(auto tell, m_main_stream->Tell());
-        return tell - m_offset;
-    }
-
-    bool closed() const override { return m_main_stream->closed(); }
-
-    arrow::Status Write(const void* data, int64_t nbytes) override {
-        return m_main_stream->Write(data, nbytes);
-    }
-
-    arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
-        return m_main_stream->Write(data);
-    }
-
-    arrow::Status Flush() override { return m_main_stream->Flush(); }
-
-    arrow::Status Write(arrow::util::string_view data);
-
-private:
-    std::shared_ptr<OutputStream> m_main_stream;
-    std::int64_t m_offset;
-};
-
 pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
         std::string const& path,
         std::string const& writing_software_name,
@@ -447,9 +415,10 @@ pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(auto read_table_file,
                           arrow::io::FileOutputStream::Open(reads_tmp_path, false));
+    auto read_table_file_async = std::make_shared<AsyncOutputStream>(read_table_file);
     ARROW_ASSIGN_OR_RAISE(
             auto read_table_tmp_writer,
-            make_read_table_writer(read_table_file, file_schema_metadata,
+            make_read_table_writer(read_table_file_async, file_schema_metadata,
                                    options.read_table_batch_size(), dict_writers.pore_writer,
                                    dict_writers.calibration_writer, dict_writers.end_reason_writer,
                                    dict_writers.run_info_writer, pool));
@@ -461,8 +430,8 @@ pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
     ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(main_file, section_marker));
 
     // Then place the signal file directly after that:
-    ARROW_ASSIGN_OR_RAISE(auto signal_table_start, main_file->Tell());
-    auto signal_file = std::make_shared<SubFileOutputStream>(main_file, signal_table_start);
+    ARROW_ASSIGN_OR_RAISE(auto const signal_table_start, main_file->Tell());
+    auto signal_file = std::make_shared<AsyncOutputStream>(main_file);
     ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
                           make_signal_table_writer(signal_file, file_schema_metadata,
                                                    options.signal_table_batch_size(),

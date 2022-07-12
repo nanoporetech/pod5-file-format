@@ -11,7 +11,7 @@
 
 namespace pod5 {
 
-FileReaderOptions::FileReaderOptions() : m_memory_pool(arrow::system_memory_pool()) {}
+FileReaderOptions::FileReaderOptions() : m_memory_pool(arrow::default_memory_pool()) {}
 
 class FileReaderImpl : public FileReader {
 public:
@@ -61,7 +61,7 @@ public:
         return m_signal_table_reader.extract_samples(row_indices, output_samples);
     }
 
-    Result<std::vector<gsl::span<std::uint8_t const>>> extract_samples_inplace(
+    Result<std::vector<std::shared_ptr<arrow::Buffer>>> extract_samples_inplace(
             gsl::span<std::uint64_t const> const& row_indices,
             std::vector<std::uint32_t>& sample_count) const override {
         return m_signal_table_reader.extract_samples_inplace(row_indices, sample_count);

@@ -15,6 +15,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <chrono>
+#include <iostream>
 
 //---------------------------------------------------------------------------------------------------------------------
 struct Pod5FileReader {
@@ -50,11 +51,14 @@ void pod5_reset_error() {
     g_pod5_error_string.clear();
 }
 
-#define POD5_C_RETURN_NOT_OK(result) \
-    if (!result.ok()) {              \
-        pod5_set_error(result);      \
-        return g_pod5_error_no;      \
-    }
+#define POD5_C_RETURN_NOT_OK(result)    \
+    do {                                \
+        ::arrow::Status __s = (result); \
+        if (!__s.ok()) {                \
+            pod5_set_error(__s);        \
+            return g_pod5_error_no;     \
+        }                               \
+    } while (0)
 
 #define POD5_C_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
     auto&& result_name = (rexpr);                            \
@@ -708,6 +712,7 @@ pod5_error_t pod5_close_and_free_writer(Pod5FileWriter* file) {
 
     std::unique_ptr<Pod5FileWriter> ptr{file};
     POD5_C_RETURN_NOT_OK(ptr->writer->close());
+
     ptr.reset();
     return POD5_OK;
 }
