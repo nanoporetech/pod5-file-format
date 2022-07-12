@@ -526,54 +526,67 @@ build-conan:macos-x86_64-appleclang10.0:
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
+.only-tags:
+  only:
+    - tags
+  
+
 # Conan upload packages:
 upload-conan:windows-x86_64-vs2017:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:windows-x86_64-vs2017" ]
 upload-conan:windows-x86_64-vs2019:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:windows-x86_64-vs2019" ]
 upload-conan:macos-x86_64-appleclang12.0:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:macos-x86_64-appleclang-12.0" ]
 upload-conan:macos-aarch64-appleclang13.1:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:macos-aarch64-appleclang-13.1" ]
 upload-conan:linux-x86_64-gcc9:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:linux-x86_64-gcc9" ]
 upload-conan:linux-aarch64-gcc9:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:linux-aarch64-gcc9" ]
 upload-conan:linux-aarch64-gcc7:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:linux-aarch64-gcc7" ]
 upload-conan:macos-x86_64-appleclang10.0:
     stage: deploy
     extends:
         - .upload-package
         - .capture-version-for-conan-upload
+        - .only-tags
     dependencies: [ "build-conan:macos-x86_64-appleclang10.0" ]
 
 
