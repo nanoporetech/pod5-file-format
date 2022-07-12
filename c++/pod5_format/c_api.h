@@ -195,12 +195,34 @@ typedef struct CalibrationDictData CalibrationDictData_t;
 
 /// \brief Find the calibration info for a row in a read batch.
 /// \param      batch               The read batch to query.
-/// \param      calibration         The pore index to query.
+/// \param      calibration         The calibration index to query.
 /// \param[out] calibration_data    Output location for the calibration data.
 /// \note The returned calibration value should be released using pod5_release_calibration when it is no longer used.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_calibration(Pod5ReadRecordBatch_t* batch,
                                                      int16_t calibration,
                                                      CalibrationDictData_t** calibration_data);
+
+struct CalibrationExtraData {
+    // The digitisation value used by the sequencer, equal to:
+    //
+    // adc_max - adc_min + 1
+    uint16_t digitisation;
+    // The range of the calibrated channel in pA.
+    float range;
+};
+typedef struct CalibrationExtraData CalibrationExtraData_t;
+
+/// \brief Find the extra calibration info for a row in a read batch.
+/// \param      batch                   The read batch to query.
+/// \param      calibration             The calibration index to query.
+/// \param      run_info                The run info index to query.
+/// \param[out] calibration_extra_data  Output location for the calibration data.
+/// \note The values are computed from data held in the file, and written directly to the address provided, there is no need to release any data.
+POD5_FORMAT_EXPORT pod5_error_t
+pod5_get_calibration_extra_info(Pod5ReadRecordBatch_t* batch,
+                                int16_t calibration,
+                                int16_t run_info,
+                                CalibrationExtraData_t* calibration_extra_data);
 
 /// \brief Release a CalibrationDictData struct after use.
 POD5_FORMAT_EXPORT pod5_error_t pod5_release_calibration(CalibrationDictData_t* calibration_data);
