@@ -11,12 +11,16 @@ import h5py
 import numpy
 from ont_fast5_api.compression_settings import register_plugin
 import pod5_format
+from .utils import iterate_inputs
 
 register_plugin()
 
 
 def try_open_file(filename: Path):
-    return pod5_format.open_combined_file(filename)
+    try:
+        return pod5_format.open_combined_file(filename)
+    except RuntimeError as e:
+        print(f"Error opening {filename}: {e}")
 
 
 def format_sample_count(count):
@@ -57,15 +61,6 @@ Read = namedtuple(
     ],
 )
 Fast5FileData = namedtuple("Fast5FileData", ["filename", "reads"])
-
-
-def iterate_inputs(input_items):
-    for input_item in input_items:
-        if input_item.is_dir():
-            for file in input_item.glob("*.pod5"):
-                yield file
-        else:
-            yield input_item
 
 
 def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
@@ -204,6 +199,13 @@ def main():
     parser.add_argument("input", type=Path, nargs="+")
     parser.add_argument("output", type=Path)
     parser.add_argument(
+        "-r",
+        "--recursive",
+        default=False,
+        action="store_true",
+        help="Search for input files recursively",
+    )
+    parser.add_argument(
         "--active-writers",
         default=10,
         type=int,
@@ -255,8 +257,10 @@ def main():
 
     # Divide up files between readers:
     current_reads_batch = []
-    for filename in iterate_inputs(args.input):
+    for filename in iterate_inputs(args.input, args.recursive, "*.pod5"):
         file = try_open_file(filename)
+        if not file:
+            continue
         for read in file.reads(preload={"samples"}):
             now = time.time()
             if t_last_update + update_interval < now:
