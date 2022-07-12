@@ -1,4 +1,5 @@
 #include "api.h"
+#include "pod5_format/internal/tracing/tracing.h"
 
 #include <arrow/array/array_dict.h>
 #include <boost/asio/executor_work_guard.hpp>
@@ -20,17 +21,33 @@ struct pair_hasher {
     }
 };
 
+struct ReadSignalBatch {
+    pod5::SignalType signal_type;
+
+    struct ReadSignal {
+        std::vector<std::shared_ptr<arrow::Buffer>> signal_data;
+        std::vector<std::uint32_t> sample_counts;
+    };
+
+    std::vector<ReadSignal> data;
+    std::int64_t preload_sum;
+};
+
 class Pod5ReadBatch {
 public:
-    Pod5ReadBatch(pod5::ReadTableRecordBatch&& batch, std::shared_ptr<pod5::FileReader> const& file)
-            : m_batch(batch), m_file(file) {}
+    Pod5ReadBatch(pod5::ReadTableRecordBatch&& batch,
+                  std::shared_ptr<pod5::FileReader> const& file,
+                  ReadSignalBatch&& read_signal)
+            : m_batch(std::move(batch)), m_file(file), m_read_signal(std::move(read_signal)) {}
 
     pod5::ReadTableRecordBatch& batch() { return m_batch; }
     std::shared_ptr<pod5::FileReader>& file() { return m_file; }
+    ReadSignalBatch const& read_signal() const { return m_read_signal; }
 
 private:
     pod5::ReadTableRecordBatch m_batch;
     std::shared_ptr<pod5::FileReader> m_file;
+    ReadSignalBatch m_read_signal;
 };
 
 class Pod5RepackerOutput {
@@ -43,30 +60,13 @@ public:
         std::vector<std::uint32_t> selected_rows;
     };
 
-    struct SignalTransferResult {
-        // Offsets for each read into signal rows below.
-        // One entry per read, and an extra one for the end.
-        // signal_row_offsets[N] = signal_rows offset to start (inclusive) for read N
-        // signal_row_offsets[N+1] = signal_rows offset to end (exclusive) for read N
-        std::vector<std::uint32_t> signal_row_offsets;
-        std::vector<std::uint64_t> signal_rows;
-
-        gsl::span<std::uint64_t> get_signal_rows_for_index(std::size_t i) {
-            auto start = signal_row_offsets[i];
-            auto end = signal_row_offsets[i + 1];
-            return gsl::make_span(signal_rows).subspan(start, end - start);
-        }
-
-        // Number of samples moved from source to dest
-        std::uint64_t sample_bytes_completed = 0;
-    };
-
     Pod5RepackerOutput(std::shared_ptr<Pod5Repacker> const& repacker,
                        boost::asio::io_context& context,
                        std::shared_ptr<pod5::FileWriter> const& output_file)
             : m_strand(context),
               m_repacker(repacker),
               m_output_file(output_file),
+              m_signal_type(output_file->signal_type()),
               m_pending_write_count(0),
               m_reads_completed(0),
               m_reads_sample_bytes_completed(0),
@@ -74,6 +74,7 @@ public:
 
     std::shared_ptr<Pod5Repacker> repacker() const { return m_repacker; }
     std::shared_ptr<pod5::FileWriter> output_file() const { return m_output_file; }
+    pod5::SignalType signal_type() const { return m_signal_type; }
 
     template <typename CompletionHandler>
     void batch_write(WriteIndex index,
@@ -99,7 +100,7 @@ public:
 
         auto& next_batch = m_pending_writes.front();
         if (next_batch.index == m_next_write_write_index) {
-            auto result = write_next_batch(next_batch.batch, std::move(next_batch.selected_rows));
+            auto result = write_next_batch(next_batch.batch, next_batch.selected_rows);
             if (!result.ok()) {
                 set_error(result);
                 return;
@@ -115,24 +116,13 @@ public:
     }
 
     arrow::Status write_next_batch(std::shared_ptr<Pod5ReadBatch> const& batch,
-                                   std::vector<std::uint32_t>&& selected_row_indices) {
+                                   std::vector<std::uint32_t> const& selected_row_indices) {
+        POD5_TRACE_FUNCTION();
         // Move signal between the two locations:
         auto const& source_read_table_batch = batch->batch();
         auto const& source_file = batch->file();
 
-        std::vector<std::uint32_t> batch_rows_to_copy = std::move(selected_row_indices);
-        if (batch_rows_to_copy.empty()) {
-            auto const source_batch_row_count = source_read_table_batch.num_rows();
-            batch_rows_to_copy.resize(source_batch_row_count);
-            std::iota(batch_rows_to_copy.begin(), batch_rows_to_copy.end(), 0);
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto transfer_result,
-                              transfer_signal(source_read_table_batch, source_file,
-                                              batch_rows_to_copy, m_output_file));
-
         m_reads_completed += source_read_table_batch.num_rows();
-        m_reads_sample_bytes_completed += transfer_result.sample_bytes_completed;
 
         auto source_reads_read_id_column = source_read_table_batch.read_id_column();
         auto source_reads_read_number_column = source_read_table_batch.read_number_column();
@@ -148,9 +138,12 @@ public:
         auto source_reads_run_info_column = std::static_pointer_cast<arrow::Int16Array>(
                 source_read_table_batch.run_info_column()->indices());
 
-        for (std::size_t batch_row_index = 0; batch_row_index < batch_rows_to_copy.size();
+        auto const& loaded_signal = batch->read_signal();
+        assert(loaded_signal.data.size() == selected_row_indices.size());
+
+        for (std::size_t batch_row_index = 0; batch_row_index < selected_row_indices.size();
              ++batch_row_index) {
-            auto batch_row = batch_rows_to_copy[batch_row_index];
+            auto batch_row = selected_row_indices[batch_row_index];
             // Find the read params
             auto const& read_id = source_reads_read_id_column->Value(batch_row);
             auto const& read_number = source_reads_read_number_column->Value(batch_row);
@@ -162,8 +155,32 @@ public:
             auto const& end_reason_index = source_reads_end_reason_column->Value(batch_row);
             auto const& run_info_index = source_reads_run_info_column->Value(batch_row);
 
-            // Get the signal loaded earlier for this read:
-            auto const signal_rows = transfer_result.get_signal_rows_for_index(batch_row_index);
+            std::vector<std::uint64_t> signal_rows;
+            auto const& read_signal = loaded_signal.data[batch_row_index];
+
+            // Write each compressed row to the dest file, and store its rows:
+            for (std::size_t i = 0; i < read_signal.signal_data.size(); ++i) {
+                auto const& sample_count = read_signal.sample_counts[i];
+                auto const& signal_buffer = read_signal.signal_data[i];
+                auto const signal_span =
+                        gsl::make_span(signal_buffer->data(), signal_buffer->size());
+
+                if (loaded_signal.signal_type == m_output_file->signal_type()) {
+                    ARROW_ASSIGN_OR_RAISE(auto signal_row,
+                                          m_output_file->add_pre_compressed_signal(
+                                                  read_id, signal_span, sample_count));
+                    signal_rows.push_back(signal_row);
+                } else {
+                    ARROW_ASSIGN_OR_RAISE(
+                            auto new_signal_rows,
+                            m_output_file->add_signal(read_id,
+                                                      signal_span.as_span<std::int16_t const>()));
+                    signal_rows.insert(signal_rows.end(), new_signal_rows.begin(),
+                                       new_signal_rows.end());
+                }
+
+                m_reads_sample_bytes_completed += signal_span.size();
+            }
 
             ARROW_ASSIGN_OR_RAISE(
                     auto dest_pore_index,
@@ -186,80 +203,6 @@ public:
         }
 
         return arrow::Status::OK();
-    }
-
-    // Move signal from source datasetst to output file - expects to run on strand.
-    static arrow::Result<SignalTransferResult> transfer_signal(
-            pod5::ReadTableRecordBatch source_batch,
-            std::shared_ptr<pod5::FileReader> source_file,
-            std::vector<std::uint32_t> const& rows_to_copy,
-            std::shared_ptr<pod5::FileWriter> dest_file) {
-        auto source_reads_read_id_column = source_batch.read_id_column();
-        auto source_reads_signal_column = source_batch.signal_column();
-
-        std::size_t byte_count = 0;
-        auto const source_batch_row_count = source_batch.num_rows();
-
-        // Results here are the row data of the stored signals:
-        SignalTransferResult transfer_result;
-        transfer_result.signal_row_offsets.reserve(source_batch_row_count + 1);
-        transfer_result.signal_row_offsets.push_back(0);  // Start with the offset of the first read
-        transfer_result.signal_rows.reserve(source_batch_row_count);
-
-        std::vector<std::int16_t> samples;
-
-        // Loop for each read in the batch:
-        for (auto const batch_row : rows_to_copy) {
-            // Find the read id
-            auto const& read_id = source_reads_read_id_column->Value(batch_row);
-
-            // Get the signal row data for the read:
-            auto const signal_rows = std::static_pointer_cast<arrow::UInt64Array>(
-                    source_reads_signal_column->value_slice(batch_row));
-            auto const signal_rows_span =
-                    gsl::make_span(signal_rows->raw_values(), signal_rows->length());
-
-            // If were using the same compression type in both files, just copy compressed:
-            if (source_file->signal_type() == dest_file->signal_type()) {
-                std::vector<std::uint32_t> sample_counts;
-                // Read the signal:
-                ARROW_ASSIGN_OR_RAISE(
-                        auto compressed_signal,
-                        source_file->extract_samples_inplace(signal_rows_span, sample_counts));
-
-                // Write each compressed row to the dest file, and store its id:
-                for (std::size_t i = 0; i < compressed_signal.size(); ++i) {
-                    ARROW_ASSIGN_OR_RAISE(auto signal_row,
-                                          dest_file->add_pre_compressed_signal(
-                                                  read_id, compressed_signal[i], sample_counts[i]));
-                    transfer_result.signal_rows.push_back(signal_row);
-                    byte_count += compressed_signal[i].size();
-                }
-            } else {
-                // Find the sample count of the complete read:
-                ARROW_ASSIGN_OR_RAISE(auto sample_count,
-                                      source_file->extract_sample_count(signal_rows_span));
-
-                // Read the samples:
-                samples.clear();
-                samples.resize(sample_count);
-                ARROW_RETURN_NOT_OK(
-                        source_file->extract_samples(signal_rows_span, gsl::make_span(samples)));
-
-                // And write to the dest:
-                ARROW_ASSIGN_OR_RAISE(auto read_signal_rows,
-                                      dest_file->add_signal(read_id, gsl::make_span(samples)));
-                transfer_result.signal_rows.insert(transfer_result.signal_rows.end(),
-                                                   read_signal_rows.begin(),
-                                                   read_signal_rows.end());
-            }
-
-            // Save the offset of the start of the next read/end of this one.
-            transfer_result.signal_row_offsets.push_back(transfer_result.signal_rows.size());
-        }
-
-        transfer_result.sample_bytes_completed += byte_count;
-        return transfer_result;
     }
 
     // Find or create a pore index in the output file - expects to run on strand.
@@ -352,6 +295,7 @@ private:
     boost::asio::io_context::strand m_strand;
     std::shared_ptr<Pod5Repacker> m_repacker;
     std::shared_ptr<pod5::FileWriter> m_output_file;
+    pod5::SignalType m_signal_type;
 
     std::deque<PendingWrite> m_pending_writes;
     std::atomic<std::size_t> m_pending_write_count;
@@ -403,15 +347,14 @@ public:
         std::vector<std::uint32_t> selected_rows;
     };
 
-    Pod5Repacker(std::size_t target_pending_writes = 10,
+    Pod5Repacker(std::size_t target_pending_writes = 20,
                  std::size_t worker_count = std::thread::hardware_concurrency())
             : m_target_pending_writes(target_pending_writes),
+              m_current_pending_reads(0),
               m_has_error(false),
               m_batches_requested(0),
               m_batches_completed(0),
-              m_work(boost::asio::make_work_guard(m_context))
-
-    {
+              m_work(boost::asio::make_work_guard(m_context)) {
         m_workers.reserve(worker_count);
         for (std::size_t i = 0; i < worker_count; ++i) {
             m_workers.emplace_back([&] { m_context.run(); });
@@ -552,31 +495,108 @@ private:
                 }
 
                 // Do the task:
-                auto batch = read_batch(task->input, task->read_batch_index);
+                auto selected_rows = std::move(task->selected_rows);
+                auto batch = read_batch(task->input.reader, task->output->signal_type(),
+                                        selected_rows, task->read_batch_index);
                 if (!batch.ok()) {
                     set_error(batch.status());
                     return;
                 }
 
-                task->output->batch_write(
-                        task->write_index, std::move(task->selected_rows), *batch,
-                        [this, output = task->output] {
-                            m_batches_completed += 1;
-                            auto current_pending_writes = output->pending_writes();
-                            int pending_write_target =
-                                    m_target_pending_writes - current_pending_writes;
+                task->output->batch_write(task->write_index, std::move(selected_rows), *batch,
+                                          [this, output = task->output] {
+                                              m_batches_completed += 1;
 
-                            // And post the next batch read now we are complete:
-                            post_do_batch_reads(std::max(1, pending_write_target));
-                        });
+                                              m_current_pending_reads -= 1;
+                                              auto pending_actions =
+                                                      m_current_pending_reads.load() +
+                                                      output->pending_writes();
+                                              if (m_target_pending_writes > pending_actions) {
+                                                  int pending_write_target =
+                                                          m_target_pending_writes - pending_actions;
+
+                                                  // And post the next batch read now we are complete:
+                                                  post_do_batch_reads(pending_write_target);
+                                              }
+                                          });
             });
         }
+        m_current_pending_reads += count;
     }
 
-    pod5::Result<std::shared_ptr<Pod5ReadBatch>> read_batch(Pod5FileReaderPtr input,
-                                                            std::size_t batch_index) {
-        ARROW_ASSIGN_OR_RAISE(auto read_batch, input.reader->read_read_record_batch(batch_index));
-        return std::make_shared<Pod5ReadBatch>(std::move(read_batch), input.reader);
+    pod5::Result<std::shared_ptr<Pod5ReadBatch>> read_batch(
+            std::shared_ptr<pod5::FileReader> const& source_file,
+            pod5::SignalType dest_signal_type,
+            std::vector<std::uint32_t>& selected_rows,
+            std::size_t batch_index) {
+        POD5_TRACE_FUNCTION();
+        ARROW_ASSIGN_OR_RAISE(auto read_batch, source_file->read_read_record_batch(batch_index));
+
+        // Default to all rows if not specfied
+        if (selected_rows.empty()) {
+            auto const source_batch_row_count = read_batch.num_rows();
+            selected_rows.resize(source_batch_row_count);
+            std::iota(selected_rows.begin(), selected_rows.end(), 0);
+        }
+
+        auto source_reads_signal_column = read_batch.signal_column();
+
+        ReadSignalBatch read_signal;
+        read_signal.data.reserve(selected_rows.size());
+        read_signal.signal_type = dest_signal_type;
+
+        auto const input_signal_type = source_file->signal_type();
+
+        // Loop for each read in the batch:
+        for (auto const batch_row : selected_rows) {
+            // Get the signal row data for the read:
+            auto const signal_rows = std::static_pointer_cast<arrow::UInt64Array>(
+                    source_reads_signal_column->value_slice(batch_row));
+            auto const signal_rows_span =
+                    gsl::make_span(signal_rows->raw_values(), signal_rows->length());
+
+            ReadSignalBatch::ReadSignal row_signal;
+
+            // If were using the same compression type in both files, just copy compressed:
+            if (input_signal_type == dest_signal_type) {
+                ARROW_ASSIGN_OR_RAISE(row_signal.signal_data,
+                                      source_file->extract_samples_inplace(
+                                              signal_rows_span, row_signal.sample_counts));
+            } else {
+                // Find the sample count of the complete read:
+                ARROW_ASSIGN_OR_RAISE(auto sample_count,
+                                      source_file->extract_sample_count(signal_rows_span));
+                row_signal.sample_counts.push_back(sample_count);
+
+                // Read the samples:
+                ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> buffer,
+                                      arrow::AllocateBuffer(sample_count * sizeof(std::int16_t)));
+                row_signal.signal_data.push_back(buffer);
+
+                auto signal_buffer_span = gsl::make_span(buffer->mutable_data(), buffer->size())
+                                                  .as_span<std::int16_t>();
+                ARROW_RETURN_NOT_OK(
+                        source_file->extract_samples(signal_rows_span, signal_buffer_span));
+            }
+
+            read_signal.preload_sum += cache_signal(row_signal.signal_data);
+            read_signal.data.emplace_back(std::move(row_signal));
+        }
+
+        return std::make_shared<Pod5ReadBatch>(std::move(read_batch), source_file,
+                                               std::move(read_signal));
+    }
+
+    std::int64_t cache_signal(std::vector<std::shared_ptr<arrow::Buffer>> const& row) {
+        POD5_TRACE_FUNCTION();
+        std::size_t step_size = 512;
+        std::int64_t sum = 0;
+        for (auto const& section : row) {
+            for (std::size_t i = 0; i < section->size(); i += step_size) {
+                sum += section->data()[i];
+            }
+        }
+        return sum;
     }
 
     void set_error(arrow::Status const& error) {
@@ -585,6 +605,7 @@ private:
     }
 
     std::size_t m_target_pending_writes;
+    std::atomic<std::size_t> m_current_pending_reads;
 
     std::atomic<bool> m_has_error;
     boost::synchronized_value<arrow::Status> m_error;

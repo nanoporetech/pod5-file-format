@@ -18,8 +18,8 @@ class POD5_FORMAT_EXPORT FileWriterOptions {
 public:
     /// \brief Default chunk size for signal table entries
     static constexpr std::uint32_t DEFAULT_SIGNAL_CHUNK_SIZE = 102'400;
-    static constexpr std::uint32_t DEFAULT_SIGNAL_TABLE_BATCH_SIZE = 100;
-    static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 1000;
+    static constexpr std::uint32_t DEFAULT_SIGNAL_TABLE_BATCH_SIZE = 1000;
+    static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 10000;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
 
     FileWriterOptions();

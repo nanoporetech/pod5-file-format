@@ -9,8 +9,9 @@
 #include <memory>
 
 namespace arrow {
-class MemoryPool;
 class Array;
+class Buffer;
+class MemoryPool;
 }  // namespace arrow
 
 namespace pod5 {
@@ -69,7 +70,7 @@ public:
     /// \brief Extract the samples as written in the arrow table for a list of rows.
     /// \param row_indices      The rows to query for samples.
     /// \param output_samples   The output samples from the rows.
-    virtual Result<std::vector<gsl::span<std::uint8_t const>>> extract_samples_inplace(
+    virtual Result<std::vector<std::shared_ptr<arrow::Buffer>>> extract_samples_inplace(
             gsl::span<std::uint64_t const> const& row_indices,
             std::vector<std::uint32_t>& sample_count) const = 0;
 
