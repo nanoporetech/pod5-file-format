@@ -459,6 +459,24 @@ pod5_error_t pod5_get_calibration(Pod5ReadRecordBatch* batch,
             batch, &pod5::ReadTableRecordBatch::get_calibration, calibration, calibration_data);
 }
 
+pod5_error_t pod5_get_calibration_extra_info(Pod5ReadRecordBatch_t* batch,
+                                             int16_t calibration,
+                                             int16_t run_info,
+                                             CalibrationExtraData_t* calibration_extra_data) {
+    pod5_reset_error();
+
+    if (!check_not_null(batch) || !check_output_pointer_not_null(calibration_extra_data)) {
+        return g_pod5_error_no;
+    }
+
+    POD5_C_ASSIGN_OR_RAISE(auto calib_data, batch->batch.get_calibration(calibration));
+    POD5_C_ASSIGN_OR_RAISE(auto run_info_data, batch->batch.get_run_info(run_info));
+
+    calibration_extra_data->digitisation = run_info_data.adc_max - run_info_data.adc_min + 1;
+    calibration_extra_data->range = calib_data.scale * calibration_extra_data->digitisation;
+
+    return POD5_OK;
+}
 pod5_error_t pod5_release_calibration(CalibrationDictData* calibration_data) {
     return pod5_release_dict_type<CalibrationDictData>(calibration_data);
 }

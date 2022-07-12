@@ -25,6 +25,12 @@ SCENARIO("C API") {
 
     std::size_t read_count = 0;
 
+    std::int16_t adc_min = -4096;
+    std::int16_t adc_max = 4095;
+
+    float calibration_offset = 54.0f;
+    float calibration_scale = 100.0f;
+
     // Write the file:
     {
         CHECK(pod5_get_error_no() == POD5_OK);
@@ -52,7 +58,8 @@ SCENARIO("C API") {
         CHECK(end_reason_id == 0);
 
         std::int16_t calibration_id = -1;
-        CHECK(pod5_add_calibration(&calibration_id, combined_file, 54.0f, 100.0f) == POD5_OK);
+        CHECK(pod5_add_calibration(&calibration_id, combined_file, calibration_offset,
+                                   calibration_scale) == POD5_OK);
         CHECK(calibration_id == 0);
 
         std::vector<char const*> context_tags_keys{"thing", "foo"};
@@ -61,8 +68,8 @@ SCENARIO("C API") {
         std::vector<char const*> tracking_id_values{"baz_val", "other_val"};
 
         std::int16_t run_info_id = -1;
-        CHECK(pod5_add_run_info(&run_info_id, combined_file, "acquisition_id", 15400, 1024, 0,
-                                context_tags_keys.size(), context_tags_keys.data(),
+        CHECK(pod5_add_run_info(&run_info_id, combined_file, "acquisition_id", 15400, adc_max,
+                                adc_min, context_tags_keys.size(), context_tags_keys.data(),
                                 context_tags_values.data(), "experiment_name", "flow_cell_id",
                                 "flow_cell_product_code", "protocol_name", "protocol_run_id",
                                 200000, "sample_id", 4000, "sequencing_kit", "sequencer_position",
@@ -190,6 +197,20 @@ SCENARIO("C API") {
 
             CHECK(pod5_free_signal_row_info(signal_row_indices.size(), signal_row_info.data()) ==
                   POD5_OK);
+
+            CalibrationDictData* calib_data = nullptr;
+            CHECK(pod5_get_calibration(batch_0, calibration, &calib_data) == POD5_OK);
+            CHECK(!!calib_data);
+            CHECK(calib_data->offset == calibration_offset);
+            CHECK(calib_data->scale == calibration_scale);
+
+            CalibrationExtraData calibration_extra_data{};
+            CHECK(pod5_get_calibration_extra_info(batch_0, calibration, run_info,
+                                                  &calibration_extra_data) == POD5_OK);
+            CHECK(calibration_extra_data.digitisation == adc_max - adc_min + 1);
+            CHECK(calibration_extra_data.range == 8192 * calibration_scale);
+
+            CHECK(pod5_release_calibration(calib_data) == POD5_OK);
         }
 
         RunInfoDictData* run_info_data_out = nullptr;
