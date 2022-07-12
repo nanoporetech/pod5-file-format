@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pod5_format/expandable_buffer.h"
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/result.h"
 #include "pod5_format/signal_table_schema.h"
@@ -27,7 +28,8 @@ struct UncompressedSignalBuilder {
 };
 
 struct VbzSignalBuilder {
-    std::shared_ptr<arrow::LargeBinaryBuilder> signal_builder;
+    ExpandableBuffer<std::int64_t> offset_values;
+    ExpandableBuffer<std::uint8_t> data_values;
 };
 
 class POD5_FORMAT_EXPORT SignalTableWriter {
