@@ -88,7 +88,7 @@ description = "A unique identifier for the acquisition - note that readers shoul
 
 [types.RunInfo.fields.acquisition_start_time]
 type = "timestamp(milliseconds)"
-description = "This is the clock time for sample 0, and can be used together with sample_rate and the :start read field to calculate a clock time for when a given read was acquired. The timezone should be set. MinKNOW will set this to the local timezone on file creation. When merging files that have different timezones, merging code will have to pick a timezone (possibly defaulting to 'UTC')."
+description = "This is the clock time for sample 0, and can be used together with sample_rate and the :start read field to calculate a clock time for when a given read was acquired. The timezone should be set. MinKNOW will set this to the local timezone on file creation. When merging files that have different timezones, merging code will have to pick a timezone (possibly defaulting to "UTC")."
 
 [types.RunInfo.fields.adc_max]
 type = "int16" 

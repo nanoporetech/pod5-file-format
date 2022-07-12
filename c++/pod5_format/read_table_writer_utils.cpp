@@ -17,7 +17,10 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         PrimitiveDictionaryKeyBuilder<Type> const& builder,
         std::size_t expected_length) {
     arrow::TypedBufferBuilder<Type> buffer_builder;
-    auto data = builder.get_data();
+    auto data_in = builder.get_data();
+    ARROW_RETURN_NOT_OK(buffer_builder.Append(data_in.data(), data_in.size()));
+    ARROW_ASSIGN_OR_RAISE(auto data, buffer_builder.FinishWithLength(expected_length));
+
     return arrow::ArrayData::Make(type, expected_length, {nullptr, data}, 0);
 }
 
@@ -25,19 +28,22 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         std::shared_ptr<arrow::DataType> const& type,
         StringDictionaryKeyBuilder const& builder,
         std::size_t expected_length) {
-    auto const value_data = builder.get_string_data();
+    arrow::TypedBufferBuilder<std::uint8_t> value_builder;
+    auto const& str_data = builder.get_string_data();
+    ARROW_RETURN_NOT_OK(value_builder.Append(str_data.data(), str_data.size()));
 
     arrow::TypedBufferBuilder<std::int32_t> offset_builder;
-    auto const& offset_data = builder.get_typed_offset_data();
+    auto const& offset_data = builder.get_offset_data();
     if (offset_data.size() != expected_length) {
         return Status::Invalid("Invalid size for field in struct");
     }
     ARROW_RETURN_NOT_OK(offset_builder.Append(offset_data.data(), offset_data.size()));
     // Append final offset - size of value data.
-    ARROW_RETURN_NOT_OK(offset_builder.Append(value_data->size()));
+    ARROW_RETURN_NOT_OK(offset_builder.Append(str_data.size()));
 
-    std::shared_ptr<arrow::Buffer> offsets;
+    std::shared_ptr<arrow::Buffer> offsets, value_data;
     ARROW_RETURN_NOT_OK(offset_builder.Finish(&offsets));
+    ARROW_RETURN_NOT_OK(value_builder.Finish(&value_data));
 
     return arrow::ArrayData::Make(type, expected_length, {nullptr, offsets, value_data}, 0, 0);
 }
@@ -47,7 +53,7 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         StringMapDictionaryKeyBuilder const& builder,
         std::size_t expected_length) {
     arrow::TypedBufferBuilder<std::int32_t> offset_builder;
-    auto const& offset_data = builder.get_typed_offset_data();
+    auto const& offset_data = builder.get_offset_data();
     if (offset_data.size() != expected_length) {
         return Status::Invalid("Invalid size for field in struct");
     }
@@ -180,9 +186,7 @@ pod5::Result<std::shared_ptr<arrow::Array>> DictionaryWriter::build_dictionary_a
     return arrow::DictionaryArray::FromArrays(indices, res);
 }
 
-PoreWriter::PoreWriter(arrow::MemoryPool* pool) : m_builder(pool) {
-    m_type = make_pore_struct_type();
-}
+PoreWriter::PoreWriter(arrow::MemoryPool* pool) { m_type = make_pore_struct_type(); }
 
 pod5::Result<std::shared_ptr<arrow::Array>> PoreWriter::get_value_array() {
     ARROW_ASSIGN_OR_RAISE(auto result, detail::get_struct_array(m_type, m_builder.builders()));
@@ -191,7 +195,7 @@ pod5::Result<std::shared_ptr<arrow::Array>> PoreWriter::get_value_array() {
 
 std::size_t PoreWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
 
-EndReasonWriter::EndReasonWriter(arrow::MemoryPool* pool) : m_builder(pool) {
+EndReasonWriter::EndReasonWriter(arrow::MemoryPool* pool) {
     m_type = make_end_reason_struct_type();
 }
 
@@ -202,7 +206,7 @@ pod5::Result<std::shared_ptr<arrow::Array>> EndReasonWriter::get_value_array() {
 
 std::size_t EndReasonWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
 
-CalibrationWriter::CalibrationWriter(arrow::MemoryPool* pool) : m_builder(pool) {
+CalibrationWriter::CalibrationWriter(arrow::MemoryPool* pool) {
     m_type = make_calibration_struct_type();
 }
 
@@ -213,9 +217,7 @@ pod5::Result<std::shared_ptr<arrow::Array>> CalibrationWriter::get_value_array()
 
 std::size_t CalibrationWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
 
-RunInfoWriter::RunInfoWriter(arrow::MemoryPool* pool) : m_builder(pool) {
-    m_type = make_run_info_struct_type();
-}
+RunInfoWriter::RunInfoWriter(arrow::MemoryPool* pool) { m_type = make_run_info_struct_type(); }
 
 pod5::Result<std::shared_ptr<arrow::Array>> RunInfoWriter::get_value_array() {
     ARROW_ASSIGN_OR_RAISE(auto result, detail::get_struct_array(m_type, m_builder.builders()));

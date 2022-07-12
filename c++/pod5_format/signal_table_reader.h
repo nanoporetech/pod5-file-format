@@ -42,7 +42,7 @@ public:
 
     /// \brief Extract a row of sample data into [samples], decompressing if required.
     Status extract_signal_row(std::size_t row_index, gsl::span<std::int16_t> samples) const;
-    Result<std::shared_ptr<arrow::Buffer>> extract_signal_row_inplace(std::size_t row_index) const;
+    Result<gsl::span<std::uint8_t const>> extract_signal_row_inplace(std::size_t row_index) const;
 
 private:
     SignalTableSchemaDescription m_field_locations;
@@ -55,8 +55,6 @@ public:
                       std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
                       SignalTableSchemaDescription field_locations,
                       SchemaMetadataDescription&& schema_metadata,
-                      std::size_t num_record_batches,
-                      std::size_t batch_size,
                       arrow::MemoryPool* pool);
 
     SignalTableReader(SignalTableReader&&);
@@ -80,7 +78,7 @@ public:
 
     /// \brief Extract the samples as written in the arrow table for a list of rows.
     /// \param row_indices      The rows to query for samples.
-    Result<std::vector<std::shared_ptr<arrow::Buffer>>> extract_samples_inplace(
+    Result<std::vector<gsl::span<std::uint8_t const>>> extract_samples_inplace(
             gsl::span<std::uint64_t const> const& row_indices,
             std::vector<std::uint32_t>& sample_count) const;
 

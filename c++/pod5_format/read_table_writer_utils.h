@@ -1,12 +1,10 @@
 #pragma once
 
-#include "pod5_format/expandable_buffer.h"
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/read_table_utils.h"
 #include "pod5_format/result.h"
 
 #include <arrow/io/type_fwd.h>
-#include <arrow/util/bit_util.h>
 #include <gsl/gsl-lite.hpp>
 
 #include <chrono>
@@ -16,138 +14,98 @@
 namespace pod5 {
 
 namespace detail {
-
 template <typename T>
 class PrimitiveDictionaryKeyBuilder {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) { return m_values.init_buffer(pool); }
-
-    arrow::Status append(T const& value) { return m_values.append(value); }
+    void append(T const& value) { m_values.push_back(value); }
 
     std::size_t length() const { return m_values.size(); }
-    std::shared_ptr<arrow::Buffer> get_data() const { return m_values.get_buffer(); }
+    gsl::span<T const> get_data() const { return gsl::make_span(m_values); }
 
 private:
-    ExpandableBuffer<T> m_values;
+    std::vector<T> m_values;
 };
 
 // Working around std::vector<bool> and arrow bool types not playing well together.
 template <>
 class PrimitiveDictionaryKeyBuilder<bool> {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) { return m_values.init_buffer(pool); }
+    void append(bool const& value) { m_values.push_back(value); }
 
-    arrow::Status append(bool value) {
-        ARROW_RETURN_NOT_OK(m_values.resize((m_bit_length / 8) + 1));
-        auto mutable_data = m_values.mutable_data();
-        arrow::bit_util::SetBitTo(mutable_data, m_bit_length, value);
-        m_bit_length += 1;
-
-        return arrow::Status::OK();
-    }
-
-    std::size_t length() const { return m_bit_length; }
-    std::shared_ptr<arrow::Buffer> get_data() const { return m_values.get_buffer(); }
+    std::size_t length() const { return m_values.size(); }
+    gsl::span<std::uint8_t const> get_data() const { return gsl::make_span(m_values); }
 
 private:
-    ExpandableBuffer<std::uint8_t> m_values;
-    std::size_t m_bit_length = 0;
+    std::vector<std::uint8_t> m_values;
 };
 
 class StringDictionaryKeyBuilder {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) {
-        ARROW_RETURN_NOT_OK(m_offset_values.init_buffer(pool));
-        return m_string_values.init_buffer(pool);
-    }
-
-    arrow::Status append(std::string const& value) {
-        ARROW_RETURN_NOT_OK(m_offset_values.append(m_string_values.size()));
-        return m_string_values.append_array(
-                gsl::make_span(value.data(), value.size()).as_span<std::uint8_t const>());
+    void append(std::string const& value) {
+        m_offset_values.push_back(m_string_values.size());
+        m_string_values.insert(m_string_values.end(), value.begin(), value.end());
     }
 
     std::size_t length() const { return m_offset_values.size(); }
 
-    std::shared_ptr<arrow::Buffer> get_string_data() const { return m_string_values.get_buffer(); }
-    gsl::span<std::int32_t const> get_typed_offset_data() const {
-        return m_offset_values.get_data_span();
+    gsl::span<std::uint8_t const> get_string_data() const {
+        return gsl::make_span(m_string_values);
+    }
+    gsl::span<std::int32_t const> get_offset_data() const {
+        return gsl::make_span(m_offset_values);
     }
 
 private:
-    ExpandableBuffer<std::int32_t> m_offset_values;
-    ExpandableBuffer<std::uint8_t> m_string_values;
+    std::vector<std::uint8_t> m_string_values;
+    std::vector<std::int32_t> m_offset_values;
 };
 
 class StringMapDictionaryKeyBuilder {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) {
-        ARROW_RETURN_NOT_OK(m_offset_values.init_buffer(pool));
-        ARROW_RETURN_NOT_OK(m_key_builder.init_buffer(pool));
-        return m_value_builder.init_buffer(pool);
-    }
-
-    arrow::Status append(pod5::RunInfoData::MapType const& value) {
-        ARROW_RETURN_NOT_OK(m_offset_values.append(m_key_builder.length()));
+    void append(pod5::RunInfoData::MapType const& value) {
+        m_offset_values.push_back(m_key_builder.length());
         for (auto const& item : value) {
-            ARROW_RETURN_NOT_OK(m_key_builder.append(item.first));
-            ARROW_RETURN_NOT_OK(m_value_builder.append(item.second));
+            m_key_builder.append(item.first);
+            m_value_builder.append(item.second);
         }
-        return arrow::Status::OK();
     }
 
     std::size_t length() const { return m_offset_values.size(); }
 
     StringDictionaryKeyBuilder const& key_builder() const { return m_key_builder; }
     StringDictionaryKeyBuilder const& value_builder() const { return m_value_builder; }
-    gsl::span<std::int32_t const> get_typed_offset_data() const {
-        return m_offset_values.get_data_span();
+    gsl::span<std::int32_t const> get_offset_data() const {
+        return gsl::make_span(m_offset_values);
     }
 
 private:
-    ExpandableBuffer<std::int32_t> m_offset_values;
+    std::vector<std::int32_t> m_offset_values;
     StringDictionaryKeyBuilder m_key_builder;
     StringDictionaryKeyBuilder m_value_builder;
 };
 
 template <std::size_t CurrentIndex, typename BuilderTuple, typename Arg>
-arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple& builders, Arg&& arg) {
+std::size_t unpack_struct_builder_args(BuilderTuple& builders, Arg&& arg) {
     auto& builder = std::get<CurrentIndex>(builders);
     auto index = builder.length();
-    ARROW_RETURN_NOT_OK(builder.append(arg));
+    builder.append(arg);
     return index;
 }
 
 template <std::size_t CurrentIndex, typename BuilderTuple, typename FirstArg, typename... Args>
-arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple& builder,
-                                                      FirstArg&& first_arg,
-                                                      Args&&... args) {
-    ARROW_RETURN_NOT_OK(unpack_struct_builder_args<CurrentIndex>(builder, first_arg));
+std::size_t unpack_struct_builder_args(BuilderTuple& builder,
+                                       FirstArg&& first_arg,
+                                       Args&&... args) {
+    unpack_struct_builder_args<CurrentIndex>(builder, first_arg);
     return unpack_struct_builder_args<CurrentIndex + 1>(builder, std::forward<Args&&>(args)...);
 }
-
-template <typename T, typename F, int... Is>
-void for_each(T&& t, F f, std::integer_sequence<int, Is...>) {
-    auto l = {(f(std::get<Is>(t)), 0)...};
-    (void)l;
-}
-
-template <typename... Ts, typename F>
-void for_each_in_tuple(std::tuple<Ts...>& t, F f) {
-    detail::for_each(t, f, std::make_integer_sequence<int, sizeof...(Ts)>());
-}
-
 }  // namespace detail
 
 template <typename... BuilderTypes>
 class StructBuilder {
 public:
-    StructBuilder(arrow::MemoryPool* pool) {
-        detail::for_each_in_tuple(m_builders, [&](auto& x) { (void)x.init_buffer(pool); });
-    }
-
     template <typename... Args>
-    arrow::Result<std::size_t> append(Args&&... args) {
+    std::size_t append(Args&&... args) {
         return detail::unpack_struct_builder_args<0>(m_builders, std::forward<Args&&>(args)...);
     }
 

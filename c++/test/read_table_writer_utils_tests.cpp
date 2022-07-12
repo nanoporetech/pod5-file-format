@@ -22,7 +22,6 @@ void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
                  std::uint16_t data) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::UInt16Array>(struct_array, name);
     CHECK((*field)[index] == data);
 }
@@ -31,7 +30,6 @@ void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
                  std::int16_t data) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::Int16Array>(struct_array, name);
     CHECK((*field)[index] == data);
 }
@@ -40,7 +38,6 @@ void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
                  std::uint8_t data) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::UInt8Array>(struct_array, name);
     CHECK((*field)[index] == data);
 }
@@ -49,13 +46,11 @@ void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
                  float data) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::FloatArray>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
 void check_field(std::size_t index, arrow::StructArray& struct_array, char const* name, bool data) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::BooleanArray>(struct_array, name);
     CHECK((*field)[index] == data);
 }
@@ -64,7 +59,6 @@ void check_field(std::size_t index,
                  arrow::StructArray& struct_array,
                  char const* name,
                  std::string const& data) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::StringArray>(struct_array, name);
     CHECK((*field)[index] == data);
 }
@@ -73,7 +67,6 @@ void check_timestamp_field(std::size_t index,
                            arrow::StructArray& struct_array,
                            char const* name,
                            std::int64_t milliseconds_since_epoch) {
-    INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::TimestampArray>(struct_array, name);
     CHECK((*field)[index] == milliseconds_since_epoch);
 }

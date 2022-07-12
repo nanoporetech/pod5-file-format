@@ -47,14 +47,12 @@ gsl::span<std::uint8_t const> VbzSignalArray::Value(int64_t i) const {
     return gsl::make_span(value_ptr, value_length);
 }
 
-std::shared_ptr<arrow::Buffer> VbzSignalArray::ValueAsBuffer(int64_t i) const {
+std::shared_ptr<arrow::Array> VbzSignalArray::ValueAsArray(int64_t i) const {
     auto const array = static_cast<arrow::LargeBinaryArray const *>(storage().get());
 
     auto offset = array->value_offset(i);
     auto length = array->value_length(i);
-    auto const value_data = array->value_data();
-
-    return arrow::SliceBuffer(value_data, offset, length);
+    return array->Slice(offset, length);
 }
 
 bool VbzSignalType::ExtensionEquals(const ExtensionType &other) const {

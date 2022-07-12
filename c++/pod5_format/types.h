@@ -52,7 +52,7 @@ public:
     using IteratorType = arrow::stl::ArrayIterator<VbzSignalArray>;
 
     gsl::span<std::uint8_t const> Value(int64_t i) const;
-    std::shared_ptr<arrow::Buffer> ValueAsBuffer(int64_t i) const;
+    std::shared_ptr<arrow::Array> ValueAsArray(int64_t i) const;
 
     using ExtensionArray::ExtensionArray;
 };

@@ -15,7 +15,7 @@ def open_file(input_filename):
     return pod5_format.open_combined_file(input_filename)
 
 
-def repack(inputs, output: Path, force_overwrite: bool):
+def repack(inputs: list[Path], output: Path, force_overwrite: bool):
     print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
 
     repacker = pod5_format.repack.Repacker()
@@ -49,7 +49,6 @@ def repack(inputs, output: Path, force_overwrite: bool):
         repacker.add_all_reads_to_output(output_ref, input_file)
 
     # Wait for repacking to complete:
-    start_time = time.time()
     last_time = time.time()
     last_bytes_complete = 0
     while not repacker.is_complete:
@@ -74,17 +73,6 @@ def repack(inputs, output: Path, force_overwrite: bool):
             repacker.pending_batch_writes,
             f"{mb_per_sec:.1f} MB/s",
         )
-
-    bytes_complete = repacker.reads_sample_bytes_completed
-    time_delta = time.time() - start_time
-
-    mb_per_sec = (bytes_complete / (1000 * 1000)) / time_delta
-    print(
-        f"100.0 % complete",
-        repacker.batches_completed,
-        repacker.batches_requested,
-        f"{mb_per_sec:.1f} MB/s",
-    )
 
     repacker.finish()
     for output in outputs:
