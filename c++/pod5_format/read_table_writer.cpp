@@ -1,6 +1,7 @@
 #include "pod5_format/read_table_writer.h"
 
 #include "pod5_format/errors.h"
+#include "pod5_format/internal/tracing/tracing.h"
 
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_nested.h>
@@ -62,6 +63,7 @@ ReadTableWriter::~ReadTableWriter() {
 
 Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
                                               gsl::span<SignalTableRowIndex const> const& signal) {
+    POD5_TRACE_FUNCTION();
     if (!m_writer) {
         return Status::IOError("Writer terminated");
     }
@@ -106,6 +108,7 @@ Status ReadTableWriter::close() {
 }
 
 Status ReadTableWriter::write_batch() {
+    POD5_TRACE_FUNCTION();
     if (m_current_batch_row_count == 0) {
         return Status::OK();
     }
