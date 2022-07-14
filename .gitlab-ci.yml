@@ -16,6 +16,7 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
   EXTRA_CREATE_ARGS: -opod5_file_format:nanopore_internal_build=True # For conan builds
+  DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
 
 before_script:
   - ""
