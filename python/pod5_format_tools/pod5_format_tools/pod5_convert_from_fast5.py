@@ -8,6 +8,7 @@ import datetime
 from pathlib import Path
 import sys
 import time
+import typing
 import uuid
 import multiprocessing as mp
 from queue import Empty
@@ -17,8 +18,12 @@ import iso8601
 import numpy
 import more_itertools
 from ont_fast5_api.compression_settings import register_plugin
-import pod5_format
+
+import pod5_format as p5
+from pod5_format.reader_utils import make_split_filename
+
 from .utils import iterate_inputs
+
 
 register_plugin()
 
@@ -44,23 +49,22 @@ def format_sample_count(count):
     return f"{count} Samples"
 
 
-def find_end_reason(end_reason):
+def find_end_reason(end_reason: int) -> p5.EndReason:
+    """Return a Pod5EndReason instance from the given end_reason integer"""
     if end_reason is not None:
         if end_reason == 2:
-            return {"name": pod5_format.EndReason.MUX_CHANGE, "forced": True}
-        elif end_reason == 3:
-            return {"name": pod5_format.EndReason.UNBLOCK_MUX_CHANGE, "forced": True}
-        elif end_reason == 4:
-            return {
-                "name": pod5_format.EndReason.DATA_SERVICE_UNBLOCK_MUX_CHANGE,
-                "forced": True,
-            }
-        elif end_reason == 5:
-            return {"name": pod5_format.EndReason.SIGNAL_POSITIVE, "forced": False}
-        elif end_reason == 6:
-            return {"name": pod5_format.EndReason.SIGNAL_NEGATIVE, "forced": False}
-
-    return {"name": pod5_format.EndReason.UNKNOWN, "forced": False}
+            return p5.EndReason(name=p5.EndReasonEnum.MUX_CHANGE, forced=True)
+        if end_reason == 3:
+            return p5.EndReason(name=p5.EndReasonEnum.UNBLOCK_MUX_CHANGE, forced=True)
+        if end_reason == 4:
+            return p5.EndReason(
+                name=p5.EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE, forced=True
+            )
+        if end_reason == 5:
+            return p5.EndReason(name=p5.EndReasonEnum.SIGNAL_POSITIVE, forced=False)
+        if end_reason == 6:
+            return p5.EndReason(name=p5.EndReasonEnum.SIGNAL_NEGATIVE, forced=False)
+    return p5.EndReason(name=p5.EndReasonEnum.UNKNOWN, forced=False)
 
 
 def get_datetime_as_epoch_ms(time_str):
@@ -76,30 +80,52 @@ def get_datetime_as_epoch_ms(time_str):
 ReadRequest = namedtuple("ReadRequest", [])
 StartFile = namedtuple("StartFile", ["read_count"])
 EndFile = namedtuple("EndFile", ["file", "read_count"])
-Read = namedtuple(
-    "Read",
-    [
-        "read_id",
-        "pore",
-        "calibration",
-        "read_number",
-        "start_time",
-        "median_before",
-        "end_reason",
-        "run_info",
-        "signal",
-        "sample_count",
-    ],
-)
+
 ReadList = namedtuple("ReadList", ["file", "reads"])
 
 READ_CHUNK_SIZE = 100
 
 
 class RunCache:
+    """Store the aquisition_id for caching the run_info for each fast5 file"""
+
     def __init__(self, acq_id, run_info):
         self.acquisition_id = acq_id
         self.run_info = run_info
+
+
+def create_run_info(
+    acq_id, adc_max, adc_min, channel_id, context_tags, device_type, tracking_id
+) -> p5.RunInfo:
+    """Create a Pod5RunInfo instance from parsed fast5 data"""
+    return p5.RunInfo(
+        acquisition_id=acq_id,
+        acquisition_start_time=get_datetime_as_epoch_ms(tracking_id["exp_start_time"]),
+        adc_max=adc_max,
+        adc_min=adc_min,
+        context_tags=context_tags,
+        experiment_name="",
+        flow_cell_id=h5py_get_str(tracking_id.get("flow_cell_id", b"")),
+        flow_cell_product_code=h5py_get_str(
+            tracking_id.get("flow_cell_product_code", b"")
+        ),
+        protocol_name=h5py_get_str(tracking_id["exp_script_name"]),
+        protocol_run_id=h5py_get_str(tracking_id["protocol_run_id"]),
+        protocol_start_time=get_datetime_as_epoch_ms(
+            tracking_id.get("protocol_start_time", None)
+        ),
+        sample_id=h5py_get_str(tracking_id["sample_id"]),
+        sample_rate=int(channel_id.attrs["sampling_rate"]),
+        sequencing_kit=h5py_get_str(context_tags.get("sequencing_kit", b"")),
+        sequencer_position=h5py_get_str(tracking_id.get("device_id", b"")),
+        sequencer_position_type=h5py_get_str(
+            tracking_id.get("device_type", device_type)
+        ),
+        software="python-pod5-converter",
+        system_name=h5py_get_str(tracking_id.get("host_product_serial_number", b"")),
+        system_type=h5py_get_str(tracking_id.get("host_product_code", b"")),
+        tracking_id=tracking_id,
+    )
 
 
 def get_reads_from_files(
@@ -115,13 +141,11 @@ def get_reads_from_files(
                 run_cache = None
                 out_q.put(StartFile(len(inp.keys())))
 
-                read_count = len(inp.keys())
-
                 for keys in more_itertools.chunked(inp.keys(), READ_CHUNK_SIZE):
                     # Allow the out queue to throttle us back if we are too far ahead.
                     while not has_request_for_reads:
                         try:
-                            item = in_q.get(timeout=1)
+                            _ = in_q.get(timeout=1)
                             has_request_for_reads = True
                             break
                         except Empty:
@@ -133,25 +157,22 @@ def get_reads_from_files(
                         channel_id = inp[key]["channel_id"]
                         raw = inp[key]["Raw"]
 
-                        pore_type = {
-                            "channel": int(channel_id.attrs["channel_number"]),
-                            "well": raw.attrs["start_mux"],
-                            "pore_type": h5py_get_str(
-                                attrs.get("pore_type", b"not_set")
-                            ),
-                        }
-                        calib_type = {
-                            "offset": channel_id.attrs["offset"],
-                            "adc_range": channel_id.attrs["range"],
-                            "digitisation": channel_id.attrs["digitisation"],
-                        }
+                        pore_type = p5.Pore(
+                            channel=int(channel_id.attrs["channel_number"]),
+                            well=raw.attrs["start_mux"],
+                            pore_type=h5py_get_str(attrs.get("pore_type", b"not_set")),
+                        )
+                        calibration_type = p5.Calibration.from_range(
+                            offset=channel_id.attrs["offset"],
+                            adc_range=channel_id.attrs["range"],
+                            digitisation=channel_id.attrs["digitisation"],
+                        )
                         end_reason_type = find_end_reason(
                             raw.attrs["end_reason"]
                             if "end_reason" in raw.attrs
                             else None
                         )
 
-                        acq_id = None
                         if "run_id" in attrs:
                             acq_id = h5py_get_str(attrs["run_id"])
                         else:
@@ -162,58 +183,21 @@ def get_reads_from_files(
                         if not run_cache or run_cache.acquisition_id != acq_id:
                             adc_min = 0
                             adc_max = 2047
-                            device_type_guess = b"promethion"
+                            device_type_guess = "promethion"
                             if channel_id.attrs["digitisation"] == 8192:
                                 adc_min = -4096
                                 adc_max = 4095
-                                device_type_guess = b"minion"
+                                device_type_guess = "minion"
 
-                            tracking_id = dict(inp[key]["tracking_id"].attrs)
-                            context_tags = dict(inp[key]["context_tags"].attrs)
-                            run_info_type = {
-                                "acquisition_id": acq_id,
-                                "acquisition_start_time": get_datetime_as_epoch_ms(
-                                    tracking_id["exp_start_time"]
-                                ),
-                                "adc_max": adc_max,
-                                "adc_min": adc_min,
-                                "context_tags": tuple(context_tags.items()),
-                                "experiment_name": "",
-                                "flow_cell_id": h5py_get_str(
-                                    tracking_id.get("flow_cell_id", b"")
-                                ),
-                                "flow_cell_product_code": h5py_get_str(
-                                    tracking_id.get("flow_cell_product_code", b"")
-                                ),
-                                "protocol_name": h5py_get_str(
-                                    tracking_id["exp_script_name"]
-                                ),
-                                "protocol_run_id": h5py_get_str(
-                                    tracking_id["protocol_run_id"]
-                                ),
-                                "protocol_start_time": get_datetime_as_epoch_ms(
-                                    tracking_id.get("protocol_start_time", None)
-                                ),
-                                "sample_id": h5py_get_str(tracking_id["sample_id"]),
-                                "sample_rate": int(channel_id.attrs["sampling_rate"]),
-                                "sequencing_kit": h5py_get_str(
-                                    context_tags.get("sequencing_kit", b"")
-                                ),
-                                "sequencer_position": h5py_get_str(
-                                    tracking_id.get("device_id", b"")
-                                ),
-                                "sequencer_position_type": h5py_get_str(
-                                    tracking_id.get("device_type", device_type_guess)
-                                ),
-                                "software": "python-pod5-converter",
-                                "system_name": h5py_get_str(
-                                    tracking_id.get("host_product_serial_number", b"")
-                                ),
-                                "system_type": h5py_get_str(
-                                    tracking_id.get("host_product_code", b"")
-                                ),
-                                "tracking_id": tuple(tracking_id.items()),
-                            }
+                            run_info_type = create_run_info(
+                                acq_id=acq_id,
+                                adc_max=adc_max,
+                                adc_min=adc_min,
+                                channel_id=channel_id,
+                                context_tags=dict(inp[key]["context_tags"].attrs),
+                                device_type=device_type_guess,
+                                tracking_id=dict(inp[key]["tracking_id"].attrs),
+                            )
                             run_cache = RunCache(acq_id, run_info_type)
                         else:
                             run_info_type = run_cache.run_info
@@ -226,17 +210,15 @@ def get_reads_from_files(
                             for start in range(0, len(signal), signal_chunk_size):
                                 signal_slice = signal[start : start + signal_chunk_size]
                                 signal_arr.append(
-                                    pod5_format.signal_tools.vbz_compress_signal(
-                                        signal_slice
-                                    )
+                                    p5.signal_tools.vbz_compress_signal(signal_slice)
                                 )
                                 sample_count.append(len(signal_slice))
 
                         reads.append(
-                            Read(
+                            p5.Read(
                                 uuid.UUID(h5py_get_str(raw.attrs["read_id"])).bytes,
                                 pore_type,
-                                calib_type,
+                                calibration_type,
                                 raw.attrs["read_number"],
                                 raw.attrs["start_time"],
                                 raw.attrs["median_before"],
@@ -259,23 +241,28 @@ def get_reads_from_files(
         out_q.put(EndFile(fast5_file, file_read_sent_count))
 
 
-def add_reads(file, reads, pre_compressed_signal):
+def add_reads(
+    writer: p5.Writer,
+    reads: typing.Iterable[p5.Read],
+    pre_compressed_signal: bool,
+):
+
     pore_types = numpy.array(
-        [file.find_pore(**r.pore)[0] for r in reads], dtype=numpy.int16
+        [writer.find_pore(r.pore)[0] for r in reads], dtype=numpy.int16
     )
     calib_types = numpy.array(
-        [file.find_calibration(**r.calibration)[0] for r in reads],
+        [writer.find_calibration(r.calibration)[0] for r in reads],
         dtype=numpy.int16,
     )
     end_reason_types = numpy.array(
-        [file.find_end_reason(**r.end_reason)[0] for r in reads],
+        [writer.find_end_reason(r.end_reason)[0] for r in reads],
         dtype=numpy.int16,
     )
     run_info_types = numpy.array(
-        [file.find_run_info(**r.run_info)[0] for r in reads], dtype=numpy.int16
+        [writer.find_run_info(r.run_info)[0] for r in reads], dtype=numpy.int16
     )
 
-    file.add_reads(
+    writer.add_reads(
         numpy.array([numpy.frombuffer(r.read_id, dtype=numpy.uint8) for r in reads]),
         pore_types,
         calib_types,
@@ -289,65 +276,76 @@ def add_reads(file, reads, pre_compressed_signal):
         # the two arrays here should have the same dimensions, first contains compressed
         # sample array, the second contains the sample counts
         [r.signal for r in reads],
-        [numpy.array(r.sample_count, dtype=numpy.uint64) for r in reads],
+        [numpy.array(r.samples_count, dtype=numpy.uint64) for r in reads],
         pre_compressed_signal=pre_compressed_signal,
     )
 
 
-class FileWrapper:
-    def __init__(self, file):
-        self.pod5_file = file
-
-
 class OutputHandler:
-    def __init__(self, output_path_root, one_to_one, output_split, force_overwrite):
-        self.output_path_root = output_path_root
+    def __init__(
+        self,
+        output_root: Path,
+        one_to_one: bool,
+        output_split: bool,
+        force_overwrite: bool,
+    ):
+        self.output_root = output_root
         self._one_to_one = one_to_one
         self._output_split = output_split
         self._force_overwrite = force_overwrite
-        self._input_to_output_path = {}
-        self._output_files = {}
+        self._input_to_output_path: typing.Dict[Path, Path] = {}
+        self._output_files: typing.Dict[Path, p5.Writer] = {}
 
-    def get_file(self, input_path):
+    def _open_writer(self, output_path: Path) -> p5.Writer:
+        """Get the writer from existing handles or create a new one if unseen"""
+        if output_path in self._output_files:
+            return self._output_files[output_path]
+
+        if self._output_split:
+            signal_path, reads_path = make_split_filename(output_path)
+            for path in [signal_path, reads_path]:
+                if self._force_overwrite:
+                    path.unlink(missing_ok=True)
+            writer = p5.Writer.open_split(signal_path, reads_path)
+        else:
+            if self._force_overwrite:
+                output_path.unlink(missing_ok=True)
+            writer = p5.Writer.open_combined(output_path)
+
+        self._output_files[output_path] = writer
+        return writer
+
+    def get_writer(self, input_path: Path) -> p5.Writer:
+        """Get a Pod5Writer to write data from the input_path"""
         if input_path not in self._input_to_output_path:
-            output_path = None
             if self._one_to_one:
-                output_path = (
-                    self.output_path_root / input_path.with_suffix(".pod5").name
-                )
+                out_path = self.output_root / input_path.with_suffix(".pod5").name
             else:
-                output_path = self.output_path_root / "output.pod5"
-            self._input_to_output_path[input_path] = output_path
+                out_path = self.output_root / "output.pod5"
+            self._input_to_output_path[input_path] = out_path
 
         output_path = self._input_to_output_path[input_path]
-        if output_path not in self._output_files:
-            if self._output_split:
-                signal_file = Path(str(output_path.with_suffix("")) + "_signal.pod5")
-                reads_file = Path(str(output_path.with_suffix("")) + "_reads.pod5")
-                for file in [signal_file, reads_file]:
-                    if self._force_overwrite:
-                        file.unlink(missing_ok=True)
-                pod5_file = pod5_format.create_split_file(signal_file, reads_file)
-            else:
-                if self._force_overwrite:
-                    output_path.unlink(missing_ok=True)
-                pod5_file = pod5_format.create_combined_file(output_path)
-            self._output_files[output_path] = FileWrapper(pod5_file)
-        return self._output_files[output_path]
+        return self._open_writer(output_path=output_path)
 
-    def input_complete(self, input_path):
+    def set_input_complete(self, input_path: Path) -> None:
+        """Close the Pod5Writer for associated input_path"""
         if not self._one_to_one:
             return
 
         if input_path not in self._input_to_output_path:
             return
+
         output_path = self._input_to_output_path[input_path]
-        self._output_files[output_path].pod5_file.close()
+        self._output_files[output_path].close()
         del self._output_files[output_path]
+        print("Deleted input_complete")
 
     def close_all(self):
-        for v in self._output_files.values():
-            v.pod5_file.close()
+        """Close all open writers"""
+        for writer in self._output_files.values():
+            writer.close()
+            print(f"Close all deleted: {writer}")
+            del writer
         self._output_files = {}
 
 
@@ -401,7 +399,7 @@ def main():
     pending_files = list(iterate_inputs(args.input, args.recursive, "*.fast5"))
     file_count = len(pending_files)
     items_per_reads = max(1, len(pending_files) // args.active_readers)
-    active_processes = []
+    active_processes: typing.List[mp.Process] = []
     while pending_files:
         files = pending_files[:items_per_reads]
         pending_files = pending_files[items_per_reads:]
@@ -423,13 +421,13 @@ def main():
         read_request_queue.put(ReadRequest())
 
     if args.output.exists() and args.output.is_file():
-        raise Exception("Invalid output location - already exists as file")
+        raise FileExistsError("Invalid output location - already exists as file")
     args.output.mkdir(parents=True, exist_ok=True)
     output_handler = OutputHandler(
         args.output, args.output_one_to_one, args.output_split, args.force_overwrite
     )
 
-    print(f"Converting reads...")
+    print("Converting reads...")
     t_start = t_last_update = time.time()
     update_interval = 15  # seconds
 
@@ -456,14 +454,14 @@ def main():
             continue
 
         if isinstance(item, ReadList):
-            out_file = output_handler.get_file(item.file)
+            writer = output_handler.get_writer(item.file)
 
-            add_reads(out_file.pod5_file, item.reads, pre_compress_signal)
+            add_reads(writer, item.reads, pre_compress_signal)
 
             reads_in_this_chunk = len(item.reads)
             reads_processed += reads_in_this_chunk
 
-            sample_count += sum(sum(r.sample_count) for r in item.reads)
+            sample_count += sum(sum(r.samples_count) for r in item.reads)
 
             # Inform the input queues we can handle another read now:
             read_request_queue.put(ReadRequest())
@@ -472,7 +470,7 @@ def main():
             read_count += item.read_count
             continue
         elif isinstance(item, EndFile):
-            out_file = output_handler.input_complete(item.file)
+            output_handler.set_input_complete(item.file)
             files_ended += 1
 
     if reads_processed != read_count:
@@ -484,11 +482,13 @@ def main():
         f"{reads_processed}/{read_count} reads, {format_sample_count(sample_count)}"
     )
 
-    output_handler.close_all()
     print(f"Conversion complete: {sample_count} samples")
 
     for p in active_processes:
         p.join()
+        p.close()
+
+    output_handler.close_all()
 
 
 if __name__ == "__main__":

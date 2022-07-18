@@ -1,9 +1,9 @@
-from collections import defaultdict
 import json
-import jsonschema
 from pathlib import Path
-import pytest
 import typing
+
+import jsonschema
+import pytest
 
 from pod5_format_tools.pod5_demux import (
     assert_no_duplicate_reads,

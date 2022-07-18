@@ -3,7 +3,7 @@ import itertools
 from pathlib import Path
 import sys
 
-import pod5_format
+import pod5_format as p5
 
 
 def main():
@@ -13,8 +13,8 @@ def main():
 
     args = parser.parse_args()
 
-    file_a = pod5_format.open_combined_file(args.input_a)
-    file_b = pod5_format.open_combined_file(args.input_b)
+    file_a = p5.CombinedReader(args.input_a)
+    file_b = p5.CombinedReader(args.input_b)
 
     fields = [
         "read_number",

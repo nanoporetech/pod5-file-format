@@ -3,10 +3,8 @@ Tools to assist repacking pod5 data into other pod5 files
 """
 import time
 
-from . import reader_pyarrow
-from . import writer
-
-import pod5_format.pod5_format_pybind
+import pod5_format as p5
+import pod5_format.pod5_format_pybind as p5b
 
 # The default interval in seconds to check for completion
 DEFAULT_INTERVAL = 15
@@ -16,7 +14,7 @@ class Repacker:
     """Wrapper class around native pod5 tools to repack data"""
 
     def __init__(self):
-        self._repacker = pod5_format.pod5_format_pybind.Repacker()
+        self._repacker = p5b.Repacker()
 
     @property
     def is_complete(self):
@@ -48,16 +46,17 @@ class Repacker:
         """Find the number of batches in flight, awaiting writing"""
         return self._repacker.pending_batch_writes
 
-    def add_output(self, output_file: writer.FileWriter):
+    def add_output(self, output_file: p5.Writer):
         """
         Add an output file to the repacker, so it can have read data repacked into it.
 
-        Once a user has added an output, it can be pased as an output to add_selected_reads_to_output or add_reads_to_output
+        Once a user has added an output, it can be passed as an output
+        to add_selected_reads_to_output or add_reads_to_output
         """
         return self._repacker.add_output(output_file._writer)
 
     def add_selected_reads_to_output(
-        self, output_ref, reader: reader_pyarrow.FileReader, selected_read_ids
+        self, output_ref, reader: p5.Reader, selected_read_ids
     ):
         """
         Add specific read ids in a source file to an output file.
@@ -69,28 +68,29 @@ class Repacker:
         )
 
         if successful_finds != len(selected_read_ids):
-            raise Exception(
-                f"Failed to find {len(selected_read_ids) - successful_finds} requested reads in the source file"
+            raise RuntimeError(
+                f"Failed to find {len(selected_read_ids) - successful_finds} "
+                "requested reads in the source file"
             )
 
         self._repacker.add_selected_reads_to_output(
-            output_ref, reader._reader, per_batch_counts, all_batch_rows
+            output_ref, reader._handles._file_reader, per_batch_counts, all_batch_rows
         )
 
-    def add_all_reads_to_output(self, output_ref, reader: reader_pyarrow.FileReader):
+    def add_all_reads_to_output(self, output_ref, reader: p5.Reader):
         """
         Add all read ids in a source file to an output file.
         """
-        self._repacker.add_all_reads_to_output(output_ref, reader._reader)
+        self._repacker.add_all_reads_to_output(output_ref, reader._handles._file_reader)
 
-    def run_to_completion(
+    def wait(
         self,
         interval: float = DEFAULT_INTERVAL,
         status_updates: bool = True,
         finish: bool = True,
     ) -> None:
         """
-        Run the repacker (blocking) until it is done by checking is_complete every
+        Wait for the repacker (blocking) until it is done by checking is_complete every
         interval seconds. Optionally report status_updates to stdout and call
         finish when done.
         """

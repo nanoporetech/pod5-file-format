@@ -3,12 +3,13 @@ Tools for handling pod5 signals
 """
 
 import numpy
-import pod5_format.pod5_format_pybind as pod5_bind
+import numpy.typing
+import pod5_format.pod5_format_pybind as p5b
 
 
 def vbz_decompress_signal(
-    compressed_signal: numpy.ndarray, sample_count: int
-) -> numpy.ndarray:
+    compressed_signal: numpy.typing.NDArray[numpy.uint8], sample_count: int
+) -> numpy.typing.NDArray[numpy.int16]:
     """
     Decompress a numpy array of compressed signal data
 
@@ -25,16 +26,14 @@ def vbz_decompress_signal(
     """
     signal = numpy.empty(sample_count, dtype="i2")
 
-    pod5_bind.decompress_signal(
-        compressed_signal,
-        signal,
-    )
+    p5b.decompress_signal(compressed_signal, signal)
     return signal
 
 
 def vbz_decompress_signal_into(
-    compressed_signal: numpy.ndarray, output_array: numpy.ndarray
-) -> numpy.ndarray:
+    compressed_signal: numpy.typing.NDArray[numpy.uint8],
+    output_array: numpy.typing.NDArray[numpy.int16],
+) -> numpy.typing.NDArray[numpy.int16]:
     """
     Decompress a numpy array of compressed signal data
 
@@ -49,15 +48,13 @@ def vbz_decompress_signal_into(
     -------
     A decompressed numpy int16 array
     """
-
-    pod5_bind.decompress_signal(
-        compressed_signal,
-        output_array,
-    )
+    p5b.decompress_signal(compressed_signal, output_array)
     return output_array
 
 
-def vbz_compress_signal(signal: numpy.ndarray) -> numpy.ndarray:
+def vbz_compress_signal(
+    signal: numpy.typing.NDArray[numpy.int16],
+) -> numpy.typing.NDArray[numpy.uint8]:
     """
     Compress a numpy array of signal data
 
@@ -70,11 +67,10 @@ def vbz_compress_signal(signal: numpy.ndarray) -> numpy.ndarray:
     -------
     A compressed numpy byte array
     """
-
-    max_signal_size = pod5_bind.vbz_compressed_signal_max_size(len(signal))
+    max_signal_size = p5b.vbz_compressed_signal_max_size(len(signal))
     signal_bytes = numpy.zeros(max_signal_size, dtype="u1")
 
-    size = pod5_bind.compress_signal(signal, signal_bytes)
+    size = p5b.compress_signal(signal, signal_bytes)
 
     signal_bytes = numpy.resize(signal_bytes, size)
     return signal_bytes

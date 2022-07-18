@@ -13,6 +13,7 @@ import jsonschema
 import pandas as pd
 
 import pod5_format as p5
+import pod5_format.pod5_format_pybind as p5b
 import pod5_format.repack as p5_repack
 
 # Json Schema used to validate json mapping
@@ -40,11 +41,9 @@ JSON_SCHEMA = {
 DEFAULT_READ_ID_COLUMN = "read_id"
 
 # Type aliases
-OutputMap = typing.Dict[
-    Path, typing.Tuple[p5.FileWriter, p5.pod5_bind.Pod5RepackerOutput]
-]
+OutputMap = typing.Dict[Path, typing.Tuple[p5.Writer, p5b.Pod5RepackerOutput]]
 TransferMap = typing.DefaultDict[
-    typing.Tuple[Path, p5.pod5_bind.Pod5RepackerOutput], typing.Set[str]
+    typing.Tuple[Path, p5b.Pod5RepackerOutput], typing.Set[str]
 ]
 
 
@@ -82,7 +81,7 @@ def prepare_pod5_demux_argparser() -> argparse.ArgumentParser:
         help="CSV file mapping output filename to read ids",
     )
     mapping_exclusive.add_argument(
-        "--json", type=Path, help="JSON mapping output filename to array of read idss."
+        "--json", type=Path, help="JSON mapping output filename to array of read ids."
     )
     summary_group = parser.add_argument_group("sequencing summary mapping")
     summary_group.add_argument("--summary", type=Path, help="Sequencing summary path")
@@ -158,9 +157,9 @@ def parse_summary_mapping(
 
     def group_name_to_dict(
         group_name: typing.Any, columns: typing.List[str]
-    ) -> typing.Dict[str, typing.Set[str]]:
+    ) -> typing.Dict[str, str]:
         """Split group_name tuple/str into a dict by column name key"""
-        if isinstance(group_name, tuple):
+        if not isinstance(group_name, str):
             return {col: str(value).strip() for col, value in zip(columns, group_name)}
         return {columns[0]: str(group_name).strip()}
 
@@ -207,9 +206,7 @@ def assert_filename_template(
 
 def create_default_filename_template(demux_columns: typing.List[str]) -> str:
     """Create the default filename template from the demux_columns selected"""
-    default = "_".join(
-        "{key}-{{{key}}}".format(**{"key": col}) for col in demux_columns
-    )
+    default = "_".join(f"{col}-{{{col}}}" for col in demux_columns)
     default += ".pod5"
     return default
 
@@ -315,7 +312,7 @@ def prepare_repacker_outputs(
     outputs: OutputMap = {}
     for target in mapping:
         target_path = output / target
-        p5_output = p5.create_combined_file(target_path)
+        p5_output = p5.Writer.open_combined(target_path)
         outputs[target_path] = (p5_output, repacker.add_output(p5_output))
 
     return outputs
@@ -370,7 +367,7 @@ def calculate_transfers(
 
     for input_path in inputs:
         # Open a FileReader from input_path
-        p5_reader = p5.open_combined_file(input_path)
+        p5_reader = p5.Reader.from_combined(input_path)
 
         # Iterate over batches of read_ids
         for batch in p5_reader.read_batches(selection=selection, missing_ok=True):
@@ -399,11 +396,10 @@ def launch_repacker(
     """
     # Repack the input reads to the target outputs
     for (reader, repacker_output), read_ids in transfers.items():
-        # print(reader, repacker_output, read_ids)
         repacker.add_selected_reads_to_output(repacker_output, reader, read_ids)
 
     # Wait for repacking to complete:
-    repacker.run_to_completion(interval=5)
+    repacker.wait(interval=5)
 
     # Close the FileWriters
     for p5_writer, _ in outputs.values():
