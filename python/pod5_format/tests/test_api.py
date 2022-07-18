@@ -253,6 +253,16 @@ def test_pyarrow_combined():
             run_reader_test(_fh)
 
 
+def test_pyarrow_combined_str():
+    with tempfile.TemporaryDirectory() as temp:
+        path = str(Path(temp) / "combined.pod5")
+        with p5.create_combined_file(path) as _fh:
+            run_writer_test(_fh)
+
+        with p5.open_combined_file(path) as _fh:
+            run_reader_test(_fh)
+
+
 def test_pyarrow_split():
     with tempfile.TemporaryDirectory() as temp:
         signal = Path(temp) / "split_signal.pod5"
@@ -261,6 +271,17 @@ def test_pyarrow_split():
             run_writer_test(_fh)
 
         with p5.Reader.from_split(signal, reads) as _fh:
+            run_reader_test(_fh)
+
+
+def test_pyarrow_split_str():
+    with tempfile.TemporaryDirectory() as temp:
+        signal = str(Path(temp) / "split_signal.pod5")
+        reads = str(Path(temp) / "split_reads.pod5")
+        with p5.create_split_file(signal, reads) as _fh:
+            run_writer_test(_fh)
+
+        with p5.open_split_file(signal, reads) as _fh:
             run_reader_test(_fh)
 
 

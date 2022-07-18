@@ -360,7 +360,7 @@ class SplitWriter(Writer):
         self._reads_path = reads_path
         self._software_name = software_name
 
-        if not self._signal_path.is_file() or self._reads_path.is_file():
+        if self._signal_path.is_file() or self._reads_path.is_file():
             raise FileExistsError("Input path already exists. Refusing to overwrite.")
 
         super().__init__(
@@ -417,7 +417,7 @@ def create_combined_file(
         "pod5_format.writer.create_combined_file",
         "pod5_format.writer.CombinedWriter",
     )
-    return Writer.open_combined(path=filename, software_name=software_name)
+    return Writer.open_combined(path=Path(filename), software_name=software_name)
 
 
 def create_split_file(
@@ -434,7 +434,7 @@ def create_split_file(
         "pod5_format.writer.SplitWriter",
     )
     if reads_file is None:
-        return SplitWriter.from_inferred(path=file, software_name=software_name)
+        return SplitWriter.from_inferred(path=Path(file), software_name=software_name)
     return SplitWriter(
-        signal_path=file, reads_path=reads_file, software_name=software_name
+        signal_path=Path(file), reads_path=Path(reads_file), software_name=software_name
     )

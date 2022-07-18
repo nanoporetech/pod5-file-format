@@ -952,7 +952,7 @@ class CombinedReader(Reader):
         return self._combined_path
 
 
-def open_combined_file(combined_path: Path) -> CombinedReader:
+def open_combined_file(combined_path: typing.Union[str, Path]) -> CombinedReader:
     """
     Open a combined pod5 file for reading.
 
@@ -969,10 +969,12 @@ def open_combined_file(combined_path: Path) -> CombinedReader:
         "pod5_format.reader.open_combined_file",
         "pod5_format.reader.CombinedReader",
     )
-    return CombinedReader(combined_path)
+    return CombinedReader(Path(combined_path))
 
 
-def open_split_file(path: Path, reads_path: Path = None) -> SplitReader:
+def open_split_file(
+    path: typing.Union[str, Path], reads_path: typing.Union[str, Path] = None
+) -> SplitReader:
     """
     Open a split pair of pod5 files for reading, one for signal data, one for read data.
 
@@ -995,5 +997,5 @@ def open_split_file(path: Path, reads_path: Path = None) -> SplitReader:
         "pod5_format.reader.SplitReader",
     )
     if not reads_path:
-        return SplitReader.from_inferred(path)
-    return SplitReader(path, reads_path)
+        return SplitReader.from_inferred(Path(path))
+    return SplitReader(Path(path), Path(reads_path))
