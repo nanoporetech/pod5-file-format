@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-import pod5_format
+import pod5_format as p5
 
 
 def main():
@@ -11,10 +11,10 @@ def main():
     parser.add_argument("input", type=Path)
     args = parser.parse_args()
 
-    file = pod5_format.open_combined_file(args.input)
-    for read in file.reads():
-        print(f"Found read {read.read_id}")
-        print(f"  Read has  {read.sample_count} samples")
+    with p5.CombinedReader(args.input) as reader:
+        for read in reader.reads():
+            print(f"Found read {read.read_id}")
+            print(f"  Read has  {read.sample_count} samples")
 
 
 if __name__ == "__main__":

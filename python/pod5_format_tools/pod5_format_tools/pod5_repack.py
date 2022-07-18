@@ -4,25 +4,22 @@ Tool for repacking pod5 files into a single output
 import argparse
 from pathlib import Path
 
-import random
 import sys
 import time
+import typing
 
+import pod5_format as p5
 import pod5_format.repack
 
 
-def open_file(input_filename):
-    return pod5_format.open_combined_file(input_filename)
-
-
-def repack(inputs, output: Path, force_overwrite: bool):
+def repack(inputs: typing.List[Path], output: Path, force_overwrite: bool):
     print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
 
     repacker = pod5_format.repack.Repacker()
 
-    outputs = []
+    writers: typing.List[p5.Writer] = []
     for input_filename in inputs:
-        input_file = open_file(input_filename)
+        reader = p5.Reader.from_combined(input_filename)
 
         output_filename = output / input_filename.name
         output_filename.parent.mkdir(parents=True, exist_ok=True)
@@ -41,54 +38,17 @@ def repack(inputs, output: Path, force_overwrite: bool):
                 print("Refusing to overwrite output  without --force-overwrite")
                 sys.exit(1)
 
-        output = pod5_format.create_combined_file(output_filename)
-        outputs.append(output)
-        output_ref = repacker.add_output(output)
+        writer = p5.Writer.open_combined(output_filename)
+        writers.append(writer)
+        output_ref = repacker.add_output(writer)
 
         # Add all reads to the repacker
-        repacker.add_all_reads_to_output(output_ref, input_file)
+        repacker.add_all_reads_to_output(output_ref, reader)
 
-    # Wait for repacking to complete:
-    start_time = time.time()
-    last_time = time.time()
-    last_bytes_complete = 0
-    while not repacker.is_complete:
-        time.sleep(15)
+    repacker.wait()
 
-        new_bytes_complete = repacker.reads_sample_bytes_completed
-        bytes_delta = new_bytes_complete - last_bytes_complete
-        last_bytes_complete = new_bytes_complete
-
-        time_now = time.time()
-        time_delta = time_now - last_time
-        last_time = time_now
-
-        mb_per_sec = (bytes_delta / (1000 * 1000)) / time_delta
-
-        pct_complete = 100 * (repacker.batches_completed / repacker.batches_requested)
-
-        print(
-            f"{pct_complete:.1f} % complete",
-            repacker.batches_completed,
-            repacker.batches_requested,
-            repacker.pending_batch_writes,
-            f"{mb_per_sec:.1f} MB/s",
-        )
-
-    bytes_complete = repacker.reads_sample_bytes_completed
-    time_delta = time.time() - start_time
-
-    mb_per_sec = (bytes_complete / (1000 * 1000)) / time_delta
-    print(
-        f"100.0 % complete",
-        repacker.batches_completed,
-        repacker.batches_requested,
-        f"{mb_per_sec:.1f} MB/s",
-    )
-
-    repacker.finish()
-    for output in outputs:
-        output.close()
+    for writer in writers:
+        writer.close()
 
 
 def main():

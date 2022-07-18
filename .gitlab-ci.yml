@@ -347,9 +347,9 @@ build-archive:
   script:
     - pip install ./${WHEEL_GLOB}
     - pip install pytest pytest-cov
-    - pytest python/pod5_format/ -v
+    - pytest python/pod5_format/ -v --color=yes
     - pip install pod5_format_tools*.whl
-    - pytest python/pod5_format_tools/ -v
+    - pytest python/pod5_format_tools/ -v --color=yes
 
     
 tools-linux-x64:

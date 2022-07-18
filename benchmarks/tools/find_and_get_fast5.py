@@ -8,8 +8,6 @@ from uuid import UUID
 import numpy
 import pandas as pd
 
-import pod5_format
-
 
 def select_reads(file, selection):
     if selection is not None:

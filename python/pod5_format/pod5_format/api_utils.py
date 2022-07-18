@@ -1,9 +1,13 @@
-from enum import Enum
-
 import numpy
 import pyarrow as pa
 
+from warnings import warn
+
 from pod5_format.pod5_format_pybind import load_read_id_iterable, format_read_id_to_str
+
+
+class Pod5ApiException(Exception):
+    """Generic Pod5 API Exception"""
 
 
 def pack_read_ids(read_ids):
@@ -18,10 +22,10 @@ def format_read_ids(read_ids):
     return format_read_id_to_str(read_ids)
 
 
-class EndReason(Enum):
-    UNKNOWN = 0
-    MUX_CHANGE = 1
-    UNBLOCK_MUX_CHANGE = 2
-    DATA_SERVICE_UNBLOCK_MUX_CHANGE = 3
-    SIGNAL_POSITIVE = 4
-    SIGNAL_NEGATIVE = 5
+def deprecation_warning(deprecated: str, instead: str) -> None:
+    """Issue a FutureWarning"""
+    warn(
+        f"{deprecated} is deprecated. Please use {instead}",
+        FutureWarning,
+        stacklevel=2,
+    )

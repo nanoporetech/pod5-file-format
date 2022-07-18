@@ -10,17 +10,12 @@ import time
 import h5py
 import numpy
 from ont_fast5_api.compression_settings import register_plugin
-import pod5_format
+import pod5_format as p5
+
 from .utils import iterate_inputs
 
+
 register_plugin()
-
-
-def try_open_file(filename: Path):
-    try:
-        return pod5_format.open_combined_file(filename)
-    except RuntimeError as e:
-        print(f"Error opening {filename}: {e}")
 
 
 def format_sample_count(count):
@@ -247,7 +242,7 @@ def main():
         p.start()
         active_processes.append(p)
 
-    print(f"Converting reads...")
+    print("Converting reads...")
     t_start = t_last_update = time.time()
     update_interval = 15  # seconds
 
@@ -257,11 +252,15 @@ def main():
 
     # Divide up files between readers:
     current_reads_batch = []
+
     for filename in iterate_inputs(args.input, args.recursive, "*.pod5"):
-        file = try_open_file(filename)
-        if not file:
+        try:
+            combined_reader = p5.CombinedReader(filename)
+        except Exception as exc:
+            print(f"Error opening: {filename}: {exc}")
             continue
-        for read in file.reads(preload={"samples"}):
+
+        for read in combined_reader.reads(preload={"samples"}):
             now = time.time()
             if t_last_update + update_interval < now:
                 t_last_update = now

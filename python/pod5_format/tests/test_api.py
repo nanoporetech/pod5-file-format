@@ -1,61 +1,43 @@
-from collections import namedtuple
 from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 from uuid import uuid4, uuid5, UUID
 
 import numpy
+from pod5_format.writer import Writer
 import pytest
 
-import pod5_format
-import pod5_format.signal_tools
+import pod5_format as p5
 
 TEST_UUID = uuid4()
 
-ReadData = namedtuple(
-    "ReadData",
-    [
-        "read_id",
-        "pore",
-        "calibration",
-        "read_number",
-        "start_sample",
-        "median_before",
-        "end_reason",
-        "run_info",
-        "signal",
-    ],
-)
 
-
-def gen_test_read(seed) -> ReadData:
+def gen_test_read(seed) -> p5.Read:
     numpy.random.seed(seed)
 
-    def get_random_float():
+    def get_random_float() -> float:
         return float(numpy.random.rand(1)[0])
 
-    def get_random_int(low, high):
+    def get_random_int(low: int, high: int) -> int:
         return int(numpy.random.randint(low, high, 1)[0])
 
-    def get_random_str(prefix):
+    def get_random_str(prefix: str) -> str:
         return f"{prefix}_{numpy.random.randint(1)}"
 
     size = get_random_int(0, 1000)
     signal = numpy.random.randint(0, 1024, size, dtype=numpy.int16)
 
-    return ReadData(
-        uuid5(TEST_UUID, str(seed)).bytes,
-        pod5_format.PoreData(
+    return p5.Read(
+        uuid5(TEST_UUID, str(seed)),
+        p5.Pore(
             get_random_int(0, 3000), get_random_int(0, 4), get_random_str("pore_type_")
         ),
-        pod5_format.CalibrationData(get_random_float(), get_random_float()),
+        p5.Calibration(get_random_float(), get_random_float()),
         get_random_int(0, 100000),
         get_random_int(0, 10000000),
         get_random_float(),
-        pod5_format.EndReasonData(
-            pod5_format.EndReason(get_random_int(0, 5)), get_random_int(0, 1)
-        ),
-        pod5_format.RunInfoData(
+        p5.EndReason(p5.EndReasonEnum(get_random_int(0, 5)), get_random_int(0, 1)),
+        p5.RunInfo(
             get_random_str("acq_id"),
             datetime.fromtimestamp(get_random_int(0, 1), timezone.utc),
             get_random_int(0, 1000),
@@ -82,37 +64,38 @@ def gen_test_read(seed) -> ReadData:
             ],
         ),
         signal,
+        signal.shape[0],
     )
 
 
-def run_writer_test(f):
+def run_writer_test(f: Writer):
     test_read = gen_test_read(0)
     f.add_read(
         test_read.read_id,
-        f.find_pore(**test_read.pore._asdict())[0],
-        f.find_calibration(**test_read.calibration._asdict())[0],
+        f.find_pore(test_read.pore)[0],
+        f.find_calibration(test_read.calibration)[0],
         test_read.read_number,
-        test_read.start_sample,
+        test_read.start_time,
         test_read.median_before,
-        f.find_end_reason(**test_read.end_reason._asdict())[0],
-        f.find_run_info(**test_read.run_info._asdict())[0],
+        f.find_end_reason(test_read.end_reason)[0],
+        f.find_run_info(test_read.run_info)[0],
         test_read.signal,
-        test_read.signal.shape[0],
+        test_read.samples_count,
         pre_compressed_signal=False,
     )
 
     test_read = gen_test_read(1)
     f.add_read(
         test_read.read_id,
-        f.find_pore(**test_read.pore._asdict())[0],
-        f.find_calibration(**test_read.calibration._asdict())[0],
+        f.find_pore(test_read.pore)[0],
+        f.find_calibration(test_read.calibration)[0],
         test_read.read_number,
-        test_read.start_sample,
+        test_read.start_time,
         test_read.median_before,
-        f.find_end_reason(**test_read.end_reason._asdict())[0],
-        f.find_run_info(**test_read.run_info._asdict())[0],
-        [pod5_format.signal_tools.vbz_compress_signal(test_read.signal)],
-        [test_read.signal.shape[0]],
+        f.find_end_reason(test_read.end_reason)[0],
+        f.find_run_info(test_read.run_info)[0],
+        [p5.signal_tools.vbz_compress_signal(test_read.signal)],
+        [test_read.samples_count],
         pre_compressed_signal=True,
     )
 
@@ -124,24 +107,22 @@ def run_writer_test(f):
     ]
     f.add_reads(
         numpy.array(
-            [numpy.frombuffer(r.read_id, dtype=numpy.uint8) for r in test_reads]
+            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
         ),
+        numpy.array([f.find_pore(r.pore)[0] for r in test_reads], dtype=numpy.int16),
         numpy.array(
-            [f.find_pore(**r.pore._asdict())[0] for r in test_reads], dtype=numpy.int16
-        ),
-        numpy.array(
-            [f.find_calibration(**r.calibration._asdict())[0] for r in test_reads],
+            [f.find_calibration(r.calibration)[0] for r in test_reads],
             dtype=numpy.int16,
         ),
         numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
-        numpy.array([r.start_sample for r in test_reads], dtype=numpy.uint64),
+        numpy.array([r.start_time for r in test_reads], dtype=numpy.uint64),
         numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
         numpy.array(
-            [f.find_end_reason(**r.end_reason._asdict())[0] for r in test_reads],
+            [f.find_end_reason(r.end_reason)[0] for r in test_reads],
             dtype=numpy.int16,
         ),
         numpy.array(
-            [f.find_run_info(**r.run_info._asdict())[0] for r in test_reads],
+            [f.find_run_info(r.run_info)[0] for r in test_reads],
             dtype=numpy.int16,
         ),
         [r.signal for r in test_reads],
@@ -157,44 +138,41 @@ def run_writer_test(f):
     ]
     f.add_reads(
         numpy.array(
-            [numpy.frombuffer(r.read_id, dtype=numpy.uint8) for r in test_reads]
+            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
         ),
+        numpy.array([f.find_pore(r.pore)[0] for r in test_reads], dtype=numpy.int16),
         numpy.array(
-            [f.find_pore(**r.pore._asdict())[0] for r in test_reads], dtype=numpy.int16
-        ),
-        numpy.array(
-            [f.find_calibration(**r.calibration._asdict())[0] for r in test_reads],
+            [f.find_calibration(r.calibration)[0] for r in test_reads],
             dtype=numpy.int16,
         ),
         numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
-        numpy.array([r.start_sample for r in test_reads], dtype=numpy.uint64),
+        numpy.array([r.start_time for r in test_reads], dtype=numpy.uint64),
         numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
         numpy.array(
-            [f.find_end_reason(**r.end_reason._asdict())[0] for r in test_reads],
+            [f.find_end_reason(r.end_reason)[0] for r in test_reads],
             dtype=numpy.int16,
         ),
         numpy.array(
-            [f.find_run_info(**r.run_info._asdict())[0] for r in test_reads],
+            [f.find_run_info(r.run_info)[0] for r in test_reads],
             dtype=numpy.int16,
         ),
         # Pass an array of arrays here, as we have pre compressed data
         # top level array is per read, then the sub arrays are chunks within the reads.
         # the two arrays here should have the same dimensions, first contains compressed
         # sample array, the second contains the sample counts
-        [[pod5_format.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads],
+        [[p5.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads],
         numpy.array([[len(r.signal)] for r in test_reads], dtype=numpy.uint64),
         pre_compressed_signal=True,
     )
 
 
-def run_reader_test(reader):
+def run_reader_test(reader: p5.Reader):
     for idx, read in enumerate(reader.reads()):
-        print(idx)
         data = gen_test_read(idx)
 
-        assert UUID(bytes=data.read_id) == read.read_id
+        assert data.read_id == read.read_id
         assert data.read_number == read.read_number
-        assert data.start_sample == read.start_sample
+        assert data.start_time == read.start_sample
         assert pytest.approx(data.median_before) == read.median_before
 
         assert data.pore == read.pore
@@ -216,7 +194,7 @@ def run_reader_test(reader):
 
         assert data.run_info == read.run_info
 
-        assert data.signal.shape[0] == read.sample_count
+        assert data.samples_count == read.sample_count
         # Expecting poor compression given the random input
         assert 0 < read.byte_count < (len(data.signal) * data.signal.itemsize + 24)
         assert len(read.signal_rows) >= 1
@@ -236,7 +214,6 @@ def run_reader_test(reader):
 
     # Try to walk through specific batches in the file:
     for batch in reader.read_batches(batch_selection=[0], preload={"samples"}):
-        print(idx)
         assert len(batch.cached_samples_column) == batch.num_reads
         for idx, read in enumerate(batch.reads()):
             data = gen_test_read(idx)
@@ -269,10 +246,10 @@ def run_reader_test(reader):
 def test_pyarrow_combined():
     with tempfile.TemporaryDirectory() as temp:
         path = Path(temp) / "combined.pod5"
-        with pod5_format.create_combined_file(path) as _fh:
+        with p5.Writer.open_combined(path) as _fh:
             run_writer_test(_fh)
 
-        with pod5_format.open_combined_file(path) as _fh:
+        with p5.Reader.from_combined(path) as _fh:
             run_reader_test(_fh)
 
 
@@ -280,18 +257,19 @@ def test_pyarrow_split():
     with tempfile.TemporaryDirectory() as temp:
         signal = Path(temp) / "split_signal.pod5"
         reads = Path(temp) / "split_reads.pod5"
-        with pod5_format.create_split_file(signal, reads) as _fh:
+        with p5.Writer.open_split(signal, reads) as _fh:
             run_writer_test(_fh)
 
-        with pod5_format.open_split_file(signal, reads) as _fh:
+        with p5.Reader.from_split(signal, reads) as _fh:
             run_reader_test(_fh)
 
 
 def test_pyarrow_split_one_name():
     with tempfile.TemporaryDirectory() as temp:
         split_path = Path(temp) / "split.pod5"
-        with pod5_format.create_split_file(split_path) as _fh:
+
+        with p5.Writer.open_split(split_path) as _fh:
             run_writer_test(_fh)
 
-        with pod5_format.open_split_file(split_path) as _fh:
+        with p5.Reader.from_inferred_split(split_path) as _fh:
             run_reader_test(_fh)
