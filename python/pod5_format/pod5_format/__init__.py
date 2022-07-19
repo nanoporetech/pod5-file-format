@@ -30,7 +30,7 @@ from .reader import (
     open_split_file,
 )
 from .reader_utils import make_split_filename
-from .writer import Writer
+from .writer import Writer, create_combined_file, create_split_file
 from .signal_tools import (
     vbz_compress_signal,
     vbz_decompress_signal,
