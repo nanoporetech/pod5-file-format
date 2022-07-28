@@ -311,7 +311,7 @@ class CombinedWriter(Writer):
         self._combined_path = combined_path
         self._software_name = software_name
 
-        if not self.combined_path.is_file():
+        if self.combined_path.is_file():
             raise FileExistsError("Input path already exists. Refusing to overwrite.")
 
         super().__init__(

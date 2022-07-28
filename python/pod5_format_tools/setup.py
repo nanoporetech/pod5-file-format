@@ -35,6 +35,7 @@ setup(
     install_requires=[
         "h5py",
         "jsonschema",
+        "more_itertools",
         "ont-fast5-api",
         "pandas",
         "pod5_format",

@@ -3,7 +3,6 @@ Tool for converting fast5 files to the pod5 format
 """
 
 import argparse
-from collections import namedtuple
 import datetime
 from pathlib import Path
 import sys
@@ -22,31 +21,62 @@ from ont_fast5_api.compression_settings import register_plugin
 import pod5_format as p5
 from pod5_format.reader_utils import make_split_filename
 
-from .utils import iterate_inputs
+from pod5_format_tools.utils import iterate_inputs
 
 
 register_plugin()
+
+READ_CHUNK_SIZE = 100
+
+
+def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
+    """
+    Create an argument parser for the pod5 convert-from-fast5 tool
+    """
+    parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
+
+    parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
+    parser.add_argument("output", type=Path, help="Output path for the pod5 file(s)")
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        default=False,
+        action="store_true",
+        help="Search for input files recursively",
+    )
+    parser.add_argument(
+        "-p",
+        "--processes",
+        default=10,
+        type=int,
+        help="Set the number of processes to use",
+    )
+    parser.add_argument(
+        "--output-one-to-one",
+        action="store_true",
+        help="Output files should be 1:1 with input files, written as children of [output] argument.",
+    )
+    parser.add_argument(
+        "--output-split",
+        action="store_true",
+        help="Output files should use the pod5 split format.",
+    )
+    parser.add_argument(
+        "--force-overwrite", action="store_true", help="Overwrite destination files"
+    )
+    parser.add_argument(
+        "--signal-chunk-size",
+        default=102400,
+        help="Chunk size to use for signal data set",
+    )
+
+    return parser
 
 
 def h5py_get_str(value):
     if isinstance(value, str):
         return value
     return value.decode("utf-8")
-
-
-def format_sample_count(count):
-    units = [
-        (1000000000000, "T"),
-        (1000000000, "G"),
-        (1000000, "M"),
-        (1000, "K"),
-    ]
-
-    for div, unit in units:
-        if count > div:
-            return f"{count/div:.1f} {unit}Samples"
-
-    return f"{count} Samples"
 
 
 def find_end_reason(end_reason: int) -> p5.EndReason:
@@ -67,35 +97,49 @@ def find_end_reason(end_reason: int) -> p5.EndReason:
     return p5.EndReason(name=p5.EndReasonEnum.UNKNOWN, forced=False)
 
 
-def get_datetime_as_epoch_ms(time_str):
+def get_datetime_as_epoch_ms(time_str: typing.Optional[str]) -> datetime.datetime:
+    """Convert the fast5 time string to timestamp"""
     epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=datetime.timezone.utc)
-    if time_str == None:
-        return 0
+    if time_str is None:
+        return epoch
     try:
         return iso8601.parse_date(h5py_get_str(time_str))
     except iso8601.iso8601.ParseError:
-        return 0
+        return epoch
 
 
-ReadRequest = namedtuple("ReadRequest", [])
-StartFile = namedtuple("StartFile", ["read_count"])
-EndFile = namedtuple("EndFile", ["file", "read_count"])
-
-ReadList = namedtuple("ReadList", ["file", "reads"])
-
-READ_CHUNK_SIZE = 100
+class RequestQItem(typing.NamedTuple):
+    """Enqueued to request more reads"""
 
 
-class RunCache:
-    """Store the aquisition_id for caching the run_info for each fast5 file"""
+class StartFileQItem(typing.NamedTuple):
+    """Enqueued to record the start of a file process"""
 
-    def __init__(self, acq_id, run_info):
-        self.acquisition_id = acq_id
-        self.run_info = run_info
+    read_count: int
+
+
+class EndFileQItem(typing.NamedTuple):
+    """Enqueued to record the end of a file process"""
+
+    file: Path
+    read_count: int
+
+
+class ReadListQItem(typing.NamedTuple):
+    """Enqueued to send list of reads to be written"""
+
+    file: Path
+    reads: typing.List[p5.Read]
 
 
 def create_run_info(
-    acq_id, adc_max, adc_min, channel_id, context_tags, device_type, tracking_id
+    acq_id: str,
+    adc_max: int,
+    adc_min: int,
+    sample_rate: int,
+    context_tags: typing.Dict[str, typing.Any],
+    device_type: str,
+    tracking_id: typing.Dict[str, typing.Any],
 ) -> p5.RunInfo:
     """Create a Pod5RunInfo instance from parsed fast5 data"""
     return p5.RunInfo(
@@ -115,7 +159,7 @@ def create_run_info(
             tracking_id.get("protocol_start_time", None)
         ),
         sample_id=h5py_get_str(tracking_id["sample_id"]),
-        sample_rate=int(channel_id.attrs["sampling_rate"]),
+        sample_rate=sample_rate,
         sequencing_kit=h5py_get_str(context_tags.get("sequencing_kit", b"")),
         sequencer_position=h5py_get_str(tracking_id.get("device_id", b"")),
         sequencer_position_type=h5py_get_str(
@@ -128,117 +172,146 @@ def create_run_info(
     )
 
 
-def get_reads_from_files(
-    in_q, out_q, fast5_files, pre_compress_signal, signal_chunk_size
-):
-    # Persist this flag in case we encounter an error in a file.
-    has_request_for_reads = False
+def convert_fast5_read(
+    fast5_read: h5py.Group,
+    run_info_cache: typing.Dict[str, p5.RunInfo],
+    pre_compress_signal: bool,
+    signal_chunk_size: int,
+) -> p5.Read:
+    """
+    Given a fast5 read parsed from a fast5 file, return a pod5_format.Read object.
+    """
+    attrs = fast5_read.attrs
+    channel_id = fast5_read["channel_id"]
+    raw = fast5_read["Raw"]
 
-    for fast5_file in fast5_files:
-        file_read_sent_count = 0
+    # Get the acquisition id
+    if "run_id" in attrs:
+        acq_id = h5py_get_str(attrs["run_id"])
+    else:
+        acq_id = h5py_get_str(fast5_read["tracking_id"].attrs["run_id"])
+
+    # Create new run_info if we've not seen this acquisition id before
+    if acq_id not in run_info_cache:
+        adc_min = 0
+        adc_max = 2047
+        device_type_guess = "promethion"
+        if channel_id.attrs["digitisation"] == 8192:
+            adc_min = -4096
+            adc_max = 4095
+            device_type_guess = "minion"
+
+        # Add new run_info to cache
+        run_info_cache[acq_id] = create_run_info(
+            acq_id=acq_id,
+            adc_max=adc_max,
+            adc_min=adc_min,
+            sample_rate=int(channel_id.attrs["sampling_rate"]),
+            context_tags=dict(fast5_read["context_tags"].attrs),
+            device_type=device_type_guess,
+            tracking_id=dict(fast5_read["tracking_id"].attrs),
+        )
+
+    # Process attributes unique to this read
+    read_id = uuid.UUID(h5py_get_str(raw.attrs["read_id"]))
+    pore = p5.Pore(
+        channel=int(channel_id.attrs["channel_number"]),
+        well=raw.attrs["start_mux"],
+        pore_type=h5py_get_str(attrs.get("pore_type", b"not_set")),
+    )
+    calibration = p5.Calibration.from_range(
+        offset=channel_id.attrs["offset"],
+        adc_range=channel_id.attrs["range"],
+        digitisation=channel_id.attrs["digitisation"],
+    )
+    end_reason = find_end_reason(
+        raw.attrs["end_reason"] if "end_reason" in raw.attrs else None
+    )
+
+    # Signal conversion process
+    signal = raw["Signal"][()]
+    sample_count = signal.shape[0]
+    signal_arr = signal
+
+    # Compress chunks of the signal if required
+    if pre_compress_signal:
+        sample_count = []
+        signal_arr = []
+
+        # Take slice views of the signal ndarray (non-copying)
+        for slice_index in range(0, len(signal), signal_chunk_size):
+            signal_slice = signal[slice_index : slice_index + signal_chunk_size]
+            signal_arr.append(p5.signal_tools.vbz_compress_signal(signal_slice))
+            sample_count.append(len(signal_slice))
+
+    return p5.Read(
+        read_id=read_id,
+        pore=pore,
+        calibration=calibration,
+        read_number=raw.attrs["read_number"],
+        start_time=raw.attrs["start_time"],
+        median_before=raw.attrs["median_before"],
+        end_reason=end_reason,
+        run_info=run_info_cache[acq_id],
+        signal=signal_arr,
+        samples_count=sample_count,
+    )
+
+
+def await_request(request_queue: mp.Queue):
+    """Wait for the next request"""
+    while True:
         try:
-            with h5py.File(str(fast5_file), "r") as inp:
-                run_cache = None
-                out_q.put(StartFile(len(inp.keys())))
+            request_queue.get(timeout=1)
+            return
+        except Empty:
+            continue
 
-                for keys in more_itertools.chunked(inp.keys(), READ_CHUNK_SIZE):
+
+def get_reads_from_files(
+    request_queue: mp.Queue,
+    data_queue: mp.Queue,
+    fast5_files: typing.Iterable[Path],
+    pre_compress_signal: bool,
+    signal_chunk_size: int,
+) -> None:
+    """
+    Main function for converting an iterable of fast5 files.
+    The collection of pod5 reads is emplaced on the data_queue for writing in
+    the main process.
+    """
+    for fast5_file in fast5_files:
+        count_reads_sent = 0
+        try:
+            with h5py.File(str(fast5_file), "r") as _f5:
+                data_queue.put(StartFileQItem(len(_f5.keys())))
+
+                run_info_cache: typing.Dict[str, p5.RunInfo] = {}
+                for read_ids in more_itertools.chunked(_f5.keys(), READ_CHUNK_SIZE):
+
                     # Allow the out queue to throttle us back if we are too far ahead.
-                    while not has_request_for_reads:
-                        try:
-                            _ = in_q.get(timeout=1)
-                            has_request_for_reads = True
-                            break
-                        except Empty:
-                            continue
+                    await_request(request_queue)
 
-                    reads = []
-                    for key in keys:
-                        attrs = inp[key].attrs
-                        channel_id = inp[key]["channel_id"]
-                        raw = inp[key]["Raw"]
-
-                        pore_type = p5.Pore(
-                            channel=int(channel_id.attrs["channel_number"]),
-                            well=raw.attrs["start_mux"],
-                            pore_type=h5py_get_str(attrs.get("pore_type", b"not_set")),
+                    reads: typing.List[p5.Read] = []
+                    for read_id in read_ids:
+                        read = convert_fast5_read(
+                            _f5[read_id],
+                            run_info_cache,
+                            pre_compress_signal=pre_compress_signal,
+                            signal_chunk_size=signal_chunk_size,
                         )
-                        calibration_type = p5.Calibration.from_range(
-                            offset=channel_id.attrs["offset"],
-                            adc_range=channel_id.attrs["range"],
-                            digitisation=channel_id.attrs["digitisation"],
-                        )
-                        end_reason_type = find_end_reason(
-                            raw.attrs["end_reason"]
-                            if "end_reason" in raw.attrs
-                            else None
-                        )
+                        reads.append(read)
 
-                        if "run_id" in attrs:
-                            acq_id = h5py_get_str(attrs["run_id"])
-                        else:
-                            acq_id = h5py_get_str(
-                                inp[key]["tracking_id"].attrs["run_id"]
-                            )
+                    count_reads_sent += len(reads)
+                    data_queue.put(ReadListQItem(fast5_file, reads))
 
-                        if not run_cache or run_cache.acquisition_id != acq_id:
-                            adc_min = 0
-                            adc_max = 2047
-                            device_type_guess = "promethion"
-                            if channel_id.attrs["digitisation"] == 8192:
-                                adc_min = -4096
-                                adc_max = 4095
-                                device_type_guess = "minion"
-
-                            run_info_type = create_run_info(
-                                acq_id=acq_id,
-                                adc_max=adc_max,
-                                adc_min=adc_min,
-                                channel_id=channel_id,
-                                context_tags=dict(inp[key]["context_tags"].attrs),
-                                device_type=device_type_guess,
-                                tracking_id=dict(inp[key]["tracking_id"].attrs),
-                            )
-                            run_cache = RunCache(acq_id, run_info_type)
-                        else:
-                            run_info_type = run_cache.run_info
-
-                        signal = raw["Signal"][()]
-                        sample_count = signal.shape[0]
-                        if pre_compress_signal:
-                            sample_count = []
-                            signal_arr = []
-                            for start in range(0, len(signal), signal_chunk_size):
-                                signal_slice = signal[start : start + signal_chunk_size]
-                                signal_arr.append(
-                                    p5.signal_tools.vbz_compress_signal(signal_slice)
-                                )
-                                sample_count.append(len(signal_slice))
-
-                        reads.append(
-                            p5.Read(
-                                uuid.UUID(h5py_get_str(raw.attrs["read_id"])).bytes,
-                                pore_type,
-                                calibration_type,
-                                raw.attrs["read_number"],
-                                raw.attrs["start_time"],
-                                raw.attrs["median_before"],
-                                end_reason_type,
-                                run_info_type,
-                                signal_arr,
-                                sample_count,
-                            )
-                        )
-
-                    file_read_sent_count += len(reads)
-                    out_q.put(ReadList(fast5_file, reads))
-                    has_request_for_reads = False
         except Exception as exc:
             import traceback
 
             traceback.print_exc()
             print(f"Error in file {fast5_file}: {exc}", file=sys.stderr)
 
-        out_q.put(EndFile(fast5_file, file_read_sent_count))
+        data_queue.put(EndFileQItem(fast5_file, count_reads_sent))
 
 
 def add_reads(
@@ -246,7 +319,9 @@ def add_reads(
     reads: typing.Iterable[p5.Read],
     pre_compressed_signal: bool,
 ):
-
+    """
+    Write an iterable of Reads to Writer
+    """
     pore_types = numpy.array(
         [writer.find_pore(r.pore)[0] for r in reads], dtype=numpy.int16
     )
@@ -263,7 +338,9 @@ def add_reads(
     )
 
     writer.add_reads(
-        numpy.array([numpy.frombuffer(r.read_id, dtype=numpy.uint8) for r in reads]),
+        numpy.array(
+            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in reads]
+        ),
         pore_types,
         calib_types,
         numpy.array([r.read_number for r in reads], dtype=numpy.uint32),
@@ -282,6 +359,8 @@ def add_reads(
 
 
 class OutputHandler:
+    """Class for managing p5.Writer handles"""
+
     def __init__(
         self,
         output_root: Path,
@@ -338,157 +417,206 @@ class OutputHandler:
         output_path = self._input_to_output_path[input_path]
         self._output_files[output_path].close()
         del self._output_files[output_path]
-        print("Deleted input_complete")
 
     def close_all(self):
         """Close all open writers"""
         for writer in self._output_files.values():
             writer.close()
-            print(f"Close all deleted: {writer}")
             del writer
         self._output_files = {}
 
 
+class StatusMonitor:
+    """Class for monitoring the status / progress of the conversion"""
+
+    def __init__(self, file_count: int):
+        self.update_interval = 15
+
+        self.file_count = file_count
+        self.files_started = 0
+        self.files_ended = 0
+        self.read_count = 0
+        self.reads_processed = 0
+        self.sample_count = 0
+
+        self.time_start = self.time_last_update = time.time()
+
+    @property
+    def running(self) -> bool:
+        """Return true if not all files have finished processing"""
+        return self.files_ended < self.file_count
+
+    def increment(
+        self,
+        *,
+        files_started: int = 0,
+        files_ended: int = 0,
+        read_count: int = 0,
+        reads_processed: int = 0,
+        sample_count: int = 0,
+    ) -> None:
+        """Incremeent the status counters"""
+        self.files_started += files_started
+        self.files_ended += files_ended
+        self.read_count += read_count
+        self.reads_processed += reads_processed
+        self.sample_count += sample_count
+
+    @property
+    def samples_mb(self) -> float:
+        """Return the samples count in megabytes"""
+        return (self.sample_count * 2) / 1_000_000
+
+    @property
+    def time_elapsed(self) -> float:
+        """Return the total time elapsed in seconds"""
+        return self.time_last_update - self.time_start
+
+    @property
+    def sample_rate(self) -> float:
+        """Return the time averaged sample rate"""
+        return self.samples_mb / self.time_elapsed
+
+    def print_status(self, force: bool = False):
+        """Print the status if the update interval has passed or if forced"""
+        now = time.time()
+
+        if force or self.time_last_update + self.update_interval < now:
+            self.time_last_update = now
+
+            print(
+                f"{self.files_ended}/{self.files_started}/{self.file_count} files\t"
+                f"{self.reads_processed}/{self.read_count} reads, ",
+                f"{self.formatted_sample_count}, " f"{self.sample_rate:.1f} MB/s",
+            )
+
+    @property
+    def formatted_sample_count(self) -> str:
+        """Return the sample count as a string with leading Metric prefix if necessary"""
+        units = [
+            (1000000000000, "T"),
+            (1000000000, "G"),
+            (1000000, "M"),
+            (1000, "K"),
+        ]
+
+        for div, unit in units:
+            if self.sample_count > div:
+                return f"{self.sample_count/div:.1f} {unit}Samples"
+        return f"{self.sample_count} Samples"
+
+    def check_all_reads_processed(self) -> None:
+        """Check that all reads have been processed"""
+        if self.reads_processed != self.read_count:
+            error_message = "!!! Some reads count not be converted due to errors !!!"
+            print(error_message, file=sys.stderr)
+
+
 def main():
-    parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
-
-    parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
-    parser.add_argument("output", type=Path, help="Output path for the pod5 file(s)")
-    parser.add_argument(
-        "-r",
-        "--recursive",
-        default=False,
-        action="store_true",
-        help="Search for input files recursively",
-    )
-    parser.add_argument(
-        "--active-readers",
-        default=10,
-        type=int,
-        help="How many file readers to keep active",
-    )
-    parser.add_argument(
-        "--output-one-to-one",
-        action="store_true",
-        help="Output files should be 1:1 with input files, written as children of [output] argument.",
-    )
-    parser.add_argument(
-        "--output-split",
-        action="store_true",
-        help="Output files should use the pod5 split format.",
-    )
-    parser.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
-    )
-    parser.add_argument(
-        "--signal-chunk-size",
-        default=102400,
-        help="Chunk size to use for signal data set",
-    )
-
+    """Main function for pod5_convert_from_fast5"""
+    parser = pod5_convert_from_fast5_argparser()
     args = parser.parse_args()
 
+    if args.output.exists() and args.output.is_file():
+        raise FileExistsError("Invalid output location - already exists as file")
+
+    args.output.mkdir(parents=True, exist_ok=True)
+    output_handler = OutputHandler(
+        args.output, args.output_one_to_one, args.output_split, args.force_overwrite
+    )
+
     ctx = mp.get_context("spawn")
-    read_request_queue = ctx.Queue()
-    read_data_queue = ctx.Queue()
+    request_queue: mp.Queue = ctx.Queue()
+    data_queue: mp.Queue = ctx.Queue()
 
     # Always writing compressed files right now.
     pre_compress_signal = True
 
     # Divide up files between readers:
     pending_files = list(iterate_inputs(args.input, args.recursive, "*.fast5"))
-    file_count = len(pending_files)
-    items_per_reads = max(1, len(pending_files) // args.active_readers)
     active_processes: typing.List[mp.Process] = []
-    while pending_files:
-        files = pending_files[:items_per_reads]
-        pending_files = pending_files[items_per_reads:]
-        p = ctx.Process(
+
+    # Create equally sized lists of files to process by each process
+    for fast5s in map(list, more_itertools.distribute(args.processes, pending_files)):
+
+        # Skip empty lists if there are more processes than files
+        if not fast5s:
+            continue
+
+        # spawn a new process to begin converting fast5 files
+        process = ctx.Process(
             target=get_reads_from_files,
             args=(
-                read_request_queue,
-                read_data_queue,
-                files,
+                request_queue,
+                data_queue,
+                fast5s,
                 pre_compress_signal,
                 args.signal_chunk_size,
             ),
         )
-        p.start()
-        active_processes.append(p)
+        process.start()
+        active_processes.append(process)
 
     # start requests for reads, we probably dont need more reads in memory at a time
-    for _ in range(args.active_readers * 3):
-        read_request_queue.put(ReadRequest())
-
-    if args.output.exists() and args.output.is_file():
-        raise FileExistsError("Invalid output location - already exists as file")
-    args.output.mkdir(parents=True, exist_ok=True)
-    output_handler = OutputHandler(
-        args.output, args.output_one_to_one, args.output_split, args.force_overwrite
-    )
+    for _ in range(args.processes * 3):
+        request_queue.put(RequestQItem())
 
     print("Converting reads...")
-    t_start = t_last_update = time.time()
-    update_interval = 15  # seconds
+    status = StatusMonitor(len(pending_files))
 
-    files_started = 0
-    files_ended = 0
-    read_count = 0
-    reads_processed = 0
-    sample_count = 0
+    try:
+        while status.running:
+            status.print_status()
 
-    while files_ended < file_count:
-        now = time.time()
-        if t_last_update + update_interval < now:
-            t_last_update = now
-            mb_total = (sample_count * 2) / (1000 * 1000)
-            time_total = t_last_update - t_start
-            print(
-                f"{files_ended}/{files_started}/{file_count} files\t"
-                f"{reads_processed}/{read_count} reads, {format_sample_count(sample_count)}, {mb_total/time_total:.1f} MB/s"
-            )
+            try:
+                item = data_queue.get(timeout=0.5)
+            except Empty:
+                continue
 
-        try:
-            item = read_data_queue.get(timeout=0.5)
-        except Empty:
-            continue
+            if isinstance(item, ReadListQItem):
+                # Write the incomming list of converted reads
+                writer = output_handler.get_writer(item.file)
+                add_reads(writer, item.reads, pre_compress_signal)
 
-        if isinstance(item, ReadList):
-            writer = output_handler.get_writer(item.file)
+                # samples_count here is a list due to the compression implementation;
+                # this will be changed
+                sample_count = sum(sum(r.samples_count) for r in item.reads)
+                status.increment(
+                    reads_processed=len(item.reads), sample_count=sample_count
+                )
 
-            add_reads(writer, item.reads, pre_compress_signal)
+                # Inform the input queues we can handle another read now:
+                request_queue.put(RequestQItem())
 
-            reads_in_this_chunk = len(item.reads)
-            reads_processed += reads_in_this_chunk
+            elif isinstance(item, StartFileQItem):
+                status.increment(files_started=1, read_count=item.read_count)
 
-            sample_count += sum(sum(r.samples_count) for r in item.reads)
+            elif isinstance(item, EndFileQItem):
+                output_handler.set_input_complete(item.file)
+                status.increment(files_ended=1)
 
-            # Inform the input queues we can handle another read now:
-            read_request_queue.put(ReadRequest())
-        elif isinstance(item, StartFile):
-            files_started += 1
-            read_count += item.read_count
-            continue
-        elif isinstance(item, EndFile):
-            output_handler.set_input_complete(item.file)
-            files_ended += 1
+        status.print_status(force=True)
+        status.check_all_reads_processed()
 
-    if reads_processed != read_count:
-        print(
-            "!!! Some reads count not be converted due to errors !!!", file=sys.stderr
-        )
-    print(
-        f"{files_started}/{files_ended}/{file_count} files\t"
-        f"{reads_processed}/{read_count} reads, {format_sample_count(sample_count)}"
-    )
+        print(f"Conversion complete: {status.sample_count} samples")
 
-    print(f"Conversion complete: {sample_count} samples")
+        for proc in active_processes:
+            proc.join()
+            proc.close()
 
-    for p in active_processes:
-        p.join()
-        p.close()
+    except Exception as exc:
+        print(f"An unexpected error occurred: {exc}", file=sys.stderr)
 
-    output_handler.close_all()
+        # Kill all child processes if anything has gone wrong
+        for proc in active_processes:
+            try:
+                proc.terminate()
+            except ValueError:
+                # Catch ValueError raised if proc is already closed
+                pass
+        raise exc
+    finally:
+        output_handler.close_all()
 
 
 if __name__ == "__main__":

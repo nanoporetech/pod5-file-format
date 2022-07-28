@@ -41,7 +41,7 @@ JSON_SCHEMA = {
 DEFAULT_READ_ID_COLUMN = "read_id"
 
 # Type aliases
-OutputMap = typing.Dict[Path, typing.Tuple[p5.Writer, p5b.Pod5RepackerOutput]]
+OutputMap = typing.Dict[Path, typing.Tuple[p5.CombinedWriter, p5b.Pod5RepackerOutput]]
 TransferMap = typing.DefaultDict[
     typing.Tuple[Path, p5b.Pod5RepackerOutput], typing.Set[str]
 ]
@@ -159,7 +159,7 @@ def parse_summary_mapping(
         group_name: typing.Any, columns: typing.List[str]
     ) -> typing.Dict[str, str]:
         """Split group_name tuple/str into a dict by column name key"""
-        if not isinstance(group_name, str):
+        if not isinstance(group_name, (str, int, float)):
             return {col: str(value).strip() for col, value in zip(columns, group_name)}
         return {columns[0]: str(group_name).strip()}
 
@@ -312,7 +312,7 @@ def prepare_repacker_outputs(
     outputs: OutputMap = {}
     for target in mapping:
         target_path = output / target
-        p5_output = p5.Writer.open_combined(target_path)
+        p5_output = p5.CombinedWriter(target_path)
         outputs[target_path] = (p5_output, repacker.add_output(p5_output))
 
     return outputs
@@ -377,7 +377,7 @@ def calculate_transfers(
                 _, repacker_output = outputs[read_targets[read_id]]
 
                 # Add this read_id to the target_mapping
-                transfers[(p5_reader, repacker_output)].add(read_id)
+                transfers[(p5_reader, repacker_output)].add(str(read_id))
 
     if not transfers:
         raise RuntimeError(
@@ -399,11 +399,14 @@ def launch_repacker(
         repacker.add_selected_reads_to_output(repacker_output, reader, read_ids)
 
     # Wait for repacking to complete:
-    repacker.wait(interval=5)
+    repacker.wait(interval=1)
 
     # Close the FileWriters
-    for p5_writer, _ in outputs.values():
+    for idx, (p5_writer, _) in enumerate(outputs.values()):
         p5_writer.close()
+        print(f"Finished writing: {p5_writer.combined_path} - {idx+1}/{len(outputs)}")
+
+    print("Done")
 
 
 def demux_pod5s(
