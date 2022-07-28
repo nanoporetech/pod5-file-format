@@ -76,7 +76,7 @@ setup(
     install_requires=[
         "iso8601",
         "more_itertools",
-        "numpy",
+        "numpy >= 1.20.0",
         "pyarrow ~= 7.0.0",
         "pytz",
     ],
