@@ -423,6 +423,12 @@ public:
             std::vector<std::uint32_t> batch_rows;
             auto const batch_rows_span =
                     all_batch_rows_span.subspan(current_start_point, batch_counts_span[i]);
+
+            // If this batch has no selected
+            if (batch_rows_span.empty()) {
+                continue;
+            }
+
             batch_rows.insert(batch_rows.end(), batch_rows_span.begin(), batch_rows_span.end());
             current_start_point += batch_counts_span[i];
 
