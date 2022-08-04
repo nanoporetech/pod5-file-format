@@ -72,13 +72,13 @@ def run_writer_test(f: Writer):
     test_read = gen_test_read(0)
     f.add_read(
         test_read.read_id,
-        f.find_pore(test_read.pore)[0],
-        f.find_calibration(test_read.calibration)[0],
+        f.add(test_read.pore),
+        f.add(test_read.calibration),
         test_read.read_number,
         test_read.start_time,
         test_read.median_before,
-        f.find_end_reason(test_read.end_reason)[0],
-        f.find_run_info(test_read.run_info)[0],
+        f.add(test_read.end_reason),
+        f.add(test_read.run_info),
         test_read.signal,
         test_read.samples_count,
         pre_compressed_signal=False,
@@ -87,13 +87,13 @@ def run_writer_test(f: Writer):
     test_read = gen_test_read(1)
     f.add_read(
         test_read.read_id,
-        f.find_pore(test_read.pore)[0],
-        f.find_calibration(test_read.calibration)[0],
+        f.add(test_read.pore),
+        f.add(test_read.calibration),
         test_read.read_number,
         test_read.start_time,
         test_read.median_before,
-        f.find_end_reason(test_read.end_reason)[0],
-        f.find_run_info(test_read.run_info)[0],
+        f.add(test_read.end_reason),
+        f.add(test_read.run_info),
         [p5.signal_tools.vbz_compress_signal(test_read.signal)],
         [test_read.samples_count],
         pre_compressed_signal=True,
@@ -109,20 +109,20 @@ def run_writer_test(f: Writer):
         numpy.array(
             [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
         ),
-        numpy.array([f.find_pore(r.pore)[0] for r in test_reads], dtype=numpy.int16),
+        numpy.array([f.add(r.pore) for r in test_reads], dtype=numpy.int16),
         numpy.array(
-            [f.find_calibration(r.calibration)[0] for r in test_reads],
+            [f.add(r.calibration) for r in test_reads],
             dtype=numpy.int16,
         ),
         numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
         numpy.array([r.start_time for r in test_reads], dtype=numpy.uint64),
         numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
         numpy.array(
-            [f.find_end_reason(r.end_reason)[0] for r in test_reads],
+            [f.add(r.end_reason) for r in test_reads],
             dtype=numpy.int16,
         ),
         numpy.array(
-            [f.find_run_info(r.run_info)[0] for r in test_reads],
+            [f.add(r.run_info) for r in test_reads],
             dtype=numpy.int16,
         ),
         [r.signal for r in test_reads],
@@ -140,22 +140,13 @@ def run_writer_test(f: Writer):
         numpy.array(
             [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
         ),
-        numpy.array([f.find_pore(r.pore)[0] for r in test_reads], dtype=numpy.int16),
-        numpy.array(
-            [f.find_calibration(r.calibration)[0] for r in test_reads],
-            dtype=numpy.int16,
-        ),
+        numpy.array([f.add(r.pore) for r in test_reads], dtype=numpy.int16),
+        numpy.array([f.add(r.calibration) for r in test_reads], dtype=numpy.int16),
         numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
         numpy.array([r.start_time for r in test_reads], dtype=numpy.uint64),
         numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
-        numpy.array(
-            [f.find_end_reason(r.end_reason)[0] for r in test_reads],
-            dtype=numpy.int16,
-        ),
-        numpy.array(
-            [f.find_run_info(r.run_info)[0] for r in test_reads],
-            dtype=numpy.int16,
-        ),
+        numpy.array([f.add(r.end_reason) for r in test_reads], dtype=numpy.int16),
+        numpy.array([f.add(r.run_info) for r in test_reads], dtype=numpy.int16),
         # Pass an array of arrays here, as we have pre compressed data
         # top level array is per read, then the sub arrays are chunks within the reads.
         # the two arrays here should have the same dimensions, first contains compressed

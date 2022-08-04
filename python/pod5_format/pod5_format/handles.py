@@ -4,7 +4,8 @@ Utilities for managing file handles for the `Reader`
 
 import mmap
 from pathlib import Path
-import typing
+from typing import IO, Optional
+from pod5_format.pod5_types import PathOrStr
 
 import pyarrow as pa
 import pod5_format.pod5_format_pybind as p5b
@@ -12,14 +13,29 @@ from pod5_format.api_utils import Pod5ApiException
 
 
 class ReaderHandle:
-    """Class for handling arrow file handles and memory view mapping"""
+    """Class for managing arrow file handles and memory view mapping"""
 
     def __init__(
-        self, path: Path, location: typing.Optional[p5b.EmbeddedFileData] = None
+        self, path: Path, location: Optional[p5b.EmbeddedFileData] = None
     ) -> None:
         """
-        Open an arrow file at the given path. If location is given perform the
-        table splitting of combined arrow files into separate read and signal readers.
+        Open an arrow file at the given `path`. If location is given, perform the
+        pyarrow table splitting of a combined arrow file into separate read and
+        signal readers.
+
+        Parameters
+        ----------
+        path : pathlib.Path
+            Path to an existing file to open for use by a :py:class:`Reader`
+        location : Optional, pod5_format.pod5_format_pybind.EmbeddedFileData
+            Location data for how a combined pod5 file should be spit in memory
+
+        Raises
+        ------
+        FileNotFoundError
+            If `path` is not an existing file
+        RuntimeError
+            If the `pyarrow.lib.RecordBatchFileReader` could not be opened
         """
         if not path.is_file():
             raise FileNotFoundError(f"Failed to open path: {path}")
@@ -27,8 +43,8 @@ class ReaderHandle:
         self._path = path
         self._location = location
 
-        self._reader: typing.Optional[pa.ipc.RecordBatchFileReader] = None
-        self._fh: typing.Optional[typing.IO] = None
+        self._reader: Optional[pa.ipc.RecordBatchFileReader] = None
+        self._fh: Optional[IO] = None
 
         self._open_arrow_reader()
 
@@ -92,13 +108,42 @@ class ReaderHandleManager:
         read_reader: ReaderHandle,
         signal_reader: ReaderHandle,
     ):
-        self._file_reader = file_reader
-        self._read_reader = read_reader
-        self._signal_reader = signal_reader
+        """
+        Initialise a handle manager
+
+        Note
+        ----
+        Use :py:meth:`from_combined` or :py:meth:`from_split` to open
+        reader handles for combined or split pod5 files respectively
+        """
+        self._file_reader: Optional[p5b.Pod5FileReader] = file_reader
+        self._read_reader: Optional[ReaderHandle] = read_reader
+        self._signal_reader: Optional[ReaderHandle] = signal_reader
 
     @classmethod
-    def from_combined(cls, combined_path: Path) -> "ReaderHandleManager":
-        """Initialise a ReaderHandleManager from a combined pod5 path"""
+    def from_combined(cls, combined_path: PathOrStr) -> "ReaderHandleManager":
+        """
+        Factory method to instantiate a `ReaderHandleManager` from a combined
+        pod5 path.
+
+        Parameters
+        ----------
+        combined_path : os.PathLike, str
+            Path to an existing combined pod5 file
+
+        Returns
+        -------
+        :py:class:`ReaderHandleManager`
+
+        Raises
+        ------
+        FileNotFoundError
+            If there is no file at `combined_path`
+        Pod5ApiException
+            If there is an error opening the file reader
+        """
+        combined_path = Path(combined_path)
+
         if not combined_path.is_file():
             raise FileNotFoundError(f"Failed to open combined_path: {combined_path}")
 
@@ -116,10 +161,34 @@ class ReaderHandleManager:
         return cls(reader, read_reader, signal_reader)
 
     @classmethod
-    def from_split(cls, signal_path: Path, reads_path: Path) -> "ReaderHandleManager":
+    def from_split(
+        cls, signal_path: PathOrStr, reads_path: PathOrStr
+    ) -> "ReaderHandleManager":
         """
-        Initialise a ReaderHandleManager from a split pod5 signal and reads paths
+        Factory method to instantiate a `ReaderHandleManager` from a pair of split
+        pod5 paths.
+
+        Parameters
+        ----------
+        signal_path : os.PathLike, str
+            Path to an existing signal pod5 file
+        reads_path : os.PathLike, str
+            Path to an existing reads pod5 file
+
+        Returns
+        -------
+        :py:class:`ReaderHandleManager`
+
+        Raises
+        ------
+        FileNotFoundError
+            If either `signal_path` or `reads_path` do not exist
+        Pod5ApiException
+            If there is an error opening the file reader
         """
+        signal_path = Path(signal_path)
+        reads_path = Path(reads_path)
+
         if not signal_path.is_file():
             raise FileNotFoundError(f"Failed to open signal_path: {signal_path}")
 
@@ -137,17 +206,52 @@ class ReaderHandleManager:
 
     @property
     def file(self) -> p5b.Pod5FileReader:
-        """Get the Pod5FileReader"""
+        """
+        Get the c_api `Pod5FileReader`
+
+        Raises
+        ------
+        Pod5ApiException
+            If the reader has been closed
+        """
+        if self._file_reader is None:
+            raise Pod5ApiException("Pod5FileReader has been closed")
         return self._file_reader
 
     @property
     def read(self) -> ReaderHandle:
-        """Get the ReaderHandle for the read data"""
+        """
+        Get the :py:class:`ReaderHandle` for the read data
+
+        Returns
+        -------
+        :py:class:`ReaderHandle`
+
+        Raises
+        ------
+        Pod5ApiException
+            If the reader has been closed
+        """
+        if self._read_reader is None:
+            raise Pod5ApiException("ReadHandle (Read) has been closed")
         return self._read_reader
 
     @property
     def signal(self) -> ReaderHandle:
-        """Get the ReaderHandle for the signal data"""
+        """
+        Get the :py:class:`ReaderHandle` for the signal data
+
+        Returns
+        -------
+        :py:class:`ReaderHandle`
+
+        Raises
+        ------
+        Pod5ApiException
+            If the reader has been closed
+        """
+        if self._signal_reader is None:
+            raise Pod5ApiException("ReadHandle (Signal) has been closed")
         return self._signal_reader
 
     def __del__(self) -> None:

@@ -6,6 +6,7 @@ stages:
   - build-archive
   - test-python
   - build-conan
+  - pages
   - deploy
 
 include:
@@ -138,33 +139,6 @@ build-standalone-ubu20:
     paths:
       - "pod5-file-format*.tar.gz"
       - "*.whl"
-
-linux-x64-gcc9-release-build:
-  image: quay.io/pypa/manylinux2014_x86_64
-  extends: [".build-linux"]
-  tags:
-    - linux
-  variables:
-    CONAN_PROFILE: "linux-x86_64-gcc9-release"
-    OUTPUT_SKU: "linux-x64"
-    AUDITWHEEL_PLATFORM: manylinux2014_x86_64
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
-
-linux-aarch64-gcc9-release-build:
-  image: quay.io/pypa/manylinux2014_aarch64
-  extends: [".build-linux"]
-  tags:
-    - linux_aarch64
-    - high-cpu
-  variables:
-    CONAN_PROFILE: "linux-aarch64-gcc9-release"
-    OUTPUT_SKU: "linux-arm64"
-    AUDITWHEEL_PLATFORM: manylinux2014_aarch64
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
 
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
@@ -615,3 +589,27 @@ external_wheel_upload:
     - twine upload *.whl -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}"
   only: ["tags"]
   when: manual
+
+# Build documentation pages which are hosted only on the gitlab ci pages for now
+pages:
+  stage: pages
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  tags:
+    - linux    
+  before_script:
+    - python3 -m venv .venv/
+    - source .venv/bin/activate
+  script:
+    - pip install --upgrade pip
+    - pip install sphinx==v5.1.1 sphinx-rtd-theme
+    - sphinx-build -b html ./docs ./public
+  # only:
+  #   - master
+  needs:
+    - linux-x64-gcc9-release-build
+    - build-tools
+  variables:
+    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+  artifacts:
+    paths:
+      - public

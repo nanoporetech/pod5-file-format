@@ -4,7 +4,7 @@ PYTHON ?= python3.9
 envDir = venv
 envPrompt ?= "pod5"
 
-.PHONY: clean install update
+.PHONY: clean install update docs
 
 # Clean the python virtual environment
 clean: 
@@ -27,4 +27,8 @@ update:
 
 	@echo "Updated python environment"
 
-
+docs:
+	rm -rf ../docs/public
+	source  ${envDir}/bin/activate \
+	&& sphinx-build -b html ../docs ../docs/public
+	@echo "Finished building documentation"

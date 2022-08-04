@@ -322,19 +322,17 @@ def add_reads(
     """
     Write an iterable of Reads to Writer
     """
-    pore_types = numpy.array(
-        [writer.find_pore(r.pore)[0] for r in reads], dtype=numpy.int16
-    )
+    pore_types = numpy.array([writer.add(r.pore) for r in reads], dtype=numpy.int16)
     calib_types = numpy.array(
-        [writer.find_calibration(r.calibration)[0] for r in reads],
+        [writer.add(r.calibration) for r in reads],
         dtype=numpy.int16,
     )
     end_reason_types = numpy.array(
-        [writer.find_end_reason(r.end_reason)[0] for r in reads],
+        [writer.add(r.end_reason) for r in reads],
         dtype=numpy.int16,
     )
     run_info_types = numpy.array(
-        [writer.find_run_info(r.run_info)[0] for r in reads], dtype=numpy.int16
+        [writer.add(r.run_info) for r in reads], dtype=numpy.int16
     )
 
     writer.add_reads(

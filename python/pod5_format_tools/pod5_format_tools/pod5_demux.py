@@ -43,7 +43,7 @@ DEFAULT_READ_ID_COLUMN = "read_id"
 # Type aliases
 OutputMap = typing.Dict[Path, typing.Tuple[p5.CombinedWriter, p5b.Pod5RepackerOutput]]
 TransferMap = typing.DefaultDict[
-    typing.Tuple[Path, p5b.Pod5RepackerOutput], typing.Set[str]
+    typing.Tuple[p5.CombinedReader, p5b.Pod5RepackerOutput], typing.Set[str]
 ]
 
 
@@ -399,7 +399,7 @@ def launch_repacker(
         repacker.add_selected_reads_to_output(repacker_output, reader, read_ids)
 
     # Wait for repacking to complete:
-    repacker.wait(interval=1)
+    repacker.wait(interval=5)
 
     # Close the FileWriters
     for idx, (p5_writer, _) in enumerate(outputs.values()):
@@ -436,6 +436,9 @@ def demux_pod5s(
     p5_repacker = p5_repack.Repacker()
     outputs = prepare_repacker_outputs(p5_repacker, output, mapping)
 
+    print(f"Parsed {len(read_targets)} read_ids from given mapping")
+    print(f"Parsed {len(outputs)} output targets from given mapping")
+
     # Create sets of read_ids for each source and destination transfer pairing
     transfers = calculate_transfers(
         inputs=list(inputs),
@@ -443,6 +446,8 @@ def demux_pod5s(
         outputs=outputs,
         read_targets=read_targets,
     )
+
+    print(f"Mapped: {sum(len(rs) for rs in transfers.values())} reads to outputs")
 
     if not missing_ok:
         assert_no_missing_reads(selection=total_selection, transfers=transfers)
