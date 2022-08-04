@@ -9,7 +9,7 @@ from pod5_format.reader import SignalRowInfo
 import pytest
 
 import pod5_format as p5
-from pod5_format.types import Calibration, EndReason, Pore, RunInfo
+from pod5_format.pod5_types import Calibration, EndReason, Pore, RunInfo
 
 
 class TestPod5ReaderCombined:
@@ -59,7 +59,7 @@ class TestPod5ReaderCombined:
         "attribute,collection_type,dtype",
         [
             ("signal", numpy.ndarray, numpy.int16),
-            ("signal_pa", numpy.ndarray, numpy.float64),
+            ("signal_pa", numpy.ndarray, numpy.float32),
         ],
     )
     def test_combined_reader_reads_numpy_types(

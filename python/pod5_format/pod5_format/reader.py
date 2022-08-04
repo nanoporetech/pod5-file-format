@@ -4,19 +4,31 @@ Tools for accessing POD5 data from PyArrow files
 
 from collections import namedtuple
 from pathlib import Path
-import typing
+from typing import (
+    Collection,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 from uuid import UUID
 
-import numpy
-import numpy.typing
+import numpy as np
+import numpy.typing as npt
 from pod5_format.handles import ReaderHandleManager
 from pod5_format.reader_utils import make_split_filename
 import pyarrow as pa
 
 import pod5_format.pod5_format_pybind as p5b
-from pod5_format.types import (
+from pod5_format.pod5_types import (
     Calibration,
     EndReason,
+    PathOrStr,
     Pore,
     Read,
     RunInfo,
@@ -25,18 +37,18 @@ from pod5_format.types import (
 from .api_utils import deprecation_warning, pack_read_ids
 from .signal_tools import vbz_decompress_signal_into, vbz_decompress_signal
 
-_ReaderCaches = typing.Union[
-    typing.Dict[int, Calibration],
-    typing.Dict[int, EndReason],
-    typing.Dict[int, Pore],
-    typing.Dict[int, RunInfo],
+_ReaderCaches = Union[
+    Dict[int, Calibration],
+    Dict[int, EndReason],
+    Dict[int, Pore],
+    Dict[int, RunInfo],
 ]
 
-_ReadDataTypes = typing.Union[
-    typing.Type[Calibration],
-    typing.Type[EndReason],
-    typing.Type[Pore],
-    typing.Type[RunInfo],
+_ReadDataTypes = Union[
+    Type[Calibration],
+    Type[EndReason],
+    Type[Pore],
+    Type[RunInfo],
 ]
 
 
@@ -63,7 +75,7 @@ SignalRowInfo = namedtuple(
 
 class ReadRecord:
     """
-    Represents the data for a single read.
+    Represents the data for a single read from a pod5 record.
     """
 
     def __init__(
@@ -74,31 +86,17 @@ class ReadRecord:
         batch_signal_cache=None,
         selected_batch_index=None,
     ):
+        """ """
         self._reader = reader
         self._batch = batch
         self._row = row
         self._batch_signal_cache = batch_signal_cache
         self._selected_batch_index = selected_batch_index
 
-    def to_read(self) -> Read:
-        """Return a `Read` from this `ReadRecord`"""
-        return Read(
-            read_id=self.read_id,
-            pore=self.pore,
-            calibration=self.calibration,
-            median_before=self.median_before,
-            end_reason=self.end_reason,
-            read_number=self.read_number,
-            run_info=self.run_info,
-            start_time=self.start_sample,
-            signal=self.signal,
-            samples_count=self.sample_count,
-        )
-
     @property
     def read_id(self) -> UUID:
         """
-        Find the unique read identifier for the read.
+        Find the unique read identifier for the read as a `UUID`.
         """
         return UUID(bytes=self._batch.columns.read_id[self._row].as_py())
 
@@ -117,7 +115,7 @@ class ReadRecord:
         return self._batch.columns.start[self._row].as_py()
 
     @property
-    def median_before(self):
+    def median_before(self) -> float:
         """
         Find the median before level (in pico amps) for the read.
         """
@@ -130,7 +128,7 @@ class ReadRecord:
 
         Returns
         -------
-        The pore data (as PoreData).
+        The `Pore` data for this read.
         """
         return self._reader._lookup_pore(self._batch, self._row)
 
@@ -141,7 +139,7 @@ class ReadRecord:
 
         Returns
         -------
-        The calibration data (as CalibrationData).
+        The `Calibration` data for this read.
         """
         return self._reader._lookup_calibration(self._batch, self._row)
 
@@ -170,7 +168,7 @@ class ReadRecord:
 
         Returns
         -------
-        The end reason data (as EndReasonData).
+        The `EndReason` for this read.
         """
         return self._reader._lookup_end_reason(self._batch, self._row)
 
@@ -181,7 +179,7 @@ class ReadRecord:
 
         Returns
         -------
-        The run info data (as RunInfoData).
+        The `RunInfo` for this read.
         """
         return self._reader._lookup_run_info(self._batch, self._row)
 
@@ -189,10 +187,6 @@ class ReadRecord:
     def calibration_index(self) -> int:
         """
         Find the dictionary index of the calibration data associated with the read.
-
-        Returns
-        -------
-        The index of the calibration.
         """
         return self._batch.columns.calibration[self._row].index.as_py()
 
@@ -200,10 +194,6 @@ class ReadRecord:
     def end_reason_index(self) -> int:
         """
         Find the dictionary index of the end reason data associated with the read.
-
-        Returns
-        -------
-        The end reason index.
         """
         return self._batch.columns.end_reason[self._row].index.as_py()
 
@@ -211,10 +201,6 @@ class ReadRecord:
     def pore_index(self) -> int:
         """
         Find the dictionary index of the pore data associated with the read.
-
-        Returns
-        -------
-        The pore index.
         """
         return self._batch.columns.pore[self._row].index.as_py()
 
@@ -222,10 +208,6 @@ class ReadRecord:
     def run_info_index(self) -> int:
         """
         Find the dictionary index of the run info data associated with the read.
-
-        Returns
-        -------
-        The run info index.
         """
         return self._batch.columns.run_info[self._row].index.as_py()
 
@@ -251,7 +233,7 @@ class ReadRecord:
         return self._batch_signal_cache
 
     @property
-    def signal(self) -> numpy.typing.NDArray[numpy.int16]:
+    def signal(self) -> npt.NDArray[np.int16]:
         """
         Find the full signal for the read.
 
@@ -270,7 +252,7 @@ class ReadRecord:
         for batch, _, batch_row_index in batch_data:
             sample_counts.append(batch.samples[batch_row_index].as_py())
 
-        output = numpy.empty(dtype=numpy.int16, shape=(sum(sample_counts),))
+        output = np.empty(dtype=np.int16, shape=(sum(sample_counts),))
         current_sample_index = 0
 
         for i, (batch, _, batch_row_index) in enumerate(batch_data):
@@ -289,37 +271,36 @@ class ReadRecord:
         return output
 
     @property
-    def signal_pa(self) -> numpy.typing.NDArray[numpy.int16]:
+    def signal_pa(self) -> npt.NDArray[np.float32]:
         """
         Find the full signal for the read, calibrated in pico amps.
 
         Returns
         -------
-        A numpy array of signal data with float type.
+        A numpy array of signal data with float32 type.
         """
         return self.calibrate_signal_array(self.signal)
 
-    def signal_for_chunk(self, index: int) -> numpy.typing.NDArray[numpy.int16]:
+    def signal_for_chunk(self, index: int) -> npt.NDArray[np.int16]:
         """
         Find the signal for a given chunk of the read.
-
-        #signal_rows can be used to find details of the signal chunks.
 
         Returns
         -------
         A numpy array of signal data with int16 type.
         """
+        # signal_rows can be used to find details of the signal chunks.
         chunk_abs_row_index = self._batch.columns.signal[self._row][index]
         return self._get_signal_for_row(chunk_abs_row_index.as_py())
 
     @property
-    def signal_rows(self) -> typing.List[SignalRowInfo]:
+    def signal_rows(self) -> List[SignalRowInfo]:
         """
         Find all signal rows for the read
 
         Returns
         -------
-        An iterable of signal row data (as SignalRowInfo) in the read.
+        A list of signal row data (as SignalRowInfo) in the read.
         """
 
         def map_signal_row(sig_row):
@@ -336,16 +317,26 @@ class ReadRecord:
         return [map_signal_row(r) for r in self._batch.columns.signal[self._row]]
 
     def calibrate_signal_array(
-        self, signal_array_adc: numpy.typing.NDArray[numpy.int16]
-    ) -> numpy.typing.NDArray[numpy.float64]:
+        self, signal_array_adc: npt.NDArray[np.int16]
+    ) -> npt.NDArray[np.float32]:
         """
         Transform an array of int16 signal data from ADC space to pA.
-        """
-        return (signal_array_adc + self.calibration.offset) * self.calibration.scale
 
-    def _find_signal_row_index(self, signal_row: int) -> typing.Tuple[Signal, int, int]:
+        Returns
+        -------
+        A numpy array of signal data with float32 type.
+        """
+        offset = np.float32(self.calibration.offset)
+        scale = np.float32(self.calibration.scale)
+        return (signal_array_adc + offset) * scale
+
+    def _find_signal_row_index(self, signal_row: int) -> Tuple[Signal, int, int]:
         """
         Map from a signal_row to a Signal, batch index and row index within that batch.
+
+        Returns
+        -------
+        A Tuple containing the `Signal` and its `batch_index` and `row_index`
         """
         sig_row_count: int = self._reader.signal_batch_row_count
         sig_batch_idx: int = signal_row // sig_row_count
@@ -354,9 +345,13 @@ class ReadRecord:
 
         return sig_batch, sig_batch_idx, batch_row_idx
 
-    def _get_signal_for_row(self, signal_row: int) -> numpy.typing.NDArray[numpy.int16]:
+    def _get_signal_for_row(self, signal_row: int) -> npt.NDArray[np.int16]:
         """
         Find the signal data for a given absolute signal row index
+
+        Returns
+        -------
+        A numpy array of signal data with int16 type.
         """
         batch, _, batch_row_index = self._find_signal_row_index(signal_row)
 
@@ -369,6 +364,27 @@ class ReadRecord:
 
         return signal.to_numpy()
 
+    def to_read(self) -> Read:
+        """
+        Create a `Read` from this :py:class:`ReadRecord` instance.
+
+        Returns
+        -------
+        :py:class:`pod5_format.pod5_types.Read`
+        """
+        return Read(
+            read_id=self.read_id,
+            pore=self.pore,
+            calibration=self.calibration,
+            median_before=self.median_before,
+            end_reason=self.end_reason,
+            read_number=self.read_number,
+            run_info=self.run_info,
+            start_time=self.start_sample,
+            signal=self.signal,
+            samples_count=self.sample_count,
+        )
+
 
 class ReadRecordBatch:
     """
@@ -376,12 +392,14 @@ class ReadRecordBatch:
     """
 
     def __init__(self, reader: "Reader", batch: pa.RecordBatch):
+        """ """
+
         self._reader: "Reader" = reader
         self._batch: pa.RecordBatch = batch
 
-        self._signal_cache: typing.Optional[p5b.Pod5SignalCacheBatch] = None
-        self._selected_batch_rows: typing.Optional[typing.Iterable[int]] = None
-        self._columns: typing.Optional[ReadRecordColumns] = None
+        self._signal_cache: Optional[p5b.Pod5SignalCacheBatch] = None
+        self._selected_batch_rows: Optional[Iterable[int]] = None
+        self._columns: Optional[ReadRecordColumns] = None
 
     @property
     def columns(self) -> ReadRecordColumns:
@@ -396,13 +414,11 @@ class ReadRecordBatch:
         """Set the signal cache"""
         self._signal_cache = signal_cache
 
-    def set_selected_batch_rows(
-        self, selected_batch_rows: typing.Iterable[int]
-    ) -> None:
+    def set_selected_batch_rows(self, selected_batch_rows: Iterable[int]) -> None:
         """Set the selected batch rows"""
         self._selected_batch_rows = selected_batch_rows
 
-    def reads(self) -> typing.Generator[ReadRecord, None, None]:
+    def reads(self) -> Generator[ReadRecord, None, None]:
         """
         Iterate all reads in the batch.
 
@@ -456,7 +472,7 @@ class ReadRecordBatch:
         return self.columns.read_number
 
     @property
-    def cached_sample_count_column(self) -> numpy.typing.NDArray[numpy.uint64]:
+    def cached_sample_count_column(self) -> npt.NDArray[np.uint64]:
         """
         Get the sample count from the cached signal
         """
@@ -465,7 +481,7 @@ class ReadRecordBatch:
         return self._signal_cache.sample_count
 
     @property
-    def cached_samples_column(self) -> numpy.typing.NDArray[numpy.int16]:
+    def cached_samples_column(self) -> npt.NDArray[np.int16]:
         """
         Get the sample from the cached signal
         """
@@ -476,89 +492,93 @@ class ReadRecordBatch:
 
 class Reader:
     """
-    A reader for POD5 data
+    The base reader for POD5 data
+
+    Note
+    ----
+    Use :py:class:`CombinedReader` and :py:class:`SplitReader` convenience classes
+    or :py:meth:`Reader.from_combined` and :py:meth:`Reader.from_split` class methods
+    to open a :py:class:`Reader` from combined or split pod5 files respectively.
     """
 
     def __init__(self, *, handles: ReaderHandleManager):
         """
-        Initialise a `Reader` instance from the supplied `ReaderHandleManager`.
-
-        Use the `CombinedReader` / `SplitReader` sub-classes or
-        `Reader.from_combined` / `Reader.from_split` class methods
-        to open a `Reader` from combined or split pod5 files respectively.
+        Initialise a :py:class:`Reader` instance from the supplied :py:class:`ReaderHandleManager`.
         """
         self._handles = handles
 
         # Warning: The cached signal maintains an open file handle. So ensure that
         # this dictionary is cleared before closing.
-        self._cached_signal_batches: typing.Dict[int, Signal] = {}
+        self._cached_signal_batches: Dict[int, Signal] = {}
 
-        self._cached_run_infos: typing.Dict[int, RunInfo] = {}
-        self._cached_end_reasons: typing.Dict[int, EndReason] = {}
-        self._cached_calibrations: typing.Dict[int, Calibration] = {}
-        self._cached_pores: typing.Dict[int, Pore] = {}
+        self._cached_run_infos: Dict[int, RunInfo] = {}
+        self._cached_end_reasons: Dict[int, EndReason] = {}
+        self._cached_calibrations: Dict[int, Calibration] = {}
+        self._cached_pores: Dict[int, Pore] = {}
 
-        self._is_vbz_compressed: typing.Optional[bool] = None
-        self._signal_batch_row_count: typing.Optional[int] = None
+        self._is_vbz_compressed: Optional[bool] = None
+        self._signal_batch_row_count: Optional[int] = None
 
     @classmethod
-    def from_combined(cls, combined_path: Path) -> "Reader":
+    def from_combined(cls, combined_path: PathOrStr) -> "Reader":
         """
         Open a combined pod5 file for reading.
 
-        See also `CombinedReader`
+        See also :py:class:`CombinedReader`
 
         Parameters
         ----------
-        `combined_path` : `Path`
+        combined_path : os.PathLike, str
             The combined pod5 file to open.
 
         Returns
         -------
-        A `Reader`, with the passed paths files opened for reading.
+        A :py:class:`Reader` with `combined_path` opened for reading.
         """
-        return cls(handles=ReaderHandleManager.from_combined(combined_path))
+        return cls(handles=ReaderHandleManager.from_combined(Path(combined_path)))
 
     @classmethod
-    def from_split(cls, split_path: Path, reads_path: Path) -> "Reader":
+    def from_split(cls, split_path: PathOrStr, reads_path: PathOrStr) -> "Reader":
         """
         Open a split pair of pod5 files for reading, one for signal data, one for read
         data.
 
-        See also `SplitReader`
+        See also :py:class:`SplitReader`
 
         Parameters
         ----------
-        `split_path` : `Path`
+        split_path : os.PathLike, str
             The name of the signal file in the split pod5 file pair.
-        `reads_file` : `Path`
+        reads_file : os.PathLike, str
             The name of the reads file in the split pod5 file pair.
 
         Returns
         -------
-        A `Reader`, with the passed paths files opened for reading.
+        A :py:class:`Reader`, prepared to read from a split pair of pod5 files.
         """
-        return cls(handles=ReaderHandleManager.from_split(split_path, reads_path))
+        return cls(
+            handles=ReaderHandleManager.from_split(Path(split_path), Path(reads_path))
+        )
 
     @classmethod
-    def from_inferred_split(cls, path: Path) -> "Reader":
+    def from_inferred_split(cls, path: PathOrStr) -> "Reader":
         """
         Open a split pair of pod5 files for reading, one for signal data, one for read
         data.
 
-        See also `SplitReader.from_inferred`
+        See also :py:meth:`SplitReader.from_inferred`
 
         Parameters
         ----------
-        path : Path
+        path : os.PathLike, str
             The basename of the split pair - "my_files.pod5" will open
             pair "my_files_signal.pod5" and "my_files_reads.pod5",
 
         Returns
         -------
-        A `Reader`, with the passed paths files opened for reading.
+        A :py:class:`Reader`, prepared to read from a split pair of pod5 files.
         """
-        split_path, reads_path = make_split_filename(path, assert_exists=True)
+        split_path, reads_path = make_split_filename(Path(path), assert_exists=True)
         return cls(handles=ReaderHandleManager.from_split(split_path, reads_path))
 
     def __del__(self) -> None:
@@ -620,11 +640,11 @@ class Reader:
 
     def read_batches(
         self,
-        selection: typing.Optional[typing.List[str]] = None,
-        batch_selection: typing.Optional[typing.Iterable[int]] = None,
+        selection: Optional[List[str]] = None,
+        batch_selection: Optional[Iterable[int]] = None,
         missing_ok: bool = False,
-        preload: typing.Optional[typing.Set[str]] = None,
-    ) -> typing.Generator[ReadRecordBatch, None, None]:
+        preload: Optional[Set[str]] = None,
+    ) -> Generator[ReadRecordBatch, None, None]:
         """
         Iterate batches in the file, optionally selecting certain rows.
 
@@ -641,7 +661,7 @@ class Reader:
 
         Returns
         -------
-        An iterable of batches (as ReadBatchPyArrow) in the file.
+        An iterable of :py:class:`ReadRecordBatch` in the file.
         """
         if selection is not None:
             assert not batch_selection
@@ -656,10 +676,10 @@ class Reader:
 
     def reads(
         self,
-        selection: typing.Optional[typing.Iterable[str]] = None,
+        selection: Optional[Iterable[str]] = None,
         missing_ok: bool = False,
-        preload: typing.Optional[typing.Set[str]] = None,
-    ) -> typing.Generator[ReadRecord, None, None]:
+        preload: Optional[Set[str]] = None,
+    ) -> Generator[ReadRecord, None, None]:
         """
         Iterate reads in the file, optionally filtering for certain read ids.
 
@@ -674,7 +694,7 @@ class Reader:
 
         Returns
         -------
-        An iterable of reads (as ReadRowPyArrow) in the file.
+        An iterable of :py:class:`ReadRecord` in the file.
         """
         if selection is None:
             yield from self._reads(preload=preload)
@@ -684,8 +704,8 @@ class Reader:
             )
 
     def _reads(
-        self, preload: typing.Optional[typing.Set[str]] = None
-    ) -> typing.Generator[ReadRecord, None, None]:
+        self, preload: Optional[Set[str]] = None
+    ) -> Generator[ReadRecord, None, None]:
         """Generate all reads"""
         for batch in self.read_batches(preload=preload):
             for read in batch.reads():
@@ -693,18 +713,19 @@ class Reader:
 
     def _select_reads(
         self,
-        selection: typing.List[str],
+        selection: List[str],
         missing_ok: bool = False,
-        preload: typing.Optional[typing.Set[str]] = None,
-    ) -> typing.Generator[ReadRecord, None, None]:
+        preload: Optional[Set[str]] = None,
+    ) -> Generator[ReadRecord, None, None]:
         """Generate selected reads"""
         for batch in self._select_read_batches(selection, missing_ok, preload=preload):
             for read in batch.reads():
                 yield read
 
     def _reads_batches(
-        self, preload: typing.Optional[typing.Set[str]] = None
-    ) -> typing.Generator[ReadRecordBatch, None, None]:
+        self, preload: Optional[Set[str]] = None
+    ) -> Generator[ReadRecordBatch, None, None]:
+        """Generate the record batches"""
         signal_cache = None
         if preload:
             signal_cache = self._handles.file.batch_get_signal(
@@ -720,15 +741,16 @@ class Reader:
 
     def _read_some_batches(
         self,
-        batch_selection: typing.Iterable[int],
-        preload: typing.Optional[typing.Set[str]] = None,
-    ) -> typing.Generator[ReadRecordBatch, None, None]:
+        batch_selection: Iterable[int],
+        preload: Optional[Set[str]] = None,
+    ) -> Generator[ReadRecordBatch, None, None]:
+        """Generate the selected record batches"""
         signal_cache = None
         if preload:
             signal_cache = self._handles.file.batch_get_signal_batches(
                 "samples" in preload,
                 "sample_count" in preload,
-                numpy.array(batch_selection, dtype=numpy.uint32),
+                np.array(batch_selection, dtype=np.uint32),
             )
 
         for i in batch_selection:
@@ -739,11 +761,11 @@ class Reader:
 
     def _select_read_batches(
         self,
-        selection: typing.List[str],
+        selection: List[str],
         missing_ok: bool = False,
-        preload: typing.Optional[typing.Set[str]] = None,
-    ) -> typing.Generator[ReadRecordBatch, None, None]:
-
+        preload: Optional[Set[str]] = None,
+    ) -> Generator[ReadRecordBatch, None, None]:
+        """Generate the selected record batches"""
         successful_finds, per_batch_counts, batch_rows = self._plan_traversal(selection)
 
         if not missing_ok and successful_finds != len(selection):
@@ -751,7 +773,7 @@ class Reader:
                 f"Failed to find {len(selection) - successful_finds} requested reads in the file"
             )
 
-        signal_cache: typing.Optional[p5b.Pod5AsyncSignalLoader] = None
+        signal_cache: Optional[p5b.Pod5AsyncSignalLoader] = None
         if preload:
             signal_cache = self._handles.file.batch_get_signal_selection(
                 "samples" in preload,
@@ -774,10 +796,9 @@ class Reader:
             yield batch
 
     def _plan_traversal(
-        self, read_ids: numpy.typing.ArrayLike
-    ) -> typing.Tuple[
-        int, numpy.typing.NDArray[numpy.uint32], numpy.typing.NDArray[numpy.uint32]
-    ]:
+        self,
+        read_ids: Union[Collection[str], npt.NDArray[np.uint8]],
+    ) -> Tuple[int, npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
         """
         Query the file reader indexes to return the number of read_ids which
         were found and the batches and rows which are needed to traverse each
@@ -785,26 +806,26 @@ class Reader:
 
         Parameters
         ----------
-        read_ids : Array of read_id strings
+        read_ids : Collection or numpy.ndarray of read_id strings
             The read ids to find in the file
 
         Returns
         -------
-        successful_find_count:
+        successful_find_count: int
             The number of reads that were found from the array of read_ids given
-        per_batch_counts:
+        per_batch_counts: numpy.array[uint32]
             The number of rows from the batch row ids to take to form each RecordBatch
-        batch_rows:
+        batch_rows: numpy.array[uint32]
             All batch row ids
 
         """
-        if not isinstance(read_ids, numpy.ndarray):
+        if not isinstance(read_ids, np.ndarray):
             read_ids = pack_read_ids(read_ids)
 
-        assert isinstance(read_ids, numpy.ndarray)
+        assert isinstance(read_ids, np.ndarray)
 
-        batch_rows = numpy.empty(dtype="u4", shape=read_ids.shape[0])
-        per_batch_counts = numpy.empty(dtype="u4", shape=self.batch_count)
+        batch_rows = np.empty(dtype="u4", shape=read_ids.shape[0])
+        per_batch_counts = np.empty(dtype="u4", shape=self.batch_count)
 
         successful_find_count = self._handles.file.plan_traversal(
             read_ids,
@@ -815,7 +836,7 @@ class Reader:
         return successful_find_count, per_batch_counts, batch_rows
 
     def _get_signal_batch(self, batch_id: int) -> Signal:
-        """Get the `Signal` from the signal_reader batch at batch_id"""
+        """Get the :py:class:`Signal` from the signal_reader batch at batch_id"""
         if batch_id in self._cached_signal_batches:
             return self._cached_signal_batches[batch_id]
 
@@ -827,13 +848,13 @@ class Reader:
         return signal_batch
 
     def _lookup_run_info(self, batch: ReadRecordBatch, batch_row_id: int) -> RunInfo:
-        """Get the `RunInfo` from the batch at batch_row_id"""
+        """Get the :py:class:`RunInfo` from the batch at batch_row_id"""
         return self._lookup_dict_value(
             self._cached_run_infos, "run_info", RunInfo, batch, batch_row_id
         )
 
     def _lookup_pore(self, batch: ReadRecordBatch, batch_row_id: int) -> Pore:
-        """Get the `Pore` from the batch at batch_row_id"""
+        """Get the :py:class:`Pore` from the batch at batch_row_id"""
         return self._lookup_dict_value(
             self._cached_pores, "pore", Pore, batch, batch_row_id
         )
@@ -841,7 +862,7 @@ class Reader:
     def _lookup_calibration(
         self, batch: ReadRecordBatch, batch_row_id: int
     ) -> Calibration:
-        """Get the `Calibration` from the batch at batch_row_id"""
+        """Get the :py:class:`Calibration` from the batch at batch_row_id"""
         return self._lookup_dict_value(
             self._cached_calibrations,
             "calibration",
@@ -853,19 +874,42 @@ class Reader:
     def _lookup_end_reason(
         self, batch: ReadRecordBatch, batch_row_id: int
     ) -> EndReason:
-        """Get the `EndReason` from the batch at batch_row_id"""
+        """Get the :py:class:`types.EndReason` from the batch at batch_row_id"""
         return self._lookup_dict_value(
             self._cached_end_reasons, "end_reason", EndReason, batch, batch_row_id
         )
 
+    @staticmethod
     def _lookup_dict_value(
-        self,
         storage: _ReaderCaches,
         field_name: str,
         cls_type: _ReadDataTypes,
         batch: ReadRecordBatch,
         batch_row_id: int,
     ):
+        """
+        Static method for getting cached instances of "cls_type" from "storage" or
+        loading it from the file if it hasn't already been cached.
+
+        Parameters
+        ----------
+        storage : Dict[int, [Calibration, EndReason, Pore, RunInfo]]
+            A ReaderCache containing cached objects from this file
+        field_name: str
+            The field name in the pod5 columns which contains data to instantiate a
+            new instance of "cls_type"
+        cls_type: Type[Calibration, EndReason, Pore, RunInfo]
+            The class type to instantiate and return
+        batch: ReadRecordBatch
+            The ReadRecordBatch intance to get data from
+        batch_row_id: int
+            The row id of the data to source
+
+        Returns
+        -------
+        object: Type[Calibration, EndReason, Pore, RunInfo]
+            The recovered cached instance or newly created instance of "cls_type"
+        """
         field_data = getattr(batch.columns, field_name)
         row_id = field_data.indices[batch_row_id].as_py()
         if row_id in storage:
@@ -882,88 +926,127 @@ class SplitReader(Reader):
     class for Reader.from_split
     """
 
-    def __init__(self, signal_path: Path, reads_path: Path) -> None:
+    def __init__(self, signal_path: PathOrStr, reads_path: PathOrStr) -> None:
         """
         Open a split pair of pod5 files for reading.
 
         Parameters
         ----------
-        `signal_path` : `Path`
+        signal_path : os.PathLike, str
            The path to the signal pod5 file
-        `reads_path` : `Path`
+        reads_path : os.PathLike, str
            The path to the reads pod5 file
-        """
-        self._reads_path = reads_path
-        self._signal_path = signal_path
 
-        handles = ReaderHandleManager.from_split(signal_path, reads_path)
+        Raises
+        ------
+        FileNotFoundError
+            If there is no file at either `signal_path` or `reads_path`
+        Pod5ApiException
+            If there is an error opening the file reader
+        """
+        self._reads_path = Path(reads_path)
+        self._signal_path = Path(signal_path)
+
+        handles = ReaderHandleManager.from_split(self._signal_path, self._reads_path)
         super().__init__(handles=handles)
 
     @classmethod
-    def from_inferred(cls, path: Path) -> "SplitReader":
+    def from_inferred(cls, path: PathOrStr) -> "SplitReader":
         """
-        Open a split pair of pod5 file for reading. Given `path`, infer the pair
+        Open a split pair of pod5 file for reading. Given path, infer the pair
         of split pod5 filepaths.
 
         Parameters
         ----------
-        `path` : `Path`
-           The path to search _signal and _reads paths using `make_split_filename`
+        path : os.PathLike, str
+           The path to search _signal and _reads paths using :py:meth:`make_split_filename`
 
         Returns
         -------
-        `SplitReader`
+        :py:class:`SplitReader`, prepared to read from a split pair of pod5 files.
+
+        Raises
+        ------
+        FileNotFoundError
+            If there is no file at either `signal_path` or `reads_path`
+        Pod5ApiException
+            If there is an error opening the file reader
         """
         signal_path, reads_path = make_split_filename(path, assert_exists=True)
         return cls(signal_path, reads_path)
 
     @property
     def reads_path(self) -> Path:
-        """Return the path to the reads pod5 file"""
+        """
+        Returns
+        -------
+        reads_path : pathlib.Path
+            The path to the reads pod5 file
+        """
         return self._reads_path
 
     @property
     def signal_path(self) -> Path:
-        """Return the path to the signal pod5 file"""
+        """
+        Returns
+        -------
+        signal_path : pathlib.Path
+            The path to the signal pod5 file
+        """
         return self._signal_path
 
 
 class CombinedReader(Reader):
     """
-    A reader for POD5 data for combined pod5 files. This subclass is a convenience
-    class for Reader.from_combined
+    A reader for combined pod5 files.
     """
 
-    def __init__(self, combined_path: Path) -> None:
+    def __init__(self, combined_path: PathOrStr) -> None:
         """
-        Open a split pair of pod5 files for reading, one for signal data, one for read data.
+        Open a combined Pod5 file for reading
 
         Parameters
         ----------
-        combined_path : Path
+        combined_path : os.PathLike, str
            The path to the combined pod5 file
+
+        Raises
+        ------
+        FileNotFoundError
+            If there is no file at `combined_path`
+        Pod5ApiException
+            If there is an error opening the file reader
         """
-        self._combined_path = combined_path
-        super().__init__(handles=ReaderHandleManager.from_combined(combined_path))
+        self._combined_path = Path(combined_path)
+        super().__init__(handles=ReaderHandleManager.from_combined(self._combined_path))
 
     @property
     def combined_path(self) -> Path:
-        """Return the path to the combined pod5 file"""
+        """
+        Returns
+        -------
+        combined_path : pathlib.Path
+            The path to the combined pod5 file
+        """
         return self._combined_path
 
 
-def open_combined_file(combined_path: typing.Union[str, Path]) -> CombinedReader:
+def open_combined_file(combined_path: PathOrStr) -> CombinedReader:
     """
     Open a combined pod5 file for reading.
 
+    Note
+    ----
+    This function has been deprecated in favour of :py:class:`CombinedReader`
+
     Parameters
     ----------
-    `combined_path` : `Path`
+    combined_path : os.PathLike, str
         The combined POD5 file to open.
 
     Returns
     -------
-    A `CombinedReader`, with the passed paths files opened for reading.
+    :py:class:`CombinedReader`, prepared to read from a combined pod5 file.
     """
     deprecation_warning(
         "pod5_format.reader.open_combined_file",
@@ -972,25 +1055,27 @@ def open_combined_file(combined_path: typing.Union[str, Path]) -> CombinedReader
     return CombinedReader(Path(combined_path))
 
 
-def open_split_file(
-    path: typing.Union[str, Path], reads_path: typing.Union[str, Path] = None
-) -> SplitReader:
+def open_split_file(path: PathOrStr, reads_path: PathOrStr = None) -> SplitReader:
     """
     Open a split pair of pod5 files for reading, one for signal data, one for read data.
 
+    Note
+    ----
+    This function has been deprecated in favour of :py:class:`SplitReader`
+
     Parameters
     ----------
-    `path` : `Path`
+    path : os.PathLike, str
         Either the basename of the split pair - "my_files.pod5" will open
         pair "my_files_signal.pod5" and "my_files_reads.pod5",
         or the direct path to the signal file. if [reads_path] is None, file
         must be the basename for the split pair.
-    `reads_path` : `Path`
+    reads_path : os.PathLike, str
         The name of the reads file in the split file pair.
 
     Returns
     -------
-    A `SplitReader`, with the passed paths files opened for reading.
+    :py:class:`SplitReader`, prepared to read from a split pair of pod5 files.
     """
     deprecation_warning(
         "pod5_format.reader.open_split_file",

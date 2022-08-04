@@ -2,36 +2,38 @@
 Utilities for reading data out of POD5 files.
 """
 
-import typing
 from pathlib import Path
+from typing import Tuple
+
+from pod5_format.pod5_types import PathOrStr
 
 
 def make_split_filename(
-    file: Path, assert_exists: bool = False
-) -> typing.Tuple[Path, Path]:
+    file: PathOrStr, assert_exists: bool = False
+) -> Tuple[Path, Path]:
     """
     Find a sensible name for a split pod5 file pair, given a single destination filename.
 
     Parameters
     ----------
-    `file` : `Path`
+    file : os.PathLike, str
         The name for the file pair.
-    `assert_exists` : `bool`
+    assert_exists : bool
         If true, assert that both paths are existing files. Raises FileExistsError.
 
     Returns
     -------
-        A tuple of Paths, one for the signal and the other the reads file.
+        A tuple of paths, to the signal and read files respectively.
     """
-
-    basename = str(Path(file).with_suffix(""))
-    signal = Path(basename + "_signal" + file.suffix)
-    reads = Path(basename + "_reads" + file.suffix)
+    path = Path(file)
+    basename = str(path.with_suffix(""))
+    signal = Path(basename + "_signal" + path.suffix)
+    reads = Path(basename + "_reads" + path.suffix)
 
     if assert_exists:
         if not signal.is_file() or not reads.is_file():
             raise FileExistsError(
-                f"Could not find signal and reads paths from: {file}. Searched: "
+                f"Could not find signal and reads paths from: {path}. Searched: "
                 f"{signal} (exists: {signal.is_file()}) and {reads} "
                 f"(exists: {reads.is_file()})"
             )

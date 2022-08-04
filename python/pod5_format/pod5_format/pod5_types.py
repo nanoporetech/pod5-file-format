@@ -1,14 +1,21 @@
 """
 Container class for a pod5 Read object
 """
-
 import datetime
 import enum
-import typing
+import os
+from typing import (
+    Any,
+    Dict,
+    Union,
+)
 from dataclasses import dataclass, field
 from uuid import UUID
 
-import numpy.typing
+import numpy as np
+import numpy.typing as npt
+
+PathOrStr = Union[os.PathLike, str]
 
 
 class EndReasonEnum(enum.Enum):
@@ -24,7 +31,7 @@ class EndReasonEnum(enum.Enum):
 
 @dataclass(frozen=True)
 class EndReason:
-    """Class for containing pod5 end reason data"""
+    """POD5 End Reason"""
 
     name: EndReasonEnum
     forced: bool
@@ -32,20 +39,20 @@ class EndReason:
 
 @dataclass(frozen=True)
 class Calibration:
-    """Class for containing pod5 calibration data"""
+    """POD5 Read Calibration Data"""
 
     offset: float
     scale: float
 
     @classmethod
     def from_range(cls, offset: float, adc_range: float, digitisation: float):
-        """Create a Pod5Calibration instance from adc_range and digitisation"""
+        """Create a Calibration instance from offset, adc_range and digitisation"""
         return cls(offset, adc_range / digitisation)
 
 
 @dataclass(frozen=True)
 class Pore:
-    """Class for containing pod5 pore data"""
+    """POD5 Read Pore Data"""
 
     channel: int
     well: int
@@ -54,13 +61,13 @@ class Pore:
 
 @dataclass(frozen=True)
 class RunInfo:
-    """Class for containing pod5 run information"""
+    """POD5 Run Information"""
 
     acquisition_id: str
     acquisition_start_time: datetime.datetime
     adc_max: int
     adc_min: int
-    context_tags: typing.Dict[str, typing.Any] = field(hash=False, compare=True)
+    context_tags: Dict[str, Any] = field(hash=False, compare=True)
     experiment_name: str
     flow_cell_id: str
     flow_cell_product_code: str
@@ -75,12 +82,12 @@ class RunInfo:
     software: str
     system_name: str
     system_type: str
-    tracking_id: typing.Dict[str, typing.Any] = field(hash=False, compare=True)
+    tracking_id: Dict[str, Any] = field(hash=False, compare=True)
 
 
 @dataclass(frozen=True)
 class Read:
-    """Class for containing pod5 read data"""
+    """POD5 Read Data"""
 
     read_id: UUID
     pore: Pore
@@ -90,5 +97,5 @@ class Read:
     median_before: float
     end_reason: EndReason
     run_info: RunInfo
-    signal: numpy.typing.NDArray[numpy.int16]  # typing.List[int]
+    signal: npt.NDArray[np.int16]
     samples_count: int

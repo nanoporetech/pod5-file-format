@@ -12,7 +12,7 @@ from .api_utils import (
     format_read_id_to_str,
     format_read_ids,
 )
-from .types import (
+from .pod5_types import (
     EndReasonEnum,
     Calibration,
     EndReason,

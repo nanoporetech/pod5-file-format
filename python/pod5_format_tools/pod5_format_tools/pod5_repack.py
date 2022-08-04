@@ -5,7 +5,6 @@ import argparse
 from pathlib import Path
 
 import sys
-import time
 import typing
 
 import pod5_format as p5
