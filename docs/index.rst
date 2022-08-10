@@ -1,9 +1,13 @@
 .. Pod5 File Format documentation master file
 
-Welcome to Pod5 File Format documentation!
-===========================================
+Pod5 File Format Documentation
+==============================
 
-POD5 is a file format for storing nanopore dna data in an easily accessible way.
+:Date: |today|
+:Version: |version|
+
+
+POD5 is a file format for storing nanopore sequencing data in an easily accessible way.
 The format is able to be written in a streaming manner which allows a sequencing
 instrument to directly write the format.
 
@@ -18,31 +22,33 @@ Install
 
 POD5 is also bundled as a python module for easy use in scripts, a user can install using:
 
-To install the latest python release, type::
+To install the latest python release, type:
+
+.. code-block:: console
    
-   pip install pod5_format
+   $ pip install pod5_format
 
 This python module provides the python library to write custom scripts against.
-
-
-Contents
---------
+See the :ref:`Installation Documentation <docs/install:Install>` for further details.
 
 .. toctree::
+   :caption: Contents
    :maxdepth: 2
-   :titlesonly:
 
+   docs/install.rst
    docs/api.rst
-
-API Reference
--------------
-
+   docs/tools.rst
+   
+   
 .. toctree::
-   :maxdepth: 2
+   :caption: Reference Documentation
+   :maxdepth: 1
    :titlesonly:
 
-   reference/api/modules.rst
-   reference/tools/modules.rst
+   reference/api/pod5_format.rst
+   reference/tools/pod5_format_tools.rst
+   DESIGN.md
+   SPECIFICATION.md
    
 
 Indices and Tables

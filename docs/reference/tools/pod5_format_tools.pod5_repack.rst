@@ -1,4 +1,4 @@
-pod5\_format\_tools.pod5\_repack module
+pod5\_repack
 =======================================
 
 .. automodule:: pod5_format_tools.pod5_repack

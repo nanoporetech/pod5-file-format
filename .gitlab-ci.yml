@@ -473,6 +473,7 @@ build-conan:linux-x86_64-gcc9:
         - .profile-linux-x86_64-gcc9
         - .build-package
         - .capture-version-for-conan
+
 build-conan:linux-aarch64-gcc9:
     stage: build-conan
     extends:
@@ -485,6 +486,7 @@ build-conan:linux-aarch64-gcc7:
         - .build-package
         - .profile-linux-aarch64-gcc7
         - .capture-version-for-conan
+  
 build-conan:macos-x86_64-appleclang10.0:
     stage: build-conan
     extends:
@@ -594,17 +596,18 @@ external_wheel_upload:
 pages:
   stage: pages
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
-  tags:
-    - linux    
+  tags: 
+    - linux
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
     - pip install --upgrade pip
-    - pip install sphinx==v5.1.1 sphinx-rtd-theme
+    - pip install ./${WHEEL_GLOB}
+    - pip install pod5_format_tools*.whl
+    - pip install sphinx==v5.1.1 sphinx-rtd-theme myst-parser
+    - mkdir ./public
     - sphinx-build -b html ./docs ./public
-  # only:
-  #   - master
   needs:
     - linux-x64-gcc9-release-build
     - build-tools
@@ -613,3 +616,5 @@ pages:
   artifacts:
     paths:
       - public
+  only:
+  - master

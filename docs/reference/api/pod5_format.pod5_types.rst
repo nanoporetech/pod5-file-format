@@ -1,4 +1,4 @@
-pod5\_format.pod5\_types module
+pod5\_types 
 ===============================
 
 .. automodule:: pod5_format.pod5_types

@@ -192,7 +192,7 @@ class Writer:
         Parameters
         ----------
         obj : :py:class:`Calibration`, :py:class:`EndReason`, :py:class:`Pore`, :py:class:`RunInfo`
-            Obectj to find in this Pod5 file, adding it if it doesn't exist already
+            Object to find in this Pod5 file, adding it if it doesn't exist already
 
         Returns
         -------

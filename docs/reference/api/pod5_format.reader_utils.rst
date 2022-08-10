@@ -1,4 +1,4 @@
-pod5\_format.reader\_utils module
+reader\_utils 
 =================================
 
 .. automodule:: pod5_format.reader_utils

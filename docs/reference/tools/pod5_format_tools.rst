@@ -1,5 +1,5 @@
-pod5\_format\_tools package
-===========================
+Python Tools Reference
+======================
 
 Submodules
 ----------
@@ -14,10 +14,4 @@ Submodules
    pod5_format_tools.pod5_repack
    pod5_format_tools.utils
 
-Module contents
----------------
 
-.. automodule:: pod5_format_tools
-   :members:
-   :undoc-members:
-   :show-inheritance:

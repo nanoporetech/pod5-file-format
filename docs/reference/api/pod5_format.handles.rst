@@ -1,4 +1,4 @@
-pod5\_format.handles module
+handles 
 ===========================
 
 .. automodule:: pod5_format.handles

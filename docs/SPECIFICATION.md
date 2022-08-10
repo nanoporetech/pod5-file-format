@@ -1,9 +1,8 @@
 
-
 POD5 Format Specification
-------------------------
+=========================
 
-### Overview
+## Overview
 
 The file format is, at its core, a collection of Apache Arrow tables, stored in the Apache Feather 2 (also know as Apache Arrow IPC File) format. These can be stored separately, linked by having a common filename component, or bundled into a single file for ease of file management.
 
@@ -33,7 +32,7 @@ All the tables should have the following `custom_metadata` fields set on them:
 
 | Name                    | Example Value                        | Notes                                                                                                                                       |
 |-------------------------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| MINKNOW:pod5_version     | 1.0.0                                | The version of this specification that the schema was based on.                                                                             |
+| MINKNOW:pod5_version    | 1.0.0                                | The version of this specification that the schema was based on.                                                                             |
 | MINKNOW:software        | MinNOW Core 5.2.3                    | A free-form description of the software that wrote the file, intended to  help pin down the source of files that violate the specification. |
 | MINKNOW:file_identifier | cbf91180-0684-4a39-bf56-41eaf437de9e | Must be identical across all tables. Allows checking that the files correspond to each other.                                               |
 
@@ -48,7 +47,7 @@ The schemas make extensive use of UUIDs to identify reads. This is stored using 
     Name: "minknow.uuid"
     Physical storage: FixedBinary(16)
 
-####minknow.vbz
+#### minknow.vbz
 
 Storage for VBZ-encoded data:
 
@@ -94,15 +93,11 @@ Several fields of the Reads table are [dictionaries](https://arrow.apache.org/do
 
 The first and last eight bytes of the file are both a fixed set of values:
 
+```
 | Decimal          | 139  | 80   | 79   | 68   | 13   | 10   | 26   | 10   |
 | Hexadecimal      | 0x8B | 0x50 | 0x4F | 0x44 | 0x0D | 0x0A | 0x1A | 0x0A |
 | ASCII C Notation | \213 | P    | O    | D    | \r   | \n   | \032 | \n   |
-
-    *Rationale*
-
-    A unique, fixed signature for the file type allows quickly identifying that the file is in the expected format, and provides an easy way for tools like the UNIX `file` command to determine the file type.
-
-    Placing it at the end allows quickly checking whether the file is complete.
+```
 
 The format of the signature is based on the PNG file signature, and inherits several useful features from it for detecting file corruption:
 
@@ -111,13 +106,20 @@ The format of the signature is based on the PNG file signature, and inherits sev
 - The \r\n (CRLF) sequence and the final \n (LF) byte check that nothing has attempted to standardise line endings in the file.
 - The second-last byte (\032) is the CTRL-Z sequence, which stops file display under MS-DOS.
 
+##### Rationale
+
+A unique, fixed signature for the file type allows quickly identifying that the file is in the expected format, and provides an easy way for tools like the UNIX `file` command to determine the file type.
+
+Placing it at the end allows quickly checking whether the file is complete.
+
+
 #### Section marker
 
 The section marker is a 16-byte UUID, generated randomly for each file. All the section markers in a given file must be identical.
 
-    *Rationale*
+##### Rationale
 
-    This aids in recovery of partially-written files (that are missing a footer) - while most of the embedded Arrow IPC files can be scanned easily, it may not be obvious where the footer ends. A given randomly-generated 16-byte value is highly unlikely to occur in actual data, and can be scanned for to find the end of the embedded file for certain. The first section marker is just so that recovery tools know what to look for.
+This aids in recovery of partially-written files (that are missing a footer) - while most of the embedded Arrow IPC files can be scanned easily, it may not be obvious where the footer ends. A given randomly-generated 16-byte value is highly unlikely to occur in actual data, and can be scanned for to find the end of the embedded file for certain. The first section marker is just so that recovery tools know what to look for.
 
 #### Footer magic
 
@@ -170,16 +172,16 @@ table Footer {
 }
 ```
 
-    *Rationale*
+##### Rationale
 
-    FlatBuffers are used because the Arrow IPC file format already uses them for metadata, and they can be read from a memory mapped file or read buffer without further copying. They are also easily (and compatibly) extensible with more fields.
+FlatBuffers are used because the Arrow IPC file format already uses them for metadata, and they can be read from a memory mapped file or read buffer without further copying. They are also easily (and compatibly) extensible with more fields.
 
-    A footer is used instead of a header so the file can be written incrementally: the first table can be written directly to the file before it is known how long it will be or even how many tables there will be.
+A footer is used instead of a header so the file can be written incrementally: the first table can be written directly to the file before it is known how long it will be or even how many tables there will be.
 
 #### Footer length
 
 This is a little-endian 8-byte signed integer giving the length of the footer buffer, including padding.
 
-    Rationale
+##### Rationale
 
-    This allows readers to find the start of the footer by starting at the end of the file and reading backwards.
+This allows readers to find the start of the footer by starting at the end of the file and reading backwards.

@@ -1,4 +1,4 @@
-pod5\_format package
+Python API Reference
 ====================
 
 Submodules

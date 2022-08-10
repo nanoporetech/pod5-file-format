@@ -1,4 +1,4 @@
-pod5\_format\_tools.pod5\_inspect module
+pod5\_inspect
 ========================================
 
 .. automodule:: pod5_format_tools.pod5_inspect
