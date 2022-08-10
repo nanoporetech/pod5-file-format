@@ -96,57 +96,49 @@ class ReadRecord:
     @property
     def read_id(self) -> UUID:
         """
-        Find the unique read identifier for the read as a `UUID`.
+        Get the unique read identifier for the read as a `UUID`.
         """
         return UUID(bytes=self._batch.columns.read_id[self._row].as_py())
 
     @property
     def read_number(self) -> int:
         """
-        Find the integer read number of the read.
+        Get the integer read number of the read.
         """
         return self._batch.columns.read_number[self._row].as_py()
 
     @property
     def start_sample(self) -> int:
         """
-        Find the absolute sample which the read started.
+        Get the absolute sample which the read started.
         """
         return self._batch.columns.start[self._row].as_py()
 
     @property
     def median_before(self) -> float:
         """
-        Find the median before level (in pico amps) for the read.
+        Get the median before level (in pico amps) for the read.
         """
         return self._batch.columns.median_before[self._row].as_py()
 
     @property
     def pore(self) -> Pore:
         """
-        Find the pore data associated with the read.
-
-        Returns
-        -------
-        The `Pore` data for this read.
+        Get the pore data associated with the read.
         """
         return self._reader._lookup_pore(self._batch, self._row)
 
     @property
     def calibration(self) -> Calibration:
         """
-        Find the calibration data associated with the read.
-
-        Returns
-        -------
-        The `Calibration` data for this read.
+        Get the calibration data associated with the read.
         """
         return self._reader._lookup_calibration(self._batch, self._row)
 
     @property
     def calibration_digitisation(self) -> int:
         """
-        Find the digitisation value used by the sequencer.
+        Get the digitisation value used by the sequencer.
 
         Intended to assist workflows ported from legacy file formats.
         """
@@ -155,7 +147,7 @@ class ReadRecord:
     @property
     def calibration_range(self) -> float:
         """
-        Find the calibration range value.
+        Get the calibration range value.
 
         Intended to assist workflows ported from legacy file formats.
         """
@@ -164,82 +156,75 @@ class ReadRecord:
     @property
     def end_reason(self) -> EndReason:
         """
-        Find the end reason data associated with the read.
-
-        Returns
-        -------
-        The `EndReason` for this read.
+        Get the end reason data associated with the read.
         """
         return self._reader._lookup_end_reason(self._batch, self._row)
 
     @property
     def run_info(self) -> RunInfo:
         """
-        Find the run info data associated with the read.
-
-        Returns
-        -------
-        The `RunInfo` for this read.
+        Get the run info data associated with the read.
         """
         return self._reader._lookup_run_info(self._batch, self._row)
 
     @property
     def calibration_index(self) -> int:
         """
-        Find the dictionary index of the calibration data associated with the read.
+        Get the dictionary index of the calibration data associated with the read.
         """
         return self._batch.columns.calibration[self._row].index.as_py()
 
     @property
     def end_reason_index(self) -> int:
         """
-        Find the dictionary index of the end reason data associated with the read.
+        Get the dictionary index of the end reason data associated with the read.
         """
         return self._batch.columns.end_reason[self._row].index.as_py()
 
     @property
     def pore_index(self) -> int:
         """
-        Find the dictionary index of the pore data associated with the read.
+        Get the dictionary index of the pore data associated with the read.
         """
         return self._batch.columns.pore[self._row].index.as_py()
 
     @property
     def run_info_index(self) -> int:
         """
-        Find the dictionary index of the run info data associated with the read.
+        Get the dictionary index of the run info data associated with the read.
         """
         return self._batch.columns.run_info[self._row].index.as_py()
 
     @property
     def sample_count(self) -> int:
         """
-        Find the number of samples in the reads signal data.
+        Get the number of samples in the reads signal data.
         """
         return sum(r.sample_count for r in self.signal_rows)
 
     @property
     def byte_count(self) -> int:
         """
-        Find the number of bytes used to store the reads data.
+        Get the number of bytes used to store the reads data.
         """
         return sum(r.byte_count for r in self.signal_rows)
 
     @property
     def has_cached_signal(self) -> bool:
         """
-        Find if cached signal is available for this read.
+        Get if cached signal is available for this read.
         """
         return self._batch_signal_cache
 
     @property
     def signal(self) -> npt.NDArray[np.int16]:
         """
-        Find the full signal for the read.
+        Get the full signal for the read.
 
         Returns
         -------
-        A numpy array of signal data with int16 type.
+        numpy.ndarray[int16]
+            A numpy array of signal data with int16 type.
         """
         if self.has_cached_signal:
             if self._selected_batch_index is not None:
@@ -273,21 +258,23 @@ class ReadRecord:
     @property
     def signal_pa(self) -> npt.NDArray[np.float32]:
         """
-        Find the full signal for the read, calibrated in pico amps.
+        Get the full signal for the read, calibrated in pico amps.
 
         Returns
         -------
-        A numpy array of signal data with float32 type.
+        numpy.ndarray[float32]
+            A numpy array of signal data in pico amps with float32 type.
         """
         return self.calibrate_signal_array(self.signal)
 
     def signal_for_chunk(self, index: int) -> npt.NDArray[np.int16]:
         """
-        Find the signal for a given chunk of the read.
+        Get the signal for a given chunk of the read.
 
         Returns
         -------
-        A numpy array of signal data with int16 type.
+        numpy.ndarray[int16]
+            A numpy array of signal data with int16 type for the specified chunk.
         """
         # signal_rows can be used to find details of the signal chunks.
         chunk_abs_row_index = self._batch.columns.signal[self._row][index]
@@ -296,11 +283,12 @@ class ReadRecord:
     @property
     def signal_rows(self) -> List[SignalRowInfo]:
         """
-        Find all signal rows for the read
+        Get all signal rows for the read
 
         Returns
         -------
-        A list of signal row data (as SignalRowInfo) in the read.
+        list[SignalRowInfo]
+            A list of signal row data (as SignalRowInfo) in the read.
         """
 
         def map_signal_row(sig_row):
@@ -347,7 +335,7 @@ class ReadRecord:
 
     def _get_signal_for_row(self, signal_row: int) -> npt.NDArray[np.int16]:
         """
-        Find the signal data for a given absolute signal row index
+        Get the signal data for a given absolute signal row index
 
         Returns
         -------
@@ -366,7 +354,8 @@ class ReadRecord:
 
     def to_read(self) -> Read:
         """
-        Create a `Read` from this :py:class:`ReadRecord` instance.
+        Create a :py:class:`pod5_format.pod5_types.Read` from
+        this :py:class:`ReadRecord` instance.
 
         Returns
         -------
@@ -420,11 +409,12 @@ class ReadRecordBatch:
 
     def reads(self) -> Generator[ReadRecord, None, None]:
         """
-        Iterate all reads in the batch.
+        Iterate all reads in this batch.
 
-        Returns
-        -------
-        An iterable of reads (as ReadRowPyArrow) in the file.
+        Yields
+        ------
+        ReadRecord
+            ReadRecord instances in the file.
         """
 
         signal_cache = None
@@ -621,10 +611,6 @@ class Reader:
     def batch_count(self) -> int:
         """
         Find the number of read batches available in the file.
-
-        Returns
-        -------
-        The number of batches in the file.
         """
         return self._handles.read.reader.num_record_batches
 
@@ -634,7 +620,8 @@ class Reader:
 
         Returns
         -------
-        The requested batch as a ReadBatchPyArrow.
+        :py:class:`ReadRecordBatch`
+            The requested batch as a ReadRecordBatch.
         """
         return ReadRecordBatch(self, self._handles.read.reader.get_batch(index))
 

@@ -1,4 +1,4 @@
-pod5\_format.writer module
+writer 
 ==========================
 
 .. automodule:: pod5_format.writer

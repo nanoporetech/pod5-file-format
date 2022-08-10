@@ -1,4 +1,4 @@
-pod5\_format\_tools.utils module
+utils 
 ================================
 
 .. automodule:: pod5_format_tools.utils

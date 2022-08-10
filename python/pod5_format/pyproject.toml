@@ -44,7 +44,8 @@ dev = [
   "mypy",
   "pre-commit",
   "sphinx==v5.1.1",
-  "sphinx-rtd-theme"
+  "sphinx-rtd-theme",
+  "myst-parser"
 ]
 
 [tool.black]

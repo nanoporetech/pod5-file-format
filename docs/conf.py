@@ -24,6 +24,13 @@ copyright = "2022 Oxford Nanopore Technologies Ltd."
 author = "Oxford Nanopore Technologies Ltd."
 
 
+# Set up the version
+from pod5_format import __version__ as p5_version
+
+version = p5_version
+release = p5_version
+
+
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -32,9 +39,11 @@ author = "Oxford Nanopore Technologies Ltd."
 extensions = [
     "sphinx_rtd_theme",
     "sphinx.ext.autosectionlabel",
+    "sphinx.ext.autosummary",
     "sphinx.ext.autodoc",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
+    "myst_parser",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -59,8 +68,23 @@ html_theme = "sphinx_rtd_theme"
 html_static_path = []
 
 
+add_module_names = False
+
 # -- Options for autosectionlabel --------------------------------------------
 autosectionlabel_prefix_document = True
+
+
+# This is pasted to the end of every .rst file allowing us to set common hyperlinks
+# here and use them repeatedly in the source
+rst_epilog = """
+.. _arrow: https://arrow.apache.org/
+.. _fast5_api: https://pypi.org/project/ont-fast5-api/
+.. _p5_git: https://github.com/nanoporetech/pod5-file-format
+.. _ont: https://nanoporetech.com/
+.. _python: https://www.python.org/
+.. _pypi: https://pypi.org/
+.. _pip: https://pip.pypa.io/
+"""
 
 
 def skip(app, what, name, obj, would_skip, options):

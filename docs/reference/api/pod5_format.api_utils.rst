@@ -1,4 +1,4 @@
-pod5\_format.api\_utils module
+api\_utils 
 ==============================
 
 .. automodule:: pod5_format.api_utils
