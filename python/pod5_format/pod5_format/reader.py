@@ -369,9 +369,8 @@ class ReadRecord:
             end_reason=self.end_reason,
             read_number=self.read_number,
             run_info=self.run_info,
-            start_time=self.start_sample,
+            start_sample=self.start_sample,
             signal=self.signal,
-            samples_count=self.sample_count,
         )
 
 
@@ -464,16 +463,16 @@ class ReadRecordBatch:
     @property
     def cached_sample_count_column(self) -> npt.NDArray[np.uint64]:
         """
-        Get the sample count from the cached signal
+        Get the sample counts from the cached signal data
         """
         if not self._signal_cache:
             raise RuntimeError("No cached signal data available")
         return self._signal_cache.sample_count
 
     @property
-    def cached_samples_column(self) -> npt.NDArray[np.int16]:
+    def cached_samples_column(self) -> List[npt.NDArray[np.int16]]:
         """
-        Get the sample from the cached signal
+        Get the samples column from the cached signal data
         """
         if not self._signal_cache:
             raise RuntimeError("No cached signal data available")
@@ -888,7 +887,7 @@ class Reader:
         cls_type: Type[Calibration, EndReason, Pore, RunInfo]
             The class type to instantiate and return
         batch: ReadRecordBatch
-            The ReadRecordBatch intance to get data from
+            The ReadRecordBatch instance to get data from
         batch_row_id: int
             The row id of the data to source
 

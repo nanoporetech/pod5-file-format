@@ -49,7 +49,7 @@ See the :ref:`Installation Documentation <docs/install:Install>` for further det
    reference/tools/pod5_format_tools.rst
    DESIGN.md
    SPECIFICATION.md
-   
+
 
 Indices and Tables
 ------------------

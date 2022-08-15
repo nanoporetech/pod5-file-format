@@ -36,7 +36,9 @@ def gen_test_read(seed) -> p5.Read:
         get_random_int(0, 100000),
         get_random_int(0, 10000000),
         get_random_float(),
-        p5.EndReason(p5.EndReasonEnum(get_random_int(0, 5)), get_random_int(0, 1)),
+        p5.EndReason(
+            p5.EndReasonEnum(get_random_int(0, 5)), bool(get_random_int(0, 1))
+        ),
         p5.RunInfo(
             get_random_str("acq_id"),
             datetime.fromtimestamp(get_random_int(0, 1), timezone.utc),
@@ -64,7 +66,6 @@ def gen_test_read(seed) -> p5.Read:
             ],
         ),
         signal,
-        signal.shape[0],
     )
 
 
@@ -75,28 +76,25 @@ def run_writer_test(f: Writer):
         f.add(test_read.pore),
         f.add(test_read.calibration),
         test_read.read_number,
-        test_read.start_time,
+        test_read.start_sample,
         test_read.median_before,
         f.add(test_read.end_reason),
         f.add(test_read.run_info),
         test_read.signal,
-        test_read.samples_count,
-        pre_compressed_signal=False,
     )
 
     test_read = gen_test_read(1)
-    f.add_read(
+    f.add_read_pre_compressed(
         test_read.read_id,
         f.add(test_read.pore),
         f.add(test_read.calibration),
         test_read.read_number,
-        test_read.start_time,
+        test_read.start_sample,
         test_read.median_before,
         f.add(test_read.end_reason),
         f.add(test_read.run_info),
         [p5.signal_tools.vbz_compress_signal(test_read.signal)],
-        [test_read.samples_count],
-        pre_compressed_signal=True,
+        [test_read.sample_count],
     )
 
     test_reads = [
@@ -115,7 +113,7 @@ def run_writer_test(f: Writer):
             dtype=numpy.int16,
         ),
         numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
-        numpy.array([r.start_time for r in test_reads], dtype=numpy.uint64),
+        numpy.array([r.start_sample for r in test_reads], dtype=numpy.uint64),
         numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
         numpy.array(
             [f.add(r.end_reason) for r in test_reads],
@@ -126,8 +124,6 @@ def run_writer_test(f: Writer):
             dtype=numpy.int16,
         ),
         [r.signal for r in test_reads],
-        numpy.array([len(r.signal) for r in test_reads], dtype=numpy.uint64),
-        pre_compressed_signal=False,
     )
 
     test_reads = [
@@ -136,14 +132,14 @@ def run_writer_test(f: Writer):
         gen_test_read(8),
         gen_test_read(9),
     ]
-    f.add_reads(
+    f.add_reads_pre_compressed(
         numpy.array(
             [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
         ),
         numpy.array([f.add(r.pore) for r in test_reads], dtype=numpy.int16),
         numpy.array([f.add(r.calibration) for r in test_reads], dtype=numpy.int16),
         numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
-        numpy.array([r.start_time for r in test_reads], dtype=numpy.uint64),
+        numpy.array([r.start_sample for r in test_reads], dtype=numpy.uint64),
         numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
         numpy.array([f.add(r.end_reason) for r in test_reads], dtype=numpy.int16),
         numpy.array([f.add(r.run_info) for r in test_reads], dtype=numpy.int16),
@@ -152,8 +148,7 @@ def run_writer_test(f: Writer):
         # the two arrays here should have the same dimensions, first contains compressed
         # sample array, the second contains the sample counts
         [[p5.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads],
-        numpy.array([[len(r.signal)] for r in test_reads], dtype=numpy.uint64),
-        pre_compressed_signal=True,
+        [[len(r.signal)] for r in test_reads],
     )
 
 
@@ -163,7 +158,7 @@ def run_reader_test(reader: p5.Reader):
 
         assert data.read_id == read.read_id
         assert data.read_number == read.read_number
-        assert data.start_time == read.start_sample
+        assert data.start_sample == read.start_sample
         assert pytest.approx(data.median_before) == read.median_before
 
         assert data.pore == read.pore
@@ -185,7 +180,7 @@ def run_reader_test(reader: p5.Reader):
 
         assert data.run_info == read.run_info
 
-        assert data.samples_count == read.sample_count
+        assert data.sample_count == read.sample_count
         # Expecting poor compression given the random input
         assert 0 < read.byte_count < (len(data.signal) * data.signal.itemsize + 24)
         assert len(read.signal_rows) >= 1
@@ -206,6 +201,7 @@ def run_reader_test(reader: p5.Reader):
     # Try to walk through specific batches in the file:
     for batch in reader.read_batches(batch_selection=[0], preload={"samples"}):
         assert len(batch.cached_samples_column) == batch.num_reads
+        assert len(batch.cached_sample_count_column) == batch.num_reads
         for idx, read in enumerate(batch.reads()):
             data = gen_test_read(idx)
             assert read.has_cached_signal
@@ -234,6 +230,7 @@ def run_reader_test(reader: p5.Reader):
     assert found_ids == set(r.read_id for r in search_reads)
 
 
+@pytest.mark.filterwarnings("ignore: pod5_format.")
 def test_pyarrow_combined():
     with tempfile.TemporaryDirectory() as temp:
         path = Path(temp) / "combined.pod5"
@@ -244,6 +241,7 @@ def test_pyarrow_combined():
             run_reader_test(_fh)
 
 
+@pytest.mark.filterwarnings("ignore: pod5_format.")
 def test_pyarrow_combined_str():
     with tempfile.TemporaryDirectory() as temp:
         path = str(Path(temp) / "combined.pod5")
@@ -254,6 +252,7 @@ def test_pyarrow_combined_str():
             run_reader_test(_fh)
 
 
+@pytest.mark.filterwarnings("ignore: pod5_format.")
 def test_pyarrow_split():
     with tempfile.TemporaryDirectory() as temp:
         signal = Path(temp) / "split_signal.pod5"
@@ -265,6 +264,7 @@ def test_pyarrow_split():
             run_reader_test(_fh)
 
 
+@pytest.mark.filterwarnings("ignore: pod5_format.")
 def test_pyarrow_split_str():
     with tempfile.TemporaryDirectory() as temp:
         signal = str(Path(temp) / "split_signal.pod5")

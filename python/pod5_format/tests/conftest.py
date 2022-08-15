@@ -151,8 +151,8 @@ def random_run_info(request) -> p5.RunInfo:
 def _random_signal(seed: int = 1) -> numpy.typing.NDArray[numpy.int16]:
     """Generate a random signal"""
     numpy.random.seed(seed)
-    size = rand_int(0, 1000)
-    return numpy.random.randint(0, 1024, size, dtype=numpy.int16)
+    size = rand_int(0, 200_000)
+    return numpy.random.randint(-32768, 32767, size, dtype=numpy.int16)
 
 
 @pytest.fixture(scope="function")
@@ -169,12 +169,11 @@ def _random_read(seed: int = 1) -> p5.Read:
         pore=_random_pore(seed),
         calibration=_random_calibration(seed),
         read_number=rand_int(0, 100000),
-        start_time=rand_int(0, 10000000),
+        start_sample=rand_int(0, 10000000),
         median_before=rand_float(),
         end_reason=_random_end_reason(seed),
         run_info=_random_run_info(seed),
         signal=signal,
-        samples_count=signal.shape[0],
     )
 
 
@@ -184,24 +183,24 @@ def random_read(request) -> p5.Read:
     return _random_read(request.param)
 
 
-def _random_read_pre_compressed(seed: int = 1) -> p5.Read:
+def _random_read_pre_compressed(seed: int = 1) -> p5.CompressedRead:
     """Generate a Read with random data"""
     signal = _random_signal(seed)
-    return p5.Read(
+    return p5.CompressedRead(
         read_id=_random_read_id(seed),
         pore=_random_pore(seed),
         calibration=_random_calibration(seed),
         read_number=rand_int(0, 100000),
-        start_time=rand_int(0, 10000000),
+        start_sample=rand_int(0, 10000000),
         median_before=rand_float(),
         end_reason=_random_end_reason(seed),
         run_info=_random_run_info(seed),
-        signal=p5.vbz_compress_signal(signal),
-        samples_count=signal.shape[0],
+        signal_chunks=[p5.vbz_compress_signal(signal)],
+        signal_chunk_lengths=[len(signal)],
     )
 
 
 @pytest.fixture(scope="function")
-def random_read_pre_compressed(request) -> p5.Read:
+def random_read_pre_compressed(request) -> p5.CompressedRead:
     """Generate a Read with random data"""
     return _random_read_pre_compressed(request.param)

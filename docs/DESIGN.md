@@ -10,7 +10,7 @@ This file format has the following design goals (roughly in priority order):
 - Good read performance for downstream tools, including basecall model generation
 - Efficient use of space
 - Straightforward to implement and maintain
-- Extensibilty
+- Extensibility
 
 Note that trade-offs have been made between these goals, but we have mostly aimed to make those run-time decisions.
 
@@ -68,4 +68,4 @@ The aspects of this format that are designed to make the format easy to implemen
 
 The aspects of this format that are designed to make the format extensible are:
 
-- Apache Arrow uses a self-describing schema with named columns, so it is straightfoward to write code that is resilient in the face of things like additional columns being added.
+- Apache Arrow uses a self-describing schema with named columns, so it is straightforward to write code that is resilient in the face of things like additional columns being added.

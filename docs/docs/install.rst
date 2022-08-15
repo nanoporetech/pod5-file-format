@@ -12,7 +12,7 @@ The most recent release of the  pod5-format package can be installed using pip_
    $ pip install pod5_format
 
 This python package will contain the underlying C-API compiled for the most 
-common OS platforms and should thererfore work out of the box.
+common OS platforms and should therefore work out of the box.
 
 
 Install pod5-format-tools
@@ -55,7 +55,7 @@ You can install `conan` using `pip` or your platforms' package manager (e.g. `br
    $ cd build
    
    # Install libs for a Release build using the system default compiler + settings:
-   # Note the build=missing, will build any libs not available on your current platfrom as binaries:
+   # Note the build=missing, will build any libs not available on your current platform as binaries:
    $ conan install --build=missing -s build_type=Release ..
    $ cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release ..
    $ make -j
@@ -119,7 +119,7 @@ dependencies such as `pre-commit` and `black`.
    $ make install
 
 Note this will completely `clean` the existing python virtual environment. If one only
-requires an update to the python enviroment entry-points (e.g. `pod5-inspect`) simply 
+requires an update to the python environment entry-points (e.g. `pod5-inspect`) simply 
 run:
 
 .. code-block:: console

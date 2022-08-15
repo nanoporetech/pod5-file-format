@@ -8,6 +8,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     List,
     Optional,
     Tuple,
@@ -25,26 +26,30 @@ import numpy.typing as npt
 import pod5_format.pod5_format_pybind as p5b
 from pod5_format.pod5_types import (
     Calibration,
+    CompressedRead,
     EndReason,
     PathOrStr,
     Pore,
     Read,
     RunInfo,
 )
-from pod5_format import make_split_filename
 
+from pod5_format import make_split_filename
 
 DEFAULT_SOFTWARE_NAME = "Python API"
 
 T = TypeVar("T", bound=Union[Calibration, EndReason, Pore, RunInfo])
 
 
-def map_to_tuples(info_map) -> List[Tuple[Any, ...]]:
-    """Convert a map (e.g. context_tags and tracking_id) to a tuple to pass to c_api"""
+def map_to_tuples(info_map) -> List[Tuple[str, str]]:
+    """
+    Convert a fast5 property map (e.g. context_tags and tracking_id) to a
+    tuple or string pairs to pass to pod5 C API
+    """
     if isinstance(info_map, dict):
-        return list((key, value) for key, value in info_map.items())
-    elif isinstance(info_map, list):
-        return list(tuple(item) for item in info_map)
+        return list((str(key), str(value)) for key, value in info_map.items())
+    if isinstance(info_map, list):
+        return list((str(item[0]), str(item[1])) for item in info_map)
     raise TypeError(f"Unknown input type for context tags {type(info_map)}")
 
 
@@ -291,46 +296,76 @@ class Writer:
                 f"Could not find index of {obj} in Pod5 file writer: {self}"
             ) from exc
 
-    def add_read_object(self, read: Read, pre_compressed_signal: bool = False) -> None:
+    def add_read_object(self, read: Union[Read, CompressedRead]) -> None:
         """
-        Add the given :py:class:`Read` and all of its members to the Pod5 file
-        with a flag indicating if the signal data has been compressed or not
+        Add a record to the open POD5 file with either compressed or uncompressed
+        signal data depending on the given type of Read.
 
         Parameters
         ----------
-        read : :py:class:`Read`
-            Pod5 Read object to add to the Pod5 file
-        pre_compressed_signal: bool
-            Flag indicating if the signal data has been compressed
+        read : :py:class:`Read`, :py:class:`CompressedRead`
+            POD5 Read or CompressedRead object to add as a record to the POD5 file.
         """
-        if pre_compressed_signal:
-            self.add_read(
-                read_id=read.read_id,
-                pore=self.add(read.pore),
-                calibration=self.add(read.calibration),
-                read_number=read.read_number,
-                start_sample=read.start_time,
-                median_before=read.median_before,
-                end_reason=self.add(read.end_reason),
-                run_info=self.add(read.run_info),
-                signal=[read.signal],
-                sample_count=[read.samples_count],
-                pre_compressed_signal=pre_compressed_signal,
-            )
+        if isinstance(read, CompressedRead):
+            # Add a pre-compressed read
+            self.add_read_objects_pre_compressed([read])
         else:
-            self.add_read(
-                read_id=read.read_id,
-                pore=self.add(read.pore),
-                calibration=self.add(read.calibration),
-                read_number=read.read_number,
-                start_sample=read.start_time,
-                median_before=read.median_before,
-                end_reason=self.add(read.end_reason),
-                run_info=self.add(read.run_info),
-                signal=read.signal,
-                sample_count=read.samples_count,
-                pre_compressed_signal=pre_compressed_signal,
-            )
+            # Add an uncompressed read
+            self.add_read_objects([read])
+
+    def add_read_objects(self, reads: Iterable[Read]) -> None:
+        """
+        Add Read objects (with uncompressed signal data) as records in the open POD5
+        file.
+
+        Parameters
+        ----------
+        reads : Iterable[Read]
+            Iterable of Read object to be added to this POD5 file
+        """
+
+        # Nothing to do
+        if not reads:
+            return
+
+        self.add_reads(
+            np.array([np.frombuffer(r.read_id.bytes, dtype=np.uint8) for r in reads]),
+            np.array([self.add(r.pore) for r in reads], dtype=np.int16),
+            np.array([self.add(r.calibration) for r in reads], dtype=np.int16),
+            np.array([r.read_number for r in reads], dtype=np.uint32),
+            np.array([r.start_sample for r in reads], dtype=np.uint64),
+            np.array([r.median_before for r in reads], dtype=np.float32),
+            np.array([self.add(r.end_reason) for r in reads], dtype=np.int16),
+            np.array([self.add(r.run_info) for r in reads], dtype=np.int16),
+            [r.signal for r in reads],
+        )
+
+    def add_read_objects_pre_compressed(self, reads: Iterable[CompressedRead]) -> None:
+        """
+        Add Read objects (with compressed signal data) as records in the open POD5
+        file.
+
+        Parameters
+        ----------
+        reads : Iterable[CompressedRead]
+            Iterable of CompressedRead objects to be added to this POD5 file
+        """
+        # Nothing to do
+        if not reads:
+            return
+
+        self.add_reads_pre_compressed(
+            np.array([np.frombuffer(r.read_id.bytes, dtype=np.uint8) for r in reads]),
+            np.array([self.add(r.pore) for r in reads], dtype=np.int16),
+            np.array([self.add(r.calibration) for r in reads], dtype=np.int16),
+            np.array([r.read_number for r in reads], dtype=np.uint32),
+            np.array([r.start_sample for r in reads], dtype=np.uint64),
+            np.array([r.median_before for r in reads], dtype=np.float32),
+            np.array([self.add(r.end_reason) for r in reads], dtype=np.int16),
+            np.array([self.add(r.run_info) for r in reads], dtype=np.int16),
+            [r.signal_chunks for r in reads],
+            [r.signal_chunk_lengths for r in reads],
+        )
 
     def add_read(
         self,
@@ -342,19 +377,37 @@ class Writer:
         median_before: float,
         end_reason: int,
         run_info: int,
-        signal,
-        sample_count,
-        pre_compressed_signal: bool = False,
+        signal: npt.NDArray[np.int16],
     ) -> None:
         """
-        Add a new read record to the Pod5 file with a flag indicating if the signal
-        data has been compressed or not.
+        Add a record to the open POD5 file with uncompressed signal data.
 
         Note
         ----
-        Parameters to dictionary types such as calibration expect their Pod5 index which
-        is returned when calling :py:meth:`add` or can be recovered using
-        :py:meth:`find`.
+        This method expects dictionary array indices (not instances) of metadata
+        classes (e.g. Calibration, Pore, ...)
+
+        Parameters
+        ---------
+        read_id: UUID
+            numpy array of read_ids as uint8
+        pore: int
+            pore dictionary array index
+        calibration: int
+            calibration dictionary array index
+        read_number: int
+            read number
+        start_sample: int
+            start samples value
+        median_before: float
+            median before value
+        end_reasons: int
+            end reason dictionary array index
+        run_infos: int
+            run info dictionary array index
+        signal: npt.NDArray[np.int16]
+            Signal data as a numpy array of int16
+
         """
         return self.add_reads(
             np.array([np.frombuffer(read_id.bytes, dtype=np.uint8)]),
@@ -362,12 +415,10 @@ class Writer:
             np.array([calibration], dtype=np.int16),
             np.array([read_number], dtype=np.uint32),
             np.array([start_sample], dtype=np.uint64),
-            np.array([median_before], dtype=float),
+            np.array([median_before], dtype=np.float32),
             np.array([end_reason], dtype=np.int16),
             np.array([run_info], dtype=np.int16),
             [signal],
-            np.array([sample_count], dtype=np.uint32),
-            pre_compressed_signal,
         )
 
     def add_reads(
@@ -377,64 +428,208 @@ class Writer:
         calibrations: npt.NDArray[np.int16],
         read_numbers: npt.NDArray[np.uint32],
         start_samples: npt.NDArray[np.uint64],
-        median_befores: npt.NDArray[np.float64],
+        median_befores: npt.NDArray[np.float32],
         end_reasons: npt.NDArray[np.int16],
         run_infos: npt.NDArray[np.int16],
-        signals,
-        sample_counts,
-        pre_compressed_signal: bool = False,
+        signals: List[npt.NDArray[np.int16]],
     ):
         """
-        Add a new read records to the Pod5 file with a flag indicating if the signal
-        data has been compressed or not. The parameters of this function are
-        all numpy.ndarrays of various types
+        Add records to the open POD5 file with uncompressed signal data.
+
+        Note
+        ----
+        This method expects dictionary array indices (not instances) of metadata
+        classes (e.g. Calibration, Pore, ...)
+
+        Parameters
+        ---------
+        read_ids: npt.NDArray[np.uint8]
+            numpy array of read_ids as uint8
+        pores: npt.NDArray[np.int16]
+            numpy array of pore dictionary array indices as int16
+        calibrations: npt.NDArray[np.int16]
+            numpy array of calibration dictionary array indices as int16
+        read_numbers: npt.NDArray[np.uint32]
+            numpy array of read numbers as int32
+        start_samples: npt.NDArray[np.uint64]
+            numpy array of start samples as int64
+        median_befores: npt.NDArray[np.float32]
+            numpy array of median before values as float32
+        end_reasons: npt.NDArray[np.int16]
+            numpy array of end reason dictionary array indices as int16
+        run_infos: npt.NDArray[np.int16]
+            numpy array of run info dictionary array indices as int16
+        signals: List[npt.NDArray[np.int16]]
+            List of signal data as numpy array as int16
         """
+
+        # Nothing to do
+        if read_ids.shape[0] == 0:
+            return
+
         read_ids = read_ids.astype(np.uint8, copy=False)
         pores = pores.astype(np.int16, copy=False)
         calibrations = calibrations.astype(np.int16, copy=False)
         read_numbers = read_numbers.astype(np.uint32, copy=False)
         start_samples = start_samples.astype(np.uint64, copy=False)
-        median_befores = median_befores.astype(np.float64, copy=False)
+        median_befores = median_befores.astype(np.float32, copy=False)
         end_reasons = end_reasons.astype(np.int16, copy=False)
         run_infos = run_infos.astype(np.int16, copy=False)
 
-        if pre_compressed_signal:
-            # Find an array of the number of chunks per read
-            signal_chunk_counts = np.array(
-                [len(sample_count) for sample_count in sample_counts],
-                dtype=np.uint32,
-            )
-            # Join all read sample counts into one array
-            sample_counts = np.concatenate(sample_counts).astype(np.uint32)
+        self._writer.add_reads(
+            read_ids.shape[0],
+            read_ids,
+            pores,
+            calibrations,
+            read_numbers,
+            start_samples,
+            median_befores,
+            end_reasons,
+            run_infos,
+            signals,
+        )
 
-            self._writer.add_reads_pre_compressed(
-                read_ids.shape[0],
-                read_ids,
-                pores,
-                calibrations,
-                read_numbers,
-                start_samples,
-                median_befores,
-                end_reasons,
-                run_infos,
-                # Join all signal data into one list
-                list(itertools.chain(*signals)),
-                sample_counts,
-                signal_chunk_counts,
-            )
-        else:
-            self._writer.add_reads(
-                read_ids.shape[0],
-                read_ids,
-                pores,
-                calibrations,
-                read_numbers,
-                start_samples,
-                median_befores,
-                end_reasons,
-                run_infos,
-                signals,
-            )
+    def add_read_pre_compressed(
+        self,
+        read_id: UUID,
+        pore: int,
+        calibration: int,
+        read_number: int,
+        start_sample: int,
+        median_before: float,
+        end_reason: int,
+        run_info: int,
+        signal_chunks: List[npt.NDArray[np.uint8]],
+        signal_chunk_lengths: List[int],
+    ):
+        """
+        Add a record to the open POD5 file.
+
+        Note
+        ----
+        This method expects dictionary array indices (not instances) of metadata
+        classes (e.g. Calibration, Pore, ...)
+
+        Parameters
+        ---------
+        read_id: UUID
+            numpy array of read_ids as uint8
+        pore: int
+            pore dictionary array index
+        calibration: int
+            calibration dictionary array index
+        read_number: int
+            read number
+        start_sample: int
+            start samples value
+        median_before: float
+            median before value
+        end_reasons: int
+            end reason dictionary array index
+        run_infos: int
+            run info dictionary array index
+        signal_chunks: List[npt.NDArray[np.uint8]]
+            List of chunks of compressed signal data as uint8.
+        signal_chunk_lengths: List[List[int]]
+            List of the number of **original** signal data samples in each
+            chunk **before compression**.
+        """
+        return self.add_reads_pre_compressed(
+            np.array([np.frombuffer(read_id.bytes, dtype=np.uint8)]),
+            np.array([pore], dtype=np.int16),
+            np.array([calibration], dtype=np.int16),
+            np.array([read_number], dtype=np.uint32),
+            np.array([start_sample], dtype=np.uint64),
+            np.array([median_before], dtype=np.float32),
+            np.array([end_reason], dtype=np.int16),
+            np.array([run_info], dtype=np.int16),
+            [signal_chunks],
+            [signal_chunk_lengths],
+        )
+
+    def add_reads_pre_compressed(
+        self,
+        read_ids: npt.NDArray[np.uint8],
+        pores: npt.NDArray[np.int16],
+        calibrations: npt.NDArray[np.int16],
+        read_numbers: npt.NDArray[np.uint32],
+        start_samples: npt.NDArray[np.uint64],
+        median_befores: npt.NDArray[np.float32],
+        end_reasons: npt.NDArray[np.int16],
+        run_infos: npt.NDArray[np.int16],
+        signal_chunks: List[List[npt.NDArray[np.uint8]]],
+        signal_chunk_lengths: List[List[int]],
+    ):
+        """
+        Add records to the open POD5 file with pre-compressed signal data.
+
+        Note
+        ----
+        This method expects dictionary array indices (not instances) of metadata
+        classes (e.g. Calibration, Pore, ...)
+
+        Parameters
+        ---------
+        read_ids: npt.NDArray[np.uint8]
+            numpy array of read_ids as uint8
+        pores: npt.NDArray[np.int16]
+            numpy array of pore dictionary array indices as int16
+        calibrations: npt.NDArray[np.int16]
+            numpy array of calibration dictionary array indices as int16
+        read_numbers: npt.NDArray[np.uint32]
+            numpy array of read numbers as int32
+        start_samples: npt.NDArray[np.uint64]
+            numpy array of start samples as int64
+        median_befores: npt.NDArray[np.float32]
+            numpy array of median before values as float32
+        end_reasons: npt.NDArray[np.int16]
+            numpy array of end reason dictionary array indices as int16
+        run_infos: npt.NDArray[np.int16]
+            numpy array of run info dictionary array indices as int16
+        signal_chunks: List[List[npt.NDArray[np.uint8]]]
+            List of lists of chunked and compressed signal data as uint8.
+            Each top-level list is a complete read, each sub-list is chunk of compressed
+            signal data.
+        signal_chunk_lengths: List[List[int]]
+            List of lists of the number of **original** signal data samples in each
+            chunk **before compression**.
+        """
+
+        # Nothing to do
+        if read_ids.shape[0] == 0:
+            return
+
+        read_ids = read_ids.astype(np.uint8, copy=False)
+        pores = pores.astype(np.int16, copy=False)
+        calibrations = calibrations.astype(np.int16, copy=False)
+        read_numbers = read_numbers.astype(np.uint32, copy=False)
+        start_samples = start_samples.astype(np.uint64, copy=False)
+        median_befores = median_befores.astype(np.float32, copy=False)
+        end_reasons = end_reasons.astype(np.int16, copy=False)
+        run_infos = run_infos.astype(np.int16, copy=False)
+
+        # Array containing the number of chunks for each signal
+        signal_chunk_counts = np.array(
+            [len(samples_per_chunk) for samples_per_chunk in signal_chunk_lengths],
+            dtype=np.uint32,
+        )
+
+        self._writer.add_reads_pre_compressed(
+            read_ids.shape[0],
+            read_ids,
+            pores,
+            calibrations,
+            read_numbers,
+            start_samples,
+            median_befores,
+            end_reasons,
+            run_infos,
+            # Join all signal data into one list
+            list(itertools.chain(*signal_chunks)),
+            # Join all read sample counts into one array
+            np.concatenate(signal_chunk_lengths).astype(np.uint32),
+            signal_chunk_counts,
+        )
 
 
 class CombinedWriter(Writer):

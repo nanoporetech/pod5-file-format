@@ -15,7 +15,7 @@ This file format has the following design goals:
 - Good read performance for downstream tools, including basecall model generation
 - Efficient use of space
 - Straightforward to implement and maintain
-- Extensibilty
+- Extensibility
 
 Note that trade-offs have been made between these goals, but we have mostly aimed to make those run-time decisions.
 
