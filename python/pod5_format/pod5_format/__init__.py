@@ -14,6 +14,7 @@ from .api_utils import (
 )
 from .pod5_types import (
     EndReasonEnum,
+    CompressedRead,
     Calibration,
     EndReason,
     Pore,
@@ -39,6 +40,7 @@ from .writer import (
 )
 from .signal_tools import (
     vbz_compress_signal,
+    vbz_decompress_signal_chunked,
     vbz_decompress_signal,
     vbz_decompress_signal_into,
 )

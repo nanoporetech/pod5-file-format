@@ -16,8 +16,8 @@ In its unbundled format, there are two required files:
 Optionally, index files can also be provided:
 
 ```
-    <preifx>_index_read_id.arrow (index by read_id)
-    <preifx>_index_*.arrow (optional, extension point for other indexes)
+    <prefix>_index_read_id.arrow (index by read_id)
+    <prefix>_index_*.arrow (optional, extension point for other indexes)
 ```
 
 Each of these is an Apache Feather 2 file, and can be opened directly using the Apache Arrow library's IPC routines. The schema of the tables is described below. The naming scheme above is recommended (and should be the default when creating these files), but tooling should provide a way for users to explicitly every filename when opening files (in case the user has renamed them to a different scheme).

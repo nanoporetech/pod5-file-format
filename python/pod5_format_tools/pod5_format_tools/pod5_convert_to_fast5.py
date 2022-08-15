@@ -161,7 +161,7 @@ def put_write_fast5_file(file_reads, write_request_queue, write_data_queue):
     write_data_queue.put(file_reads)
 
 
-def extract_read(read):
+def extract_read(read: p5.ReadRecord):
     run_info = read.run_info
     return Read(
         read.read_id,
@@ -174,7 +174,7 @@ def extract_read(read):
         read.pore.channel,
         read.pore.well,
         read.start_sample,
-        len(read.signal),
+        read.sample_count,
         read.read_number,
         read.median_before,
         read.end_reason.name,

@@ -7,20 +7,26 @@ import datetime
 from pathlib import Path
 import sys
 import time
-import typing
+from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 import uuid
 import multiprocessing as mp
 from queue import Empty
+import shutil
 
 import h5py
 import iso8601
-import numpy
+import numpy as np
+import numpy.typing as npt
+
 import more_itertools
 from ont_fast5_api.compression_settings import register_plugin
 
 import pod5_format as p5
 from pod5_format.reader_utils import make_split_filename
-
+from pod5_format.signal_tools import (
+    DEFAULT_SIGNAL_CHUNK_SIZE,
+    vbz_compress_signal_chunked,
+)
 from pod5_format_tools.utils import iterate_inputs
 
 
@@ -36,7 +42,9 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
 
     parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
-    parser.add_argument("output", type=Path, help="Output path for the pod5 file(s)")
+    parser.add_argument(
+        "output", type=Path, help="Output directory path for the pod5 file(s)"
+    )
     parser.add_argument(
         "-r",
         "--recursive",
@@ -66,14 +74,15 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--signal-chunk-size",
-        default=102400,
+        default=DEFAULT_SIGNAL_CHUNK_SIZE,
         help="Chunk size to use for signal data set",
     )
 
     return parser
 
 
-def h5py_get_str(value):
+def decode_str(value: Union[str, bytes]) -> str:
+    """Decode a h5py utf-8 byte string to python string"""
     if isinstance(value, str):
         return value
     return value.decode("utf-8")
@@ -97,39 +106,39 @@ def find_end_reason(end_reason: int) -> p5.EndReason:
     return p5.EndReason(name=p5.EndReasonEnum.UNKNOWN, forced=False)
 
 
-def get_datetime_as_epoch_ms(time_str: typing.Optional[str]) -> datetime.datetime:
+def get_datetime_as_epoch_ms(time_str: Optional[str]) -> datetime.datetime:
     """Convert the fast5 time string to timestamp"""
     epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=datetime.timezone.utc)
     if time_str is None:
         return epoch
     try:
-        return iso8601.parse_date(h5py_get_str(time_str))
+        return iso8601.parse_date(decode_str(time_str))
     except iso8601.iso8601.ParseError:
         return epoch
 
 
-class RequestQItem(typing.NamedTuple):
+class RequestQItem(NamedTuple):
     """Enqueued to request more reads"""
 
 
-class StartFileQItem(typing.NamedTuple):
+class StartFileQItem(NamedTuple):
     """Enqueued to record the start of a file process"""
 
     read_count: int
 
 
-class EndFileQItem(typing.NamedTuple):
+class EndFileQItem(NamedTuple):
     """Enqueued to record the end of a file process"""
 
     file: Path
     read_count: int
 
 
-class ReadListQItem(typing.NamedTuple):
+class ReadListQItem(NamedTuple):
     """Enqueued to send list of reads to be written"""
 
     file: Path
-    reads: typing.List[p5.Read]
+    reads: List[p5.CompressedRead]
 
 
 def create_run_info(
@@ -137,9 +146,9 @@ def create_run_info(
     adc_max: int,
     adc_min: int,
     sample_rate: int,
-    context_tags: typing.Dict[str, typing.Any],
+    context_tags: Dict[str, str],
     device_type: str,
-    tracking_id: typing.Dict[str, typing.Any],
+    tracking_id: Dict[str, str],
 ) -> p5.RunInfo:
     """Create a Pod5RunInfo instance from parsed fast5 data"""
     return p5.RunInfo(
@@ -147,37 +156,36 @@ def create_run_info(
         acquisition_start_time=get_datetime_as_epoch_ms(tracking_id["exp_start_time"]),
         adc_max=adc_max,
         adc_min=adc_min,
-        context_tags=context_tags,
+        context_tags={
+            str(key): decode_str(value) for key, value in context_tags.items()
+        },
         experiment_name="",
-        flow_cell_id=h5py_get_str(tracking_id.get("flow_cell_id", b"")),
-        flow_cell_product_code=h5py_get_str(
+        flow_cell_id=decode_str(tracking_id.get("flow_cell_id", b"")),
+        flow_cell_product_code=decode_str(
             tracking_id.get("flow_cell_product_code", b"")
         ),
-        protocol_name=h5py_get_str(tracking_id["exp_script_name"]),
-        protocol_run_id=h5py_get_str(tracking_id["protocol_run_id"]),
+        protocol_name=decode_str(tracking_id["exp_script_name"]),
+        protocol_run_id=decode_str(tracking_id["protocol_run_id"]),
         protocol_start_time=get_datetime_as_epoch_ms(
             tracking_id.get("protocol_start_time", None)
         ),
-        sample_id=h5py_get_str(tracking_id["sample_id"]),
+        sample_id=decode_str(tracking_id["sample_id"]),
         sample_rate=sample_rate,
-        sequencing_kit=h5py_get_str(context_tags.get("sequencing_kit", b"")),
-        sequencer_position=h5py_get_str(tracking_id.get("device_id", b"")),
-        sequencer_position_type=h5py_get_str(
-            tracking_id.get("device_type", device_type)
-        ),
+        sequencing_kit=decode_str(context_tags.get("sequencing_kit", b"")),
+        sequencer_position=decode_str(tracking_id.get("device_id", b"")),
+        sequencer_position_type=decode_str(tracking_id.get("device_type", device_type)),
         software="python-pod5-converter",
-        system_name=h5py_get_str(tracking_id.get("host_product_serial_number", b"")),
-        system_type=h5py_get_str(tracking_id.get("host_product_code", b"")),
-        tracking_id=tracking_id,
+        system_name=decode_str(tracking_id.get("host_product_serial_number", b"")),
+        system_type=decode_str(tracking_id.get("host_product_code", b"")),
+        tracking_id={str(key): decode_str(value) for key, value in tracking_id.items()},
     )
 
 
 def convert_fast5_read(
     fast5_read: h5py.Group,
-    run_info_cache: typing.Dict[str, p5.RunInfo],
-    pre_compress_signal: bool,
-    signal_chunk_size: int,
-) -> p5.Read:
+    run_info_cache: Dict[str, p5.RunInfo],
+    signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
+) -> p5.CompressedRead:
     """
     Given a fast5 read parsed from a fast5 file, return a pod5_format.Read object.
     """
@@ -187,9 +195,9 @@ def convert_fast5_read(
 
     # Get the acquisition id
     if "run_id" in attrs:
-        acq_id = h5py_get_str(attrs["run_id"])
+        acq_id = decode_str(attrs["run_id"])
     else:
-        acq_id = h5py_get_str(fast5_read["tracking_id"].attrs["run_id"])
+        acq_id = decode_str(fast5_read["tracking_id"].attrs["run_id"])
 
     # Create new run_info if we've not seen this acquisition id before
     if acq_id not in run_info_cache:
@@ -213,11 +221,11 @@ def convert_fast5_read(
         )
 
     # Process attributes unique to this read
-    read_id = uuid.UUID(h5py_get_str(raw.attrs["read_id"]))
+    read_id = uuid.UUID(decode_str(raw.attrs["read_id"]))
     pore = p5.Pore(
         channel=int(channel_id.attrs["channel_number"]),
         well=raw.attrs["start_mux"],
-        pore_type=h5py_get_str(attrs.get("pore_type", b"not_set")),
+        pore_type=decode_str(attrs.get("pore_type", b"not_set")),
     )
     calibration = p5.Calibration.from_range(
         offset=channel_id.attrs["offset"],
@@ -230,31 +238,21 @@ def convert_fast5_read(
 
     # Signal conversion process
     signal = raw["Signal"][()]
-    sample_count = signal.shape[0]
-    signal_arr = signal
+    signal_chunks, signal_chunk_lengths = vbz_compress_signal_chunked(
+        signal, signal_chunk_size
+    )
 
-    # Compress chunks of the signal if required
-    if pre_compress_signal:
-        sample_count = []
-        signal_arr = []
-
-        # Take slice views of the signal ndarray (non-copying)
-        for slice_index in range(0, len(signal), signal_chunk_size):
-            signal_slice = signal[slice_index : slice_index + signal_chunk_size]
-            signal_arr.append(p5.signal_tools.vbz_compress_signal(signal_slice))
-            sample_count.append(len(signal_slice))
-
-    return p5.Read(
+    return p5.CompressedRead(
         read_id=read_id,
         pore=pore,
         calibration=calibration,
         read_number=raw.attrs["read_number"],
-        start_time=raw.attrs["start_time"],
+        start_sample=raw.attrs["start_time"],
         median_before=raw.attrs["median_before"],
         end_reason=end_reason,
         run_info=run_info_cache[acq_id],
-        signal=signal_arr,
-        samples_count=sample_count,
+        signal_chunks=signal_chunks,
+        signal_chunk_lengths=signal_chunk_lengths,
     )
 
 
@@ -271,9 +269,8 @@ def await_request(request_queue: mp.Queue):
 def get_reads_from_files(
     request_queue: mp.Queue,
     data_queue: mp.Queue,
-    fast5_files: typing.Iterable[Path],
-    pre_compress_signal: bool,
-    signal_chunk_size: int,
+    fast5_files: Iterable[Path],
+    signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
 ) -> None:
     """
     Main function for converting an iterable of fast5 files.
@@ -286,18 +283,17 @@ def get_reads_from_files(
             with h5py.File(str(fast5_file), "r") as _f5:
                 data_queue.put(StartFileQItem(len(_f5.keys())))
 
-                run_info_cache: typing.Dict[str, p5.RunInfo] = {}
+                run_info_cache: Dict[str, p5.RunInfo] = {}
                 for read_ids in more_itertools.chunked(_f5.keys(), READ_CHUNK_SIZE):
 
                     # Allow the out queue to throttle us back if we are too far ahead.
                     await_request(request_queue)
 
-                    reads: typing.List[p5.Read] = []
+                    reads: List[p5.CompressedRead] = []
                     for read_id in read_ids:
                         read = convert_fast5_read(
                             _f5[read_id],
                             run_info_cache,
-                            pre_compress_signal=pre_compress_signal,
                             signal_chunk_size=signal_chunk_size,
                         )
                         reads.append(read)
@@ -314,48 +310,6 @@ def get_reads_from_files(
         data_queue.put(EndFileQItem(fast5_file, count_reads_sent))
 
 
-def add_reads(
-    writer: p5.Writer,
-    reads: typing.Iterable[p5.Read],
-    pre_compressed_signal: bool,
-):
-    """
-    Write an iterable of Reads to Writer
-    """
-    pore_types = numpy.array([writer.add(r.pore) for r in reads], dtype=numpy.int16)
-    calib_types = numpy.array(
-        [writer.add(r.calibration) for r in reads],
-        dtype=numpy.int16,
-    )
-    end_reason_types = numpy.array(
-        [writer.add(r.end_reason) for r in reads],
-        dtype=numpy.int16,
-    )
-    run_info_types = numpy.array(
-        [writer.add(r.run_info) for r in reads], dtype=numpy.int16
-    )
-
-    writer.add_reads(
-        numpy.array(
-            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in reads]
-        ),
-        pore_types,
-        calib_types,
-        numpy.array([r.read_number for r in reads], dtype=numpy.uint32),
-        numpy.array([r.start_time for r in reads], dtype=numpy.uint64),
-        numpy.array([r.median_before for r in reads], dtype=numpy.float32),
-        end_reason_types,
-        run_info_types,
-        # Pass an array of arrays here, as we have pre compressed data
-        # top level array is per read, then the sub arrays are chunks within the reads.
-        # the two arrays here should have the same dimensions, first contains compressed
-        # sample array, the second contains the sample counts
-        [r.signal for r in reads],
-        [numpy.array(r.samples_count, dtype=numpy.uint64) for r in reads],
-        pre_compressed_signal=pre_compressed_signal,
-    )
-
-
 class OutputHandler:
     """Class for managing p5.Writer handles"""
 
@@ -370,8 +324,8 @@ class OutputHandler:
         self._one_to_one = one_to_one
         self._output_split = output_split
         self._force_overwrite = force_overwrite
-        self._input_to_output_path: typing.Dict[Path, Path] = {}
-        self._output_files: typing.Dict[Path, p5.Writer] = {}
+        self._input_to_output_path: Dict[Path, Path] = {}
+        self._output_files: Dict[Path, p5.Writer] = {}
 
     def _open_writer(self, output_path: Path) -> p5.Writer:
         """Get the writer from existing handles or create a new one if unseen"""
@@ -510,36 +464,39 @@ class StatusMonitor:
             print(error_message, file=sys.stderr)
 
 
-def main():
-    """Main function for pod5_convert_from_fast5"""
-    parser = pod5_convert_from_fast5_argparser()
-    args = parser.parse_args()
+def convert_from_fast5(
+    inputs: List[Path],
+    output: Path,
+    recursive: bool = False,
+    processes: int = 10,
+    output_one_to_one: bool = False,
+    output_split: bool = False,
+    force_overwrite: bool = False,
+    signal_chunk_size: bool = DEFAULT_SIGNAL_CHUNK_SIZE,
+) -> None:
 
-    if args.output.exists() and args.output.is_file():
-        raise FileExistsError("Invalid output location - already exists as file")
-
-    args.output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True)
     output_handler = OutputHandler(
-        args.output, args.output_one_to_one, args.output_split, args.force_overwrite
+        output, output_one_to_one, output_split, force_overwrite
     )
 
     ctx = mp.get_context("spawn")
     request_queue: mp.Queue = ctx.Queue()
     data_queue: mp.Queue = ctx.Queue()
 
-    # Always writing compressed files right now.
-    pre_compress_signal = True
-
     # Divide up files between readers:
-    pending_files = list(iterate_inputs(args.input, args.recursive, "*.fast5"))
-    active_processes: typing.List[mp.Process] = []
+    pending_files = list(iterate_inputs(inputs, recursive, "*.fast5"))
+    active_processes = []
+
+    if not pending_files:
+        raise RuntimeError("Found no fast5 inputs to process - Exiting")
+
+    print(f"Converting {len(pending_files)} fast5 files.. ")
+
+    processes = min(processes, len(pending_files))
 
     # Create equally sized lists of files to process by each process
-    for fast5s in map(list, more_itertools.distribute(args.processes, pending_files)):
-
-        # Skip empty lists if there are more processes than files
-        if not fast5s:
-            continue
+    for fast5s in more_itertools.distribute(processes, pending_files):
 
         # spawn a new process to begin converting fast5 files
         process = ctx.Process(
@@ -548,18 +505,16 @@ def main():
                 request_queue,
                 data_queue,
                 fast5s,
-                pre_compress_signal,
-                args.signal_chunk_size,
+                signal_chunk_size,
             ),
         )
         process.start()
         active_processes.append(process)
 
     # start requests for reads, we probably dont need more reads in memory at a time
-    for _ in range(args.processes * 3):
+    for _ in range(processes * 3):
         request_queue.put(RequestQItem())
 
-    print("Converting reads...")
     status = StatusMonitor(len(pending_files))
 
     try:
@@ -574,11 +529,9 @@ def main():
             if isinstance(item, ReadListQItem):
                 # Write the incomming list of converted reads
                 writer = output_handler.get_writer(item.file)
-                add_reads(writer, item.reads, pre_compress_signal)
+                writer.add_read_objects_pre_compressed(item.reads)
 
-                # samples_count here is a list due to the compression implementation;
-                # this will be changed
-                sample_count = sum(sum(r.samples_count) for r in item.reads)
+                sample_count = sum(r.sample_count for r in item.reads)
                 status.increment(
                     reads_processed=len(item.reads), sample_count=sample_count
                 )
@@ -593,6 +546,7 @@ def main():
                 output_handler.set_input_complete(item.file)
                 status.increment(files_ended=1)
 
+        # Finished running
         status.print_status(force=True)
         status.check_all_reads_processed()
 
@@ -615,6 +569,26 @@ def main():
         raise exc
     finally:
         output_handler.close_all()
+
+
+def main():
+    """Main function for pod5_convert_from_fast5"""
+    parser = pod5_convert_from_fast5_argparser()
+    args = parser.parse_args()
+
+    if args.output.is_file():
+        raise FileExistsError("Output path points to an existing file")
+
+    convert_from_fast5(
+        args.input,
+        args.output,
+        args.recursive,
+        args.processes,
+        args.output_one_to_one,
+        args.output_split,
+        args.force_overwrite,
+        args.signal_chunk_size,
+    )
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ description = "Describes the pore the read was acquired on."
 
 [fields.calibration]
 type = "dictionary(int16, Calibration)"
-description = "Parameters to conver the signal data to picoamps, accorind to the formula 'picoamps = (adc + offset) * scale'. These are typically fixed per channel, but storing them in this form allows the possibility of calibrations being adjusted throughout the run in the future."
+description = "Parameters to convert the signal data to picoamps, accorind to the formula 'picoamps = (adc + offset) * scale'. These are typically fixed per channel, but storing them in this form allows the possibility of calibrations being adjusted throughout the run in the future."
 
 [fields.read_number]
 type = "uint32"

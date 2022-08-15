@@ -94,7 +94,7 @@ Nanopore sequencing data comprises Reads which are formed from signal data and o
 metadata about how and when the sample was sequenced. This data is accessible via the 
 :class:`~pod5_format.pod5_types.Read` or :class:`~pod5_format.reader.ReadRecord` classes.
 
-Although these twp classes have very similar interfaces, know that the 
+Although these two classes have very similar interfaces, know that the 
 :class:`~pod5_format.reader.ReadRecord` is a `Read`
 formed from a POD5 file record which uses caching to improve read performance.
 
@@ -159,7 +159,7 @@ Here is an example of how a user may plot a read's signal data against time.
 Writing POD5 Files
 ===================
 
-The pod5-format package provides the functionaltiy to write POD5 files. Although most
+The pod5-format package provides the functionality to write POD5 files. Although most
 users will only need to read files produced by `Oxford Nanopore <ont_>`_ sequencers 
 there are certainly use cases where writing ones own POD5 files would be desirable. 
 
@@ -191,7 +191,7 @@ to :py:meth:`~pod5_format.writer.Writer.add_read` or :py:meth:`~pod5_format.writ
 
 However, if one first creates a :class:`~pod5_format.pod5_types.Read`
 object and calls the :py:meth:`~pod5_format.writer.Writer.add_read_object` method 
-the `Writer` will automatically manage the dictrionary array indices.
+the `Writer` will automatically manage the dictionary array indices.
 
 Adding Reads Example
 ---------------------
