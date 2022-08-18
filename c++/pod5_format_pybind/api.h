@@ -289,6 +289,16 @@ inline void FileWriter_add_reads(
         py::array_t<float, py::array::c_style | py::array::forcecast> const& median_befores,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& end_reasons,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& run_infos,
+        py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const&
+                num_minknow_events,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_scale,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_shift,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                predicted_scaling_scale,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                predicted_scaling_shift,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_predicted_scale,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_predicted_shift,
         py::list signal_ptrs) {
     if (read_id_data.shape(1) != 16) {
         throw std::runtime_error("Read id array is of unexpected size");
@@ -303,11 +313,17 @@ inline void FileWriter_add_reads(
         auto signal = signal_it->cast<
                 py::array_t<std::int16_t, py::array::c_style | py::array::forcecast>>();
         auto signal_span = gsl::make_span(signal.data(), signal.size());
-        throw_on_error(w.add_complete_read(
-                pod5::ReadData{read_ids[i], *pores.data(i), *calibrations.data(i),
-                               *read_numbers.data(i), *start_samples.data(i),
-                               *median_befores.data(i), *end_reasons.data(i), *run_infos.data(i)},
-                signal_span));
+
+        pod5::ReadData read_data{
+                read_ids[i],           *pores.data(i),         *calibrations.data(i),
+                *read_numbers.data(i), *start_samples.data(i), *median_befores.data(i),
+                *end_reasons.data(i),  *run_infos.data(i)};
+        read_data.set_v1_fields(*num_minknow_events.data(i), *tracked_scaling_scale.data(i),
+                                *tracked_scaling_shift.data(i), *predicted_scaling_scale.data(i),
+                                *predicted_scaling_shift.data(i), *trust_predicted_scale.data(i),
+                                *trust_predicted_shift.data(i));
+
+        throw_on_error(w.add_complete_read(read_data, signal_span));
     }
 }
 
@@ -322,6 +338,16 @@ inline void FileWriter_add_reads_pre_compressed(
         py::array_t<float, py::array::c_style | py::array::forcecast> const& median_befores,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& end_reasons,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& run_infos,
+        py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const&
+                num_minknow_events,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_scale,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_shift,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                predicted_scaling_scale,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                predicted_scaling_shift,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_predicted_scale,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_predicted_shift,
         py::list compressed_signal_ptrs,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& sample_counts,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
@@ -356,11 +382,16 @@ inline void FileWriter_add_reads_pre_compressed(
             ++sample_counts_it;
         }
 
-        throw_on_error(w.add_complete_read(
-                pod5::ReadData{read_id, *pores.data(i), *calibrations.data(i),
-                               *read_numbers.data(i), *start_samples.data(i),
-                               *median_befores.data(i), *end_reasons.data(i), *run_infos.data(i)},
-                signal_rows));
+        pod5::ReadData read_data{
+                read_ids[i],           *pores.data(i),         *calibrations.data(i),
+                *read_numbers.data(i), *start_samples.data(i), *median_befores.data(i),
+                *end_reasons.data(i),  *run_infos.data(i)};
+        read_data.set_v1_fields(*num_minknow_events.data(i), *tracked_scaling_scale.data(i),
+                                *tracked_scaling_shift.data(i), *predicted_scaling_scale.data(i),
+                                *predicted_scaling_shift.data(i), *trust_predicted_scale.data(i),
+                                *trust_predicted_shift.data(i));
+
+        throw_on_error(w.add_complete_read(read_data, signal_rows));
     }
 }
 

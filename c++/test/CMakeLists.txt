@@ -6,6 +6,7 @@ add_executable(pod5_unit_tests
     file_reader_writer_tests.cpp
     read_table_writer_utils_tests.cpp
     read_table_tests.cpp
+    schema_tests.cpp
     signal_compression_tests.cpp
     signal_table_tests.cpp
     svb16_scalar_tests.cpp

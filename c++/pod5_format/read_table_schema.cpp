@@ -1,9 +1,8 @@
 #include "pod5_format/read_table_schema.h"
 
 #include "pod5_format/internal/schema_utils.h"
+#include "pod5_format/schema_metadata.h"
 #include "pod5_format/types.h"
-
-#include <arrow/type.h>
 
 namespace pod5 {
 
@@ -54,69 +53,134 @@ std::shared_ptr<arrow::StructType> make_run_info_struct_type() {
     }));
 }
 
-std::shared_ptr<arrow::Schema> make_read_table_schema(
-        std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
-        ReadTableSchemaDescription* field_locations) {
-    if (field_locations) {
-        *field_locations = {};
+ReadTableSchemaDescription::ReadTableSchemaDescription()
+        // V0 Fields
+        : read_id(this, "read_id", uuid(), ReadTableSpecVersion::TableV0Version),
+          signal(this,
+                 "signal",
+                 arrow::list(arrow::uint64()),
+                 ReadTableSpecVersion::TableV0Version),
+          pore(this,
+               "pore",
+               arrow::dictionary(arrow::int16(), make_pore_struct_type()),
+               ReadTableSpecVersion::TableV0Version),
+          calibration(this,
+                      "calibration",
+                      arrow::dictionary(arrow::int16(), make_calibration_struct_type()),
+                      ReadTableSpecVersion::TableV0Version),
+          read_number(this, "read_number", arrow::uint32(), ReadTableSpecVersion::TableV0Version),
+          start(this, "start", arrow::uint64(), ReadTableSpecVersion::TableV0Version),
+          median_before(this,
+                        "median_before",
+                        arrow::float32(),
+                        ReadTableSpecVersion::TableV0Version),
+          end_reason(this,
+                     "end_reason",
+                     arrow::dictionary(arrow::int16(), make_end_reason_struct_type()),
+                     ReadTableSpecVersion::TableV0Version),
+          run_info(this,
+                   "run_info",
+                   arrow::dictionary(arrow::int16(), make_run_info_struct_type()),
+                   ReadTableSpecVersion::TableV0Version)
+          // V1 Fields
+          ,
+          num_minknow_events(this,
+                             "num_minknow_events",
+                             arrow::uint64(),
+                             ReadTableSpecVersion::TableV1Version),
+          tracked_scaling_scale(this,
+                                "tracked_scaling_scale",
+                                arrow::float32(),
+                                ReadTableSpecVersion::TableV1Version),
+          tracked_scaling_shift(this,
+                                "tracked_scaling_shift",
+                                arrow::float32(),
+                                ReadTableSpecVersion::TableV1Version),
+          predicted_scaling_scale(this,
+                                  "predicted_scaling_scale",
+                                  arrow::float32(),
+                                  ReadTableSpecVersion::TableV1Version),
+          predicted_scaling_shift(this,
+                                  "predicted_scaling_shift",
+                                  arrow::float32(),
+                                  ReadTableSpecVersion::TableV1Version),
+          trust_predicted_scale(this,
+                                "trust_predicted_scale",
+                                arrow::boolean(),
+                                ReadTableSpecVersion::TableV1Version),
+          trust_predicted_shift(this,
+                                "trust_predicted_shift",
+                                arrow::boolean(),
+                                ReadTableSpecVersion::TableV1Version) {}
+
+std::shared_ptr<arrow::Schema> ReadTableSchemaDescription::make_schema(
+        std::shared_ptr<const arrow::KeyValueMetadata> const& metadata) const {
+    arrow::FieldVector arrow_fields;
+    for (auto& field : fields()) {
+        arrow_fields.emplace_back(arrow::field(field->name(), field->datatype()));
     }
 
-    return arrow::schema(
-            {
-                    arrow::field("read_id", uuid()),
-                    arrow::field("signal", arrow::list(arrow::uint64())),
-                    arrow::field("pore",
-                                 arrow::dictionary(arrow::int16(), make_pore_struct_type())),
-                    arrow::field("calibration",
-                                 arrow::dictionary(arrow::int16(), make_calibration_struct_type())),
-                    arrow::field("read_number", arrow::uint32()),
-                    arrow::field("start", arrow::uint64()),
-                    arrow::field("median_before", arrow::float32()),
-                    arrow::field("end_reason",
-                                 arrow::dictionary(arrow::int16(), make_end_reason_struct_type())),
-                    arrow::field("run_info",
-                                 arrow::dictionary(arrow::int16(), make_run_info_struct_type())),
-            },
-            metadata);
+    return arrow::schema(arrow_fields, metadata);
 }
 
-Result<std::shared_ptr<ReadTableSchemaDescription>> read_read_table_schema(
+Result<std::shared_ptr<arrow::StructType>> read_dict_value_struct_type(
+        std::shared_ptr<arrow::DataType> const& datatype) {
+    if (datatype->id() != arrow::Type::DICTIONARY) {
+        return arrow::Status::Invalid("Dictionary type is not a dictionary");
+    }
+
+    auto const dict_type = std::static_pointer_cast<arrow::DictionaryType>(datatype);
+    auto const value_type = std::dynamic_pointer_cast<arrow::StructType>(dict_type->value_type());
+    if (!value_type) {
+        return arrow::Status::Invalid("Dictionary value type is not a struct");
+    }
+    return value_type;
+}
+
+Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(
+        SchemaMetadataDescription const& schema_metadata,
         std::shared_ptr<arrow::Schema> const& schema) {
-    ARROW_ASSIGN_OR_RAISE(auto read_id_field_idx, find_field(schema, "read_id", uuid()));
-    ARROW_ASSIGN_OR_RAISE(auto signal_field_idx,
-                          find_field(schema, "signal", arrow::list(arrow::uint64())));
-    std::shared_ptr<arrow::StructType> pore_type;
-    ARROW_ASSIGN_OR_RAISE(auto pore_field_idx,
-                          find_dict_struct_field(schema, "pore", arrow::int16(), &pore_type));
-    std::shared_ptr<arrow::StructType> calibration_type;
-    ARROW_ASSIGN_OR_RAISE(
-            auto calibration_field_idx,
-            find_dict_struct_field(schema, "calibration", arrow::int16(), &calibration_type));
-    ARROW_ASSIGN_OR_RAISE(auto read_number_field_idx,
-                          find_field(schema, "read_number", arrow::uint32()));
-    ARROW_ASSIGN_OR_RAISE(auto start_field_idx, find_field(schema, "start", arrow::uint64()));
-    ARROW_ASSIGN_OR_RAISE(auto median_before_field_idx,
-                          find_field(schema, "median_before", arrow::float32()));
-    std::shared_ptr<arrow::StructType> end_reason_type;
-    ARROW_ASSIGN_OR_RAISE(
-            auto end_reason_field_idx,
-            find_dict_struct_field(schema, "end_reason", arrow::int16(), &end_reason_type));
-    std::shared_ptr<arrow::StructType> run_info_type;
-    ARROW_ASSIGN_OR_RAISE(
-            auto run_info_field_idx,
-            find_dict_struct_field(schema, "run_info", arrow::int16(), &run_info_type));
+    auto result = std::make_shared<ReadTableSchemaDescription>();
+    if (schema_metadata.writing_pod5_version < Version(0, 0, 24)) {
+        result->table_spec_version = ReadTableSpecVersion::TableV0Version;
+    }
 
-    ARROW_ASSIGN_OR_RAISE(auto pore_fields, read_pore_struct_schema(pore_type));
-    ARROW_ASSIGN_OR_RAISE(auto calibration_fields,
-                          read_calibration_struct_schema(calibration_type));
-    ARROW_ASSIGN_OR_RAISE(auto end_reason_fields, read_end_reason_struct_schema(end_reason_type));
-    ARROW_ASSIGN_OR_RAISE(auto run_info_fields, read_run_info_struct_schema(run_info_type));
+    for (auto& field : result->fields()) {
+        if (result->table_spec_version < field->added_table_spec_version()) {
+            continue;
+        }
+        auto const& datatype = field->datatype();
+        int field_index = 0;
+        if (datatype->id() == arrow::Type::DICTIONARY) {
+            std::shared_ptr<arrow::StructType> value_type;
+            ARROW_ASSIGN_OR_RAISE(field_index, find_dict_struct_field(schema, field->name().c_str(),
+                                                                      arrow::int16(), &value_type));
+        } else {
+            ARROW_ASSIGN_OR_RAISE(field_index, find_field(schema, field->name().c_str(), datatype));
+        }
+        field->set_field_index(field_index);
+    }
 
-    return std::make_shared<ReadTableSchemaDescription>(ReadTableSchemaDescription{
-            read_id_field_idx, signal_field_idx, pore_field_idx, calibration_field_idx,
-            read_number_field_idx, start_field_idx, median_before_field_idx, end_reason_field_idx,
-            run_info_field_idx, pore_fields, calibration_fields, end_reason_fields,
-            run_info_fields});
+    ARROW_ASSIGN_OR_RAISE(auto pore_dict_value_type,
+                          read_dict_value_struct_type(result->pore.datatype()));
+    ARROW_ASSIGN_OR_RAISE(result->pore_fields, read_pore_struct_schema(pore_dict_value_type));
+
+    ARROW_ASSIGN_OR_RAISE(auto calib_dict_value_type,
+                          read_dict_value_struct_type(result->calibration.datatype()));
+    ARROW_ASSIGN_OR_RAISE(result->calibration_fields,
+                          read_calibration_struct_schema(calib_dict_value_type));
+
+    ARROW_ASSIGN_OR_RAISE(auto end_reason_dict_value_type,
+                          read_dict_value_struct_type(result->end_reason.datatype()));
+    ARROW_ASSIGN_OR_RAISE(result->end_reason_fields,
+                          read_end_reason_struct_schema(end_reason_dict_value_type));
+
+    ARROW_ASSIGN_OR_RAISE(auto run_info_dict_value_type,
+                          read_dict_value_struct_type(result->run_info.datatype()));
+    ARROW_ASSIGN_OR_RAISE(result->run_info_fields,
+                          read_run_info_struct_schema(run_info_dict_value_type));
+
+    return result;
 }
 
 Result<int> find_struct_field(std::shared_ptr<arrow::StructType> const& type, char const* name) {

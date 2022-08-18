@@ -74,7 +74,8 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
         REQUIRE((*reader)->num_read_record_batches() == 10);
         for (std::size_t i = 0; i < 10; ++i) {
             auto read_batch = (*reader)->read_read_record_batch(i);
-            CHECK(read_batch.ok());
+            CAPTURE(read_batch.status());
+            REQUIRE(read_batch.ok());
 
             auto read_id_array = read_batch->read_id_column();
             CHECK(read_id_array->Value(0) == read_id_1);

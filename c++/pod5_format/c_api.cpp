@@ -363,34 +363,86 @@ pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch* batch,
         return g_pod5_error_no;
     }
 
-    auto read_id_col = batch->batch.read_id_column();
-    auto read_id_val = read_id_col->Value(row);
-    std::copy(read_id_val.begin(), read_id_val.end(), read_id);
+    ReadBatchRowInfoV1 obj;
+    auto result =
+            pod5_get_read_batch_row_info_data(batch, row, READ_BATCH_ROW_INFO_VERSION_1, &obj);
+    if (result != POD5_OK) {
+        return result;
+    }
 
-    auto read_number_col = batch->batch.read_number_column();
-    *read_number = read_number_col->Value(row);
+    std::copy(read_id, read_id + sizeof(obj.read_id), obj.read_id);
+    *pore = obj.pore;
+    *calibration = obj.calibration;
+    *read_number = obj.read_number;
+    *start_sample = obj.start_sample;
+    *median_before = obj.median_before;
+    *end_reason = obj.end_reason;
+    *run_info = obj.run_info;
+    *signal_row_count = obj.signal_row_count;
 
-    auto start_sample_col = batch->batch.start_sample_column();
-    *start_sample = start_sample_col->Value(row);
+    return POD5_OK;
+}
 
-    auto median_before_col = batch->batch.median_before_column();
-    *median_before = median_before_col->Value(row);
+pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
+                                               size_t row,
+                                               uint16_t struct_version,
+                                               void* row_data) {
+    if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)) {
+        return g_pod5_error_no;
+    }
 
-    auto pore_col =
-            std::static_pointer_cast<arrow::Int16Array>(batch->batch.pore_column()->indices());
-    *pore = pore_col->Value(row);
-    auto calibration_col = std::static_pointer_cast<arrow::Int16Array>(
-            batch->batch.calibration_column()->indices());
-    *calibration = calibration_col->Value(row);
-    auto end_reason_col = std::static_pointer_cast<arrow::Int16Array>(
-            batch->batch.end_reason_column()->indices());
-    *end_reason = end_reason_col->Value(row);
-    auto run_info_col =
-            std::static_pointer_cast<arrow::Int16Array>(batch->batch.run_info_column()->indices());
-    *run_info = run_info_col->Value(row);
+    if (struct_version == READ_BATCH_ROW_INFO_VERSION_1) {
+        auto typed_row_data = (ReadBatchRowInfoV1*)row_data;
 
-    auto signal_col = batch->batch.signal_column();
-    *signal_row_count = signal_col->value_slice(row)->length();
+        auto cols = batch->batch.columns();
+        if (!cols.ok()) {
+            pod5_set_error(cols.status());
+            return g_pod5_error_no;
+        }
+
+        auto read_id_val = cols->read_id->Value(row);
+        std::copy(read_id_val.begin(), read_id_val.end(), typed_row_data->read_id);
+
+        typed_row_data->read_number = cols->read_number->Value(row);
+        typed_row_data->start_sample = cols->start_sample->Value(row);
+        typed_row_data->median_before = cols->median_before->Value(row);
+
+        auto pore_col = std::static_pointer_cast<arrow::Int16Array>(cols->pore->indices());
+        typed_row_data->pore = pore_col->Value(row);
+        auto calibration_col =
+                std::static_pointer_cast<arrow::Int16Array>(cols->calibration->indices());
+        typed_row_data->calibration = calibration_col->Value(row);
+        auto end_reason_col =
+                std::static_pointer_cast<arrow::Int16Array>(cols->end_reason->indices());
+        typed_row_data->end_reason = end_reason_col->Value(row);
+        auto run_info_col = std::static_pointer_cast<arrow::Int16Array>(cols->run_info->indices());
+        typed_row_data->run_info = run_info_col->Value(row);
+
+        typed_row_data->signal_row_count = cols->signal->value_slice(row)->length();
+
+        if (cols->table_version >= pod5::ReadTableSpecVersion::TableV1Version) {
+            typed_row_data->num_minknow_events = cols->num_minknow_events->Value(row);
+            typed_row_data->tracked_scaling_scale = cols->tracked_scaling_scale->Value(row);
+            typed_row_data->tracked_scaling_shift = cols->tracked_scaling_shift->Value(row);
+            typed_row_data->predicted_scaling_scale = cols->predicted_scaling_scale->Value(row);
+            typed_row_data->predicted_scaling_shift = cols->predicted_scaling_shift->Value(row);
+            typed_row_data->trust_predicted_scale = cols->trust_predicted_scale->Value(row);
+            typed_row_data->trust_predicted_shift = cols->trust_predicted_shift->Value(row);
+        } else {
+            typed_row_data->num_minknow_events = 0;
+            typed_row_data->tracked_scaling_scale = std::numeric_limits<float>::quiet_NaN();
+            typed_row_data->tracked_scaling_shift = std::numeric_limits<float>::quiet_NaN();
+            typed_row_data->predicted_scaling_scale = std::numeric_limits<float>::quiet_NaN();
+            typed_row_data->predicted_scaling_shift = std::numeric_limits<float>::quiet_NaN();
+            typed_row_data->trust_predicted_scale = false;
+            typed_row_data->trust_predicted_shift = false;
+        }
+
+    } else {
+        pod5_set_error(
+                arrow::Status::Invalid("Invalid struct version '", struct_version, "' passed"));
+        return g_pod5_error_no;
+    }
 
     return POD5_OK;
 }
@@ -894,18 +946,17 @@ pod5_error_t pod5_add_reads(Pod5FileWriter* file,
         return g_pod5_error_no;
     }
 
-    for (std::uint32_t read = 0; read < read_count; ++read) {
-        boost::uuids::uuid read_id_uuid;
-        std::copy(read_id[read], read_id[read] + sizeof(read_id_uuid), read_id_uuid.begin());
-
-        POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(
-                pod5::ReadData{read_id_uuid, pore[read], calibration[read], read_number[read],
-                               start_sample[read], median_before[read], end_reason[read],
-                               run_info[read]},
-                gsl::make_span(signal[read], signal_size[read])));
-    }
-
-    return POD5_OK;
+    ReadBatchRowInfoArrayV1 obj;
+    obj.read_id = read_id;
+    obj.pore = pore;
+    obj.calibration = calibration;
+    obj.read_number = read_number;
+    obj.start_sample = start_sample;
+    obj.median_before = median_before;
+    obj.end_reason = end_reason;
+    obj.run_info = run_info;
+    return pod5_add_reads_data(file, read_count, READ_BATCH_ROW_INFO_VERSION_0, &obj, signal,
+                               signal_size);
 }
 
 pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter* file,
@@ -933,9 +984,145 @@ pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter* file,
         return g_pod5_error_no;
     }
 
-    for (std::uint32_t read = 0; read < read_count; ++read) {
+    ReadBatchRowInfoArrayV1 obj;
+    obj.read_id = read_id;
+    obj.pore = pore;
+    obj.calibration = calibration;
+    obj.read_number = read_number;
+    obj.start_sample = start_sample;
+    obj.median_before = median_before;
+    obj.end_reason = end_reason;
+    obj.run_info = run_info;
+    return pod5_add_reads_data_pre_compressed(file, read_count, READ_BATCH_ROW_INFO_VERSION_0, &obj,
+                                              compressed_signal, compressed_signal_size,
+                                              sample_counts, signal_chunk_count);
+}
+
+inline bool check_read_data_struct(std::uint16_t struct_version, void const* row_data) {
+    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_1,
+                  "New versions must be explicitly loaded");
+
+    if (!check_not_null(row_data)) {
+        return false;
+    }
+
+    if (struct_version >= READ_BATCH_ROW_INFO_VERSION_0 &&
+        struct_version <= READ_BATCH_ROW_INFO_VERSION_1) {
+        auto const* typed_row_data = static_cast<ReadBatchRowInfoArrayV1 const*>(row_data);
+
+        if (!check_not_null(typed_row_data->read_id) || !check_not_null(typed_row_data->pore) ||
+            !check_not_null(typed_row_data->calibration) ||
+            !check_not_null(typed_row_data->read_number) ||
+            !check_not_null(typed_row_data->start_sample) ||
+            !check_not_null(typed_row_data->median_before) ||
+            !check_not_null(typed_row_data->end_reason) ||
+            !check_not_null(typed_row_data->run_info)) {
+            return false;
+        }
+
+        if (struct_version <= READ_BATCH_ROW_INFO_VERSION_1) {
+            if (!check_not_null(typed_row_data->num_minknow_events) ||
+                !check_not_null(typed_row_data->tracked_scaling_scale) ||
+                !check_not_null(typed_row_data->tracked_scaling_shift) ||
+                !check_not_null(typed_row_data->predicted_scaling_scale) ||
+                !check_not_null(typed_row_data->predicted_scaling_shift) ||
+                !check_not_null(typed_row_data->trust_predicted_scale) ||
+                !check_not_null(typed_row_data->trust_predicted_shift)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+inline bool load_struct_row_into_read_data(pod5::ReadData& read_data,
+                                           std::uint16_t struct_version,
+                                           void const* row_data,
+                                           std::uint32_t row_id) {
+    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_1,
+                  "New versions must be explicitly loaded");
+
+    // Version 0 did not use the same C api, and does not support the read scaling attributes
+    // Version 1 is binary compatible with version 0, with addition of read scaling fields
+    if (struct_version >= READ_BATCH_ROW_INFO_VERSION_0 &&
+        struct_version <= READ_BATCH_ROW_INFO_VERSION_1) {
+        auto const* typed_row_data = static_cast<ReadBatchRowInfoArrayV1 const*>(row_data);
+
         boost::uuids::uuid read_id_uuid;
-        std::copy(read_id[read], read_id[read] + sizeof(read_id_uuid), read_id_uuid.begin());
+        std::copy(typed_row_data->read_id[row_id],
+                  typed_row_data->read_id[row_id] + sizeof(read_id_uuid), read_id_uuid.begin());
+
+        read_data = pod5::ReadData{read_id_uuid,
+                                   typed_row_data->pore[row_id],
+                                   typed_row_data->calibration[row_id],
+                                   typed_row_data->read_number[row_id],
+                                   typed_row_data->start_sample[row_id],
+                                   typed_row_data->median_before[row_id],
+                                   typed_row_data->end_reason[row_id],
+                                   typed_row_data->run_info[row_id]};
+
+        if (struct_version == READ_BATCH_ROW_INFO_VERSION_1) {
+            read_data.set_v1_fields(typed_row_data->num_minknow_events[row_id],
+                                    typed_row_data->tracked_scaling_scale[row_id],
+                                    typed_row_data->tracked_scaling_shift[row_id],
+                                    typed_row_data->predicted_scaling_scale[row_id],
+                                    typed_row_data->predicted_scaling_shift[row_id],
+                                    typed_row_data->trust_predicted_scale[row_id],
+                                    typed_row_data->trust_predicted_shift[row_id]);
+        }
+    } else {
+        pod5_set_error(
+                arrow::Status::Invalid("Invalid struct version '", struct_version, "' passed"));
+        return false;
+    }
+    return true;
+};
+
+pod5_error_t pod5_add_reads_data(Pod5FileWriter_t* file,
+                                 uint32_t read_count,
+                                 uint16_t struct_version,
+                                 void const* row_data,
+                                 int16_t const** signal,
+                                 uint32_t const* signal_size) {
+    pod5_reset_error();
+
+    if (!check_file_not_null(file) || !check_read_data_struct(struct_version, row_data)) {
+        return g_pod5_error_no;
+    }
+
+    for (std::uint32_t read = 0; read < read_count; ++read) {
+        pod5::ReadData read_data;
+        if (!load_struct_row_into_read_data(read_data, struct_version, row_data, read)) {
+            return g_pod5_error_no;
+        }
+
+        POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(
+                read_data, gsl::make_span(signal[read], signal_size[read])));
+    }
+
+    return POD5_OK;
+}
+
+pod5_error_t pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
+                                                uint32_t read_count,
+                                                uint16_t struct_version,
+                                                void const* row_data,
+                                                char const*** compressed_signal,
+                                                size_t const** compressed_signal_size,
+                                                uint32_t const** sample_counts,
+                                                size_t const* signal_chunk_count) {
+    pod5_reset_error();
+
+    if (!check_file_not_null(file) || !check_read_data_struct(struct_version, row_data)) {
+        return g_pod5_error_no;
+    }
+
+    for (std::uint32_t read = 0; read < read_count; ++read) {
+        pod5::ReadData read_data;
+        if (!load_struct_row_into_read_data(read_data, struct_version, row_data, read)) {
+            return g_pod5_error_no;
+        }
 
         std::vector<std::uint64_t> signal_rows;
         for (std::size_t i = 0; i < signal_chunk_count[read]; ++i) {
@@ -945,17 +1132,14 @@ pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter* file,
             POD5_C_ASSIGN_OR_RAISE(
                     auto row_id,
                     file->writer->add_pre_compressed_signal(
-                            read_id_uuid,
+                            read_data.read_id,
                             gsl::make_span(signal, signal_size).as_span<std::uint8_t const>(),
                             sample_count));
             signal_rows.push_back(row_id);
         }
 
-        POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(
-                pod5::ReadData{read_id_uuid, pore[read], calibration[read], read_number[read],
-                               start_sample[read], median_before[read], end_reason[read],
-                               run_info[read]},
-                gsl::make_span(signal_rows)));
+        POD5_C_RETURN_NOT_OK(
+                file->writer->add_complete_read(read_data, gsl::make_span(signal_rows)));
     }
     return POD5_OK;
 }

@@ -44,7 +44,8 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/async_signal_loader.h
 
     pod5_format/schema_metadata.cpp
-    pod5_format/schema_metadata.h
+    pod5_format/table_reader.h
+    pod5_format/schema_field_builder.h
 
     pod5_format/read_table_reader.cpp
     pod5_format/read_table_reader.h
@@ -79,8 +80,10 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/types.cpp
     pod5_format/types.h
 
+    pod5_format/internal/async_output_stream.h
     pod5_format/internal/combined_file_utils.h
     pod5_format/internal/schema_utils.h
+    pod5_format/internal/tuple_utils.h
 
     pod5_format/svb16/common.hpp
     pod5_format/svb16/decode.hpp

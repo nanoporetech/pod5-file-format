@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <tuple>
 
 namespace arrow {
 class KeyValueMetadata;
@@ -20,10 +21,37 @@ struct uuid;
 
 namespace pod5 {
 
+class Version {
+public:
+    Version() : m_version(0, 0, 0) {}
+
+    Version(std::uint16_t major, std::uint16_t minor, std::uint16_t revision)
+            : m_version(major, minor, revision) {}
+
+    bool operator<(Version const& in) const { return m_version < in.m_version; }
+    bool operator>(Version const& in) const { return m_version > in.m_version; }
+    bool operator==(Version const& in) const { return m_version == in.m_version; }
+    bool operator!=(Version const& in) const { return m_version != in.m_version; }
+
+    std::string to_string() const {
+        return std::to_string(std::get<0>(m_version)) + "." +
+               std::to_string(std::get<1>(m_version)) + "." +
+               std::to_string(std::get<2>(m_version));
+    }
+
+private:
+    std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> parse_version_number(
+            std::string const& ver);
+
+    std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> m_version;
+};
+
+Result<Version> parse_version_number(std::string const& ver);
+
 struct SchemaMetadataDescription {
     boost::uuids::uuid file_identifier;
     std::string writing_software;
-    std::string writing_pod5_version;
+    Version writing_pod5_version;
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<const arrow::KeyValueMetadata>>

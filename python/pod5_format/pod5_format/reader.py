@@ -3,6 +3,10 @@ Tools for accessing POD5 data from PyArrow files
 """
 
 from collections import namedtuple
+from dataclasses import dataclass
+import enum
+from functools import total_ordering
+import packaging.version
 from pathlib import Path
 from typing import (
     Collection,
@@ -32,6 +36,8 @@ from pod5_format.pod5_types import (
     Pore,
     Read,
     RunInfo,
+    ShiftScalePair,
+    ShiftScaleBoolPair,
 )
 
 from .api_utils import deprecation_warning, pack_read_ids
@@ -51,9 +57,8 @@ _ReadDataTypes = Union[
     Type[RunInfo],
 ]
 
-
-ReadRecordColumns = namedtuple(
-    "ReadRecordColumns",
+ReadRecordV0Columns = namedtuple(
+    "ReadRecordV0Columns",
     [
         "read_id",
         "read_number",
@@ -66,6 +71,41 @@ ReadRecordColumns = namedtuple(
         "signal",
     ],
 )
+
+ReadRecordV1Columns = namedtuple(
+    "ReadRecordV1Columns",
+    [
+        *ReadRecordV0Columns._fields,
+        "num_minknow_events",
+        "tracked_scaling_scale",
+        "tracked_scaling_shift",
+        "predicted_scaling_scale",
+        "predicted_scaling_shift",
+        "trust_predicted_scale",
+        "trust_predicted_shift",
+    ],
+)
+
+
+@total_ordering
+class ReadTableVersion(enum.Enum):
+    """Version of read table"""
+
+    V0 = 0
+    V1 = 1
+
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
+
+    def __eq__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value == other.value
+        return NotImplemented
+
+
+ReadRecordColumns = Union[ReadRecordV0Columns, ReadRecordV1Columns]
 Signal = namedtuple("Signal", ["signal", "samples"])
 SignalRowInfo = namedtuple(
     "SignalRowInfo",
@@ -120,6 +160,52 @@ class ReadRecord:
         Get the median before level (in pico amps) for the read.
         """
         return self._batch.columns.median_before[self._row].as_py()
+
+    @property
+    def num_minknow_events(self) -> float:
+        """
+        Find the number of minknow events in the read.
+        """
+        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+            return ShiftScalePair(float("nan"), float("nan"))
+        return self._batch.columns.num_minknow_events[self._row].as_py()
+
+    @property
+    def tracked_scaling(self) -> ShiftScalePair:
+        """
+        Find the tracked scaling value in the read.
+        """
+        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+            return ShiftScalePair(float("nan"), float("nan"))
+
+        return ShiftScalePair(
+            self._batch.columns.tracked_scaling_shift[self._row].as_py(),
+            self._batch.columns.tracked_scaling_scale[self._row].as_py(),
+        )
+
+    @property
+    def predicted_scaling(self) -> ShiftScalePair:
+        """
+        Find the predicted scaling value in the read.
+        """
+        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+            return ShiftScalePair(float("nan"), float("nan"))
+        return ShiftScalePair(
+            self._batch.columns.predicted_scaling_shift[self._row].as_py(),
+            self._batch.columns.predicted_scaling_scale[self._row].as_py(),
+        )
+
+    @property
+    def trust_predicted_scaling(self) -> ShiftScaleBoolPair:
+        """
+        Find whether the predicted scale and shift should be trusted.
+        """
+        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+            return ShiftScalePair(float("nan"), float("nan"))
+        return ShiftScaleBoolPair(
+            self._batch.columns.trust_predicted_shift[self._row].as_py(),
+            self._batch.columns.trust_predicted_scale[self._row].as_py(),
+        )
 
     @property
     def pore(self) -> Pore:
@@ -393,8 +479,11 @@ class ReadRecordBatch:
     def columns(self) -> ReadRecordColumns:
         """Return the data from this batch as a ReadRecordColumns instance"""
         if self._columns is None:
-            self._columns = ReadRecordColumns(
-                *[self._batch.column(name) for name in ReadRecordColumns._fields]
+            self._columns = self._reader._columns_type(
+                *[
+                    self._batch.column(name)
+                    for name in self._reader._columns_type._fields
+                ]
             )
         return self._columns
 
@@ -496,6 +585,20 @@ class Reader:
         """
         self._handles = handles
 
+        writing_version_str = self._handles.read.reader.schema.metadata[
+            b"MINKNOW:pod5_version"
+        ].decode("utf-8")
+        writing_version = packaging.version.parse(writing_version_str)
+
+        if writing_version >= packaging.version.Version("0.0.24"):
+            self._columns_type = ReadRecordV1Columns
+            self._reads_table_version = ReadTableVersion.V1
+        else:
+            self._columns_type = ReadRecordV0Columns
+            self._reads_table_version = ReadTableVersion.V0
+
+        self._file_version = writing_version
+
         # Warning: The cached signal maintains an open file handle. So ensure that
         # this dictionary is cleared before closing.
         self._cached_signal_batches: Dict[int, Signal] = {}
@@ -584,6 +687,14 @@ class Reader:
         self._handles.close()
         # Explicitly clear this dictionary to close file handles used in cache
         self._cached_signal_batches = {}
+
+    @property
+    def file_version(self) -> packaging.version.Version:
+        return self._file_version
+
+    @property
+    def reads_table_version(self) -> ReadTableVersion:
+        return self._reads_table_version
 
     @property
     def is_vbz_compressed(self) -> bool:

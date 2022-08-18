@@ -28,6 +28,7 @@ dependencies = [
     "numpy",
     "pyarrow ~= 8.0.0",
     "pytz",
+    "packaging",
     "pandas"
 ]
 

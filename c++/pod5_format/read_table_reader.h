@@ -32,10 +32,33 @@ class PoreData;
 class RunInfoData;
 class ReadIdSearchInput;
 
+struct ReadTableRecordColumns {
+    std::shared_ptr<UuidArray> read_id;
+    std::shared_ptr<arrow::ListArray> signal;
+    std::shared_ptr<arrow::DictionaryArray> pore;
+    std::shared_ptr<arrow::DictionaryArray> calibration;
+    std::shared_ptr<arrow::UInt32Array> read_number;
+    std::shared_ptr<arrow::UInt64Array> start_sample;
+    std::shared_ptr<arrow::FloatArray> median_before;
+    std::shared_ptr<arrow::DictionaryArray> end_reason;
+    std::shared_ptr<arrow::DictionaryArray> run_info;
+
+    std::shared_ptr<arrow::UInt64Array> num_minknow_events;
+
+    std::shared_ptr<arrow::FloatArray> tracked_scaling_scale;
+    std::shared_ptr<arrow::FloatArray> tracked_scaling_shift;
+    std::shared_ptr<arrow::FloatArray> predicted_scaling_scale;
+    std::shared_ptr<arrow::FloatArray> predicted_scaling_shift;
+    std::shared_ptr<arrow::BooleanArray> trust_predicted_scale;
+    std::shared_ptr<arrow::BooleanArray> trust_predicted_shift;
+
+    ReadTableSpecVersion table_version;
+};
+
 class POD5_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
 public:
     ReadTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
-                         std::shared_ptr<ReadTableSchemaDescription> const& field_locations);
+                         std::shared_ptr<ReadTableSchemaDescription const> const& field_locations);
 
     std::shared_ptr<UuidArray> read_id_column() const;
     std::shared_ptr<arrow::ListArray> signal_column() const;
@@ -52,15 +75,17 @@ public:
     Result<EndReasonData> get_end_reason(std::int16_t end_reason_index) const;
     Result<RunInfoData> get_run_info(std::int16_t run_info_index) const;
 
+    Result<ReadTableRecordColumns> columns() const;
+
 private:
-    std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
+    std::shared_ptr<ReadTableSchemaDescription const> m_field_locations;
 };
 
 class POD5_FORMAT_EXPORT ReadTableReader : public TableReader {
 public:
     ReadTableReader(std::shared_ptr<void>&& input_source,
                     std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-                    std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
+                    std::shared_ptr<ReadTableSchemaDescription const> const& field_locations,
                     SchemaMetadataDescription&& schema_metadata,
                     arrow::MemoryPool* pool);
 
@@ -82,7 +107,7 @@ private:
         std::size_t batch_row;
     };
 
-    std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
+    std::shared_ptr<ReadTableSchemaDescription const> m_field_locations;
     std::vector<IndexData> m_sorted_file_read_ids;
 
     mutable std::mutex m_batch_get_mutex;

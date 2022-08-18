@@ -68,8 +68,8 @@ SCENARIO("Read table Tests") {
         auto run_info_data_1 = get_test_run_info_data("_2");
 
         {
-            auto schema_metadata =
-                    make_schema_key_value_metadata({file_identifier, "test_software", Pod5Version});
+            auto schema_metadata = make_schema_key_value_metadata(
+                    {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE(schema_metadata.ok());
             REQUIRE(file_out.ok());
 
@@ -127,7 +127,7 @@ SCENARIO("Read table Tests") {
             auto metadata = reader->schema_metadata();
             CHECK(metadata.file_identifier == file_identifier);
             CHECK(metadata.writing_software == "test_software");
-            CHECK(metadata.writing_pod5_version == Pod5Version);
+            CHECK(metadata.writing_pod5_version == *parse_version_number(Pod5Version));
 
             REQUIRE(reader->num_record_batches() == record_batch_count);
             for (std::size_t i = 0; i < record_batch_count; ++i) {

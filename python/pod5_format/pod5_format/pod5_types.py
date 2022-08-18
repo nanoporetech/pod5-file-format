@@ -206,6 +206,22 @@ class RunInfo:
 
 
 @dataclass(frozen=True)
+class ShiftScalePair:
+    """A pair of floating point shift and scale values."""
+
+    shift: float = field(default=float("nan"))
+    scale: float = field(default=float("nan"))
+
+
+@dataclass(frozen=True)
+class ShiftScaleBoolPair:
+    """A pair of boolean values associated with shift and scale values."""
+
+    shift: bool = field(default=False)
+    scale: bool = field(default=False)
+
+
+@dataclass(frozen=True)
 class BaseRead:
     """
     Base class for POD5 Read Data
@@ -250,6 +266,13 @@ class BaseRead:
     #: RunInfo data.
     run_info: RunInfo
 
+    num_minknow_events: int = field(default=0)
+    tracked_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
+    predicted_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
+    trust_predicted_scaling: ShiftScaleBoolPair = field(
+        default=ShiftScaleBoolPair(False, False)
+    )
+
 
 @dataclass(frozen=True)
 class Read(BaseRead):
@@ -281,11 +304,11 @@ class Read(BaseRead):
     """
 
     #: Uncompressed signal data.
-    signal: npt.NDArray[np.int16]
+    signal: npt.NDArray[np.int16] = field(default=np.array([], dtype=np.int16))
 
     @property
     def sample_count(self) -> int:
-        """Return the total number of samples in the signal."""
+        """Return the total number of samples in the uncompressed signal."""
         return len(self.signal)
 
 
@@ -321,10 +344,10 @@ class CompressedRead(BaseRead):
     """
 
     #: Compressed signal data in chunks.
-    signal_chunks: List[npt.NDArray[np.uint8]]
+    signal_chunks: List[npt.NDArray[np.uint8]] = field(default_factory=lambda: [])
 
     #: Chunk lengths (number of samples) of signal data **before** compression.
-    signal_chunk_lengths: List[int]
+    signal_chunk_lengths: List[int] = field(default_factory=lambda: [])
 
     @property
     def sample_count(self) -> int:

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <arrow/ipc/reader.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 
@@ -54,6 +55,14 @@ inline arrow::Result<int> find_dict_struct_field(std::shared_ptr<arrow::Schema> 
                                  type->value_type()->name());
     }
     return field_idx;
+}
+
+template <typename FieldType>
+std::shared_ptr<typename FieldType::ArrayType> find_column(
+        std::shared_ptr<arrow::RecordBatch> const& batch,
+        FieldType const& field) {
+    auto const field_base = batch->column(field.field_index());
+    return std::static_pointer_cast<typename FieldType::ArrayType>(field_base);
 }
 
 }  // namespace pod5
