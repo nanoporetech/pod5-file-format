@@ -12,6 +12,14 @@ from pathlib import Path
 import pod5_format as p5
 
 
+def format_shift_scale_pair(pair):
+    return f"({pair.shift} {pair.scale})"
+
+
+def format_shift_scale_pair_num(pair):
+    return f"({pair.shift:.1f} {pair.scale:.1f})"
+
+
 def do_reads_command(combined_reader: p5.CombinedReader):
     keys = [
         "read_id",
@@ -26,6 +34,15 @@ def do_reads_command(combined_reader: p5.CombinedReader):
         "byte_count",
         "signal_compression_ratio",
     ]
+    if combined_reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
+        keys.extend(
+            [
+                "num_minknow_events",
+                "tracked_scaling",
+                "predicted_scaling",
+                "trust_predicted_scaling",
+            ]
+        )
 
     csv_read_writer = csv.DictWriter(sys.stdout, keys)
     csv_read_writer.writeheader()
@@ -43,6 +60,23 @@ def do_reads_command(combined_reader: p5.CombinedReader):
             "byte_count": read.byte_count,
             "signal_compression_ratio": f"{read.byte_count / float(read.sample_count*2):.3f}",
         }
+
+        if combined_reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
+            fields.update(
+                {
+                    "num_minknow_events": read.num_minknow_events,
+                    "tracked_scaling": format_shift_scale_pair_num(
+                        read.tracked_scaling
+                    ),
+                    "predicted_scaling": format_shift_scale_pair_num(
+                        read.predicted_scaling
+                    ),
+                    "trust_predicted_scaling": format_shift_scale_pair(
+                        read.trust_predicted_scaling
+                    ),
+                }
+            )
+
         try:
             csv_read_writer.writerow(fields)
         except BrokenPipeError:
@@ -150,6 +184,10 @@ def do_debug_command(combined_reader: p5.CombinedReader):
 def do_summary_command(combined_reader: p5.CombinedReader):
     batch_count = 0
     total_read_count = 0
+
+    print(
+        f"File version {combined_reader.file_version}, read table version {combined_reader.reads_table_version}."
+    )
 
     for batch in combined_reader.read_batches():
         batch_count += 1

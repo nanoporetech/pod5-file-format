@@ -53,6 +53,13 @@ Read = namedtuple(
         "end_reason",
         "tracking_id",
         "context_tags",
+        "num_minknow_events",
+        "tracked_scaling_scale",
+        "tracked_scaling_shift",
+        "predicted_scaling_scale",
+        "predicted_scaling_shift",
+        "trust_predicted_scale",
+        "trust_predicted_shift",
     ],
 )
 Fast5FileData = namedtuple("Fast5FileData", ["filename", "reads"])
@@ -151,6 +158,41 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                     dtype=end_reason_type,
                 )
 
+                raw_group.attrs.create(
+                    "num_minknow_events", read.num_minknow_events, dtype=numpy.uint64
+                )
+
+                raw_group.attrs.create(
+                    "tracked_scaling_scale",
+                    read.tracked_scaling_scale,
+                    dtype=numpy.float32,
+                )
+                raw_group.attrs.create(
+                    "tracked_scaling_shift",
+                    read.tracked_scaling_shift,
+                    dtype=numpy.float32,
+                )
+                raw_group.attrs.create(
+                    "predicted_scaling_scale",
+                    read.predicted_scaling_scale,
+                    dtype=numpy.float32,
+                )
+                raw_group.attrs.create(
+                    "predicted_scaling_shift",
+                    read.predicted_scaling_shift,
+                    dtype=numpy.float32,
+                )
+                raw_group.attrs.create(
+                    "trust_predicted_scale",
+                    read.trust_predicted_scale,
+                    dtype=numpy.bool,
+                )
+                raw_group.attrs.create(
+                    "trust_predicted_shift",
+                    read.trust_predicted_shift,
+                    dtype=numpy.bool,
+                )
+
         # Request more writes
         write_request_queue.put(WriteRequest())
 
@@ -161,8 +203,31 @@ def put_write_fast5_file(file_reads, write_request_queue, write_data_queue):
     write_data_queue.put(file_reads)
 
 
-def extract_read(read: p5.ReadRecord):
+def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRecord):
     run_info = read.run_info
+
+    v1_fields = None
+    if read_table_version >= p5.reader.ReadTableVersion.V1:
+        v1_fields = {
+            "num_minknow_events": read.num_minknow_events,
+            "tracked_scaling_scale": read.tracked_scaling.scale,
+            "tracked_scaling_shift": read.tracked_scaling.shift,
+            "predicted_scaling_scale": read.predicted_scaling.scale,
+            "predicted_scaling_shift": read.predicted_scaling.shift,
+            "trust_predicted_scale": read.trust_predicted_scaling.scale,
+            "trust_predicted_shift": read.trust_predicted_scaling.shift,
+        }
+    else:
+        v1_fields = {
+            "num_minknow_events": 0,
+            "tracked_scaling_scale": float("nan"),
+            "tracked_scaling_shift": float("nan"),
+            "predicted_scaling_scale": float("nan"),
+            "predicted_scaling_shift": float("nan"),
+            "trust_predicted_scale": False,
+            "trust_predicted_shift": False,
+        }
+
     return Read(
         read.read_id,
         read.signal,
@@ -180,6 +245,7 @@ def extract_read(read: p5.ReadRecord):
         read.end_reason.name,
         run_info.tracking_id,
         run_info.context_tags,
+        **v1_fields,
     )
 
 
@@ -271,7 +337,7 @@ def main():
                     f"{read_count} reads, {format_sample_count(sample_count)}, {mb_total/time_total:.1f} MB/s"
                 )
 
-            extracted_read = extract_read(read)
+            extracted_read = extract_read(combined_reader.reads_table_version, read)
             current_reads_batch.append(extracted_read)
             read_count += 1
             sample_count += len(extracted_read.signal)

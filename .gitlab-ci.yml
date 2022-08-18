@@ -340,7 +340,8 @@ tools-linux-x64:
   script:
     - pip install pod5_format-*cp39*.whl pod5_format_tools*.whl
     - pod5-convert-from-fast5 ./test_data/ ./output_files --output-one-to-one
-    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip.pod5
+    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
+    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
     - pod5-convert-to-fast5 ./output_files/ ./output_files
     - pod5-convert-from-fast5 ./output_files/*.fast5 ./output_files_2 --output-one-to-one
     - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5

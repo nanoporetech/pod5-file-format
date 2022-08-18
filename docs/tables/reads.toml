@@ -26,6 +26,34 @@ description = "How many samples were taken on this channel before the read start
 type = "float"
 description = "The level of current in the well before this read (typically the open pore level of the well). If the level is not known (eg: due to a mux change), this should be nulled out."
 
+[fields.tracked_scaling_scale]
+type = "float"
+description = "Scale for tracked read scaling values (based on previous reads shift)"
+
+[fields.tracked_scaling_shift]
+type = "float"
+description = "Shift for tracked read scaling values (based on previous reads shift)"
+
+[fields.predicted_scaling_scale]
+type = "float"
+description = "Scale for predicted read scaling values (based on this read's raw signal)"
+
+[fields.predicted_scaling_shift]
+type = "float"
+description = "Shift for predicted read scaling values (based on this read's raw signal)"
+
+[fields.trust_predicted_scale]
+type = "bool"
+description = "Should the predicted scale be trusted"
+
+[fields.trust_predicted_shift]
+type = "bool"
+description = "Should the predicted shift be trusted"
+
+[fields.num_minknow_events]
+type = i8
+description = "Number of minknow events that the read contains"
+
 [fields.end_reason]
 type = "dictionary(int16, EndReason)"
 description = "Why the read ended."

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pod5_format/expandable_buffer.h"
+#include "pod5_format/internal/tuple_utils.h"
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/read_table_utils.h"
 #include "pod5_format/result.h"
@@ -126,24 +127,14 @@ arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple& builder,
     return unpack_struct_builder_args<CurrentIndex + 1>(builder, std::forward<Args&&>(args)...);
 }
 
-template <typename T, typename F, int... Is>
-void for_each(T&& t, F f, std::integer_sequence<int, Is...>) {
-    auto l = {(f(std::get<Is>(t)), 0)...};
-    (void)l;
-}
-
-template <typename... Ts, typename F>
-void for_each_in_tuple(std::tuple<Ts...>& t, F f) {
-    detail::for_each(t, f, std::make_integer_sequence<int, sizeof...(Ts)>());
-}
-
 }  // namespace detail
 
 template <typename... BuilderTypes>
 class StructBuilder {
 public:
     StructBuilder(arrow::MemoryPool* pool) {
-        detail::for_each_in_tuple(m_builders, [&](auto& x) { (void)x.init_buffer(pool); });
+        detail::for_each_in_tuple(m_builders,
+                                  [&](auto& x, std::size_t _) { (void)x.init_buffer(pool); });
     }
 
     template <typename... Args>

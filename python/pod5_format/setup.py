@@ -77,6 +77,7 @@ setup(
         "iso8601",
         "more_itertools",
         "numpy >= 1.20.0",
+        "packaging",
         "pyarrow ~= 7.0.0",
         "pytz",
     ],

@@ -25,6 +25,7 @@ import numpy.typing as npt
 
 import pod5_format.pod5_format_pybind as p5b
 from pod5_format.pod5_types import (
+    BaseRead,
     Calibration,
     CompressedRead,
     EndReason,
@@ -32,6 +33,8 @@ from pod5_format.pod5_types import (
     Pore,
     Read,
     RunInfo,
+    ShiftScaleBoolPair,
+    ShiftScalePair,
 )
 
 from pod5_format import make_split_filename
@@ -39,6 +42,13 @@ from pod5_format import make_split_filename
 DEFAULT_SOFTWARE_NAME = "Python API"
 
 T = TypeVar("T", bound=Union[Calibration, EndReason, Pore, RunInfo])
+
+
+def force_type_and_default(value, dtype, count, default_value=None):
+    if default_value is not None and value is None:
+        value = np.array([default_value] * count, dtype=dtype)
+    assert value is not None
+    return value.astype(type, copy=False)
 
 
 def map_to_tuples(info_map) -> List[Tuple[str, str]]:
@@ -329,15 +339,8 @@ class Writer:
             return
 
         self.add_reads(
-            np.array([np.frombuffer(r.read_id.bytes, dtype=np.uint8) for r in reads]),
-            np.array([self.add(r.pore) for r in reads], dtype=np.int16),
-            np.array([self.add(r.calibration) for r in reads], dtype=np.int16),
-            np.array([r.read_number for r in reads], dtype=np.uint32),
-            np.array([r.start_sample for r in reads], dtype=np.uint64),
-            np.array([r.median_before for r in reads], dtype=np.float32),
-            np.array([self.add(r.end_reason) for r in reads], dtype=np.int16),
-            np.array([self.add(r.run_info) for r in reads], dtype=np.int16),
-            [r.signal for r in reads],
+            **self._arrays_from_read_objects(reads),
+            signals=[r.signal for r in reads],
         )
 
     def add_read_objects_pre_compressed(self, reads: Iterable[CompressedRead]) -> None:
@@ -355,17 +358,62 @@ class Writer:
             return
 
         self.add_reads_pre_compressed(
-            np.array([np.frombuffer(r.read_id.bytes, dtype=np.uint8) for r in reads]),
-            np.array([self.add(r.pore) for r in reads], dtype=np.int16),
-            np.array([self.add(r.calibration) for r in reads], dtype=np.int16),
-            np.array([r.read_number for r in reads], dtype=np.uint32),
-            np.array([r.start_sample for r in reads], dtype=np.uint64),
-            np.array([r.median_before for r in reads], dtype=np.float32),
-            np.array([self.add(r.end_reason) for r in reads], dtype=np.int16),
-            np.array([self.add(r.run_info) for r in reads], dtype=np.int16),
-            [r.signal_chunks for r in reads],
-            [r.signal_chunk_lengths for r in reads],
+            **self._arrays_from_read_objects(reads),
+            signal_chunks=[r.signal_chunks for r in reads],
+            signal_chunk_lengths=[r.signal_chunk_lengths for r in reads],
         )
+
+    def _arrays_from_read_objects(self, reads: Iterable[BaseRead]):
+        """
+        Build a dict of numpy arrays keyed by read field names, from an array of read objects.
+
+        Parameters
+        ----------
+        reads : Iterable[BaseRead]
+            Iterable of BaseRead object to be added to this POD5 file
+        """
+
+        return {
+            "read_ids": np.array(
+                [np.frombuffer(r.read_id.bytes, dtype=np.uint8) for r in reads]
+            ),
+            "pores": np.array([self.add(r.pore) for r in reads], dtype=np.int16),
+            "calibrations": np.array(
+                [self.add(r.calibration) for r in reads], dtype=np.int16
+            ),
+            "read_numbers": np.array([r.read_number for r in reads], dtype=np.uint32),
+            "start_samples": np.array([r.start_sample for r in reads], dtype=np.uint64),
+            "median_befores": np.array(
+                [r.median_before for r in reads], dtype=np.float32
+            ),
+            "end_reasons": np.array(
+                [self.add(r.end_reason) for r in reads], dtype=np.int16
+            ),
+            "run_infos": np.array(
+                [self.add(r.run_info) for r in reads], dtype=np.int16
+            ),
+            "num_minknow_events": np.array(
+                [r.num_minknow_events for r in reads], dtype=np.uint64
+            ),
+            "tracked_scaling_scale": np.array(
+                [r.tracked_scaling.scale for r in reads], dtype=np.float32
+            ),
+            "tracked_scaling_shift": np.array(
+                [r.tracked_scaling.shift for r in reads], dtype=np.float32
+            ),
+            "predicted_scaling_scale": np.array(
+                [r.predicted_scaling.scale for r in reads], dtype=np.float32
+            ),
+            "predicted_scaling_shift": np.array(
+                [r.predicted_scaling.shift for r in reads], dtype=np.float32
+            ),
+            "trust_predicted_scale": np.array(
+                [r.trust_predicted_scaling.scale for r in reads], dtype=np.bool_
+            ),
+            "trust_predicted_shift": np.array(
+                [r.trust_predicted_scaling.shift for r in reads], dtype=np.bool_
+            ),
+        }
 
     def add_read(
         self,
@@ -378,6 +426,7 @@ class Writer:
         end_reason: int,
         run_info: int,
         signal: npt.NDArray[np.int16],
+        **kwargs,
     ) -> None:
         """
         Add a record to the open POD5 file with uncompressed signal data.
@@ -407,6 +456,8 @@ class Writer:
             run info dictionary array index
         signal: npt.NDArray[np.int16]
             Signal data as a numpy array of int16
+        kwargs:
+            Additional per read values that can be passed (see _map_single_read_kwargs_arguments_to_np_array)
 
         """
         return self.add_reads(
@@ -419,6 +470,7 @@ class Writer:
             np.array([end_reason], dtype=np.int16),
             np.array([run_info], dtype=np.int16),
             [signal],
+            **self._map_single_read_kwargs_arguments_to_np_array(**kwargs),
         )
 
     def add_reads(
@@ -432,6 +484,7 @@ class Writer:
         end_reasons: npt.NDArray[np.int16],
         run_infos: npt.NDArray[np.int16],
         signals: List[npt.NDArray[np.int16]],
+        **kwargs,
     ):
         """
         Add records to the open POD5 file with uncompressed signal data.
@@ -461,31 +514,22 @@ class Writer:
             numpy array of run info dictionary array indices as int16
         signals: List[npt.NDArray[np.int16]]
             List of signal data as numpy array as int16
+        kwargs:
+            Additional per read values that can be passed.
         """
 
-        # Nothing to do
-        if read_ids.shape[0] == 0:
-            return
-
-        read_ids = read_ids.astype(np.uint8, copy=False)
-        pores = pores.astype(np.int16, copy=False)
-        calibrations = calibrations.astype(np.int16, copy=False)
-        read_numbers = read_numbers.astype(np.uint32, copy=False)
-        start_samples = start_samples.astype(np.uint64, copy=False)
-        median_befores = median_befores.astype(np.float32, copy=False)
-        end_reasons = end_reasons.astype(np.int16, copy=False)
-        run_infos = run_infos.astype(np.int16, copy=False)
-
         self._writer.add_reads(
-            read_ids.shape[0],
-            read_ids,
-            pores,
-            calibrations,
-            read_numbers,
-            start_samples,
-            median_befores,
-            end_reasons,
-            run_infos,
+            *self._prepare_add_reads_args(
+                read_ids,
+                pores,
+                calibrations,
+                read_numbers,
+                start_samples,
+                median_befores,
+                end_reasons,
+                run_infos,
+                **kwargs,
+            ),
             signals,
         )
 
@@ -501,6 +545,7 @@ class Writer:
         run_info: int,
         signal_chunks: List[npt.NDArray[np.uint8]],
         signal_chunk_lengths: List[int],
+        **kwargs,
     ):
         """
         Add a record to the open POD5 file.
@@ -533,6 +578,8 @@ class Writer:
         signal_chunk_lengths: List[List[int]]
             List of the number of **original** signal data samples in each
             chunk **before compression**.
+        kwargs:
+            Additional per read values that can be passed (see _map_single_read_kwargs_arguments_to_np_array)
         """
         return self.add_reads_pre_compressed(
             np.array([np.frombuffer(read_id.bytes, dtype=np.uint8)]),
@@ -545,7 +592,52 @@ class Writer:
             np.array([run_info], dtype=np.int16),
             [signal_chunks],
             [signal_chunk_lengths],
+            **self._map_single_read_kwargs_arguments_to_np_array(**kwargs),
         )
+
+    def _map_single_read_kwargs_arguments_to_np_array(
+        self,
+        num_minknow_events: int = 0,
+        tracked_scaling: ShiftScalePair = ShiftScalePair(),
+        predicted_scaling: ShiftScalePair = ShiftScalePair(),
+        trust_predicted_scaling: ShiftScaleBoolPair = ShiftScaleBoolPair(),
+    ):
+        """
+        Map individual read values to a dict of numpy arrays to be used for
+
+        Parameters
+        ---------
+        num_minknow_events: int
+            Number of minknow events
+        tracked_scaling: ShiftScalePair
+            Tracked scaling values for the read
+        predicted_scaling: ShiftScalePair
+            Predicted scaling values for the read
+        trust_predicted_scaling: ShiftScaleBoolPair
+            Are the predicted scaling values to be trusted for the read
+
+        """
+        return {
+            "num_minknow_events": np.array([num_minknow_events], dtype=np.uint64),
+            "tracked_scaling_scale": np.array(
+                [tracked_scaling.scale], dtype=np.float32
+            ),
+            "tracked_scaling_shift": np.array(
+                [tracked_scaling.shift], dtype=np.float32
+            ),
+            "predicted_scaling_scale": np.array(
+                [predicted_scaling.scale], dtype=np.float32
+            ),
+            "predicted_scaling_shift": np.array(
+                [predicted_scaling.shift], dtype=np.float32
+            ),
+            "trust_predicted_scale": np.array(
+                [trust_predicted_scaling.scale], dtype=np.float32
+            ),
+            "trust_predicted_shift": np.array(
+                [trust_predicted_scaling.shift], dtype=np.float32
+            ),
+        }
 
     def add_reads_pre_compressed(
         self,
@@ -559,6 +651,7 @@ class Writer:
         run_infos: npt.NDArray[np.int16],
         signal_chunks: List[List[npt.NDArray[np.uint8]]],
         signal_chunk_lengths: List[List[int]],
+        **kwargs,
     ):
         """
         Add records to the open POD5 file with pre-compressed signal data.
@@ -593,20 +686,14 @@ class Writer:
         signal_chunk_lengths: List[List[int]]
             List of lists of the number of **original** signal data samples in each
             chunk **before compression**.
+        kwargs:
+            Additional per read values that can be passed.
         """
 
         # Nothing to do
-        if read_ids.shape[0] == 0:
+        row_count = read_ids.shape[0]
+        if row_count == 0:
             return
-
-        read_ids = read_ids.astype(np.uint8, copy=False)
-        pores = pores.astype(np.int16, copy=False)
-        calibrations = calibrations.astype(np.int16, copy=False)
-        read_numbers = read_numbers.astype(np.uint32, copy=False)
-        start_samples = start_samples.astype(np.uint64, copy=False)
-        median_befores = median_befores.astype(np.float32, copy=False)
-        end_reasons = end_reasons.astype(np.int16, copy=False)
-        run_infos = run_infos.astype(np.int16, copy=False)
 
         # Array containing the number of chunks for each signal
         signal_chunk_counts = np.array(
@@ -615,21 +702,87 @@ class Writer:
         )
 
         self._writer.add_reads_pre_compressed(
-            read_ids.shape[0],
-            read_ids,
-            pores,
-            calibrations,
-            read_numbers,
-            start_samples,
-            median_befores,
-            end_reasons,
-            run_infos,
+            *self._prepare_add_reads_args(
+                read_ids,
+                pores,
+                calibrations,
+                read_numbers,
+                start_samples,
+                median_befores,
+                end_reasons,
+                run_infos,
+                **kwargs,
+            ),
             # Join all signal data into one list
             list(itertools.chain(*signal_chunks)),
             # Join all read sample counts into one array
             np.concatenate(signal_chunk_lengths).astype(np.uint32),
             signal_chunk_counts,
         )
+
+    def _prepare_add_reads_args(
+        self,
+        read_ids: npt.NDArray[np.uint8],
+        pores: npt.NDArray[np.int16],
+        calibrations: npt.NDArray[np.int16],
+        read_numbers: npt.NDArray[np.uint32],
+        start_samples: npt.NDArray[np.uint64],
+        median_befores: npt.NDArray[np.float32],
+        end_reasons: npt.NDArray[np.int16],
+        run_infos: npt.NDArray[np.int16],
+        **kwargs,
+    ):
+        row_count = read_ids.shape[0]
+        return [
+            read_ids.shape[0],
+            force_type_and_default(read_ids, np.uint8, row_count),
+            force_type_and_default(pores, np.int16, row_count),
+            force_type_and_default(calibrations, np.int16, row_count),
+            force_type_and_default(read_numbers, np.uint32, row_count),
+            force_type_and_default(start_samples, np.uint64, row_count),
+            force_type_and_default(median_befores, np.float32, row_count),
+            force_type_and_default(end_reasons, np.int16, row_count),
+            force_type_and_default(run_infos, np.int16, row_count),
+            force_type_and_default(
+                kwargs.get("num_minknow_events", None), np.uint64, row_count, 0
+            ),
+            force_type_and_default(
+                kwargs.get("tracked_scaling_scale", None),
+                np.float32,
+                row_count,
+                float("nan"),
+            ),
+            force_type_and_default(
+                kwargs.get("tracked_scaling_shift", None),
+                np.float32,
+                row_count,
+                float("nan"),
+            ),
+            force_type_and_default(
+                kwargs.get("predicted_scaling_scale", None),
+                np.float32,
+                row_count,
+                float("nan"),
+            ),
+            force_type_and_default(
+                kwargs.get("predicted_scaling_shift", None),
+                np.float32,
+                row_count,
+                float("nan"),
+            ),
+            force_type_and_default(
+                kwargs.get("trust_predicted_scale", None),
+                np.float32,
+                row_count,
+                float("nan"),
+            ),
+            force_type_and_default(
+                kwargs.get("trust_predicted_shift", None),
+                np.float32,
+                row_count,
+                float("nan"),
+            ),
+        ]
 
 
 class CombinedWriter(Writer):

@@ -65,36 +65,98 @@ def gen_test_read(seed) -> p5.Read:
                 (get_random_str("tracking"), get_random_str("id")),
             ],
         ),
-        signal,
+        signal=signal,
+        num_minknow_events=5,
+        tracked_scaling=p5.pod5_types.ShiftScalePair(10.0, 50),
+        predicted_scaling=p5.pod5_types.ShiftScalePair(5.0, 100.0),
+        trust_predicted_scaling=p5.pod5_types.ShiftScaleBoolPair(True, False),
     )
+
+
+def single_read_attributes_as_dict(writer, read_object):
+    return {
+        "read_id": read_object.read_id,
+        "pore": writer.add(read_object.pore),
+        "calibration": writer.add(read_object.calibration),
+        "read_number": read_object.read_number,
+        "start_sample": read_object.start_sample,
+        "median_before": read_object.median_before,
+        "end_reason": writer.add(read_object.end_reason),
+        "run_info": writer.add(read_object.run_info),
+        "num_minknow_events": read_object.num_minknow_events,
+        "tracked_scaling": read_object.tracked_scaling,
+        "predicted_scaling": read_object.predicted_scaling,
+        "trust_predicted_scaling": read_object.trust_predicted_scaling,
+    }
+
+
+def read_list_attributes_as_dict(writer, read_objects):
+    return {
+        "read_ids": numpy.array(
+            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in read_objects]
+        ),
+        "pores": numpy.array(
+            [writer.add(r.pore) for r in read_objects], dtype=numpy.int16
+        ),
+        "calibrations": numpy.array(
+            [writer.add(r.calibration) for r in read_objects],
+            dtype=numpy.int16,
+        ),
+        "read_numbers": numpy.array(
+            [r.read_number for r in read_objects], dtype=numpy.uint32
+        ),
+        "start_samples": numpy.array(
+            [r.start_sample for r in read_objects], dtype=numpy.uint64
+        ),
+        "median_befores": numpy.array(
+            [r.median_before for r in read_objects], dtype=numpy.float32
+        ),
+        "end_reasons": numpy.array(
+            [writer.add(r.end_reason) for r in read_objects],
+            dtype=numpy.int16,
+        ),
+        "run_infos": numpy.array(
+            [writer.add(r.run_info) for r in read_objects],
+            dtype=numpy.int16,
+        ),
+        "num_minknow_events": numpy.array(
+            [r.num_minknow_events for r in read_objects], dtype=numpy.uint64
+        ),
+        "tracked_scaling_scale": numpy.array(
+            [r.tracked_scaling.scale for r in read_objects], dtype=numpy.float32
+        ),
+        "tracked_scaling_shift": numpy.array(
+            [r.tracked_scaling.shift for r in read_objects], dtype=numpy.float32
+        ),
+        "predicted_scaling_scale": numpy.array(
+            [r.predicted_scaling.scale for r in read_objects], dtype=numpy.float32
+        ),
+        "predicted_scaling_shift": numpy.array(
+            [r.predicted_scaling.shift for r in read_objects], dtype=numpy.float32
+        ),
+        "trust_predicted_scale": numpy.array(
+            [r.trust_predicted_scaling.scale for r in read_objects], dtype=numpy.float32
+        ),
+        "trust_predicted_shift": numpy.array(
+            [r.trust_predicted_scaling.shift for r in read_objects], dtype=numpy.float32
+        ),
+    }
 
 
 def run_writer_test(f: Writer):
     test_read = gen_test_read(0)
+    print("read", test_read.read_id, test_read.run_info.adc_max)
     f.add_read(
-        test_read.read_id,
-        f.add(test_read.pore),
-        f.add(test_read.calibration),
-        test_read.read_number,
-        test_read.start_sample,
-        test_read.median_before,
-        f.add(test_read.end_reason),
-        f.add(test_read.run_info),
-        test_read.signal,
+        signal=test_read.signal,
+        **single_read_attributes_as_dict(f, test_read),
     )
 
     test_read = gen_test_read(1)
+    print("read", test_read.read_id, test_read.run_info.adc_max)
     f.add_read_pre_compressed(
-        test_read.read_id,
-        f.add(test_read.pore),
-        f.add(test_read.calibration),
-        test_read.read_number,
-        test_read.start_sample,
-        test_read.median_before,
-        f.add(test_read.end_reason),
-        f.add(test_read.run_info),
-        [p5.signal_tools.vbz_compress_signal(test_read.signal)],
-        [test_read.sample_count],
+        signal_chunks=[p5.signal_tools.vbz_compress_signal(test_read.signal)],
+        signal_chunk_lengths=[test_read.sample_count],
+        **single_read_attributes_as_dict(f, test_read),
     )
 
     test_reads = [
@@ -103,27 +165,10 @@ def run_writer_test(f: Writer):
         gen_test_read(4),
         gen_test_read(5),
     ]
+    print("read", test_reads[0].read_id, test_reads[0].run_info.adc_max)
     f.add_reads(
-        numpy.array(
-            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
-        ),
-        numpy.array([f.add(r.pore) for r in test_reads], dtype=numpy.int16),
-        numpy.array(
-            [f.add(r.calibration) for r in test_reads],
-            dtype=numpy.int16,
-        ),
-        numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
-        numpy.array([r.start_sample for r in test_reads], dtype=numpy.uint64),
-        numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
-        numpy.array(
-            [f.add(r.end_reason) for r in test_reads],
-            dtype=numpy.int16,
-        ),
-        numpy.array(
-            [f.add(r.run_info) for r in test_reads],
-            dtype=numpy.int16,
-        ),
-        [r.signal for r in test_reads],
+        **read_list_attributes_as_dict(f, test_reads),
+        signals=[r.signal for r in test_reads],
     )
 
     test_reads = [
@@ -133,22 +178,15 @@ def run_writer_test(f: Writer):
         gen_test_read(9),
     ]
     f.add_reads_pre_compressed(
-        numpy.array(
-            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in test_reads]
-        ),
-        numpy.array([f.add(r.pore) for r in test_reads], dtype=numpy.int16),
-        numpy.array([f.add(r.calibration) for r in test_reads], dtype=numpy.int16),
-        numpy.array([r.read_number for r in test_reads], dtype=numpy.uint32),
-        numpy.array([r.start_sample for r in test_reads], dtype=numpy.uint64),
-        numpy.array([r.median_before for r in test_reads], dtype=numpy.float32),
-        numpy.array([f.add(r.end_reason) for r in test_reads], dtype=numpy.int16),
-        numpy.array([f.add(r.run_info) for r in test_reads], dtype=numpy.int16),
+        **read_list_attributes_as_dict(f, test_reads),
         # Pass an array of arrays here, as we have pre compressed data
         # top level array is per read, then the sub arrays are chunks within the reads.
         # the two arrays here should have the same dimensions, first contains compressed
         # sample array, the second contains the sample counts
-        [[p5.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads],
-        [[len(r.signal)] for r in test_reads],
+        signal_chunks=[
+            [p5.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads
+        ],
+        signal_chunk_lengths=[[len(r.signal)] for r in test_reads],
     )
 
 
@@ -164,6 +202,10 @@ def run_reader_test(reader: p5.Reader):
         assert data.pore == read.pore
         assert pytest.approx(data.calibration.offset) == read.calibration.offset
         assert pytest.approx(data.calibration.scale) == read.calibration.scale
+        print(data.read_id)
+        print("In", data.run_info)
+        print("Out", read.run_info)
+        assert data.run_info == read.run_info
         assert (
             data.run_info.adc_max - data.run_info.adc_min + 1
             == read.calibration_digitisation
@@ -178,7 +220,10 @@ def run_reader_test(reader: p5.Reader):
         assert str(data.end_reason.name).split(".")[1].lower() == read.end_reason.name
         assert data.end_reason.forced == read.end_reason.forced
 
-        assert data.run_info == read.run_info
+        assert data.num_minknow_events == read.num_minknow_events
+        assert data.tracked_scaling == read.tracked_scaling
+        assert data.predicted_scaling == read.predicted_scaling
+        assert data.trust_predicted_scaling == read.trust_predicted_scaling
 
         assert data.sample_count == read.sample_count
         # Expecting poor compression given the random input

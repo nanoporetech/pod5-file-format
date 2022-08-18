@@ -4,6 +4,7 @@
 #include "pod5_format/read_table_schema.h"
 #include "pod5_format/read_table_writer_utils.h"
 #include "pod5_format/result.h"
+#include "pod5_format/schema_field_builder.h"
 
 #include <arrow/array/builder_dict.h>
 #include <arrow/io/type_fwd.h>
@@ -25,7 +26,7 @@ class POD5_FORMAT_EXPORT ReadTableWriter {
 public:
     ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&& writer,
                     std::shared_ptr<arrow::Schema>&& schema,
-                    ReadTableSchemaDescription const& field_locations,
+                    std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
                     std::size_t table_batch_size,
                     std::shared_ptr<PoreWriter> const& pore_writer,
                     std::shared_ptr<CalibrationWriter> const& calibration_writer,
@@ -56,13 +57,15 @@ private:
     /// \brief Flush buffered data into the writer as a record batch.
     Status write_batch();
 
-    arrow::MemoryPool* m_pool = nullptr;
     std::shared_ptr<arrow::Schema> m_schema;
-    ReadTableSchemaDescription m_field_locations;
+    std::shared_ptr<ReadTableSchemaDescription> m_field_locations;
     std::size_t m_table_batch_size;
 
     std::shared_ptr<arrow::ipc::RecordBatchWriter> m_writer;
 
+    ReadTableSchemaDescription::FieldBuilders m_field_builders;
+
+#if 0
     std::unique_ptr<arrow::FixedSizeBinaryBuilder> m_read_id_builder;
 
     std::shared_ptr<arrow::UInt64Builder> m_signal_array_builder;
@@ -81,6 +84,17 @@ private:
     std::shared_ptr<CalibrationWriter> m_calibration_writer;
     std::shared_ptr<EndReasonWriter> m_end_reason_writer;
     std::shared_ptr<RunInfoWriter> m_run_info_writer;
+
+    std::unique_ptr<arrow::UInt64Builder> m_num_minknow_events_builder;
+
+    std::unique_ptr<arrow::FloatBuilder> m_tracked_scaling_scale_builder;
+    std::unique_ptr<arrow::FloatBuilder> m_tracked_scaling_shift_builder;
+    std::unique_ptr<arrow::FloatBuilder> m_predicted_scaling_scale_builder;
+    std::unique_ptr<arrow::FloatBuilder> m_predicted_scaling_shift_builder;
+
+    std::unique_ptr<arrow::BooleanBuilder> m_trust_predicted_scale_builder;
+    std::unique_ptr<arrow::BooleanBuilder> m_trust_predicted_shift_builder;
+#endif
 
     std::size_t m_written_batched_row_count = 0;
     std::size_t m_current_batch_row_count = 0;

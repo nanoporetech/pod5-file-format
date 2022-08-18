@@ -354,9 +354,9 @@ pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
     // Prep file metadata:
     auto file_identifier = boost::uuids::random_generator_mt19937()();
 
-    ARROW_ASSIGN_OR_RAISE(
-            auto file_schema_metadata,
-            make_schema_key_value_metadata({file_identifier, writing_software_name, Pod5Version}));
+    ARROW_ASSIGN_OR_RAISE(auto file_schema_metadata,
+                          make_schema_key_value_metadata({file_identifier, writing_software_name,
+                                                          *parse_version_number(Pod5Version)}));
 
     // Open read file table:
     ARROW_ASSIGN_OR_RAISE(auto read_table_file,
@@ -405,9 +405,9 @@ pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
     auto const section_marker = uuid_gen();
     auto const file_identifier = uuid_gen();
 
-    ARROW_ASSIGN_OR_RAISE(
-            auto file_schema_metadata,
-            make_schema_key_value_metadata({file_identifier, writing_software_name, Pod5Version}));
+    ARROW_ASSIGN_OR_RAISE(auto file_schema_metadata,
+                          make_schema_key_value_metadata({file_identifier, writing_software_name,
+                                                          *parse_version_number(Pod5Version)}));
 
     auto reads_tmp_path = arrow_path.Parent().ToString() + "/" +
                           ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");

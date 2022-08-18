@@ -249,6 +249,19 @@ def convert_fast5_read(
         read_number=raw.attrs["read_number"],
         start_sample=raw.attrs["start_time"],
         median_before=raw.attrs["median_before"],
+        num_minknow_events=raw.attrs.get("num_minknow_events", 0),
+        tracked_scaling=p5.pod5_types.ShiftScalePair(
+            raw.attrs.get("tracked_scaling_shift", float("nan")),
+            raw.attrs.get("tracked_scaling_scale", float("nan")),
+        ),
+        predicted_scaling=p5.pod5_types.ShiftScalePair(
+            raw.attrs.get("predicted_scaling_shift", float("nan")),
+            raw.attrs.get("predicted_scaling_scale", float("nan")),
+        ),
+        trust_predicted_scaling=p5.pod5_types.ShiftScaleBoolPair(
+            raw.attrs.get("trust_predicted_shift", False),
+            raw.attrs.get("trust_predicted_scale", False),
+        ),
         end_reason=end_reason,
         run_info=run_info_cache[acq_id],
         signal_chunks=signal_chunks,

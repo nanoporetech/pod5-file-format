@@ -54,6 +54,99 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_init();
 POD5_FORMAT_EXPORT pod5_error_t pod5_terminate();
 
 //---------------------------------------------------------------------------------------------------------------------
+// Shared Structures
+//---------------------------------------------------------------------------------------------------------------------
+
+typedef uint8_t read_id_t[16];
+
+// Single entry of read data:
+struct ReadBatchRowInfoV1 {
+    // The read id data, in binary form.
+    read_id_t read_id;
+
+    // Read number for the read.
+    uint32_t read_number;
+    // Start sample for the read.
+    uint64_t start_sample;
+    // Median before level.
+    float median_before;
+
+    // Pore type for the read.
+    int16_t pore;
+    // Palibration type for the read.
+    int16_t calibration;
+    // End reason type for the read.
+    int16_t end_reason;
+    // Run info type for the read.
+    int16_t run_info;
+
+    // Number of minknow events that the read contains
+    uint64_t num_minknow_events;
+
+    // Scale/Shift for tracked read scaling values (based on previous reads)
+    float tracked_scaling_scale;
+    float tracked_scaling_shift;
+
+    // Scale/Shift for predicted read scaling values (based on this read's raw signal)
+    float predicted_scaling_scale;
+    float predicted_scaling_shift;
+
+    // Should the predicted scale/shift be trusted - 1 for trusted, 0 for untrusted
+    unsigned char trust_predicted_scale;
+    unsigned char trust_predicted_shift;
+
+    // Number of signal row entries for the read.
+    int64_t signal_row_count;
+};
+
+// Typedef for latest batch row info structure.
+typedef struct ReadBatchRowInfoV1 ReadBatchRowInfo_t;
+
+// Array of read data:
+struct ReadBatchRowInfoArrayV1 {
+    // The read id data, in binary form.
+    read_id_t const* read_id;
+
+    // Read number for the read.
+    uint32_t const* read_number;
+    // Start sample for the read.
+    uint64_t const* start_sample;
+    // Median before level.
+    float const* median_before;
+
+    // Pore type for the read.
+    int16_t const* pore;
+    // Palibration type for the read.
+    int16_t const* calibration;
+    // End reason type for the read.
+    int16_t const* end_reason;
+    // Run info type for the read.
+    int16_t const* run_info;
+
+    // Number of minknow events that the read contains
+    uint64_t const* num_minknow_events;
+
+    // Scale/Shift for tracked read scaling values (based on previous reads)
+    float const* tracked_scaling_scale;
+    float const* tracked_scaling_shift;
+
+    // Scale/Shift for predicted read scaling values (based on this read's raw signal)
+    float const* predicted_scaling_scale;
+    float const* predicted_scaling_shift;
+
+    // Should the predicted scale/shift be trusted - 1 for trusted, 0 for untrusted
+    unsigned char const* trust_predicted_scale;
+    unsigned char const* trust_predicted_shift;
+};
+
+// Typedef for latest batch row info structure.
+typedef struct ReadBatchRowInfoArrayV1 ReadBatchRowInfoArray_t;
+
+#define READ_BATCH_ROW_INFO_VERSION_0 0
+#define READ_BATCH_ROW_INFO_VERSION_1 1
+#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_1
+
+//---------------------------------------------------------------------------------------------------------------------
 // Reading files
 //---------------------------------------------------------------------------------------------------------------------
 
@@ -144,6 +237,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_count(size_t* count,
 /// \param[out] end_reason          Output location for the end reason type for the read.
 /// \param[out] run_info            Output location for the run info type for the read.
 /// \param[out] signal_row_count    Output location for the number of signal row entries for the read.
+/// \deprecated Use pod5_get_read_batch_row_info_data instead.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch_t* batch,
                                                              size_t row,
                                                              uint8_t* read_id,
@@ -155,6 +249,17 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch
                                                              int16_t* end_reason,
                                                              int16_t* run_info,
                                                              int64_t* signal_row_count);
+
+/// \brief Find the info for a row in a read batch.
+/// \param      batch               The read batch to query.
+/// \param      row                 The row index to query.
+/// \param      struct_version      The version of the struct being passed in, calling code
+///                                 should use struct [ReadBatchRowInfo_t] and [READ_BATCH_ROW_INFO_VERSION].
+/// \param[out] row_data            The read id data (must be 16 bytes).
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
+                                                                  size_t row,
+                                                                  uint16_t struct_version,
+                                                                  void* row_data);
 
 /// \brief Find the info for a row in a read batch.
 /// \param      batch                       The read batch to query.
@@ -493,8 +598,6 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_run_info(int16_t* run_info_index,
                                                   char const** tracking_id_keys,
                                                   char const** tracking_id_values);
 
-typedef uint8_t read_id_t[16];
-
 /// \brief Add a read to the file.
 /// \param      file            The file to add the read to.
 /// \param      read_count      The number of reads to add with this call.
@@ -508,6 +611,7 @@ typedef uint8_t read_id_t[16];
 /// \param      run_info        The run info for the read.
 /// \param      signal          The signal data for the read.
 /// \param      signal_size     The number of samples in the signal data.
+/// \deprecated Use pod5_add_reads_data instead.
 POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads(Pod5FileWriter_t* file,
                                                uint32_t read_count,
                                                read_id_t const* read_id,
@@ -536,6 +640,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads(Pod5FileWriter_t* file,
 /// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
 /// \param      sample_counts           The number of samples of each signal chunk.
 /// \param      signal_chunk_count      The number of sections of compressed signal.
+/// \deprecated Use pod5_add_reads_data_pre_compressed instead.
 POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter_t* file,
                                                               uint32_t read_count,
                                                               read_id_t const* read_id,
@@ -550,6 +655,39 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter_t* 
                                                               size_t const** compressed_signal_size,
                                                               uint32_t const** sample_counts,
                                                               size_t const* signal_chunk_count);
+
+/// \brief Add a read to the file.
+/// \param      file            The file to add the read to.
+/// \param      read_count      The number of reads to add with this call.
+/// \param      struct_version  The version of the struct of [row_data] being filled, use READ_BATCH_ROW_INFO_VERSION.
+/// \param      row_data        The array data for injecting into the file, should be ReadBatchRowInfoArray_t.
+/// \param      signal          The signal data for the read.
+/// \param      signal_size     The number of samples in the signal data.
+POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_data(Pod5FileWriter_t* file,
+                                                    uint32_t read_count,
+                                                    uint16_t struct_version,
+                                                    void const* row_data,
+                                                    int16_t const** signal,
+                                                    uint32_t const* signal_size);
+
+/// \brief Add a read to the file, with pre compressed signal chunk sections.
+/// \param      file                    The file to add the read to.
+/// \param      read_count              The number of reads to add with this call.
+/// \param      struct_version          The version of the struct of [row_data] being filled, use READ_BATCH_ROW_INFO_VERSION.
+/// \param      row_data                The array data for injecting into the file, should be ReadBatchRowInfoArray_t.
+/// \param      compressed_signal       The signal chunks data for the read.
+/// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
+/// \param      sample_counts           The number of samples of each signal chunk.
+/// \param      signal_chunk_count      The number of sections of compressed signal.
+POD5_FORMAT_EXPORT pod5_error_t
+pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
+                                   uint32_t read_count,
+                                   uint16_t struct_version,
+                                   void const* row_data,
+                                   char const*** compressed_signal,
+                                   size_t const** compressed_signal_size,
+                                   uint32_t const** sample_counts,
+                                   size_t const* signal_chunk_count);
 
 /// \brief Find the max size of a compressed array of samples.
 /// \param sample_count The number of samples in the source signal.

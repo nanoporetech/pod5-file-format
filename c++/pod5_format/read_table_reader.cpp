@@ -1,5 +1,6 @@
 #include "pod5_format/read_table_reader.h"
 
+#include "pod5_format/internal/schema_utils.h"
 #include "pod5_format/read_table_utils.h"
 #include "pod5_format/schema_metadata.h"
 
@@ -86,42 +87,69 @@ private:
 
 ReadTableRecordBatch::ReadTableRecordBatch(
         std::shared_ptr<arrow::RecordBatch>&& batch,
-        std::shared_ptr<ReadTableSchemaDescription> const& field_locations)
+        std::shared_ptr<ReadTableSchemaDescription const> const& field_locations)
         : TableRecordBatch(std::move(batch)), m_field_locations(field_locations) {}
 
 std::shared_ptr<UuidArray> ReadTableRecordBatch::read_id_column() const {
-    return std::static_pointer_cast<UuidArray>(batch()->column(m_field_locations->read_id));
+    return find_column(batch(), m_field_locations->read_id);
 }
 std::shared_ptr<arrow::ListArray> ReadTableRecordBatch::signal_column() const {
-    return std::static_pointer_cast<arrow::ListArray>(batch()->column(m_field_locations->signal));
+    return find_column(batch(), m_field_locations->signal);
 }
 std::shared_ptr<arrow::DictionaryArray> ReadTableRecordBatch::pore_column() const {
-    return std::static_pointer_cast<arrow::DictionaryArray>(
-            batch()->column(m_field_locations->pore));
+    return find_column(batch(), m_field_locations->pore);
 }
 std::shared_ptr<arrow::DictionaryArray> ReadTableRecordBatch::calibration_column() const {
-    return std::static_pointer_cast<arrow::DictionaryArray>(
-            batch()->column(m_field_locations->calibration));
+    return find_column(batch(), m_field_locations->calibration);
 }
 std::shared_ptr<arrow::UInt32Array> ReadTableRecordBatch::read_number_column() const {
-    return std::static_pointer_cast<arrow::UInt32Array>(
-            batch()->column(m_field_locations->read_number));
+    return find_column(batch(), m_field_locations->read_number);
 }
 std::shared_ptr<arrow::UInt64Array> ReadTableRecordBatch::start_sample_column() const {
-    return std::static_pointer_cast<arrow::UInt64Array>(
-            batch()->column(m_field_locations->start_sample));
+    return find_column(batch(), m_field_locations->start);
 }
 std::shared_ptr<arrow::FloatArray> ReadTableRecordBatch::median_before_column() const {
-    return std::static_pointer_cast<arrow::FloatArray>(
-            batch()->column(m_field_locations->median_before));
+    return find_column(batch(), m_field_locations->median_before);
 }
 std::shared_ptr<arrow::DictionaryArray> ReadTableRecordBatch::end_reason_column() const {
-    return std::static_pointer_cast<arrow::DictionaryArray>(
-            batch()->column(m_field_locations->end_reason));
+    return find_column(batch(), m_field_locations->end_reason);
 }
 std::shared_ptr<arrow::DictionaryArray> ReadTableRecordBatch::run_info_column() const {
-    return std::static_pointer_cast<arrow::DictionaryArray>(
-            batch()->column(m_field_locations->run_info));
+    return find_column(batch(), m_field_locations->run_info);
+}
+
+Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
+    ReadTableRecordColumns result;
+    result.table_version = m_field_locations->table_spec_version;
+
+    auto const& bat = batch();
+
+    // V0 fields:
+    result.read_id = find_column(bat, m_field_locations->read_id);
+    result.signal = find_column(bat, m_field_locations->signal);
+    result.pore = find_column(bat, m_field_locations->pore);
+    result.calibration = find_column(bat, m_field_locations->calibration);
+    result.read_number = find_column(bat, m_field_locations->read_number);
+    result.start_sample = find_column(bat, m_field_locations->start);
+    result.median_before = find_column(bat, m_field_locations->median_before);
+    result.end_reason = find_column(bat, m_field_locations->end_reason);
+    result.run_info = find_column(bat, m_field_locations->run_info);
+
+    // V1 fields:
+    if (result.table_version >= ReadTableSpecVersion::TableV1Version) {
+        result.num_minknow_events = find_column(bat, m_field_locations->num_minknow_events);
+
+        result.tracked_scaling_scale = find_column(bat, m_field_locations->tracked_scaling_scale);
+        result.tracked_scaling_shift = find_column(bat, m_field_locations->tracked_scaling_shift);
+        result.predicted_scaling_scale =
+                find_column(bat, m_field_locations->predicted_scaling_scale);
+        result.predicted_scaling_shift =
+                find_column(bat, m_field_locations->predicted_scaling_shift);
+        result.trust_predicted_scale = find_column(bat, m_field_locations->trust_predicted_scale);
+        result.trust_predicted_shift = find_column(bat, m_field_locations->trust_predicted_shift);
+    }
+
+    return result;
 }
 
 Result<PoreData> ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
@@ -218,11 +246,12 @@ Result<RunInfoData> ReadTableRecordBatch::get_run_info(std::int16_t run_info_ind
 
 //---------------------------------------------------------------------------------------------------------------------
 
-ReadTableReader::ReadTableReader(std::shared_ptr<void>&& input_source,
-                                 std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-                                 std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
-                                 SchemaMetadataDescription&& schema_metadata,
-                                 arrow::MemoryPool* pool)
+ReadTableReader::ReadTableReader(
+        std::shared_ptr<void>&& input_source,
+        std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
+        std::shared_ptr<ReadTableSchemaDescription const> const& field_locations,
+        SchemaMetadataDescription&& schema_metadata,
+        arrow::MemoryPool* pool)
         : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
           m_field_locations(field_locations) {}
 
@@ -351,7 +380,8 @@ Result<ReadTableReader> make_read_table_reader(
     }
     ARROW_ASSIGN_OR_RAISE(auto read_metadata,
                           read_schema_key_value_metadata(read_metadata_key_values));
-    ARROW_ASSIGN_OR_RAISE(auto field_locations, read_read_table_schema(reader->schema()));
+    ARROW_ASSIGN_OR_RAISE(auto field_locations,
+                          read_read_table_schema(read_metadata, reader->schema()));
 
     return ReadTableReader({input}, std::move(reader), field_locations, std::move(read_metadata),
                            pool);
