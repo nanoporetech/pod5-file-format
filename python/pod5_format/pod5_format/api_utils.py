@@ -17,7 +17,9 @@ class Pod5ApiException(Exception):
     """Generic Pod5 API Exception"""
 
 
-def pack_read_ids(read_ids: Collection[str]) -> npt.NDArray[np.uint8]:
+def pack_read_ids(
+    read_ids: Collection[str], invalid_ok: bool = False
+) -> npt.NDArray[np.uint8]:
     """
     Convert a `Collection` of `read_id` strings to a `numpy.ndarray`
     in preparation for writing to pod5 files.
@@ -33,7 +35,10 @@ def pack_read_ids(read_ids: Collection[str]) -> npt.NDArray[np.uint8]:
         Repacked read_ids ready for writing to pod5 files.
     """
     read_id_data = np.empty(shape=(len(read_ids), 16), dtype=np.uint8)
-    load_read_id_iterable(read_ids, read_id_data)
+    count = load_read_id_iterable(read_ids, read_id_data)
+    if invalid_ok is False and count != len(read_ids):
+        raise RuntimeError("Invalid read id passed")
+
     return read_id_data
 
 

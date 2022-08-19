@@ -419,7 +419,7 @@ inline std::size_t vbz_compressed_signal_max_size(std::size_t sample_count) {
     return pod5::compressed_signal_max_size(sample_count);
 }
 
-inline void load_read_id_iterable(
+inline std::size_t load_read_id_iterable(
         py::iterable const& read_ids_str,
         py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast>& read_id_data_out) {
     std::size_t out_idx = 0;
@@ -433,8 +433,17 @@ inline void load_read_id_iterable(
         }
 
         temp_uuid = read_id.cast<py::str>();
-        read_ids[out_idx++] = boost::lexical_cast<boost::uuids::uuid>(temp_uuid);
+        try {
+            auto found_uuid = boost::lexical_cast<boost::uuids::uuid>(temp_uuid);
+            read_ids[out_idx++] = found_uuid;
+
+        } catch (boost::bad_lexical_cast const& e) {
+            // Ignore - we will return one fewer read ids than expected and the caller can deal with it.
+            continue;
+        }
     }
+
+    return out_idx;
 }
 
 inline py::list format_read_id_to_str(
