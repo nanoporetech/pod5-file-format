@@ -121,6 +121,7 @@ list(APPEND public_headers
     pod5_format/errors.h
     pod5_format/result.h
     pod5_format/table_reader.h
+    pod5_format/tuple_utils.h
     pod5_format/types.h
 
     ${CMAKE_CURRENT_BINARY_DIR}/pod5_format/pod5_format_export.h
