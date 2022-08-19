@@ -33,6 +33,35 @@ struct ReadSignalBatch {
     std::int64_t preload_sum;
 };
 
+using WriteIndex = std::uint64_t;
+class Pod5RepackerOutput;
+
+struct AddReadBatchToOutput {
+    AddReadBatchToOutput(std::shared_ptr<Pod5RepackerOutput> output_,
+                         WriteIndex write_index_,
+                         Pod5FileReaderPtr input_,
+                         std::size_t read_batch_index_)
+            : output(output_),
+              write_index(write_index_),
+              input(input_),
+              read_batch_index(read_batch_index_) {}
+
+    AddReadBatchToOutput(std::shared_ptr<Pod5RepackerOutput> output_,
+                         WriteIndex write_index_,
+                         Pod5FileReaderPtr input_,
+                         std::size_t read_batch_index_,
+                         std::vector<std::uint32_t>&& selected_rows_)
+            : AddReadBatchToOutput(output_, write_index_, input_, read_batch_index_) {
+        selected_rows = std::move(selected_rows_);
+    }
+
+    std::shared_ptr<Pod5RepackerOutput> output;
+    WriteIndex write_index;
+    Pod5FileReaderPtr input;
+    std::size_t read_batch_index;
+    std::vector<std::uint32_t> selected_rows;
+};
+
 class Pod5ReadBatch {
 public:
     Pod5ReadBatch(pod5::ReadTableRecordBatch&& batch,
@@ -52,12 +81,11 @@ private:
 
 class Pod5RepackerOutput {
 public:
-    using WriteIndex = std::uint64_t;
-
     struct PendingWrite {
         WriteIndex index;
         std::shared_ptr<Pod5ReadBatch> batch;
         std::vector<std::uint32_t> selected_rows;
+        std::function<void()> complete;
     };
 
     Pod5RepackerOutput(std::shared_ptr<Pod5Repacker> const& repacker,
@@ -67,6 +95,7 @@ public:
               m_repacker(repacker),
               m_output_file(output_file),
               m_signal_type(output_file->signal_type()),
+              m_queued_reads(0),
               m_pending_write_count(0),
               m_reads_completed(0),
               m_reads_sample_bytes_completed(0),
@@ -81,15 +110,14 @@ public:
                      std::vector<std::uint32_t>&& batch_rows,
                      std::shared_ptr<Pod5ReadBatch> const& batch,
                      CompletionHandler complete) {
+        m_pending_write_count += 1;
         m_strand.post([this, index, batch, complete, batch_rows = std::move(batch_rows)] {
-            m_pending_writes.push_back({index, batch, std::move(batch_rows)});
-            m_pending_write_count += 1;
+            m_pending_writes.push_back({index, batch, std::move(batch_rows), complete});
 
             std::sort(m_pending_writes.begin(), m_pending_writes.end(),
                       [](auto const& a, auto const& b) { return a.index < b.index; });
 
             try_write_next_batch();
-            complete();
         });
     }
 
@@ -101,6 +129,8 @@ public:
         auto& next_batch = m_pending_writes.front();
         if (next_batch.index == m_next_write_write_index) {
             auto result = write_next_batch(next_batch.batch, next_batch.selected_rows);
+            next_batch.complete();
+
             if (!result.ok()) {
                 set_error(result);
                 return;
@@ -277,7 +307,36 @@ public:
     // in the desired order.
     WriteIndex get_next_write_index() { return m_next_write_index++; }
 
+    // Add reads which have been pushed onto a thread for execution
+    void add_queued_reads(std::size_t additional_reads) { m_queued_reads += additional_reads; }
+
+    void add_pending_reads(std::vector<AddReadBatchToOutput>&& reads) {
+        auto pending_batch_reads = m_pending_batch_reads.synchronize();
+
+        for (auto& read : reads) {
+            pending_batch_reads->emplace_back(std::move(read));
+        }
+    }
+
+    // Pop a read from the pending reads, and remove one queued read.
+    boost::optional<AddReadBatchToOutput> pop_pending_read() {
+        assert(m_queued_reads > 0);
+        boost::optional<AddReadBatchToOutput> task;
+        auto pending_batch_reads = m_pending_batch_reads.synchronize();
+        if (!pending_batch_reads->size()) {
+            return boost::none;
+        }
+        task = pending_batch_reads->front();
+        pending_batch_reads->pop_front();
+
+        m_queued_reads -= 1;
+        return task;
+    }
+
+    std::size_t pending_unqueued_reads() { return m_pending_batch_reads->size(); }
+    std::size_t queued_reads() { return m_queued_reads.load(); }
     std::size_t pending_writes() { return m_pending_write_count.load(); }
+    std::size_t pending_actions() { return queued_reads() + pending_writes(); }
     std::size_t reads_completed() { return m_reads_completed.load(); }
     std::size_t reads_sample_bytes_completed() { return m_reads_sample_bytes_completed.load(); }
 
@@ -297,8 +356,17 @@ private:
     std::shared_ptr<pod5::FileWriter> m_output_file;
     pod5::SignalType m_signal_type;
 
+    // Reads not yet executed
+    boost::synchronized_value<std::deque<AddReadBatchToOutput>> m_pending_batch_reads;
+
+    // Number of submissions to threads for reads to execute (from reads in m_pending_batch_reads)
+    std::atomic<std::size_t> m_queued_reads;
+
+    // Complete reads waiting for write
     std::deque<PendingWrite> m_pending_writes;
     std::atomic<std::size_t> m_pending_write_count;
+
+    // Complete writes
     std::atomic<std::size_t> m_reads_completed;
     std::atomic<std::size_t> m_reads_sample_bytes_completed;
 
@@ -321,36 +389,9 @@ private:
 
 class Pod5Repacker : public std::enable_shared_from_this<Pod5Repacker> {
 public:
-    struct AddReadBatchToOutput {
-        AddReadBatchToOutput(std::shared_ptr<Pod5RepackerOutput> output_,
-                             Pod5RepackerOutput::WriteIndex write_index_,
-                             Pod5FileReaderPtr input_,
-                             std::size_t read_batch_index_)
-                : output(output_),
-                  write_index(write_index_),
-                  input(input_),
-                  read_batch_index(read_batch_index_) {}
-
-        AddReadBatchToOutput(std::shared_ptr<Pod5RepackerOutput> output_,
-                             Pod5RepackerOutput::WriteIndex write_index_,
-                             Pod5FileReaderPtr input_,
-                             std::size_t read_batch_index_,
-                             std::vector<std::uint32_t>&& selected_rows_)
-                : AddReadBatchToOutput(output_, write_index_, input_, read_batch_index_) {
-            selected_rows = std::move(selected_rows_);
-        }
-
-        std::shared_ptr<Pod5RepackerOutput> output;
-        Pod5RepackerOutput::WriteIndex write_index;
-        Pod5FileReaderPtr input;
-        std::size_t read_batch_index;
-        std::vector<std::uint32_t> selected_rows;
-    };
-
     Pod5Repacker(std::size_t target_pending_writes = 20,
                  std::size_t worker_count = std::thread::hardware_concurrency())
             : m_target_pending_writes(target_pending_writes),
-              m_current_pending_reads(0),
               m_has_error(false),
               m_batches_requested(0),
               m_batches_completed(0),
@@ -390,14 +431,14 @@ public:
             throw std::runtime_error("Invalid input passed to repacker, no reader");
         }
 
-        auto pending_batch_reads = m_pending_batch_reads.synchronize();
+        std::vector<AddReadBatchToOutput> new_reads;
         for (std::size_t i = 0; i < input.reader->num_read_record_batches(); ++i) {
-            pending_batch_reads->emplace_back(
-                    AddReadBatchToOutput(output, output->get_next_write_index(), input, i));
+            new_reads.emplace_back(output, output->get_next_write_index(), input, i);
         }
+        output->add_pending_reads(std::move(new_reads));
         m_batches_requested += input.reader->num_read_record_batches();
 
-        post_do_batch_reads(m_target_pending_writes);
+        post_do_batch_reads(output, std::max<std::size_t>(1, m_target_pending_writes));
     }
 
     void add_selected_reads_to_output(
@@ -417,8 +458,10 @@ public:
         auto batch_counts_span = gsl::make_span(batch_counts.data(), batch_counts.size());
         auto all_batch_rows_span = gsl::make_span(all_batch_rows.data(), all_batch_rows.size());
 
-        auto pending_batch_reads = m_pending_batch_reads.synchronize();
+        std::vector<AddReadBatchToOutput> new_reads;
+
         std::size_t current_start_point = 0;
+        std::size_t added_reads = 0;
         for (std::size_t i = 0; i < batch_counts_span.size(); ++i) {
             std::vector<std::uint32_t> batch_rows;
             auto const batch_rows_span =
@@ -432,12 +475,14 @@ public:
             batch_rows.insert(batch_rows.end(), batch_rows_span.begin(), batch_rows_span.end());
             current_start_point += batch_counts_span[i];
 
-            pending_batch_reads->emplace_back(AddReadBatchToOutput(
-                    output, output->get_next_write_index(), input, i, std::move(batch_rows)));
+            new_reads.emplace_back(output, output->get_next_write_index(), input, i,
+                                   std::move(batch_rows));
+            added_reads += 1;
         }
-        m_batches_requested += batch_counts_span.size();
+        output->add_pending_reads(std::move(new_reads));
+        m_batches_requested += added_reads;
 
-        post_do_batch_reads(m_target_pending_writes);
+        post_do_batch_reads(output, m_target_pending_writes);
     }
 
     bool is_complete() const {
@@ -454,7 +499,12 @@ public:
             }
         }
 
-        return m_pending_batch_reads->empty();
+        for (auto const& output : m_outputs) {
+            if (output->pending_unqueued_reads() > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     std::size_t reads_sample_bytes_completed() const {
@@ -483,21 +533,33 @@ public:
     std::size_t batches_completed() const { return m_batches_completed.load(); }
 
 private:
-    void post_do_batch_reads(std::size_t count) {
-        for (std::size_t i = 0; i < count; ++i) {
+    void post_do_batch_reads(std::shared_ptr<Pod5RepackerOutput> const& output,
+                             std::size_t force_count = 0) {
+        assert(output);
+        auto pending_actions = output->pending_actions();
+
+        auto const output_target = std::max<std::size_t>(1, m_target_pending_writes);
+
+        auto pending_write_target = force_count;
+        if (pending_actions < output_target) {
+            pending_write_target =
+                    std::max(pending_write_target, m_target_pending_writes - pending_actions);
+        }
+
+        if (pending_write_target == 0) {
+            return;
+        }
+
+        output->add_queued_reads(pending_write_target);
+        for (std::size_t i = 0; i < pending_write_target; ++i) {
             boost::asio::post(m_context, [=]() {
                 if (m_has_error) {
                     return;
                 }
 
-                boost::optional<AddReadBatchToOutput> task;
-                {
-                    auto pending_batch_reads = m_pending_batch_reads.synchronize();
-                    if (!pending_batch_reads->size()) {
-                        return;
-                    }
-                    task = pending_batch_reads->front();
-                    pending_batch_reads->pop_front();
+                boost::optional<AddReadBatchToOutput> task = output->pop_pending_read();
+                if (!task) {
+                    return;
                 }
 
                 // Do the task:
@@ -513,21 +575,11 @@ private:
                                           [this, output = task->output] {
                                               m_batches_completed += 1;
 
-                                              m_current_pending_reads -= 1;
-                                              auto pending_actions =
-                                                      m_current_pending_reads.load() +
-                                                      output->pending_writes();
-                                              if (m_target_pending_writes > pending_actions) {
-                                                  int pending_write_target =
-                                                          m_target_pending_writes - pending_actions;
-
-                                                  // And post the next batch read now we are complete:
-                                                  post_do_batch_reads(pending_write_target);
-                                              }
+                                              // And post the next batch read now we are complete:
+                                              post_do_batch_reads(output);
                                           });
             });
         }
-        m_current_pending_reads += count;
     }
 
     pod5::Result<std::shared_ptr<Pod5ReadBatch>> read_batch(
@@ -610,8 +662,7 @@ private:
         m_has_error = true;
     }
 
-    std::size_t m_target_pending_writes;
-    std::atomic<std::size_t> m_current_pending_reads;
+    std::size_t const m_target_pending_writes;
 
     std::atomic<bool> m_has_error;
     boost::synchronized_value<arrow::Status> m_error;
@@ -619,13 +670,9 @@ private:
     std::atomic<std::size_t> m_batches_requested;
     std::atomic<std::size_t> m_batches_completed;
 
-    std::atomic<bool> m_has_pending_write;
-
     boost::asio::io_context m_context;
     boost::asio::executor_work_guard<boost::asio::io_context::executor_type> m_work;
     std::vector<std::thread> m_workers;
 
     std::vector<std::shared_ptr<Pod5RepackerOutput>> m_outputs;
-
-    boost::synchronized_value<std::deque<AddReadBatchToOutput>> m_pending_batch_reads;
 };
