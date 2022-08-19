@@ -1,10 +1,10 @@
 #pragma once
 
 #include "pod5_format/expandable_buffer.h"
-#include "pod5_format/internal/tuple_utils.h"
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/read_table_utils.h"
 #include "pod5_format/result.h"
+#include "pod5_format/tuple_utils.h"
 
 #include <arrow/io/type_fwd.h>
 #include <arrow/util/bit_util.h>
