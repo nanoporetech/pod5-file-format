@@ -863,7 +863,9 @@ class Reader:
         preload: Optional[Set[str]] = None,
     ) -> Generator[ReadRecordBatch, None, None]:
         """Generate the selected record batches"""
-        successful_finds, per_batch_counts, batch_rows = self._plan_traversal(selection)
+        successful_finds, per_batch_counts, batch_rows = self._plan_traversal(
+            selection, missing_ok=missing_ok
+        )
 
         if not missing_ok and successful_finds != len(selection):
             raise RuntimeError(
@@ -895,6 +897,7 @@ class Reader:
     def _plan_traversal(
         self,
         read_ids: Union[Collection[str], npt.NDArray[np.uint8]],
+        missing_ok: bool = False,
     ) -> Tuple[int, npt.NDArray[np.uint32], npt.NDArray[np.uint32]]:
         """
         Query the file reader indexes to return the number of read_ids which
@@ -917,7 +920,7 @@ class Reader:
 
         """
         if not isinstance(read_ids, np.ndarray):
-            read_ids = pack_read_ids(read_ids)
+            read_ids = pack_read_ids(read_ids, invalid_ok=missing_ok)
 
         assert isinstance(read_ids, np.ndarray)
 

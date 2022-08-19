@@ -259,6 +259,17 @@ def run_reader_test(reader: p5.Reader):
         assert read.has_cached_signal
         assert (read.signal == data.signal).all()
 
+    # Try to walk through some reads in the file with a bad read id, not ignoring bad ids
+    with pytest.raises(RuntimeError):
+        for idx, read in enumerate(reader.reads(["bad-id"], missing_ok=False)):
+            # Shouldn't hit this!
+            assert False
+
+    # Try to walk through some reads in the file with a bad read id, ignoring bad ids
+    for idx, read in enumerate(reader.reads(["bad-id"], missing_ok=True)):
+        # Shouldn't hit this!
+        assert False
+
     reads = list(reader.reads())
     search_reads = [
         reads[6],
