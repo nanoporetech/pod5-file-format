@@ -254,8 +254,8 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch
 /// \param      batch               The read batch to query.
 /// \param      row                 The row index to query.
 /// \param      struct_version      The version of the struct being passed in, calling code
-///                                 should use struct [ReadBatchRowInfo_t] and [READ_BATCH_ROW_INFO_VERSION].
-/// \param[out] row_data            The read id data (must be 16 bytes).
+///                                 should use [READ_BATCH_ROW_INFO_VERSION].
+/// \param[out] row_data            The data for reading into, should be a pointer to ReadBatchRowInfo_t.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
                                                                   size_t row,
                                                                   uint16_t struct_version,
