@@ -363,9 +363,11 @@ pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch* batch,
         return g_pod5_error_no;
     }
 
+    uint16_t read_table_version = 0;
+
     ReadBatchRowInfoV1 obj;
-    auto result =
-            pod5_get_read_batch_row_info_data(batch, row, READ_BATCH_ROW_INFO_VERSION_1, &obj);
+    auto result = pod5_get_read_batch_row_info_data(batch, row, READ_BATCH_ROW_INFO_VERSION_1, &obj,
+                                                    &read_table_version);
     if (result != POD5_OK) {
         return result;
     }
@@ -386,7 +388,8 @@ pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch* batch,
 pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
                                                size_t row,
                                                uint16_t struct_version,
-                                               void* row_data) {
+                                               void* row_data,
+                                               uint16_t* read_table_version) {
     if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)) {
         return g_pod5_error_no;
     }
@@ -399,6 +402,9 @@ pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
             pod5_set_error(cols.status());
             return g_pod5_error_no;
         }
+
+        // Inform the caller of the version of the input table.
+        *read_table_version = (uint16_t)cols->table_version;
 
         auto read_id_val = cols->read_id->Value(row);
         std::copy(read_id_val.begin(), read_id_val.end(), typed_row_data->read_id);
