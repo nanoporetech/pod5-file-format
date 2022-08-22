@@ -7,6 +7,7 @@
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
 
+#include <iostream>
 #include <numeric>
 
 SCENARIO("C API") {
@@ -16,7 +17,7 @@ SCENARIO("C API") {
     auto fin = gsl::finally([] { pod5_terminate(); });
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
-    auto read_id = uuid_gen();
+    auto input_read_id = uuid_gen();
     std::vector<int16_t> signal_1(10);
     std::iota(signal_1.begin(), signal_1.end(), -20000);
 
@@ -89,7 +90,7 @@ SCENARIO("C API") {
         std::uint32_t read_number = 12;
         std::uint64_t start_sample = 10245;
         float median_before = 200.0f;
-        auto read_id_array = (read_id_t const*)read_id.begin();
+        auto read_id_array = (read_id_t const*)input_read_id.begin();
 
         ReadBatchRowInfoArrayV1 row_data{read_id_array,
                                          &read_number,
@@ -159,7 +160,7 @@ SCENARIO("C API") {
         REQUIRE(!!batch_0);
 
         for (std::size_t row = 0; row < read_count; ++row) {
-            boost::uuids::uuid read_id;
+            boost::uuids::uuid read_read_id{};
             int16_t pore = 0;
             int16_t calibration = 0;
             uint32_t read_number = 0;
@@ -169,16 +170,18 @@ SCENARIO("C API") {
             int16_t run_info = 0;
             int64_t signal_row_count = 0;
 
-            CHECK(pod5_get_read_batch_row_info(batch_0, row, (uint8_t*)read_id.begin(), &pore,
+            CHECK(pod5_get_read_batch_row_info(batch_0, row, (uint8_t*)read_read_id.begin(), &pore,
                                                &calibration, &read_number, &start_sample,
                                                &median_before, &end_reason, &run_info,
                                                &signal_row_count) == POD5_OK);
 
             std::string formatted_uuid(36, '\0');
-            CHECK(pod5_format_read_id((uint8_t*)read_id.begin(), &formatted_uuid[0]) == POD5_OK);
-            CHECK(formatted_uuid.size() == boost::uuids::to_string(read_id).size());
-            CHECK(formatted_uuid == boost::uuids::to_string(read_id));
+            CHECK(pod5_format_read_id((uint8_t*)read_read_id.begin(), &formatted_uuid[0]) ==
+                  POD5_OK);
+            CHECK(formatted_uuid.size() == boost::uuids::to_string(read_read_id).size());
+            CHECK(formatted_uuid == boost::uuids::to_string(read_read_id));
 
+            CHECK(read_read_id == input_read_id);
             CHECK(read_number == 12);
             CHECK(start_sample == 10245);
             CHECK(median_before == 200.0f);
