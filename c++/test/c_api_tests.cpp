@@ -220,9 +220,11 @@ SCENARIO("C API") {
 
             // Test latest read:
             {
+                std::uint16_t input_version = 0;
                 ReadBatchRowInfo_t latest_struct;
                 CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION,
-                                                        &latest_struct) == POD5_OK);
+                                                        &latest_struct, &input_version) == POD5_OK);
+                CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
                 test_old_fields(latest_struct);
                 test_v1_fields(latest_struct);
             }
@@ -232,6 +234,7 @@ SCENARIO("C API") {
                 ReadBatchRowInfoV1 v1_struct;
                 CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION_1,
                                                         &v1_struct) == POD5_OK);
+                CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
                 test_old_fields(v1_struct);
             }
 
