@@ -370,7 +370,7 @@ pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch* batch,
         return result;
     }
 
-    std::copy(read_id, read_id + sizeof(obj.read_id), obj.read_id);
+    std::copy(obj.read_id, obj.read_id + sizeof(obj.read_id), read_id);
     *pore = obj.pore;
     *calibration = obj.calibration;
     *read_number = obj.read_number;
