@@ -16,6 +16,8 @@ class MemoryPool;
 
 namespace pod5 {
 
+struct SchemaMetadataDescription;
+
 class POD5_FORMAT_EXPORT FileReaderOptions {
 public:
     FileReaderOptions();
@@ -43,6 +45,9 @@ class SignalTableRecordBatch;
 class POD5_FORMAT_EXPORT FileReader {
 public:
     virtual ~FileReader() = default;
+
+    /// \brief Find the read schema metadata for this file.
+    virtual SchemaMetadataDescription schema_metadata() const = 0;
 
     virtual Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const = 0;
     virtual std::size_t num_read_record_batches() const = 0;

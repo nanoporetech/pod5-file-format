@@ -585,9 +585,12 @@ class Reader:
         """
         self._handles = handles
 
-        writing_version_str = self._handles.read.reader.schema.metadata[
-            b"MINKNOW:pod5_version"
-        ].decode("utf-8")
+        schema_metadata = self._handles.read.reader.schema.metadata
+        self._file_identifier = UUID(
+            schema_metadata[b"MINKNOW:file_identifier"].decode("utf-8")
+        )
+        self._writing_software = schema_metadata[b"MINKNOW:software"].decode("utf-8")
+        writing_version_str = schema_metadata[b"MINKNOW:pod5_version"].decode("utf-8")
         writing_version = packaging.version.parse(writing_version_str)
 
         if writing_version >= packaging.version.Version("0.0.24"):
@@ -691,6 +694,14 @@ class Reader:
     @property
     def file_version(self) -> packaging.version.Version:
         return self._file_version
+
+    @property
+    def writing_software(self) -> str:
+        return self._writing_software
+
+    @property
+    def file_identifier(self) -> UUID:
+        return self._file_identifier
 
     @property
     def reads_table_version(self) -> ReadTableVersion:

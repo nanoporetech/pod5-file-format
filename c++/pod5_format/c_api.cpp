@@ -229,6 +229,25 @@ pod5_error_t pod5_close_and_free_reader(Pod5FileReader* file) {
     return POD5_OK;
 }
 
+pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo* file_info) {
+    pod5_reset_error();
+
+    if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_info)) {
+        return g_pod5_error_no;
+    }
+
+    auto const metadata = reader->reader->schema_metadata();
+
+    std::copy(metadata.file_identifier.begin(), metadata.file_identifier.end(),
+              file_info->file_identifier);
+
+    file_info->version.major = metadata.writing_pod5_version.major_version();
+    file_info->version.minor = metadata.writing_pod5_version.minor_version();
+    file_info->version.revision = metadata.writing_pod5_version.revision_version();
+
+    return POD5_OK;
+}
+
 pod5_error_t pod5_get_combined_file_read_table_location(Pod5FileReader_t* reader,
                                                         EmbeddedFileData_t* file_data) {
     pod5_reset_error();

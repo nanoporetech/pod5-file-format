@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
+import packaging
 from pathlib import Path
 import tempfile
-from uuid import uuid4, uuid5, UUID
+from uuid import uuid1, uuid4, uuid5, UUID
 
 import numpy
 from pod5_format.writer import Writer
@@ -191,6 +192,11 @@ def run_writer_test(f: Writer):
 
 
 def run_reader_test(reader: p5.Reader):
+    # Check top level file metadata
+    assert reader.file_version == packaging.version.Version(p5.__version__)
+    assert reader.writing_software == "Python API"
+    assert reader.file_identifier != UUID(int=0)
+
     for idx, read in enumerate(reader.reads()):
         data = gen_test_read(idx)
 
@@ -202,9 +208,6 @@ def run_reader_test(reader: p5.Reader):
         assert data.pore == read.pore
         assert pytest.approx(data.calibration.offset) == read.calibration.offset
         assert pytest.approx(data.calibration.scale) == read.calibration.scale
-        print(data.read_id)
-        print("In", data.run_info)
-        print("Out", read.run_info)
         assert data.run_info == read.run_info
         assert (
             data.run_info.adc_max - data.run_info.adc_min + 1

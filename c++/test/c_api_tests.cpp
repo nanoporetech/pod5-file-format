@@ -1,5 +1,8 @@
 #include "pod5_format/c_api.h"
 
+#include "pod5_format/file_reader.h"
+#include "pod5_format/schema_metadata.h"
+#include "pod5_format/version.h"
 #include "utils.h"
 
 #include <boost/uuid/random_generator.hpp>
@@ -151,6 +154,20 @@ SCENARIO("C API") {
         CAPTURE(pod5_get_error_string());
         CHECK(!!combined_file);
 
+        FileInfo_t file_info;
+        CHECK(pod5_get_file_info(combined_file, &file_info) == POD5_OK);
+        CHECK(file_info.version.major == pod5::Pod5MajorVersion);
+        CHECK(file_info.version.minor == pod5::Pod5MinorVersion);
+        CHECK(file_info.version.revision == pod5::Pod5RevVersion);
+        {
+            auto reader = pod5::open_combined_file_reader(combined_filename);
+            boost::uuids::uuid file_identifier;
+            std::copy(file_info.file_identifier,
+                      file_info.file_identifier + sizeof(file_info.file_identifier),
+                      file_identifier.begin());
+            CHECK(file_identifier == (*reader)->schema_metadata().file_identifier);
+        }
+
         std::size_t batch_count = 0;
         CHECK(pod5_get_read_batch_count(&batch_count, combined_file) == POD5_OK);
         REQUIRE(batch_count == 1);
@@ -231,9 +248,10 @@ SCENARIO("C API") {
 
             // Test V1 read:
             {
+                std::uint16_t input_version = 0;
                 ReadBatchRowInfoV1 v1_struct;
                 CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION_1,
-                                                        &v1_struct) == POD5_OK);
+                                                        &v1_struct, &input_version) == POD5_OK);
                 CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
                 test_old_fields(v1_struct);
             }

@@ -4,6 +4,10 @@
 
 namespace pod5 {
 
+std::uint16_t const Pod5MajorVersion = @POD5_VERSION_MAJOR@;
+std::uint16_t const Pod5MinorVersion = @POD5_VERSION_MINOR@;
+std::uint16_t const Pod5RevVersion = @POD5_VERSION_REV@;
+
 std::string const Pod5Version = "@POD5_NUMERIC_VERSION@";
 
 }
