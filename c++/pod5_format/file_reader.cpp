@@ -24,6 +24,10 @@ public:
               m_read_table_reader(std::move(read_table_reader)),
               m_signal_table_reader(std::move(signal_table_reader)) {}
 
+    SchemaMetadataDescription schema_metadata() const override {
+        return m_read_table_reader.schema_metadata();
+    }
+
     Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const override {
         return m_read_table_reader.read_record_batch(i);
     }

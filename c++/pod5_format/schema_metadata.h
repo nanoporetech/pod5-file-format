@@ -39,6 +39,10 @@ public:
                std::to_string(std::get<2>(m_version));
     }
 
+    std::uint16_t major_version() const { return std::get<0>(m_version); }
+    std::uint16_t minor_version() const { return std::get<1>(m_version); }
+    std::uint16_t revision_version() const { return std::get<2>(m_version); }
+
 private:
     std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> parse_version_number(
             std::string const& ver);

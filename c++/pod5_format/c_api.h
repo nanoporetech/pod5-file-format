@@ -164,6 +164,22 @@ POD5_FORMAT_EXPORT Pod5FileReader_t* pod5_open_combined_file(char const* filenam
 /// \brief Close a file reader, releasing all memory held by the reader.
 POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_reader(Pod5FileReader_t* file);
 
+struct FileInfo {
+    read_id_t file_identifier;
+
+    struct Version {
+        uint16_t major;
+        uint16_t minor;
+        uint16_t revision;
+    } version;
+};
+typedef struct FileInfo FileInfo_t;
+
+/// \brief Find the number of read batches in the file.
+/// \param[out] file        The combined file to be queried.
+/// \param      file_info   The info read from the file.
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo_t* file_info);
+
 struct EmbeddedFileData {
     size_t offset;
     size_t length;

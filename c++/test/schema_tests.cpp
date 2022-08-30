@@ -25,6 +25,9 @@ SCENARIO("Version Tests") {
     auto const parsed_version = parse_version_number("10.200.3");
     REQUIRE(parsed_version.ok());
     CHECK(Version(10, 200, 3) == *parsed_version);
+    CHECK(parsed_version->major_version() == 10);
+    CHECK(parsed_version->minor_version() == 200);
+    CHECK(parsed_version->revision_version() == 3);
 
     CHECK(Version(1, 200, 30).to_string() == "1.200.30");
 }
