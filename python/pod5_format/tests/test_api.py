@@ -70,7 +70,7 @@ def gen_test_read(seed) -> p5.Read:
         num_minknow_events=5,
         tracked_scaling=p5.pod5_types.ShiftScalePair(10.0, 50),
         predicted_scaling=p5.pod5_types.ShiftScalePair(5.0, 100.0),
-        trust_predicted_scaling=p5.pod5_types.ShiftScaleBoolPair(True, False),
+        trust_tracked_scaling=p5.pod5_types.ShiftScaleBoolPair(True, False),
     )
 
 
@@ -87,7 +87,7 @@ def single_read_attributes_as_dict(writer, read_object):
         "num_minknow_events": read_object.num_minknow_events,
         "tracked_scaling": read_object.tracked_scaling,
         "predicted_scaling": read_object.predicted_scaling,
-        "trust_predicted_scaling": read_object.trust_predicted_scaling,
+        "trust_tracked_scaling": read_object.trust_tracked_scaling,
     }
 
 
@@ -135,11 +135,11 @@ def read_list_attributes_as_dict(writer, read_objects):
         "predicted_scaling_shift": numpy.array(
             [r.predicted_scaling.shift for r in read_objects], dtype=numpy.float32
         ),
-        "trust_predicted_scale": numpy.array(
-            [r.trust_predicted_scaling.scale for r in read_objects], dtype=numpy.float32
+        "trust_tracked_scale": numpy.array(
+            [r.trust_tracked_scaling.scale for r in read_objects], dtype=numpy.float32
         ),
-        "trust_predicted_shift": numpy.array(
-            [r.trust_predicted_scaling.shift for r in read_objects], dtype=numpy.float32
+        "trust_tracked_shift": numpy.array(
+            [r.trust_tracked_scaling.shift for r in read_objects], dtype=numpy.float32
         ),
     }
 
@@ -226,7 +226,7 @@ def run_reader_test(reader: p5.Reader):
         assert data.num_minknow_events == read.num_minknow_events
         assert data.tracked_scaling == read.tracked_scaling
         assert data.predicted_scaling == read.predicted_scaling
-        assert data.trust_predicted_scaling == read.trust_predicted_scaling
+        assert data.trust_tracked_scaling == read.trust_tracked_scaling
 
         assert data.sample_count == read.sample_count
         # Expecting poor compression given the random input

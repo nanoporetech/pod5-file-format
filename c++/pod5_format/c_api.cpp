@@ -451,16 +451,16 @@ pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
             typed_row_data->tracked_scaling_shift = cols->tracked_scaling_shift->Value(row);
             typed_row_data->predicted_scaling_scale = cols->predicted_scaling_scale->Value(row);
             typed_row_data->predicted_scaling_shift = cols->predicted_scaling_shift->Value(row);
-            typed_row_data->trust_predicted_scale = cols->trust_predicted_scale->Value(row);
-            typed_row_data->trust_predicted_shift = cols->trust_predicted_shift->Value(row);
+            typed_row_data->trust_tracked_scale = cols->trust_tracked_scale->Value(row);
+            typed_row_data->trust_tracked_shift = cols->trust_tracked_shift->Value(row);
         } else {
             typed_row_data->num_minknow_events = 0;
             typed_row_data->tracked_scaling_scale = std::numeric_limits<float>::quiet_NaN();
             typed_row_data->tracked_scaling_shift = std::numeric_limits<float>::quiet_NaN();
             typed_row_data->predicted_scaling_scale = std::numeric_limits<float>::quiet_NaN();
             typed_row_data->predicted_scaling_shift = std::numeric_limits<float>::quiet_NaN();
-            typed_row_data->trust_predicted_scale = false;
-            typed_row_data->trust_predicted_shift = false;
+            typed_row_data->trust_tracked_scale = false;
+            typed_row_data->trust_tracked_shift = false;
         }
 
     } else {
@@ -1051,8 +1051,8 @@ inline bool check_read_data_struct(std::uint16_t struct_version, void const* row
                 !check_not_null(typed_row_data->tracked_scaling_shift) ||
                 !check_not_null(typed_row_data->predicted_scaling_scale) ||
                 !check_not_null(typed_row_data->predicted_scaling_shift) ||
-                !check_not_null(typed_row_data->trust_predicted_scale) ||
-                !check_not_null(typed_row_data->trust_predicted_shift)) {
+                !check_not_null(typed_row_data->trust_tracked_scale) ||
+                !check_not_null(typed_row_data->trust_tracked_shift)) {
                 return false;
             }
         }
@@ -1093,8 +1093,8 @@ inline bool load_struct_row_into_read_data(pod5::ReadData& read_data,
                                     typed_row_data->tracked_scaling_shift[row_id],
                                     typed_row_data->predicted_scaling_scale[row_id],
                                     typed_row_data->predicted_scaling_shift[row_id],
-                                    typed_row_data->trust_predicted_scale[row_id],
-                                    typed_row_data->trust_predicted_shift[row_id]);
+                                    typed_row_data->trust_tracked_scale[row_id],
+                                    typed_row_data->trust_tracked_shift[row_id]);
         }
     } else {
         pod5_set_error(

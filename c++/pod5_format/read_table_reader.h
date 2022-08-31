@@ -49,8 +49,8 @@ struct ReadTableRecordColumns {
     std::shared_ptr<arrow::FloatArray> tracked_scaling_shift;
     std::shared_ptr<arrow::FloatArray> predicted_scaling_scale;
     std::shared_ptr<arrow::FloatArray> predicted_scaling_shift;
-    std::shared_ptr<arrow::BooleanArray> trust_predicted_scale;
-    std::shared_ptr<arrow::BooleanArray> trust_predicted_shift;
+    std::shared_ptr<arrow::BooleanArray> trust_tracked_scale;
+    std::shared_ptr<arrow::BooleanArray> trust_tracked_shift;
 
     ReadTableSpecVersion table_version;
 };

@@ -92,8 +92,8 @@ private:
     std::unique_ptr<arrow::FloatBuilder> m_predicted_scaling_scale_builder;
     std::unique_ptr<arrow::FloatBuilder> m_predicted_scaling_shift_builder;
 
-    std::unique_ptr<arrow::BooleanBuilder> m_trust_predicted_scale_builder;
-    std::unique_ptr<arrow::BooleanBuilder> m_trust_predicted_shift_builder;
+    std::unique_ptr<arrow::BooleanBuilder> m_trust_tracked_scale_builder;
+    std::unique_ptr<arrow::BooleanBuilder> m_trust_tracked_shift_builder;
 #endif
 
     std::size_t m_written_batched_row_count = 0;

@@ -104,14 +104,14 @@ ReadTableSchemaDescription::ReadTableSchemaDescription()
                                   "predicted_scaling_shift",
                                   arrow::float32(),
                                   ReadTableSpecVersion::TableV1Version),
-          trust_predicted_scale(this,
-                                "trust_predicted_scale",
-                                arrow::boolean(),
-                                ReadTableSpecVersion::TableV1Version),
-          trust_predicted_shift(this,
-                                "trust_predicted_shift",
-                                arrow::boolean(),
-                                ReadTableSpecVersion::TableV1Version) {}
+          trust_tracked_scale(this,
+                              "trust_tracked_scale",
+                              arrow::boolean(),
+                              ReadTableSpecVersion::TableV1Version),
+          trust_tracked_shift(this,
+                              "trust_tracked_shift",
+                              arrow::boolean(),
+                              ReadTableSpecVersion::TableV1Version) {}
 
 std::shared_ptr<arrow::Schema> ReadTableSchemaDescription::make_schema(
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata) const {

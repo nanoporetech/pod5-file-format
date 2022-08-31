@@ -92,8 +92,8 @@ struct ReadBatchRowInfoV1 {
     float predicted_scaling_shift;
 
     // Should the predicted scale/shift be trusted - 1 for trusted, 0 for untrusted
-    unsigned char trust_predicted_scale;
-    unsigned char trust_predicted_shift;
+    unsigned char trust_tracked_scale;
+    unsigned char trust_tracked_shift;
 
     // Number of signal row entries for the read.
     int64_t signal_row_count;
@@ -135,8 +135,8 @@ struct ReadBatchRowInfoArrayV1 {
     float const* predicted_scaling_shift;
 
     // Should the predicted scale/shift be trusted - 1 for trusted, 0 for untrusted
-    unsigned char const* trust_predicted_scale;
-    unsigned char const* trust_predicted_shift;
+    unsigned char const* trust_tracked_scale;
+    unsigned char const* trust_tracked_shift;
 };
 
 // Typedef for latest batch row info structure.

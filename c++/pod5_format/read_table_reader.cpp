@@ -145,8 +145,8 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
                 find_column(bat, m_field_locations->predicted_scaling_scale);
         result.predicted_scaling_shift =
                 find_column(bat, m_field_locations->predicted_scaling_shift);
-        result.trust_predicted_scale = find_column(bat, m_field_locations->trust_predicted_scale);
-        result.trust_predicted_shift = find_column(bat, m_field_locations->trust_predicted_shift);
+        result.trust_tracked_scale = find_column(bat, m_field_locations->trust_tracked_scale);
+        result.trust_tracked_shift = find_column(bat, m_field_locations->trust_tracked_shift);
     }
 
     return result;
