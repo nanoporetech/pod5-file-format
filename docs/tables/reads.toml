@@ -42,11 +42,11 @@ description = "Scale for predicted read scaling values (based on this read's raw
 type = "float"
 description = "Shift for predicted read scaling values (based on this read's raw signal)"
 
-[fields.trust_predicted_scale]
+[fields.trust_tracked_scale]
 type = "bool"
 description = "Should the predicted scale be trusted"
 
-[fields.trust_predicted_shift]
+[fields.trust_tracked_shift]
 type = "bool"
 description = "Should the predicted shift be trusted"
 

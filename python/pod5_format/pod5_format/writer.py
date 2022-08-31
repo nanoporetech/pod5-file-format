@@ -407,11 +407,11 @@ class Writer:
             "predicted_scaling_shift": np.array(
                 [r.predicted_scaling.shift for r in reads], dtype=np.float32
             ),
-            "trust_predicted_scale": np.array(
-                [r.trust_predicted_scaling.scale for r in reads], dtype=np.bool_
+            "trust_tracked_scale": np.array(
+                [r.trust_tracked_scaling.scale for r in reads], dtype=np.bool_
             ),
-            "trust_predicted_shift": np.array(
-                [r.trust_predicted_scaling.shift for r in reads], dtype=np.bool_
+            "trust_tracked_shift": np.array(
+                [r.trust_tracked_scaling.shift for r in reads], dtype=np.bool_
             ),
         }
 
@@ -600,7 +600,7 @@ class Writer:
         num_minknow_events: int = 0,
         tracked_scaling: ShiftScalePair = ShiftScalePair(),
         predicted_scaling: ShiftScalePair = ShiftScalePair(),
-        trust_predicted_scaling: ShiftScaleBoolPair = ShiftScaleBoolPair(),
+        trust_tracked_scaling: ShiftScaleBoolPair = ShiftScaleBoolPair(),
     ):
         """
         Map individual read values to a dict of numpy arrays to be used for
@@ -613,7 +613,7 @@ class Writer:
             Tracked scaling values for the read
         predicted_scaling: ShiftScalePair
             Predicted scaling values for the read
-        trust_predicted_scaling: ShiftScaleBoolPair
+        trust_tracked_scaling: ShiftScaleBoolPair
             Are the predicted scaling values to be trusted for the read
 
         """
@@ -631,11 +631,11 @@ class Writer:
             "predicted_scaling_shift": np.array(
                 [predicted_scaling.shift], dtype=np.float32
             ),
-            "trust_predicted_scale": np.array(
-                [trust_predicted_scaling.scale], dtype=np.float32
+            "trust_tracked_scale": np.array(
+                [trust_tracked_scaling.scale], dtype=np.float32
             ),
-            "trust_predicted_shift": np.array(
-                [trust_predicted_scaling.shift], dtype=np.float32
+            "trust_tracked_shift": np.array(
+                [trust_tracked_scaling.shift], dtype=np.float32
             ),
         }
 
@@ -771,13 +771,13 @@ class Writer:
                 float("nan"),
             ),
             force_type_and_default(
-                kwargs.get("trust_predicted_scale", None),
+                kwargs.get("trust_tracked_scale", None),
                 np.float32,
                 row_count,
                 float("nan"),
             ),
             force_type_and_default(
-                kwargs.get("trust_predicted_shift", None),
+                kwargs.get("trust_tracked_shift", None),
                 np.float32,
                 row_count,
                 float("nan"),

@@ -58,8 +58,8 @@ Read = namedtuple(
         "tracked_scaling_shift",
         "predicted_scaling_scale",
         "predicted_scaling_shift",
-        "trust_predicted_scale",
-        "trust_predicted_shift",
+        "trust_tracked_scale",
+        "trust_tracked_shift",
     ],
 )
 Fast5FileData = namedtuple("Fast5FileData", ["filename", "reads"])
@@ -183,13 +183,13 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                     dtype=numpy.float32,
                 )
                 raw_group.attrs.create(
-                    "trust_predicted_scale",
-                    read.trust_predicted_scale,
+                    "trust_tracked_scale",
+                    read.trust_tracked_scale,
                     dtype=numpy.bool,
                 )
                 raw_group.attrs.create(
-                    "trust_predicted_shift",
-                    read.trust_predicted_shift,
+                    "trust_tracked_shift",
+                    read.trust_tracked_shift,
                     dtype=numpy.bool,
                 )
 
@@ -214,8 +214,8 @@ def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRe
             "tracked_scaling_shift": read.tracked_scaling.shift,
             "predicted_scaling_scale": read.predicted_scaling.scale,
             "predicted_scaling_shift": read.predicted_scaling.shift,
-            "trust_predicted_scale": read.trust_predicted_scaling.scale,
-            "trust_predicted_shift": read.trust_predicted_scaling.shift,
+            "trust_tracked_scale": read.trust_tracked_scaling.scale,
+            "trust_tracked_shift": read.trust_tracked_scaling.shift,
         }
     else:
         v1_fields = {
@@ -224,8 +224,8 @@ def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRe
             "tracked_scaling_shift": float("nan"),
             "predicted_scaling_scale": float("nan"),
             "predicted_scaling_shift": float("nan"),
-            "trust_predicted_scale": False,
-            "trust_predicted_shift": False,
+            "trust_tracked_scale": False,
+            "trust_tracked_shift": False,
         }
 
     return Read(

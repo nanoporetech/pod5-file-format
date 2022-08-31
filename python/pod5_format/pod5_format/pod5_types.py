@@ -269,7 +269,7 @@ class BaseRead:
     num_minknow_events: int = field(default=0)
     tracked_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
     predicted_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
-    trust_predicted_scaling: ShiftScaleBoolPair = field(
+    trust_tracked_scaling: ShiftScaleBoolPair = field(
         default=ShiftScaleBoolPair(False, False)
     )
 

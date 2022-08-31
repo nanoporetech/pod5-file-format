@@ -83,14 +83,18 @@ tag_version_check:
 
 
 pre-commit checks:
-    image: python:3.9
+    image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
     stage: pre-flight
     tags:
         - linux
     script:
         - pip install pre-commit
           # if any of the hooks wanted to modify files, this will have a non-zero exit
+        - if ! pre-commit run --all-files; then
+        - rm -rf .cache
+        - git checkout -f
         - pre-commit run --all-files
+        - fi
     variables:
         PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
     cache:

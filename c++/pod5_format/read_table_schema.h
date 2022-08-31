@@ -180,8 +180,8 @@ public:
     Field<11, arrow::FloatArray> tracked_scaling_shift;
     Field<12, arrow::FloatArray> predicted_scaling_scale;
     Field<13, arrow::FloatArray> predicted_scaling_shift;
-    Field<14, arrow::BooleanArray> trust_predicted_scale;
-    Field<15, arrow::BooleanArray> trust_predicted_shift;
+    Field<14, arrow::BooleanArray> trust_tracked_scale;
+    Field<15, arrow::BooleanArray> trust_tracked_shift;
 
     using FieldBuilders = FieldBuilder<
             // V0 fields
@@ -201,8 +201,8 @@ public:
             decltype(tracked_scaling_shift),
             decltype(predicted_scaling_scale),
             decltype(predicted_scaling_shift),
-            decltype(trust_predicted_scale),
-            decltype(trust_predicted_shift)>;
+            decltype(trust_tracked_scale),
+            decltype(trust_tracked_shift)>;
 
     PoreStructSchemaDescription pore_fields;
     CalibrationStructSchemaDescription calibration_fields;

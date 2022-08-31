@@ -81,8 +81,8 @@ ReadRecordV1Columns = namedtuple(
         "tracked_scaling_shift",
         "predicted_scaling_scale",
         "predicted_scaling_shift",
-        "trust_predicted_scale",
-        "trust_predicted_shift",
+        "trust_tracked_scale",
+        "trust_tracked_shift",
     ],
 )
 
@@ -196,15 +196,15 @@ class ReadRecord:
         )
 
     @property
-    def trust_predicted_scaling(self) -> ShiftScaleBoolPair:
+    def trust_tracked_scaling(self) -> ShiftScaleBoolPair:
         """
         Find whether the predicted scale and shift should be trusted.
         """
         if not isinstance(self._batch.columns, ReadRecordV1Columns):
             return ShiftScalePair(float("nan"), float("nan"))
         return ShiftScaleBoolPair(
-            self._batch.columns.trust_predicted_shift[self._row].as_py(),
-            self._batch.columns.trust_predicted_scale[self._row].as_py(),
+            self._batch.columns.trust_tracked_shift[self._row].as_py(),
+            self._batch.columns.trust_tracked_scale[self._row].as_py(),
         )
 
     @property
