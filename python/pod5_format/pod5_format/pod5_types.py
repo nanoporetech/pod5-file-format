@@ -214,14 +214,6 @@ class ShiftScalePair:
 
 
 @dataclass(frozen=True)
-class ShiftScaleBoolPair:
-    """A pair of boolean values associated with shift and scale values."""
-
-    shift: bool = field(default=False)
-    scale: bool = field(default=False)
-
-
-@dataclass(frozen=True)
 class BaseRead:
     """
     Base class for POD5 Read Data
@@ -269,9 +261,8 @@ class BaseRead:
     num_minknow_events: int = field(default=0)
     tracked_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
     predicted_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
-    trust_tracked_scaling: ShiftScaleBoolPair = field(
-        default=ShiftScaleBoolPair(False, False)
-    )
+    num_reads_since_mux_change: int = field(default=0)
+    time_since_mux_change: float = field(default=0.0)
 
 
 @dataclass(frozen=True)

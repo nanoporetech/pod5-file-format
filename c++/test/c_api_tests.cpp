@@ -39,8 +39,8 @@ SCENARIO("C API") {
     float predicted_shift = 10.0f;
     float tracked_scale = 4.3f;
     float tracked_shift = 15.0f;
-    unsigned char trust_tracked_scale = false;
-    unsigned char trust_tracked_shift = true;
+    std::uint32_t num_reads_since_mux_change = 1234;
+    float time_since_mux_change = 2.4f;
     std::uint64_t num_minknow_events = 104;
 
     // Write the file:
@@ -108,8 +108,8 @@ SCENARIO("C API") {
                                          &tracked_shift,
                                          &predicted_scale,
                                          &predicted_shift,
-                                         &trust_tracked_scale,
-                                         &trust_tracked_shift};
+                                         &num_reads_since_mux_change,
+                                         &time_since_mux_change};
 
         {
             std::int16_t const* signal_arr[] = {signal_1.data()};
@@ -230,8 +230,8 @@ SCENARIO("C API") {
                 CHECK(obj.tracked_scaling_shift == tracked_shift);
                 CHECK(obj.predicted_scaling_scale == predicted_scale);
                 CHECK(obj.predicted_scaling_shift == predicted_shift);
-                CHECK(obj.trust_tracked_scale == trust_tracked_scale);
-                CHECK(obj.trust_tracked_shift == trust_tracked_shift);
+                CHECK(obj.num_reads_since_mux_change == num_reads_since_mux_change);
+                CHECK(obj.time_since_mux_change == time_since_mux_change);
                 CHECK(obj.num_minknow_events == num_minknow_events);
             };
 

@@ -33,7 +33,6 @@ from pod5_format.pod5_types import (
     Pore,
     Read,
     RunInfo,
-    ShiftScaleBoolPair,
     ShiftScalePair,
 )
 
@@ -407,11 +406,11 @@ class Writer:
             "predicted_scaling_shift": np.array(
                 [r.predicted_scaling.shift for r in reads], dtype=np.float32
             ),
-            "trust_tracked_scale": np.array(
-                [r.trust_tracked_scaling.scale for r in reads], dtype=np.bool_
+            "num_reads_since_mux_change": np.array(
+                [r.num_reads_since_mux_change for r in reads], dtype=np.uint32
             ),
-            "trust_tracked_shift": np.array(
-                [r.trust_tracked_scaling.shift for r in reads], dtype=np.bool_
+            "time_since_mux_change": np.array(
+                [r.time_since_mux_change for r in reads], dtype=np.float32
             ),
         }
 
@@ -600,7 +599,8 @@ class Writer:
         num_minknow_events: int = 0,
         tracked_scaling: ShiftScalePair = ShiftScalePair(),
         predicted_scaling: ShiftScalePair = ShiftScalePair(),
-        trust_tracked_scaling: ShiftScaleBoolPair = ShiftScaleBoolPair(),
+        num_reads_since_mux_change: int = 0,
+        time_since_mux_change: float = 0.0,
     ):
         """
         Map individual read values to a dict of numpy arrays to be used for
@@ -613,9 +613,10 @@ class Writer:
             Tracked scaling values for the read
         predicted_scaling: ShiftScalePair
             Predicted scaling values for the read
-        trust_tracked_scaling: ShiftScaleBoolPair
-            Are the predicted scaling values to be trusted for the read
-
+        num_reads_since_mux_change: int
+            Number of selected reads since the last mux change on this reads channel
+        time_since_mux_change: float
+            Time in seconds since the last mux change on this reads channel
         """
         return {
             "num_minknow_events": np.array([num_minknow_events], dtype=np.uint64),
@@ -631,11 +632,11 @@ class Writer:
             "predicted_scaling_shift": np.array(
                 [predicted_scaling.shift], dtype=np.float32
             ),
-            "trust_tracked_scale": np.array(
-                [trust_tracked_scaling.scale], dtype=np.float32
+            "num_reads_since_mux_change": np.array(
+                [num_reads_since_mux_change], dtype=np.uint32
             ),
-            "trust_tracked_shift": np.array(
-                [trust_tracked_scaling.shift], dtype=np.float32
+            "time_since_mux_change": np.array(
+                [time_since_mux_change], dtype=np.float32
             ),
         }
 
@@ -771,16 +772,16 @@ class Writer:
                 float("nan"),
             ),
             force_type_and_default(
-                kwargs.get("trust_tracked_scale", None),
-                np.float32,
+                kwargs.get("num_reads_since_mux_change", None),
+                np.uint32,
                 row_count,
-                float("nan"),
+                0,
             ),
             force_type_and_default(
-                kwargs.get("trust_tracked_shift", None),
+                kwargs.get("time_since_mux_change", None),
                 np.float32,
                 row_count,
-                float("nan"),
+                0.0,
             ),
         ]
 

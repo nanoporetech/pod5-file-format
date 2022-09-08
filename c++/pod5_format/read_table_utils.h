@@ -49,20 +49,20 @@ public:
               end_reason(end_reason),
               run_info(run_info) {}
 
-    void set_v1_fields(uint64_t num_minknow_events_in,
+    void set_v1_fields(std::uint64_t num_minknow_events_in,
                        float tracked_scaling_scale_in,
                        float tracked_scaling_shift_in,
                        float predicted_scaling_scale_in,
                        float predicted_scaling_shift_in,
-                       bool trust_tracked_scale_in,
-                       bool trust_tracked_shift_in) {
+                       std::uint32_t num_reads_since_mux_change_in,
+                       float time_since_mux_change_in) {
         num_minknow_events = num_minknow_events_in;
         tracked_scaling_scale = tracked_scaling_scale_in;
         tracked_scaling_shift = tracked_scaling_shift_in;
         predicted_scaling_scale = predicted_scaling_scale_in;
         predicted_scaling_shift = predicted_scaling_shift_in;
-        trust_tracked_scale = trust_tracked_scale_in;
-        trust_tracked_shift = trust_tracked_shift_in;
+        num_reads_since_mux_change = num_reads_since_mux_change_in;
+        time_since_mux_change = time_since_mux_change_in;
     }
 
     boost::uuids::uuid read_id;
@@ -74,13 +74,13 @@ public:
     EndReasonDictionaryIndex end_reason;
     RunInfoDictionaryIndex run_info;
 
-    uint64_t num_minknow_events = 0;
+    std::uint64_t num_minknow_events = 0;
     float tracked_scaling_scale = std::numeric_limits<float>::quiet_NaN();
     float tracked_scaling_shift = std::numeric_limits<float>::quiet_NaN();
     float predicted_scaling_scale = std::numeric_limits<float>::quiet_NaN();
     float predicted_scaling_shift = std::numeric_limits<float>::quiet_NaN();
-    bool trust_tracked_scale = false;
-    bool trust_tracked_shift = false;
+    std::uint32_t num_reads_since_mux_change;
+    float time_since_mux_change;
 };
 
 inline bool operator==(ReadData const& a, ReadData const& b) {

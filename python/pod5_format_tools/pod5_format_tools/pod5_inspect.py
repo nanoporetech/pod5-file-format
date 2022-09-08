@@ -40,7 +40,8 @@ def do_reads_command(combined_reader: p5.CombinedReader):
                 "num_minknow_events",
                 "tracked_scaling",
                 "predicted_scaling",
-                "trust_tracked_scaling",
+                "num_reads_since_mux_change",
+                "time_since_mux_change",
             ]
         )
 
@@ -71,9 +72,8 @@ def do_reads_command(combined_reader: p5.CombinedReader):
                     "predicted_scaling": format_shift_scale_pair_num(
                         read.predicted_scaling
                     ),
-                    "trust_tracked_scaling": format_shift_scale_pair(
-                        read.trust_tracked_scaling
-                    ),
+                    "num_reads_since_mux_change": read.num_reads_since_mux_change,
+                    "time_since_mux_change": read.time_since_mux_change,
                 }
             )
 

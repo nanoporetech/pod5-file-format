@@ -70,7 +70,8 @@ def gen_test_read(seed) -> p5.Read:
         num_minknow_events=5,
         tracked_scaling=p5.pod5_types.ShiftScalePair(10.0, 50),
         predicted_scaling=p5.pod5_types.ShiftScalePair(5.0, 100.0),
-        trust_tracked_scaling=p5.pod5_types.ShiftScaleBoolPair(True, False),
+        num_reads_since_mux_change=123,
+        time_since_mux_change=456.0,
     )
 
 
@@ -87,7 +88,8 @@ def single_read_attributes_as_dict(writer, read_object):
         "num_minknow_events": read_object.num_minknow_events,
         "tracked_scaling": read_object.tracked_scaling,
         "predicted_scaling": read_object.predicted_scaling,
-        "trust_tracked_scaling": read_object.trust_tracked_scaling,
+        "num_reads_since_mux_change": read_object.num_reads_since_mux_change,
+        "time_since_mux_change": read_object.time_since_mux_change,
     }
 
 
@@ -135,11 +137,11 @@ def read_list_attributes_as_dict(writer, read_objects):
         "predicted_scaling_shift": numpy.array(
             [r.predicted_scaling.shift for r in read_objects], dtype=numpy.float32
         ),
-        "trust_tracked_scale": numpy.array(
-            [r.trust_tracked_scaling.scale for r in read_objects], dtype=numpy.float32
+        "num_reads_since_mux_change": numpy.array(
+            [r.num_reads_since_mux_change for r in read_objects], dtype=numpy.uint32
         ),
-        "trust_tracked_shift": numpy.array(
-            [r.trust_tracked_scaling.shift for r in read_objects], dtype=numpy.float32
+        "time_since_mux_change": numpy.array(
+            [r.time_since_mux_change for r in read_objects], dtype=numpy.float32
         ),
     }
 
@@ -226,7 +228,8 @@ def run_reader_test(reader: p5.Reader):
         assert data.num_minknow_events == read.num_minknow_events
         assert data.tracked_scaling == read.tracked_scaling
         assert data.predicted_scaling == read.predicted_scaling
-        assert data.trust_tracked_scaling == read.trust_tracked_scaling
+        assert data.num_reads_since_mux_change == read.num_reads_since_mux_change
+        assert data.time_since_mux_change == read.time_since_mux_change
 
         assert data.sample_count == read.sample_count
         # Expecting poor compression given the random input

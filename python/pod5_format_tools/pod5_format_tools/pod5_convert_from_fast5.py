@@ -258,10 +258,8 @@ def convert_fast5_read(
             raw.attrs.get("predicted_scaling_shift", float("nan")),
             raw.attrs.get("predicted_scaling_scale", float("nan")),
         ),
-        trust_tracked_scaling=p5.pod5_types.ShiftScaleBoolPair(
-            raw.attrs.get("trust_tracked_shift", False),
-            raw.attrs.get("trust_tracked_scale", False),
-        ),
+        num_reads_since_mux_change=raw.attrs.get("num_reads_since_mux_change", 0),
+        time_since_mux_change=raw.attrs.get("time_since_mux_change", 0.0),
         end_reason=end_reason,
         run_info=run_info_cache[acq_id],
         signal_chunks=signal_chunks,
