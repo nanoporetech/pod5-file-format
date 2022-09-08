@@ -38,6 +38,9 @@ class Pod5Conan(ConanFile):
         self.requires(f"flatbuffers/2.0.0{package_suffix}")
         self.requires(f"zstd/1.4.8{package_suffix}")
 
+        if not (self.settings.os == "Windows" or self.settings.os == "Macos"):
+            self.requires(f"jemalloc/5.2.1{package_suffix}")
+
     def build(self):
         cmake = CMake(self)
         shared = "ON" if self.options.shared else "OFF"

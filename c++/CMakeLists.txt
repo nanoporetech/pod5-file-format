@@ -5,6 +5,10 @@ if (ENABLE_CONAN)
     find_package(Boost REQUIRED CONFIG)
     find_package(Flatbuffers REQUIRED CONFIG)
     find_package(zstd REQUIRED CONFIG)
+
+    if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+        find_package(jemalloc REQUIRED CONFIG)
+    endif()
 else()
     find_package(Arrow REQUIRED)
     find_package(
@@ -146,7 +150,7 @@ target_link_libraries(pod5_format
 )
 
 if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
-    set(pod5_libs arrow zstd)
+    set(pod5_libs arrow zstd jemalloc)
     foreach (lib ${pod5_libs})
             
         install(
