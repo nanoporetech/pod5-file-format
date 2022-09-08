@@ -297,8 +297,9 @@ inline void FileWriter_add_reads(
                 predicted_scaling_scale,
         py::array_t<float, py::array::c_style | py::array::forcecast> const&
                 predicted_scaling_shift,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_tracked_scale,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_tracked_shift,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
+                num_reads_since_mux_change,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& time_since_mux_change,
         py::list signal_ptrs) {
     if (read_id_data.shape(1) != 16) {
         throw std::runtime_error("Read id array is of unexpected size");
@@ -320,8 +321,9 @@ inline void FileWriter_add_reads(
                 *end_reasons.data(i),  *run_infos.data(i)};
         read_data.set_v1_fields(*num_minknow_events.data(i), *tracked_scaling_scale.data(i),
                                 *tracked_scaling_shift.data(i), *predicted_scaling_scale.data(i),
-                                *predicted_scaling_shift.data(i), *trust_tracked_scale.data(i),
-                                *trust_tracked_shift.data(i));
+                                *predicted_scaling_shift.data(i),
+                                *num_reads_since_mux_change.data(i),
+                                *time_since_mux_change.data(i));
 
         throw_on_error(w.add_complete_read(read_data, signal_span));
     }
@@ -346,8 +348,9 @@ inline void FileWriter_add_reads_pre_compressed(
                 predicted_scaling_scale,
         py::array_t<float, py::array::c_style | py::array::forcecast> const&
                 predicted_scaling_shift,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_tracked_scale,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& trust_tracked_shift,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
+                num_reads_since_mux_change,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& time_since_mux_change,
         py::list compressed_signal_ptrs,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& sample_counts,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
@@ -388,8 +391,9 @@ inline void FileWriter_add_reads_pre_compressed(
                 *end_reasons.data(i),  *run_infos.data(i)};
         read_data.set_v1_fields(*num_minknow_events.data(i), *tracked_scaling_scale.data(i),
                                 *tracked_scaling_shift.data(i), *predicted_scaling_scale.data(i),
-                                *predicted_scaling_shift.data(i), *trust_tracked_scale.data(i),
-                                *trust_tracked_shift.data(i));
+                                *predicted_scaling_shift.data(i),
+                                *num_reads_since_mux_change.data(i),
+                                *time_since_mux_change.data(i));
 
         throw_on_error(w.add_complete_read(read_data, signal_rows));
     }

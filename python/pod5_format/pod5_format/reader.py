@@ -37,7 +37,6 @@ from pod5_format.pod5_types import (
     Read,
     RunInfo,
     ShiftScalePair,
-    ShiftScaleBoolPair,
 )
 
 from .api_utils import deprecation_warning, pack_read_ids
@@ -81,8 +80,8 @@ ReadRecordV1Columns = namedtuple(
         "tracked_scaling_shift",
         "predicted_scaling_scale",
         "predicted_scaling_shift",
-        "trust_tracked_scale",
-        "trust_tracked_shift",
+        "num_reads_since_mux_change",
+        "time_since_mux_change",
     ],
 )
 
@@ -196,16 +195,22 @@ class ReadRecord:
         )
 
     @property
-    def trust_tracked_scaling(self) -> ShiftScaleBoolPair:
+    def num_reads_since_mux_change(self) -> int:
         """
-        Find whether the predicted scale and shift should be trusted.
+        Number of selected reads since the last mux change on this reads channel.
         """
         if not isinstance(self._batch.columns, ReadRecordV1Columns):
-            return ShiftScalePair(float("nan"), float("nan"))
-        return ShiftScaleBoolPair(
-            self._batch.columns.trust_tracked_shift[self._row].as_py(),
-            self._batch.columns.trust_tracked_scale[self._row].as_py(),
-        )
+            return 0
+        return self._batch.columns.num_reads_since_mux_change[self._row].as_py()
+
+    @property
+    def time_since_mux_change(self) -> int:
+        """
+        Time in seconds since the last mux change on this reads channel.
+        """
+        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+            return 0
+        return self._batch.columns.time_since_mux_change[self._row].as_py()
 
     @property
     def pore(self) -> Pore:

@@ -65,37 +65,6 @@ private:
 
     ReadTableSchemaDescription::FieldBuilders m_field_builders;
 
-#if 0
-    std::unique_ptr<arrow::FixedSizeBinaryBuilder> m_read_id_builder;
-
-    std::shared_ptr<arrow::UInt64Builder> m_signal_array_builder;
-    std::unique_ptr<arrow::ListBuilder> m_signal_builder;
-
-    std::unique_ptr<arrow::UInt32Builder> m_read_number_builder;
-    std::unique_ptr<arrow::UInt64Builder> m_start_sample_builder;
-    std::unique_ptr<arrow::FloatBuilder> m_median_before_builder;
-
-    std::unique_ptr<arrow::Int16Builder> m_pore_builder;
-    std::unique_ptr<arrow::Int16Builder> m_calibration_builder;
-    std::unique_ptr<arrow::Int16Builder> m_end_reason_builder;
-    std::unique_ptr<arrow::Int16Builder> m_run_info_builder;
-
-    std::shared_ptr<PoreWriter> m_pore_writer;
-    std::shared_ptr<CalibrationWriter> m_calibration_writer;
-    std::shared_ptr<EndReasonWriter> m_end_reason_writer;
-    std::shared_ptr<RunInfoWriter> m_run_info_writer;
-
-    std::unique_ptr<arrow::UInt64Builder> m_num_minknow_events_builder;
-
-    std::unique_ptr<arrow::FloatBuilder> m_tracked_scaling_scale_builder;
-    std::unique_ptr<arrow::FloatBuilder> m_tracked_scaling_shift_builder;
-    std::unique_ptr<arrow::FloatBuilder> m_predicted_scaling_scale_builder;
-    std::unique_ptr<arrow::FloatBuilder> m_predicted_scaling_shift_builder;
-
-    std::unique_ptr<arrow::BooleanBuilder> m_trust_tracked_scale_builder;
-    std::unique_ptr<arrow::BooleanBuilder> m_trust_tracked_shift_builder;
-#endif
-
     std::size_t m_written_batched_row_count = 0;
     std::size_t m_current_batch_row_count = 0;
 };

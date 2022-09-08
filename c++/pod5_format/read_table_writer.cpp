@@ -61,8 +61,8 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
             // V1 Fields
             read_data.num_minknow_events, read_data.tracked_scaling_scale,
             read_data.tracked_scaling_shift, read_data.predicted_scaling_scale,
-            read_data.predicted_scaling_shift, read_data.trust_tracked_scale,
-            read_data.trust_tracked_shift));
+            read_data.predicted_scaling_shift, read_data.num_reads_since_mux_change,
+            read_data.time_since_mux_change));
 
     ++m_current_batch_row_count;
 

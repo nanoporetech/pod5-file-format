@@ -91,9 +91,10 @@ struct ReadBatchRowInfoV1 {
     float predicted_scaling_scale;
     float predicted_scaling_shift;
 
-    // Should the predicted scale/shift be trusted - 1 for trusted, 0 for untrusted
-    unsigned char trust_tracked_scale;
-    unsigned char trust_tracked_shift;
+    // How many reads have been selected prior to this read on the channel-well since it was made active.
+    uint32_t num_reads_since_mux_change;
+    // How many seconds have passed since the channel-well was made active
+    float time_since_mux_change;
 
     // Number of signal row entries for the read.
     int64_t signal_row_count;
@@ -134,9 +135,10 @@ struct ReadBatchRowInfoArrayV1 {
     float const* predicted_scaling_scale;
     float const* predicted_scaling_shift;
 
-    // Should the predicted scale/shift be trusted - 1 for trusted, 0 for untrusted
-    unsigned char const* trust_tracked_scale;
-    unsigned char const* trust_tracked_shift;
+    // How many reads have been selected prior to this read on the channel-well since it was made active.
+    uint32_t* num_reads_since_mux_change;
+    // How many seconds have passed since the channel-well was made active
+    float* time_since_mux_change;
 };
 
 // Typedef for latest batch row info structure.

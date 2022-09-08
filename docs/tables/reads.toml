@@ -42,13 +42,13 @@ description = "Scale for predicted read scaling values (based on this read's raw
 type = "float"
 description = "Shift for predicted read scaling values (based on this read's raw signal)"
 
-[fields.trust_tracked_scale]
-type = "bool"
-description = "Should the predicted scale be trusted"
+[fields.num_reads_since_mux_change]
+type = "uint32"
+description = "Number of selected reads since the last mux change on this reads channel"
 
-[fields.trust_tracked_shift]
-type = "bool"
-description = "Should the predicted shift be trusted"
+[fields.time_since_mux_change]
+type = "float"
+description = "Time in seconds since the last mux change on this reads channel"
 
 [fields.num_minknow_events]
 type = i8
