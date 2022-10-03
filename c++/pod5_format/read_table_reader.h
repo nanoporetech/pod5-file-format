@@ -59,6 +59,8 @@ class POD5_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
 public:
     ReadTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
                          std::shared_ptr<ReadTableSchemaDescription const> const& field_locations);
+    ReadTableRecordBatch(ReadTableRecordBatch&&);
+    ReadTableRecordBatch& operator=(ReadTableRecordBatch&&);
 
     std::shared_ptr<UuidArray> read_id_column() const;
     std::shared_ptr<arrow::ListArray> signal_column() const;
@@ -79,6 +81,7 @@ public:
 
 private:
     std::shared_ptr<ReadTableSchemaDescription const> m_field_locations;
+    mutable std::mutex m_dictionary_access_lock;
 };
 
 class POD5_FORMAT_EXPORT ReadTableReader : public TableReader {
