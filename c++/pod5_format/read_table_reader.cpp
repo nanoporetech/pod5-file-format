@@ -90,6 +90,19 @@ ReadTableRecordBatch::ReadTableRecordBatch(
         std::shared_ptr<ReadTableSchemaDescription const> const& field_locations)
         : TableRecordBatch(std::move(batch)), m_field_locations(field_locations) {}
 
+ReadTableRecordBatch::ReadTableRecordBatch(ReadTableRecordBatch&& other)
+        : TableRecordBatch(std::move(other)) {
+    m_field_locations = std::move(other.m_field_locations);
+}
+
+ReadTableRecordBatch& ReadTableRecordBatch::operator=(ReadTableRecordBatch&& other) {
+    TableRecordBatch& base = *this;
+    base = other;
+
+    m_field_locations = std::move(other.m_field_locations);
+    return *this;
+}
+
 std::shared_ptr<UuidArray> ReadTableRecordBatch::read_id_column() const {
     return find_column(batch(), m_field_locations->read_id);
 }
@@ -154,6 +167,7 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
 }
 
 Result<PoreData> ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
+    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
     auto pore_data = std::static_pointer_cast<arrow::StructArray>(pore_column()->dictionary());
     StructHelper hlp(pore_data);
 
@@ -169,6 +183,7 @@ Result<PoreData> ReadTableRecordBatch::get_pore(std::int16_t pore_index) const {
 
 Result<CalibrationData> ReadTableRecordBatch::get_calibration(
         std::int16_t calibration_index) const {
+    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
     auto calibration_data =
             std::static_pointer_cast<arrow::StructArray>(calibration_column()->dictionary());
     StructHelper hlp(calibration_data);
@@ -185,6 +200,7 @@ Result<CalibrationData> ReadTableRecordBatch::get_calibration(
 }
 
 Result<EndReasonData> ReadTableRecordBatch::get_end_reason(std::int16_t end_reason_index) const {
+    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
     auto end_reason_data =
             std::static_pointer_cast<arrow::StructArray>(end_reason_column()->dictionary());
     StructHelper hlp(end_reason_data);
@@ -202,6 +218,7 @@ Result<EndReasonData> ReadTableRecordBatch::get_end_reason(std::int16_t end_reas
 }
 
 Result<RunInfoData> ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const {
+    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
     auto run_info_data =
             std::static_pointer_cast<arrow::StructArray>(run_info_column()->dictionary());
     StructHelper hlp(run_info_data);
