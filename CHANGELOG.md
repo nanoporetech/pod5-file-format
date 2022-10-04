@@ -10,3 +10,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.32] - 2022-10-03
 ### Changed
 - Fixed an issue where multi-threaded access to a single batch could cause a crash discovered by dorado testing.
+- Fixed help text in convert to fast5 script.
