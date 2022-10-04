@@ -255,7 +255,7 @@ def make_fast5_filename(output_location, file_index):
 
 
 def main():
-    parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
+    parser = argparse.ArgumentParser("Convert a pod5 file into an fast5 file")
 
     parser.add_argument("input", type=Path, nargs="+")
     parser.add_argument("output", type=Path)
