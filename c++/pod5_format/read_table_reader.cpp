@@ -163,6 +163,11 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
         result.time_since_mux_change = find_column(bat, m_field_locations->time_since_mux_change);
     }
 
+    // V2 fields:
+    if (result.table_version >= ReadTableSpecVersion::TableV2Version) {
+        result.num_samples = find_column(bat, m_field_locations->num_samples);
+    }
+
     return result;
 }
 

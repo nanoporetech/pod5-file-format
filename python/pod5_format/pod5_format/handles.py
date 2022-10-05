@@ -142,6 +142,7 @@ class ReaderHandleManager:
         Pod5ApiException
             If there is an error opening the file reader
         """
+        print("Open ", combined_path)
         combined_path = Path(combined_path)
 
         if not combined_path.is_file():

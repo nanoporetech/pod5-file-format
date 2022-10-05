@@ -43,9 +43,11 @@ public:
     ///        The batch is not flushed to disk until #flush is called.
     /// \param read_data The data to add as a read.
     /// \param signal List of signal table row indices that belong to this read.
+    /// \param signal_duration The length of the read in samples.
     /// \returns The row index of the inserted read, or a status on failure.
     Result<std::size_t> add_read(ReadData const& read_data,
-                                 gsl::span<SignalTableRowIndex const> const& signal);
+                                 gsl::span<SignalTableRowIndex const> const& signal,
+                                 std::uint64_t signal_duration);
 
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();

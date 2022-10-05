@@ -100,8 +100,52 @@ struct ReadBatchRowInfoV1 {
     int64_t signal_row_count;
 };
 
+// Single entry of read data:
+struct ReadBatchRowInfoV2 {
+    // The read id data, in binary form.
+    read_id_t read_id;
+
+    // Read number for the read.
+    uint32_t read_number;
+    // Start sample for the read.
+    uint64_t start_sample;
+    // Median before level.
+    float median_before;
+
+    // Pore type for the read.
+    int16_t pore;
+    // Palibration type for the read.
+    int16_t calibration;
+    // End reason type for the read.
+    int16_t end_reason;
+    // Run info type for the read.
+    int16_t run_info;
+
+    // Number of minknow events that the read contains
+    uint64_t num_minknow_events;
+
+    // Scale/Shift for tracked read scaling values (based on previous reads)
+    float tracked_scaling_scale;
+    float tracked_scaling_shift;
+
+    // Scale/Shift for predicted read scaling values (based on this read's raw signal)
+    float predicted_scaling_scale;
+    float predicted_scaling_shift;
+
+    // How many reads have been selected prior to this read on the channel-well since it was made active.
+    uint32_t num_reads_since_mux_change;
+    // How many seconds have passed since the channel-well was made active
+    float time_since_mux_change;
+
+    // Number of signal row entries for the read.
+    int64_t signal_row_count;
+
+    // The length of the read in samples.
+    uint64_t num_samples;
+};
+
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoV1 ReadBatchRowInfo_t;
+typedef struct ReadBatchRowInfoV2 ReadBatchRowInfo_t;
 
 // Array of read data:
 struct ReadBatchRowInfoArrayV1 {
@@ -141,14 +185,18 @@ struct ReadBatchRowInfoArrayV1 {
     float* time_since_mux_change;
 };
 
+typedef struct ReadBatchRowInfoArrayV1 ReadBatchRowInfoArrayV2;
+
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoArrayV1 ReadBatchRowInfoArray_t;
+typedef ReadBatchRowInfoArrayV2 ReadBatchRowInfoArray_t;
 
 #define READ_BATCH_ROW_INFO_VERSION_0 0
 // Addition of num_minknow_events fields, scaling fields.
 #define READ_BATCH_ROW_INFO_VERSION_1 1
+// Addition of num_samples fields.
+#define READ_BATCH_ROW_INFO_VERSION_2 2
 // Latest available version.
-#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_1
+#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_2
 
 //---------------------------------------------------------------------------------------------------------------------
 // Reading files

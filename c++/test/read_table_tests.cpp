@@ -107,7 +107,7 @@ SCENARIO("Read table Tests") {
                     pod5::ReadData read_data;
                     std::vector<std::uint64_t> signal;
                     std::tie(read_data, signal) = data_for_index(idx);
-                    auto row = writer->add_read(read_data, signal);
+                    auto row = writer->add_read(read_data, signal, signal.size());
 
                     REQUIRE(row.ok());
                     CHECK(*row == idx);
@@ -136,40 +136,27 @@ SCENARIO("Read table Tests") {
                 REQUIRE(record_batch.ok());
                 REQUIRE(record_batch->num_rows() == read_count);
 
-                auto read_id = record_batch->read_id_column();
-                CHECK(read_id->length() == read_count);
+                auto columns = record_batch->columns();
 
-                auto signal = record_batch->signal_column();
-                CHECK(signal->length() == read_count);
+                CHECK(columns->read_id->length() == read_count);
+                CHECK(columns->signal->length() == read_count);
+                CHECK(columns->pore->length() == read_count);
+                CHECK(columns->calibration->length() == read_count);
+                CHECK(columns->read_number->length() == read_count);
+                CHECK(columns->start_sample->length() == read_count);
+                CHECK(columns->median_before->length() == read_count);
+                CHECK(columns->num_samples->length() == read_count);
+                CHECK(columns->end_reason->length() == read_count);
+                CHECK(columns->run_info->length() == read_count);
 
-                auto pore = record_batch->pore_column();
-                CHECK(pore->length() == read_count);
-
-                auto calibration = record_batch->calibration_column();
-                CHECK(calibration->length() == read_count);
-
-                auto read_number = record_batch->read_number_column();
-                CHECK(read_number->length() == read_count);
-
-                auto start_sample = record_batch->start_sample_column();
-                CHECK(start_sample->length() == read_count);
-
-                auto median_before = record_batch->median_before_column();
-                CHECK(median_before->length() == read_count);
-
-                auto end_reason = record_batch->end_reason_column();
-                CHECK(end_reason->length() == read_count);
-
-                auto run_info = record_batch->run_info_column();
-                CHECK(run_info->length() == read_count);
-
-                auto pore_indices = std::static_pointer_cast<arrow::Int16Array>(pore->indices());
-                auto calibration_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(calibration->indices());
+                auto pore_indices =
+                        std::static_pointer_cast<arrow::Int16Array>(columns->pore->indices());
+                auto calibration_indices = std::static_pointer_cast<arrow::Int16Array>(
+                        columns->calibration->indices());
                 auto end_reason_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(end_reason->indices());
+                        std::static_pointer_cast<arrow::Int16Array>(columns->end_reason->indices());
                 auto run_info_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(run_info->indices());
+                        std::static_pointer_cast<arrow::Int16Array>(columns->run_info->indices());
                 for (auto j = 0; j < read_count; ++j) {
                     auto idx = j + i * read_count;
 
@@ -177,16 +164,17 @@ SCENARIO("Read table Tests") {
                     std::vector<std::uint64_t> expected_signal;
                     std::tie(read_data, expected_signal) = data_for_index(idx);
 
-                    CHECK(read_id->Value(j) == read_data.read_id);
+                    CHECK(columns->read_id->Value(j) == read_data.read_id);
 
-                    auto signal_data =
-                            std::static_pointer_cast<arrow::UInt64Array>(signal->value_slice(j));
+                    auto signal_data = std::static_pointer_cast<arrow::UInt64Array>(
+                            columns->signal->value_slice(j));
                     CHECK(gsl::make_span(signal_data->raw_values(), signal_data->length()) ==
                           gsl::make_span(expected_signal));
 
-                    CHECK(read_number->Value(j) == read_data.read_number);
-                    CHECK(start_sample->Value(j) == read_data.start_sample);
-                    CHECK(median_before->Value(j) == read_data.median_before);
+                    CHECK(columns->read_number->Value(j) == read_data.read_number);
+                    CHECK(columns->start_sample->Value(j) == read_data.start_sample);
+                    CHECK(columns->median_before->Value(j) == read_data.median_before);
+                    CHECK(columns->num_samples->Value(j) == expected_signal.size());
 
                     CHECK(calibration_indices->Value(j) == read_data.calibration);
                     CHECK(end_reason_indices->Value(j) == read_data.end_reason);

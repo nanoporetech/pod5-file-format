@@ -111,7 +111,8 @@ ReadTableSchemaDescription::ReadTableSchemaDescription()
           time_since_mux_change(this,
                                 "time_since_mux_change",
                                 arrow::float32(),
-                                ReadTableSpecVersion::TableV1Version) {}
+                                ReadTableSpecVersion::TableV1Version),
+          num_samples(this, "num_samples", arrow::uint64(), ReadTableSpecVersion::TableV2Version) {}
 
 std::shared_ptr<arrow::Schema> ReadTableSchemaDescription::make_schema(
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata) const {
@@ -143,6 +144,8 @@ Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema
     auto result = std::make_shared<ReadTableSchemaDescription>();
     if (schema_metadata.writing_pod5_version < Version(0, 0, 24)) {
         result->table_spec_version = ReadTableSpecVersion::TableV0Version;
+    } else if (schema_metadata.writing_pod5_version < Version(0, 0, 32)) {
+        result->table_spec_version = ReadTableSpecVersion::TableV1Version;
     }
 
     for (auto& field : result->fields()) {

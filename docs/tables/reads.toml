@@ -62,6 +62,10 @@ description = "Why the read ended."
 type = "dictionary(int16, RunInfo)"
 description = "Describes higher-level information about the reads that correspond to a single (part of) an experiment/protocol/acquisition."
 
+[fields.num_samples]
+type = "uint64"
+description = "The full length of the signal for this read in samples (equal to the sum of all 'samples' fields of signal chunks)"
+
 
 
 [types.Pore]

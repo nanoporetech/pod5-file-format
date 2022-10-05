@@ -45,7 +45,8 @@ ReadTableWriter::~ReadTableWriter() {
 }
 
 Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
-                                              gsl::span<SignalTableRowIndex const> const& signal) {
+                                              gsl::span<SignalTableRowIndex const> const& signal,
+                                              std::uint64_t signal_duration) {
     POD5_TRACE_FUNCTION();
     if (!m_writer) {
         return Status::IOError("Writer terminated");
@@ -62,7 +63,10 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
             read_data.num_minknow_events, read_data.tracked_scaling_scale,
             read_data.tracked_scaling_shift, read_data.predicted_scaling_scale,
             read_data.predicted_scaling_shift, read_data.num_reads_since_mux_change,
-            read_data.time_since_mux_change));
+            read_data.time_since_mux_change,
+
+            // V2 Fields
+            signal_duration));
 
     ++m_current_batch_row_count;
 

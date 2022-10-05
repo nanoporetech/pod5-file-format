@@ -85,6 +85,14 @@ ReadRecordV1Columns = namedtuple(
     ],
 )
 
+ReadRecordV2Columns = namedtuple(
+    "ReadRecordV2Columns",
+    [
+        *ReadRecordV1Columns._fields,
+        "num_samples",
+    ],
+)
+
 
 @total_ordering
 class ReadTableVersion(enum.Enum):
@@ -92,6 +100,7 @@ class ReadTableVersion(enum.Enum):
 
     V0 = 0
     V1 = 1
+    V2 = 2
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
@@ -104,7 +113,7 @@ class ReadTableVersion(enum.Enum):
         return NotImplemented
 
 
-ReadRecordColumns = Union[ReadRecordV0Columns, ReadRecordV1Columns]
+ReadRecordColumns = Union[ReadRecordV0Columns, ReadRecordV1Columns, ReadRecordV2Columns]
 Signal = namedtuple("Signal", ["signal", "samples"])
 SignalRowInfo = namedtuple(
     "SignalRowInfo",
@@ -154,6 +163,15 @@ class ReadRecord:
         return self._batch.columns.start[self._row].as_py()
 
     @property
+    def num_samples(self) -> int:
+        """
+        Get the number of samples in the reads signal data.
+        """
+        if self._reader.reads_table_version < ReadTableVersion.V2:
+            return sum(r.sample_count for r in self.signal_rows)
+        return self._batch.columns.num_samples[self._row].as_py()
+
+    @property
     def median_before(self) -> float:
         """
         Get the median before level (in pico amps) for the read.
@@ -165,8 +183,8 @@ class ReadRecord:
         """
         Find the number of minknow events in the read.
         """
-        if not isinstance(self._batch.columns, ReadRecordV1Columns):
-            return ShiftScalePair(float("nan"), float("nan"))
+        if self._reader.reads_table_version < ReadTableVersion.V1:
+            return 0
         return self._batch.columns.num_minknow_events[self._row].as_py()
 
     @property
@@ -174,7 +192,7 @@ class ReadRecord:
         """
         Find the tracked scaling value in the read.
         """
-        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+        if self._reader.reads_table_version < ReadTableVersion.V1:
             return ShiftScalePair(float("nan"), float("nan"))
 
         return ShiftScalePair(
@@ -187,7 +205,7 @@ class ReadRecord:
         """
         Find the predicted scaling value in the read.
         """
-        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+        if self._reader.reads_table_version < ReadTableVersion.V1:
             return ShiftScalePair(float("nan"), float("nan"))
         return ShiftScalePair(
             self._batch.columns.predicted_scaling_shift[self._row].as_py(),
@@ -199,7 +217,7 @@ class ReadRecord:
         """
         Number of selected reads since the last mux change on this reads channel.
         """
-        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+        if self._reader.reads_table_version < ReadTableVersion.V1:
             return 0
         return self._batch.columns.num_reads_since_mux_change[self._row].as_py()
 
@@ -208,7 +226,7 @@ class ReadRecord:
         """
         Time in seconds since the last mux change on this reads channel.
         """
-        if not isinstance(self._batch.columns, ReadRecordV1Columns):
+        if self._reader.reads_table_version < ReadTableVersion.V1:
             return 0
         return self._batch.columns.time_since_mux_change[self._row].as_py()
 
@@ -291,7 +309,7 @@ class ReadRecord:
         """
         Get the number of samples in the reads signal data.
         """
-        return sum(r.sample_count for r in self.signal_rows)
+        return self.num_samples
 
     @property
     def byte_count(self) -> int:
@@ -598,12 +616,17 @@ class Reader:
         writing_version_str = schema_metadata[b"MINKNOW:pod5_version"].decode("utf-8")
         writing_version = packaging.version.parse(writing_version_str)
 
-        if writing_version >= packaging.version.Version("0.0.24"):
+        if writing_version >= packaging.version.Version("0.0.32"):
+            self._columns_type = ReadRecordV2Columns
+            self._reads_table_version = ReadTableVersion.V2
+        elif writing_version >= packaging.version.Version("0.0.24"):
             self._columns_type = ReadRecordV1Columns
             self._reads_table_version = ReadTableVersion.V1
         else:
             self._columns_type = ReadRecordV0Columns
             self._reads_table_version = ReadTableVersion.V0
+
+        print("Open file ", self._reads_table_version)
 
         self._file_version = writing_version
 

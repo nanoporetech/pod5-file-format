@@ -30,7 +30,7 @@ def do_reads_command(combined_reader: p5.CombinedReader):
         "start_sample",
         "end_reason",
         "median_before",
-        "sample_count",
+        "num_samples",
         "byte_count",
         "signal_compression_ratio",
     ]
@@ -57,7 +57,7 @@ def do_reads_command(combined_reader: p5.CombinedReader):
             "start_sample": read.start_sample,
             "end_reason": read.end_reason.name,
             "median_before": f"{read.median_before:.1f}",
-            "sample_count": read.sample_count,
+            "num_samples": read.num_samples,
             "byte_count": read.byte_count,
             "signal_compression_ratio": f"{read.byte_count / float(read.sample_count*2):.3f}",
         }
