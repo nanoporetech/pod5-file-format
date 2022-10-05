@@ -6,6 +6,7 @@ from collections import namedtuple
 from pathlib import Path
 import multiprocessing as mp
 import time
+from typing import List
 
 import h5py
 import numpy
@@ -254,7 +255,7 @@ def make_fast5_filename(output_location, file_index):
     return output_location / f"output_{file_index}.fast5"
 
 
-def main():
+def pod5_convert_to_fast5_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("Convert a pod5 file into an fast5 file")
 
     parser.add_argument("input", type=Path, nargs="+")
@@ -282,7 +283,17 @@ def main():
         help="Number of reads to write per file",
     )
 
-    args = parser.parse_args()
+    return parser
+
+
+def convert_from_fast5(
+    inputs: List[Path],
+    output: Path,
+    recursive: bool = False,
+    active_writers: int = 10,
+    force_overwrite: bool = False,
+    file_read_count: int = 4000,
+):
 
     ctx = mp.get_context("spawn")
     write_request_queue = ctx.Queue()
@@ -291,11 +302,11 @@ def main():
 
     active_processes = []
 
-    for _ in range(2 * args.active_writers):
+    for _ in range(2 * active_writers):
         # Preload the write request queue with two requests per writer:
         write_request_queue.put(WriteRequest())
 
-    for _ in range(args.active_writers):
+    for _ in range(active_writers):
         # And kick off the writers waiting for data:
         p = ctx.Process(
             target=do_write_fast5_files,
@@ -319,7 +330,7 @@ def main():
     # Divide up files between readers:
     current_reads_batch = []
 
-    for filename in iterate_inputs(args.input, args.recursive, "*.pod5"):
+    for filename in iterate_inputs(inputs, recursive, "*.pod5"):
         try:
             combined_reader = p5.CombinedReader(filename)
         except Exception as exc:
@@ -342,10 +353,10 @@ def main():
             read_count += 1
             sample_count += len(extracted_read.signal)
 
-            if len(current_reads_batch) >= args.file_read_count:
+            if len(current_reads_batch) >= file_read_count:
                 put_write_fast5_file(
                     Fast5FileData(
-                        make_fast5_filename(args.output, file_count),
+                        make_fast5_filename(output, file_count),
                         current_reads_batch,
                     ),
                     write_request_queue,
@@ -357,9 +368,7 @@ def main():
 
     # Flush the final batch to file:
     put_write_fast5_file(
-        Fast5FileData(
-            make_fast5_filename(args.output, file_count), current_reads_batch
-        ),
+        Fast5FileData(make_fast5_filename(output, file_count), current_reads_batch),
         write_request_queue,
         write_data_queue,
     )
@@ -375,6 +384,23 @@ def main():
     for q in [write_request_queue, write_data_queue, write_exit_queue]:
         q.close()
         q.join_thread()
+
+
+def main():
+    parser = pod5_convert_to_fast5_argparser()
+    args = parser.parse_args()
+
+    if args.output.is_file():
+        raise FileExistsError("Output path points to an existing file")
+
+    convert_from_fast5(
+        args.input,
+        args.output,
+        args.recursive,
+        args.active_writers,
+        args.force_overwrite,
+        args.file_read_count,
+    )
 
 
 if __name__ == "__main__":
