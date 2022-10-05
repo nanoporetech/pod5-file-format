@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.33] - 2022-10-05
+### Changed
+- File version is now V2, due to the addition of `num_samples`.
+
+### Added
+- Added `num_samples` field to read table, containing the total number of samples a read contains. The field is filled in by API if it doesnt exist.
 
 ## [0.0.32] - 2022-10-03
 ### Changed
