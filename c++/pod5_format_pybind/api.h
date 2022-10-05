@@ -366,6 +366,7 @@ inline void FileWriter_add_reads_pre_compressed(
         auto const read_id = read_ids[i];
 
         auto const signal_chunk_count = *signal_chunk_counts.data(i);
+        std::uint64_t signal_duration_count = 0;
         std::vector<std::uint64_t> signal_rows(signal_chunk_count);
         for (std::size_t signal_chunk_idx = 0; signal_chunk_idx < signal_chunk_count;
              ++signal_chunk_idx) {
@@ -381,6 +382,7 @@ inline void FileWriter_add_reads_pre_compressed(
                     read_id, compressed_signal_span, *sample_counts_it));
             signal_rows[signal_chunk_idx] = signal_row;
 
+            signal_duration_count += *sample_counts_it;
             ++compressed_signal_it;
             ++sample_counts_it;
         }
@@ -395,7 +397,7 @@ inline void FileWriter_add_reads_pre_compressed(
                                 *num_reads_since_mux_change.data(i),
                                 *time_since_mux_change.data(i));
 
-        throw_on_error(w.add_complete_read(read_data, signal_rows));
+        throw_on_error(w.add_complete_read(read_data, signal_rows, signal_duration_count));
     }
 }
 

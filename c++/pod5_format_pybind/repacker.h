@@ -187,6 +187,7 @@ public:
 
             std::vector<std::uint64_t> signal_rows;
             auto const& read_signal = loaded_signal.data[batch_row_index];
+            std::uint64_t signal_duration_count = 0;
 
             // Write each compressed row to the dest file, and store its rows:
             for (std::size_t i = 0; i < read_signal.signal_data.size(); ++i) {
@@ -208,6 +209,7 @@ public:
                     signal_rows.insert(signal_rows.end(), new_signal_rows.begin(),
                                        new_signal_rows.end());
                 }
+                signal_duration_count += signal_span.size();
 
                 m_reads_sample_bytes_completed += signal_span.size();
             }
@@ -229,7 +231,7 @@ public:
                     pod5::ReadData(read_id, dest_pore_index, dest_calibration_index, read_number,
                                    start_sample, median_before, dest_end_reason_index,
                                    dest_run_info_index),
-                    signal_rows));
+                    signal_rows, signal_duration_count));
         }
 
         return arrow::Status::OK();

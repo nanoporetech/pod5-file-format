@@ -64,7 +64,8 @@ public:
 
     /// \brief Add a complete with rows already pre appended.
     pod5::Status add_complete_read(ReadData const& read_data,
-                                   gsl::span<std::uint64_t const> const& signal_rows);
+                                   gsl::span<std::uint64_t const> const& signal_rows,
+                                   std::uint64_t signal_duration);
 
     pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
             boost::uuids::uuid const& read_id,

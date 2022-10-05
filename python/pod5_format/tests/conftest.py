@@ -16,7 +16,7 @@ import pod5_format as p5
 TEST_UUID = uuid4()
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent / "test_data"
-POD5_COMBINED_PATH = TEST_DATA_PATH / "multi_fast5_zip_v1.pod5"
+POD5_COMBINED_PATH = TEST_DATA_PATH / "multi_fast5_zip_v2.pod5"
 
 
 @pytest.fixture(scope="function")

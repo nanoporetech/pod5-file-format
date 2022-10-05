@@ -67,8 +67,10 @@ enum class ReadTableSpecVersion {
     TableV0Version = 0,
     // Addition of num_minknow_events and scaling parameters
     TableV1Version = 1,
+    // Addition of num_samples parameters
+    TableV2Version = 2,
 
-    TableLatestVersion = TableV1Version
+    TableLatestVersion = TableV2Version
 };
 
 class FieldBase;
@@ -183,6 +185,9 @@ public:
     Field<15, arrow::UInt32Array> num_reads_since_mux_change;
     Field<14, arrow::FloatArray> time_since_mux_change;
 
+    // V2 fields
+    Field<14, arrow::UInt64Array> num_samples;
+
     using FieldBuilders = FieldBuilder<
             // V0 fields
             decltype(read_id),
@@ -202,7 +207,10 @@ public:
             decltype(predicted_scaling_scale),
             decltype(predicted_scaling_shift),
             decltype(num_reads_since_mux_change),
-            decltype(time_since_mux_change)>;
+            decltype(time_since_mux_change),
+
+            // V2 fields
+            decltype(num_samples)>;
 
     PoreStructSchemaDescription pore_fields;
     CalibrationStructSchemaDescription calibration_fields;

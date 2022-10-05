@@ -29,8 +29,12 @@ struct Pod5FileWriter {
 };
 
 struct Pod5ReadRecordBatch {
-    Pod5ReadRecordBatch(pod5::ReadTableRecordBatch&& batch_) : batch(std::move(batch_)) {}
+    Pod5ReadRecordBatch(pod5::ReadTableRecordBatch&& batch_,
+                        std::shared_ptr<pod5::FileReader> const& reader)
+            : batch(std::move(batch_)), reader(reader) {}
+
     pod5::ReadTableRecordBatch batch;
+    std::shared_ptr<pod5::FileReader> reader;
 };
 
 namespace {
@@ -330,7 +334,8 @@ pod5_error_t pod5_get_read_batch(Pod5ReadRecordBatch** batch,
 
     POD5_C_ASSIGN_OR_RAISE(auto internal_batch, reader->reader->read_read_record_batch(index));
 
-    auto wrapped_batch = std::make_unique<Pod5ReadRecordBatch>(std::move(internal_batch));
+    auto wrapped_batch =
+            std::make_unique<Pod5ReadRecordBatch>(std::move(internal_batch), reader->reader);
 
     *batch = wrapped_batch.release();
     return POD5_OK;
@@ -413,8 +418,13 @@ pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
         return g_pod5_error_no;
     }
 
-    if (struct_version == READ_BATCH_ROW_INFO_VERSION_1) {
-        auto typed_row_data = (ReadBatchRowInfoV1*)row_data;
+    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_2,
+                  "New versions must be explicitly loaded");
+
+    if (struct_version >= READ_BATCH_ROW_INFO_VERSION_1 &&
+        struct_version <= READ_BATCH_ROW_INFO_VERSION_2) {
+        // V1 + V2 are compatible, with the exception of added num_samples.
+        auto typed_row_data = static_cast<ReadBatchRowInfoV1*>(row_data);
 
         auto cols = batch->batch.columns();
         if (!cols.ok()) {
@@ -462,6 +472,23 @@ pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
             typed_row_data->predicted_scaling_shift = std::numeric_limits<float>::quiet_NaN();
             typed_row_data->num_reads_since_mux_change = 0;
             typed_row_data->time_since_mux_change = 0.0f;
+        }
+
+        if (struct_version >= READ_BATCH_ROW_INFO_VERSION_2) {
+            auto typed_v2_row_data = static_cast<ReadBatchRowInfoV2*>(row_data);
+
+            if (cols->table_version >= pod5::ReadTableSpecVersion::TableV2Version) {
+                typed_v2_row_data->num_samples = cols->num_samples->Value(row);
+            } else {
+                auto const& signal_col = batch->batch.signal_column();
+                auto const& signal_rows =
+                        std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
+
+                std::vector<std::int16_t> output_samples;
+                POD5_C_ASSIGN_OR_RAISE(typed_v2_row_data->num_samples,
+                                       batch->reader->extract_sample_count(gsl::make_span(
+                                               signal_rows->raw_values(), signal_rows->length())));
+            }
         }
 
     } else {
@@ -1025,7 +1052,7 @@ pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter* file,
 }
 
 inline bool check_read_data_struct(std::uint16_t struct_version, void const* row_data) {
-    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_1,
+    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_2,
                   "New versions must be explicitly loaded");
 
     if (!check_not_null(row_data)) {
@@ -1033,7 +1060,7 @@ inline bool check_read_data_struct(std::uint16_t struct_version, void const* row
     }
 
     if (struct_version >= READ_BATCH_ROW_INFO_VERSION_0 &&
-        struct_version <= READ_BATCH_ROW_INFO_VERSION_1) {
+        struct_version <= READ_BATCH_ROW_INFO_VERSION_2) {
         auto const* typed_row_data = static_cast<ReadBatchRowInfoArrayV1 const*>(row_data);
 
         if (!check_not_null(typed_row_data->read_id) || !check_not_null(typed_row_data->pore) ||
@@ -1066,13 +1093,13 @@ inline bool load_struct_row_into_read_data(pod5::ReadData& read_data,
                                            std::uint16_t struct_version,
                                            void const* row_data,
                                            std::uint32_t row_id) {
-    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_1,
+    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_2,
                   "New versions must be explicitly loaded");
 
     // Version 0 did not use the same C api, and does not support the read scaling attributes
     // Version 1 is binary compatible with version 0, with addition of read scaling fields
     if (struct_version >= READ_BATCH_ROW_INFO_VERSION_0 &&
-        struct_version <= READ_BATCH_ROW_INFO_VERSION_1) {
+        struct_version <= READ_BATCH_ROW_INFO_VERSION_2) {
         auto const* typed_row_data = static_cast<ReadBatchRowInfoArrayV1 const*>(row_data);
 
         boost::uuids::uuid read_id_uuid;
@@ -1150,11 +1177,13 @@ pod5_error_t pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
             return g_pod5_error_no;
         }
 
+        std::uint64_t total_sample_count = 0;
         std::vector<std::uint64_t> signal_rows;
         for (std::size_t i = 0; i < signal_chunk_count[read]; ++i) {
             auto signal = compressed_signal[read][i];
             auto signal_size = compressed_signal_size[read][i];
             auto sample_count = sample_counts[read][i];
+            total_sample_count += sample_count;
             POD5_C_ASSIGN_OR_RAISE(
                     auto row_id,
                     file->writer->add_pre_compressed_signal(
@@ -1164,8 +1193,8 @@ pod5_error_t pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
             signal_rows.push_back(row_id);
         }
 
-        POD5_C_RETURN_NOT_OK(
-                file->writer->add_complete_read(read_data, gsl::make_span(signal_rows)));
+        POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(read_data, gsl::make_span(signal_rows),
+                                                             total_sample_count));
     }
     return POD5_OK;
 }

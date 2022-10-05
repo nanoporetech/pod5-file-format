@@ -52,6 +52,8 @@ struct ReadTableRecordColumns {
     std::shared_ptr<arrow::UInt32Array> num_reads_since_mux_change;
     std::shared_ptr<arrow::FloatArray> time_since_mux_change;
 
+    std::shared_ptr<arrow::UInt64Array> num_samples;
+
     ReadTableSpecVersion table_version;
 };
 

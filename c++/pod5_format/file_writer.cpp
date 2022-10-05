@@ -77,18 +77,20 @@ public:
 
         // Write read data and signal row entries:
         auto read_table_row = m_read_table_writer->add_read(
-                read_data, gsl::make_span(signal_rows.data(), signal_rows.size()));
+                read_data, gsl::make_span(signal_rows.data(), signal_rows.size()), signal.size());
         return read_table_row.status();
     }
 
     pod5::Status add_complete_read(ReadData const& read_data,
-                                   gsl::span<std::uint64_t const> const& signal_rows) {
+                                   gsl::span<std::uint64_t const> const& signal_rows,
+                                   std::uint64_t signal_duration) {
         if (!m_signal_table_writer || !m_read_table_writer) {
             return arrow::Status::Invalid("File writer closed, cannot write further data");
         }
 
         // Write read data and signal row entries:
-        auto read_table_row = m_read_table_writer->add_read(read_data, signal_rows);
+        auto read_table_row =
+                m_read_table_writer->add_read(read_data, signal_rows, signal_duration);
         return read_table_row.status();
     }
 
@@ -277,8 +279,9 @@ arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
 }
 
 arrow::Status FileWriter::add_complete_read(ReadData const& read_data,
-                                            gsl::span<std::uint64_t const> const& signal_rows) {
-    return m_impl->add_complete_read(read_data, signal_rows);
+                                            gsl::span<std::uint64_t const> const& signal_rows,
+                                            std::uint64_t signal_duration) {
+    return m_impl->add_complete_read(read_data, signal_rows, signal_duration);
 }
 
 pod5::Result<std::vector<SignalTableRowIndex>> FileWriter::add_signal(

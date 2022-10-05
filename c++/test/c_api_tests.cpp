@@ -208,6 +208,11 @@ SCENARIO("C API") {
             CHECK(run_info == 0);
             CHECK(signal_row_count == 1);
 
+            auto signal = signal_1;
+            if (row == 1) {
+                signal = signal_2;
+            }
+
             auto test_old_fields = [](auto const& obj) {
                 std::string formatted_uuid(36, '\0');
                 CHECK(pod5_format_read_id(obj.read_id, &formatted_uuid[0]) == POD5_OK);
@@ -235,25 +240,40 @@ SCENARIO("C API") {
                 CHECK(obj.num_minknow_events == num_minknow_events);
             };
 
-            // Test latest read:
+            static_assert(std::is_same<ReadBatchRowInfoV2, ReadBatchRowInfo_t>::value,
+                          "Update this if new structs added");
+
+            // Test V2 read:
             {
                 std::uint16_t input_version = 0;
-                ReadBatchRowInfo_t latest_struct;
+                ReadBatchRowInfoV2 v2_struct;
                 CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION,
-                                                        &latest_struct, &input_version) == POD5_OK);
+                                                        &v2_struct, &input_version) == POD5_OK);
                 CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
-                test_old_fields(latest_struct);
-                test_v1_fields(latest_struct);
+                test_old_fields(v2_struct);
+                test_v1_fields(v2_struct);
+                CHECK(v2_struct.num_samples == signal.size());
             }
 
             // Test V1 read:
             {
                 std::uint16_t input_version = 0;
                 ReadBatchRowInfoV1 v1_struct;
-                CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION_1,
+                CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION,
                                                         &v1_struct, &input_version) == POD5_OK);
                 CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
                 test_old_fields(v1_struct);
+                test_v1_fields(v1_struct);
+            }
+
+            // Test V0 read:
+            {
+                std::uint16_t input_version = 0;
+                ReadBatchRowInfoV1 v0_struct;
+                CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION_1,
+                                                        &v0_struct, &input_version) == POD5_OK);
+                CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
+                test_old_fields(v0_struct);
             }
 
             std::vector<uint64_t> signal_row_indices(signal_row_count);
@@ -264,11 +284,6 @@ SCENARIO("C API") {
             CHECK(pod5_get_signal_row_info(combined_file, signal_row_indices.size(),
                                            signal_row_indices.data(),
                                            signal_row_info.data()) == POD5_OK);
-
-            auto signal = signal_1;
-            if (row == 1) {
-                signal = signal_2;
-            }
 
             std::vector<int16_t> read_signal(signal_row_info.front()->stored_sample_count);
             REQUIRE(signal_row_info.front()->stored_sample_count == signal.size());
