@@ -154,19 +154,16 @@ public:
 
         m_reads_completed += source_read_table_batch.num_rows();
 
-        auto source_reads_read_id_column = source_read_table_batch.read_id_column();
-        auto source_reads_read_number_column = source_read_table_batch.read_number_column();
-        auto source_reads_start_sample_column = source_read_table_batch.start_sample_column();
-        auto source_reads_median_before_column = source_read_table_batch.median_before_column();
+        ARROW_ASSIGN_OR_RAISE(auto const& columns, source_read_table_batch.columns());
 
-        auto source_reads_pore_column = std::static_pointer_cast<arrow::Int16Array>(
-                source_read_table_batch.pore_column()->indices());
-        auto source_reads_calibration_column = std::static_pointer_cast<arrow::Int16Array>(
-                source_read_table_batch.calibration_column()->indices());
-        auto source_reads_end_reason_column = std::static_pointer_cast<arrow::Int16Array>(
-                source_read_table_batch.end_reason_column()->indices());
-        auto source_reads_run_info_column = std::static_pointer_cast<arrow::Int16Array>(
-                source_read_table_batch.run_info_column()->indices());
+        auto source_reads_pore_column =
+                std::static_pointer_cast<arrow::Int16Array>(columns.pore->indices());
+        auto source_reads_calibration_column =
+                std::static_pointer_cast<arrow::Int16Array>(columns.calibration->indices());
+        auto source_reads_end_reason_column =
+                std::static_pointer_cast<arrow::Int16Array>(columns.end_reason->indices());
+        auto source_reads_run_info_column =
+                std::static_pointer_cast<arrow::Int16Array>(columns.run_info->indices());
 
         auto const& loaded_signal = batch->read_signal();
         assert(loaded_signal.data.size() == selected_row_indices.size());
@@ -175,10 +172,10 @@ public:
              ++batch_row_index) {
             auto batch_row = selected_row_indices[batch_row_index];
             // Find the read params
-            auto const& read_id = source_reads_read_id_column->Value(batch_row);
-            auto const& read_number = source_reads_read_number_column->Value(batch_row);
-            auto const& start_sample = source_reads_start_sample_column->Value(batch_row);
-            auto const& median_before = source_reads_median_before_column->Value(batch_row);
+            auto const& read_id = columns.read_id->Value(batch_row);
+            auto const& read_number = columns.read_number->Value(batch_row);
+            auto const& start_sample = columns.start_sample->Value(batch_row);
+            auto const& median_before = columns.median_before->Value(batch_row);
 
             auto const& pore_index = source_reads_pore_column->Value(batch_row);
             auto const& calibration_index = source_reads_calibration_column->Value(batch_row);
@@ -187,7 +184,7 @@ public:
 
             std::vector<std::uint64_t> signal_rows;
             auto const& read_signal = loaded_signal.data[batch_row_index];
-            std::uint64_t signal_duration_count = 0;
+            std::uint64_t total_sample_count = 0;
 
             // Write each compressed row to the dest file, and store its rows:
             for (std::size_t i = 0; i < read_signal.signal_data.size(); ++i) {
@@ -209,7 +206,7 @@ public:
                     signal_rows.insert(signal_rows.end(), new_signal_rows.begin(),
                                        new_signal_rows.end());
                 }
-                signal_duration_count += signal_span.size();
+                total_sample_count += sample_count;
 
                 m_reads_sample_bytes_completed += signal_span.size();
             }
@@ -227,11 +224,22 @@ public:
                     auto dest_run_info_index,
                     find_run_info_index(source_file, source_read_table_batch, run_info_index));
 
-            ARROW_RETURN_NOT_OK(m_output_file->add_complete_read(
-                    pod5::ReadData(read_id, dest_pore_index, dest_calibration_index, read_number,
-                                   start_sample, median_before, dest_end_reason_index,
-                                   dest_run_info_index),
-                    signal_rows, signal_duration_count));
+            auto read_data = pod5::ReadData(read_id, dest_pore_index, dest_calibration_index,
+                                            read_number, start_sample, median_before,
+                                            dest_end_reason_index, dest_run_info_index);
+
+            if (columns.table_version >= pod5::ReadTableSpecVersion::TableV1Version) {
+                read_data.set_v1_fields(columns.num_minknow_events->Value(batch_row),
+                                        columns.tracked_scaling_scale->Value(batch_row),
+                                        columns.tracked_scaling_shift->Value(batch_row),
+                                        columns.predicted_scaling_scale->Value(batch_row),
+                                        columns.predicted_scaling_shift->Value(batch_row),
+                                        columns.num_reads_since_mux_change->Value(batch_row),
+                                        columns.time_since_mux_change->Value(batch_row));
+            }
+
+            ARROW_RETURN_NOT_OK(
+                    m_output_file->add_complete_read(read_data, signal_rows, total_sample_count));
         }
 
         return arrow::Status::OK();

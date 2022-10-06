@@ -79,8 +79,8 @@ public:
     float tracked_scaling_shift = std::numeric_limits<float>::quiet_NaN();
     float predicted_scaling_scale = std::numeric_limits<float>::quiet_NaN();
     float predicted_scaling_shift = std::numeric_limits<float>::quiet_NaN();
-    std::uint32_t num_reads_since_mux_change;
-    float time_since_mux_change;
+    std::uint32_t num_reads_since_mux_change = 0;
+    float time_since_mux_change = 0.0f;
 };
 
 inline bool operator==(ReadData const& a, ReadData const& b) {
