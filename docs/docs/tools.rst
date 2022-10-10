@@ -83,6 +83,33 @@ Inspect the pod5 file, find a specific read and print its details.
         experiment_duration_set: 2880
         ...
 
+
+
+Pod5-merge
+==========
+
+`pod5-merge` is a tool for merging multiple combined `.pod5` files into one monolithic 
+combined pod5 file. 
+
+The contents of the input files are checked for duplicate read_ids to avoid 
+accidentally merging identical reads. To override this check set the argument 
+``-D / --duplicate_ok`` 
+
+.. code-block:: console
+
+    # View help
+    $ pod5-merge --help
+
+    # Merge a pair of combined pod5 files
+    $ pod5-merge combined_1.pod5 combined_2.pod5 --output merged.pod5
+
+    # Merge a glob of combined pod5 files
+    $ pod5-merge *.pod5 -o merged.pod5
+
+    # Merge a glob of combined pod5 files ignoring duplicate read ids
+    $ pod5-merge *.pod5 -o merged.pod5 --duplicate_ok
+
+
 Pod5-demux
 ==========
 
