@@ -423,6 +423,9 @@ def demux_pod5s(
     iterable of read_id.
     """
 
+    if not output.exists():
+        output.mkdir(parents=True, exist_ok=True)
+
     assert_overwrite_ok(output, mapping.keys(), force_overwrite)
 
     total_selection = get_total_selection(mapping=mapping, duplicate_ok=duplicate_ok)

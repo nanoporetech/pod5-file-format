@@ -14,6 +14,9 @@ import pod5_format.repack
 def repack(inputs: typing.List[Path], output: Path, force_overwrite: bool):
     print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
 
+    if not output.exists():
+        output.mkdir(parents=True, exist_ok=True)
+
     repacker = pod5_format.repack.Repacker()
 
     writers: typing.List[p5.Writer] = []

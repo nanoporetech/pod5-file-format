@@ -139,7 +139,8 @@ class Writer:
         :py:class:`Writer` ready to write a new combined pod5 file
 
         """
-        return cls(p5b.create_combined_file(str(path), software_name, None))
+        abs_path = str(Path(path).absolute())
+        return cls(p5b.create_combined_file(abs_path, software_name, None))
 
     @classmethod
     def open_split(
@@ -172,9 +173,11 @@ class Writer:
         :py:class:`Writer` ready to write a new split pod5 file
 
         """
-        signal_path = path
+        signal_path = Path(path).absolute()
         if reads_path is None:
             signal_path, reads_path = make_split_filename(path)
+        else:
+            reads_path = Path(reads_path).absolute()
 
         return cls(
             p5b.create_split_file(
@@ -804,7 +807,7 @@ class CombinedWriter(Writer):
         software_name : str
             The name of the application used to create this split pod5 file
         """
-        self._combined_path = Path(combined_path)
+        self._combined_path = Path(combined_path).absolute()
         self._software_name = software_name
 
         if self.combined_path.is_file():
@@ -853,8 +856,8 @@ class SplitWriter(Writer):
         FileExistsError
             If either of the signal_path or reads_path already exist
         """
-        self._signal_path = Path(signal_path)
-        self._reads_path = Path(reads_path)
+        self._signal_path = Path(signal_path).absolute()
+        self._reads_path = Path(reads_path).absolute()
         self._software_name = software_name
 
         if self._signal_path.is_file() or self._reads_path.is_file():

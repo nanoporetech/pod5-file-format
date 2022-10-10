@@ -25,7 +25,7 @@ def make_split_filename(
     -------
         A tuple of paths, to the signal and read files respectively.
     """
-    path = Path(file)
+    path = Path(file).absolute()
     basename = str(path.with_suffix(""))
     signal = Path(basename + "_signal" + path.suffix)
     reads = Path(basename + "_reads" + path.suffix)
