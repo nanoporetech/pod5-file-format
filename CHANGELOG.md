@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.36] - 2022-10-07
+### Changed
+- Bump the Boost and Arrow versions to pick up latest changes.
+
 ## [0.0.35] - 2022-10-07
 ### Changed
 - Support C++17 + C++20 with the conan package pod5 generates.
