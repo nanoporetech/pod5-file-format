@@ -165,8 +165,11 @@ def parse_summary_mapping(
 
     mapping: typing.Dict[str, typing.Set[str]] = {}
 
+    # Convert length 1 list to string to silence pandas warning
+    demux_group_keys = demux_columns if len(demux_columns) > 1 else demux_columns[0]
+
     # Create groups by unique sets of demux_column values
-    for group_name, df_group in summary.groupby(demux_columns):
+    for group_name, df_group in summary.groupby(demux_group_keys):
         # Create filenames from the unique keys
         group_dict = group_name_to_dict(group_name, demux_columns)
         filename = filename_template.format(**group_dict)
