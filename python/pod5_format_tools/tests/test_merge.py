@@ -15,7 +15,7 @@ class TestMerge:
         # Test all pod5 inputs in test data, which will likely contain duplicates
         inputs = list(TEST_DATA_PATH.glob("*pod5"))
         output = tmp_path / "test.pod5"
-        merge_pod5s(inputs, output, duplicate_ok=True)
+        merge_pod5s(inputs[:2], output, duplicate_ok=True)
 
         assert output.exists()
 

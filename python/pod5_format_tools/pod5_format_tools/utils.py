@@ -1,3 +1,7 @@
+"""
+Utility functions for pod5 tools
+"""
+
 from pathlib import Path
 import typing
 
