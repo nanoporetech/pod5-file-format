@@ -8,16 +8,23 @@ from uuid import UUID
 
 import h5py
 import numpy as np
-
+import pytest
 
 import pod5_format as p5
-from pod5_format_tools.pod5_convert_from_fast5 import convert_fast5_read
+from pod5_format_tools.pod5_convert_from_fast5 import (
+    convert_fast5_read,
+    assert_multi_read_fast5,
+)
 
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
 POD5_COMBINED_PATH = TEST_DATA_PATH / "multi_fast5_zip.pod5"
 
+SINGLE_READ_FAST5_PATH = (
+    TEST_DATA_PATH
+    / "single_read_fast5/fe85b517-62ee-4a33-8767-41cab5d5ab39.fast5.single-read"
+)
 
 EXPECTED_POD5_RESULTS = {
     "0000173c-bf67-44e7-9a9c-1ad0bc728e74": p5.Read(
@@ -187,7 +194,7 @@ EXPECTED_POD5_RESULTS = {
 
 
 class TestFast5Conversion:
-    """Test the CSV Mapping functionality"""
+    """Test the fast5 to pod5 conversion"""
 
     def test_convert_fast5_read(self):
         """
@@ -214,3 +221,25 @@ class TestFast5Conversion:
                 signal = read.decompressed_signal
                 assert expected_read.signal.shape[0] == signal.shape[0]
                 assert signal.dtype == np.int16
+
+    def test_single_read_fast5_detection(self):
+        """Test single-read fast5 files are detected raising an assertion error"""
+
+        with h5py.File(str(SINGLE_READ_FAST5_PATH), "r") as _f5:
+            with pytest.raises(AssertionError, match=".*not a multi-read fast5.*"):
+                assert_multi_read_fast5(_f5)
+
+    def test_multi_read_fast5_detection(self):
+        """Test multi-read fast5 files are detected not raising an error"""
+
+        with h5py.File(str(FAST5_PATH), "r") as _f5:
+            assert_multi_read_fast5(_f5)
+
+    def test_missing_key_type_error(self):
+        """Test that a TypeError is raised when converting unsupported fast5 files"""
+
+        with h5py.File(str(SINGLE_READ_FAST5_PATH), "r") as _f5:
+            with pytest.raises(TypeError, match=".*supported fast5 file.*"):
+                for expected_read_id in _f5:
+                    cache = {}
+                    convert_fast5_read(_f5[expected_read_id], cache)

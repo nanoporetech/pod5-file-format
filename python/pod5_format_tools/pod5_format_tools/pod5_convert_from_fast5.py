@@ -11,12 +11,9 @@ from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 import uuid
 import multiprocessing as mp
 from queue import Empty
-import shutil
 
 import h5py
 import iso8601
-import numpy as np
-import numpy.typing as npt
 
 import more_itertools
 from ont_fast5_api.compression_settings import register_plugin
@@ -79,6 +76,34 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def assert_multi_read_fast5(h5_file: h5py.File) -> None:
+    """
+    Assert that the given h5 handle is a multi-read fast5 file for which
+    direct-to-pod5 conversion is supported. Raises an AssertionError
+    explaining how to correct this issue when unsupported single-read or bulk-read fast5
+    files are given.
+    """
+
+    # The "file_type" attribute might be present on supported multi-read fast5 files.
+    if h5_file.attrs.get("file_type") == "multi-read":
+        return
+
+    # No keys, assume multi-read but there shouldn't be anything to do which would
+    # cause an issue so pass silently
+    if len(h5_file) == 0:
+        return
+
+    # if there are "read_x" keys, this is a multi-read file
+    if any(key for key in h5_file if key.startswith("read_")):
+        return
+
+    raise AssertionError(
+        f"The file provided is not a multi-read fast5 file {h5_file.filename}. "
+        "Please use the conversion tools in the nanoporetech/ont_fast5_api project "
+        "to convert this file to the supported multi-read fast5 format. "
+    )
 
 
 def decode_str(value: Union[str, bytes]) -> str:
@@ -190,8 +215,20 @@ def convert_fast5_read(
     Given a fast5 read parsed from a fast5 file, return a pod5_format.Read object.
     """
     attrs = fast5_read.attrs
-    channel_id = fast5_read["channel_id"]
-    raw = fast5_read["Raw"]
+    try:
+        channel_id = fast5_read["channel_id"]
+        raw = fast5_read["Raw"]
+    except KeyError as exc:
+        # A KeyError here could be caused by users attempting to convert unsupported
+        # single-read fast5 files.
+        err = (
+            "Supplied hdf5 group doesn't appear to be from a supported fast5 file. "
+            f"Expected 'channel_id' and 'Raw' keys but found: {fast5_read.keys()}. "
+            "Please ensure that single-read fast5s are converted to multi-read fast5s "
+            "using tools available at nanoporetech/ont_fast5_api before conversion "
+            "to pod5."
+        )
+        raise TypeError(err) from exc
 
     # Get the acquisition id
     if "run_id" in attrs:
@@ -292,6 +329,9 @@ def get_reads_from_files(
         count_reads_sent = 0
         try:
             with h5py.File(str(fast5_file), "r") as _f5:
+
+                assert_multi_read_fast5(_f5)
+
                 data_queue.put(StartFileQItem(len(_f5.keys())))
 
                 run_info_cache: Dict[str, p5.RunInfo] = {}
