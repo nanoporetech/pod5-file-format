@@ -626,8 +626,6 @@ class Reader:
             self._columns_type = ReadRecordV0Columns
             self._reads_table_version = ReadTableVersion.V0
 
-        print("Open file ", self._reads_table_version)
-
         self._file_version = writing_version
 
         # Warning: The cached signal maintains an open file handle. So ensure that
