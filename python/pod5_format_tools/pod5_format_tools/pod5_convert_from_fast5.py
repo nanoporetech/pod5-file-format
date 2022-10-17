@@ -488,9 +488,10 @@ class StatusMonitor:
             self.time_last_update = now
 
             print(
-                f"{self.files_ended}/{self.files_started}/{self.file_count} files\t"
-                f"{self.reads_processed}/{self.read_count} reads, ",
-                f"{self.formatted_sample_count}, " f"{self.sample_rate:.1f} MB/s",
+                f"{self.reads_processed} reads,\t",
+                f"{self.formatted_sample_count},\t",
+                f"{self.files_ended}/{self.file_count} files,\t",
+                f"{self.sample_rate:.1f} MB/s",
             )
 
     @property
