@@ -41,6 +41,11 @@ class Pod5Conan(ConanFile):
         if not (self.settings.os == "Windows" or self.settings.os == "Macos"):
             self.requires(f"jemalloc/5.2.1{package_suffix}")
 
+    def package_id(self):
+        # Windows configurations do not specify a C++ standard version.
+        if self.settings.os == "Windows":
+            del self.info.settings.compiler.cppstd
+
     def compatibility(self):
         # Packages that are built with C++14 should be compatible with clients that use C++17 & 20.
         if self.settings.compiler.cppstd in ["17", "20"]:
