@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.37] - 2022-10-18
+### Changed
+- Updated Conan recipe to support building without specifying C++ standard version.
+
 ## [0.0.36] - 2022-10-07
 ### Changed
 - Bump the Boost and Arrow versions to pick up latest changes.
