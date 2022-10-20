@@ -20,7 +20,7 @@ def format_shift_scale_pair_num(pair):
     return f"({pair.shift:.1f} {pair.scale:.1f})"
 
 
-def do_reads_command(combined_reader: p5.CombinedReader):
+def do_reads_command(readerer):
     keys = [
         "read_id",
         "channel",
@@ -34,7 +34,7 @@ def do_reads_command(combined_reader: p5.CombinedReader):
         "byte_count",
         "signal_compression_ratio",
     ]
-    if combined_reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
+    if reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
         keys.extend(
             [
                 "num_minknow_events",
@@ -47,7 +47,7 @@ def do_reads_command(combined_reader: p5.CombinedReader):
 
     csv_read_writer = csv.DictWriter(sys.stdout, keys)
     csv_read_writer.writeheader()
-    for read in combined_reader.reads():
+    for read in reader.reads():
         fields = {
             "read_id": read.read_id,
             "channel": read.pore.channel,
@@ -62,7 +62,7 @@ def do_reads_command(combined_reader: p5.CombinedReader):
             "signal_compression_ratio": f"{read.byte_count / float(read.sample_count*2):.3f}",
         }
 
-        if combined_reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
+        if reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
             fields.update(
                 {
                     "num_minknow_events": read.num_minknow_events,
@@ -96,14 +96,14 @@ def dump_run_info(run_info: p5.RunInfo):
             print(f"{tab}{name}: {value}")
 
 
-def do_read_command(combined_reader: p5.CombinedReader, read_id_str: str):
+def do_read_command(reader: p5.Reader, read_id_str: str):
     try:
         read_id = UUID(read_id_str)
     except ValueError:
         print(f"Supplied read_id '{read_id_str}' is not a valid UUID")
         return
 
-    for read in combined_reader.reads():
+    for read in reader.reads():
         if read.read_id != read_id:
             continue
 
@@ -140,7 +140,7 @@ def do_read_command(combined_reader: p5.CombinedReader, read_id_str: str):
         break
 
 
-def do_debug_command(combined_reader: p5.CombinedReader):
+def do_debug_command(reader: p5.Reader):
     batch_count = 0
     batch_sizes = []
     read_count = 0
@@ -151,7 +151,7 @@ def do_debug_command(combined_reader: p5.CombinedReader):
 
     run_infos = {}
 
-    for batch in combined_reader.read_batches():
+    for batch in reader.read_batches():
         batch_count += 1
 
         batch_read_count = 0
@@ -181,15 +181,15 @@ def do_debug_command(combined_reader: p5.CombinedReader):
         dump_run_info(run_info)
 
 
-def do_summary_command(combined_reader: p5.CombinedReader):
+def do_summary_command(reader: p5.Reader):
     batch_count = 0
     total_read_count = 0
 
     print(
-        f"File version {combined_reader.file_version}, read table version {combined_reader.reads_table_version}."
+        f"File version {reader.file_version}, read table version {reader.reads_table_version}."
     )
 
-    for batch in combined_reader.read_batches():
+    for batch in reader.read_batches():
         batch_count += 1
 
         batch_read_count = 0
@@ -227,19 +227,19 @@ def main():
     for filename in args.input_files:
         print(f"File: {filename}")
         try:
-            combined_reader = p5.CombinedReader(filename)
+            reader = p5.Reader(filename)
         except Exception as exc:
-            print(f"Failed to open combined pod5 file: {filename}: {exc}")
+            print(f"Failed to open pod5 file: {filename}: {exc}")
             continue
 
         if args.command == "reads":
-            do_reads_command(combined_reader)
+            do_reads_command(reader)
         if args.command == "read":
-            do_read_command(combined_reader, args.read_id)
+            do_read_command(reader, args.read_id)
         elif args.command == "debug":
-            do_debug_command(combined_reader)
+            do_debug_command(reader)
         elif args.command == "summary":
-            do_summary_command(combined_reader)
+            do_summary_command(reader)
 
 
 if __name__ == "__main__":

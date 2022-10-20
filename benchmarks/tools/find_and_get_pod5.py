@@ -40,7 +40,7 @@ def do_batch_work(filename, batches, column, mode, result_q):
     extracted_columns = {"read_id": read_ids, column: vals}
 
     if column == "samples":
-        file = p5.CombinedReader(filename)
+        file = p5.Reader(filename)
         for batch in file.read_batches(batch_selection=batches, preload={"samples"}):
             read_ids.extend(p5.format_read_ids(batch.read_id_column))
 
@@ -63,7 +63,7 @@ def do_search_work(files, select_read_ids_data, column, mode, result_q):
 
     if column == "samples":
         for filename in files:
-            file = p5.CombinedReader(filename)
+            file = p5.Reader(filename)
             for batch in file.read_batches(select_read_ids, preload={"samples"}):
                 read_ids.extend(p5.format_read_ids(batch.read_id_column))
                 vals.extend([numpy.sum(s) for s in batch.cached_samples_column])
@@ -115,7 +115,7 @@ def run_multiprocess(files, output, select_read_ids=None, column=None, mode=None
             start_index += approx_chunk_size
     else:
         for filename in files:
-            file = p5.CombinedReader(filename)
+            file = p5.Reader(filename)
             batches = list(range(file.batch_count))
             approx_chunk_size = max(1, len(batches) // runners)
             start_index = 0
@@ -156,7 +156,7 @@ def run_get_read_ids(files):
     extracted_columns = {"read_id": read_ids}
 
     for filename in files:
-        file = p5.CombinedReader(filename)
+        file = p5.Reader(filename)
         for batch in file.read_batches():
             read_ids.extend(p5.format_read_ids(batch.read_id_column))
     return pd.DataFrame({"read_id": read_ids})
@@ -171,7 +171,7 @@ def run_select(files, select_read_ids, column):
     extracted_columns = {"read_id": read_ids, column: vals}
 
     for filename in files:
-        file = p5.CombinedReader(filename)
+        file = p5.Reader(filename)
         if column == "sample_count":
             for batch in file.read_batches(select_read_ids, preload={"sample_count"}):
                 read_id_selection = batch.read_id_column
@@ -198,7 +198,7 @@ def run_batched(files, column):
     extracted_columns = {"read_id": read_ids, column: vals}
 
     for filename in files:
-        file = p5.CombinedReader(filename)
+        file = p5.Reader(filename)
         if column == "sample_count":
             for batch in file.read_batches(preload={"sample_count"}):
                 read_ids.extend(p5.format_read_ids(batch.read_id_column))

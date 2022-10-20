@@ -21,7 +21,7 @@ def repack(inputs: typing.List[Path], output: Path, force_overwrite: bool):
 
     writers: typing.List[p5.Writer] = []
     for input_filename in inputs:
-        reader = p5.Reader.from_combined(input_filename)
+        reader = p5.Reader(input_filename)
 
         output_filename = output / input_filename.name
         output_filename.parent.mkdir(parents=True, exist_ok=True)
@@ -40,7 +40,7 @@ def repack(inputs: typing.List[Path], output: Path, force_overwrite: bool):
                 print("Refusing to overwrite output  without --force-overwrite")
                 sys.exit(1)
 
-        writer = p5.Writer.open_combined(output_filename)
+        writer = p5.Writer(output_filename)
         writers.append(writer)
         output_ref = repacker.add_output(writer)
 

@@ -11,7 +11,7 @@ def main():
     parser.add_argument("input", type=Path)
     args = parser.parse_args()
 
-    with p5.CombinedReader(args.input) as reader:
+    with p5.Reader(args.input) as reader:
         for read in reader.reads():
             print(f"Found read {read.read_id}")
             print(f"  Read has  {read.sample_count} samples")

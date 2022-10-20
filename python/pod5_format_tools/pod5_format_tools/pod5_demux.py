@@ -41,9 +41,9 @@ JSON_SCHEMA = {
 DEFAULT_READ_ID_COLUMN = "read_id"
 
 # Type aliases
-OutputMap = typing.Dict[Path, typing.Tuple[p5.CombinedWriter, p5b.Pod5RepackerOutput]]
+OutputMap = typing.Dict[Path, typing.Tuple[p5.Writer, p5b.Pod5RepackerOutput]]
 TransferMap = typing.DefaultDict[
-    typing.Tuple[p5.CombinedReader, p5b.Pod5RepackerOutput], typing.Set[str]
+    typing.Tuple[p5.Reader, p5b.Pod5RepackerOutput], typing.Set[str]
 ]
 
 
@@ -315,7 +315,7 @@ def prepare_repacker_outputs(
     outputs: OutputMap = {}
     for target in mapping:
         target_path = output / target
-        p5_output = p5.CombinedWriter(target_path)
+        p5_output = p5.Writer(target_path)
         outputs[target_path] = (p5_output, repacker.add_output(p5_output))
 
     return outputs
@@ -370,7 +370,7 @@ def calculate_transfers(
 
     for input_path in inputs:
         # Open a FileReader from input_path
-        p5_reader = p5.Reader.from_combined(input_path)
+        p5_reader = p5.Reader(input_path)
 
         # Iterate over batches of read_ids
         for batch in p5_reader.read_batches(selection=selection, missing_ok=True):
@@ -407,7 +407,7 @@ def launch_repacker(
     # Close the FileWriters
     for idx, (p5_writer, _) in enumerate(outputs.values()):
         p5_writer.close()
-        print(f"Finished writing: {p5_writer.combined_path} - {idx+1}/{len(outputs)}")
+        print(f"Finished writing: {p5_writer.path} - {idx+1}/{len(outputs)}")
 
     print("Done")
 

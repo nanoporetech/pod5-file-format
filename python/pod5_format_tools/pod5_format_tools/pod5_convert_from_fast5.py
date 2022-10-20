@@ -19,7 +19,6 @@ import more_itertools
 from ont_fast5_api.compression_settings import register_plugin
 
 import pod5_format as p5
-from pod5_format.reader_utils import make_split_filename
 from pod5_format.signal_tools import (
     DEFAULT_SIGNAL_CHUNK_SIZE,
     vbz_compress_signal_chunked,
@@ -60,11 +59,6 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
         "--output-one-to-one",
         action="store_true",
         help="Output files should be 1:1 with input files, written as children of [output] argument.",
-    )
-    parser.add_argument(
-        "--output-split",
-        action="store_true",
-        help="Output files should use the pod5 split format.",
     )
     parser.add_argument(
         "--force-overwrite", action="store_true", help="Overwrite destination files"
@@ -368,12 +362,10 @@ class OutputHandler:
         self,
         output_root: Path,
         one_to_one: bool,
-        output_split: bool,
         force_overwrite: bool,
     ):
         self.output_root = output_root
         self._one_to_one = one_to_one
-        self._output_split = output_split
         self._force_overwrite = force_overwrite
         self._input_to_output_path: Dict[Path, Path] = {}
         self._output_files: Dict[Path, p5.Writer] = {}
@@ -383,17 +375,10 @@ class OutputHandler:
         if output_path in self._output_files:
             return self._output_files[output_path]
 
-        if self._output_split:
-            signal_path, reads_path = make_split_filename(output_path)
-            for path in [signal_path, reads_path]:
-                if self._force_overwrite:
-                    path.unlink(missing_ok=True)
-            writer = p5.Writer.open_split(signal_path, reads_path)
-        else:
-            if self._force_overwrite:
-                output_path.unlink(missing_ok=True)
-            writer = p5.Writer.open_combined(output_path)
+        if self._force_overwrite:
+            output_path.unlink(missing_ok=True)
 
+        writer = p5.Writer(output_path)
         self._output_files[output_path] = writer
         return writer
 
@@ -522,15 +507,12 @@ def convert_from_fast5(
     recursive: bool = False,
     processes: int = 10,
     output_one_to_one: bool = False,
-    output_split: bool = False,
     force_overwrite: bool = False,
     signal_chunk_size: bool = DEFAULT_SIGNAL_CHUNK_SIZE,
 ) -> None:
 
     output.mkdir(parents=True, exist_ok=True)
-    output_handler = OutputHandler(
-        output, output_one_to_one, output_split, force_overwrite
-    )
+    output_handler = OutputHandler(output, output_one_to_one, force_overwrite)
 
     ctx = mp.get_context("spawn")
     request_queue: mp.Queue = ctx.Queue()
@@ -637,7 +619,6 @@ def main():
         args.recursive,
         args.processes,
         args.output_one_to_one,
-        args.output_split,
         args.force_overwrite,
         args.signal_chunk_size,
     )

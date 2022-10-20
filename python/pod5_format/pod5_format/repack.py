@@ -104,7 +104,7 @@ class Repacker:
             )
 
         self._repacker.add_selected_reads_to_output(
-            output_ref, reader._handles._file_reader, per_batch_counts, all_batch_rows
+            output_ref, reader.inner_file_reader, per_batch_counts, all_batch_rows
         )
 
     def add_all_reads_to_output(
@@ -121,7 +121,7 @@ class Repacker:
         reader : :py:class:`Reader`
             The Pod5 file reader to copy reads from
         """
-        self._repacker.add_all_reads_to_output(output_ref, reader._handles._file_reader)
+        self._repacker.add_all_reads_to_output(output_ref, reader.inner_file_reader)
 
     def wait(
         self,

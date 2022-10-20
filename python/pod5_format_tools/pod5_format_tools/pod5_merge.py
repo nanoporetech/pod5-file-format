@@ -13,14 +13,14 @@ import pod5_format.repack as p5_repack
 def prepare_pod5_merge_argparser() -> argparse.ArgumentParser:
     """Create an argument parser for the pod5 merge tool"""
 
-    parser = argparse.ArgumentParser(description="Merge multiple (combined) pod5 files")
+    parser = argparse.ArgumentParser(description="Merge multiple pod5 files")
 
     # Core arguments
     parser.add_argument(
         "inputs",
         type=Path,
         nargs="+",
-        help="Pod5 filepaths to use as inputs. These must be combined pod5 files.",
+        help="Pod5 filepaths to use as inputs",
     )
     parser.add_argument(
         "-o",
@@ -50,7 +50,7 @@ def assert_no_duplicate_reads(paths: typing.Iterable[Path]) -> None:
     """
     read_ids = set()
     for path in paths:
-        with p5.CombinedReader(path) as reader:
+        with p5.Reader(path) as reader:
             for read in reader.reads():
                 if read.read_id in read_ids:
                     raise AssertionError(
@@ -90,14 +90,14 @@ def merge_pod5s(
         assert_no_duplicate_reads(inputs)
 
     # Open the output file writer
-    with p5.CombinedWriter(output.absolute()) as writer:
+    with p5.Writer(output.absolute()) as writer:
 
         # Attach the writer to the repacker
         repacker = p5_repack.Repacker()
         repacker_output = repacker.add_output(writer)
 
         # Iterate over all input files opening a reader handle
-        readers = [p5.CombinedReader(path) for path in inputs]
+        readers = [p5.Reader(path) for path in inputs]
 
         # Submit each reader handle to the repacker
         for reader in readers:
