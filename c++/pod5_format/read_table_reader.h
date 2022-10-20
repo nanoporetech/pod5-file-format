@@ -35,13 +35,9 @@ class ReadIdSearchInput;
 struct ReadTableRecordColumns {
     std::shared_ptr<UuidArray> read_id;
     std::shared_ptr<arrow::ListArray> signal;
-    //std::shared_ptr<arrow::DictionaryArray> pore_DEPRECATED;
-    //std::shared_ptr<arrow::DictionaryArray> calibration_DEPRECATED;
     std::shared_ptr<arrow::UInt32Array> read_number;
     std::shared_ptr<arrow::UInt64Array> start_sample;
     std::shared_ptr<arrow::FloatArray> median_before;
-    //std::shared_ptr<arrow::DictionaryArray> end_reason_DEPRECATED;
-    //std::shared_ptr<arrow::DictionaryArray> run_info_DEPRECATED;
 
     std::shared_ptr<arrow::UInt64Array> num_minknow_events;
 
