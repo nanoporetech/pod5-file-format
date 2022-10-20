@@ -22,33 +22,54 @@ class EmbeddedFileData:
 
 class FileWriter:
     def __init__(self, *args, **kwargs) -> None: ...
-    def add_calibration(self, offset: float, scale: float) -> int: ...
-    def add_end_reason(self, end_reason_enum: int, forced: bool) -> int: ...
-    def add_pore(self, channel: int, well: int, pore_type: str) -> int: ...
+    def add_end_reason(self, end_reason_enum: int) -> int: ...
+    def add_pore(self, pore_type: str) -> int: ...
     def add_reads(
         self,
         count: int,
-        read_ids: npt.NDArray[np.uint8],
-        pores: npt.NDArray[np.int16],
-        calibrations: npt.NDArray[np.int16],
-        read_numbers: npt.NDArray[np.uint32],
-        start_samples: npt.NDArray[np.uint64],
-        median_befores: npt.NDArray[np.float32],
-        end_reasons: npt.NDArray[np.int16],
-        run_infos: npt.NDArray[np.int16],
+        read_ids: numpy.ndarray[numpy.uint8],
+        read_numbers: numpy.ndarray[numpy.uint32],
+        start_samples: numpy.ndarray[numpy.uint64],
+        channels: numpy.ndarray[numpy.uint16],
+        wells: numpy.ndarray[numpy.uint8],
+        pore_types: numpy.ndarray[numpy.int16],
+        calibration_offsets: numpy.ndarray[numpy.float32],
+        calibration_scales: numpy.ndarray[numpy.float32],
+        median_befores: numpy.ndarray[numpy.float32],
+        end_reasons: numpy.ndarray[numpy.int16],
+        end_reason_forceds: numpy.ndarray[bool],
+        run_infos: numpy.ndarray[numpy.int16],
+        num_minknow_events: numpy.ndarray[numpy.uint64],
+        tracked_scaling_scales: numpy.ndarray[numpy.float32],
+        tracked_scaling_shifts: numpy.ndarray[numpy.float32],
+        predicted_scaling_scales: numpy.ndarray[numpy.float32],
+        predicted_scaling_shifts: numpy.ndarray[numpy.float32],
+        num_reads_since_mux_changes: numpy.ndarray[numpy.uint32],
+        time_since_mux_changes: numpy.ndarray[numpy.float32],
         signals: List[npt.NDArray[np.int16]],
     ) -> None: ...
     def add_reads_pre_compressed(
         self,
         count: int,
-        read_ids: npt.NDArray[np.uint8],
-        pores: npt.NDArray[np.int16],
-        calibrations: npt.NDArray[np.int16],
-        read_numbers: npt.NDArray[np.uint32],
-        start_samples: npt.NDArray[np.uint64],
-        median_befores: npt.NDArray[np.float32],
-        end_reasons: npt.NDArray[np.int16],
-        run_infos: npt.NDArray[np.int16],
+        read_ids: numpy.ndarray[numpy.uint8],
+        read_numbers: numpy.ndarray[numpy.uint32],
+        start_samples: numpy.ndarray[numpy.uint64],
+        channels: numpy.ndarray[numpy.uint16],
+        wells: numpy.ndarray[numpy.uint8],
+        pore_types: numpy.ndarray[numpy.int16],
+        calibration_offsets: numpy.ndarray[numpy.float32],
+        calibration_scales: numpy.ndarray[numpy.float32],
+        median_befores: numpy.ndarray[numpy.float32],
+        end_reasons: numpy.ndarray[numpy.int16],
+        end_reason_forceds: numpy.ndarray[bool],
+        run_infos: numpy.ndarray[numpy.int16],
+        num_minknow_events: numpy.ndarray[numpy.uint64],
+        tracked_scaling_scales: numpy.ndarray[numpy.float32],
+        tracked_scaling_shifts: numpy.ndarray[numpy.float32],
+        predicted_scaling_scales: numpy.ndarray[numpy.float32],
+        predicted_scaling_shifts: numpy.ndarray[numpy.float32],
+        num_reads_since_mux_changes: numpy.ndarray[numpy.uint32],
+        time_since_mux_changes: numpy.ndarray[numpy.float32],
         signal_chunks: List[npt.NDArray[np.uint8]],
         signal_chunk_lengths: npt.NDArray[np.uint32],
         signal_chunk_counts: npt.NDArray[np.uint32],
@@ -109,6 +130,7 @@ class Pod5FileReader:
     ) -> Pod5AsyncSignalLoader: ...
     def close(self) -> None: ...
     def get_combined_file_read_table_location(self) -> EmbeddedFileData: ...
+    def get_combined_file_run_info_table_location(self) -> EmbeddedFileData: ...
     def get_combined_file_signal_table_location(self) -> EmbeddedFileData: ...
     def plan_traversal(
         self,

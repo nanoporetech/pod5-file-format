@@ -35,13 +35,13 @@ class ReadIdSearchInput;
 struct ReadTableRecordColumns {
     std::shared_ptr<UuidArray> read_id;
     std::shared_ptr<arrow::ListArray> signal;
-    std::shared_ptr<arrow::DictionaryArray> pore;
-    std::shared_ptr<arrow::DictionaryArray> calibration;
+    //std::shared_ptr<arrow::DictionaryArray> pore_DEPRECATED;
+    //std::shared_ptr<arrow::DictionaryArray> calibration_DEPRECATED;
     std::shared_ptr<arrow::UInt32Array> read_number;
     std::shared_ptr<arrow::UInt64Array> start_sample;
     std::shared_ptr<arrow::FloatArray> median_before;
-    std::shared_ptr<arrow::DictionaryArray> end_reason;
-    std::shared_ptr<arrow::DictionaryArray> run_info;
+    //std::shared_ptr<arrow::DictionaryArray> end_reason_DEPRECATED;
+    //std::shared_ptr<arrow::DictionaryArray> run_info_DEPRECATED;
 
     std::shared_ptr<arrow::UInt64Array> num_minknow_events;
 
@@ -54,7 +54,16 @@ struct ReadTableRecordColumns {
 
     std::shared_ptr<arrow::UInt64Array> num_samples;
 
-    ReadTableSpecVersion table_version;
+    std::shared_ptr<arrow::UInt16Array> channel;
+    std::shared_ptr<arrow::UInt8Array> well;
+    std::shared_ptr<arrow::DictionaryArray> pore_type;
+    std::shared_ptr<arrow::FloatArray> calibration_offset;
+    std::shared_ptr<arrow::FloatArray> calibration_scale;
+    std::shared_ptr<arrow::DictionaryArray> end_reason;
+    std::shared_ptr<arrow::BooleanArray> end_reason_forced;
+    std::shared_ptr<arrow::DictionaryArray> run_info;
+
+    TableSpecVersion table_version;
 };
 
 class POD5_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
@@ -66,18 +75,11 @@ public:
 
     std::shared_ptr<UuidArray> read_id_column() const;
     std::shared_ptr<arrow::ListArray> signal_column() const;
-    std::shared_ptr<arrow::DictionaryArray> pore_column() const;
-    std::shared_ptr<arrow::DictionaryArray> calibration_column() const;
-    std::shared_ptr<arrow::UInt32Array> read_number_column() const;
-    std::shared_ptr<arrow::UInt64Array> start_sample_column() const;
-    std::shared_ptr<arrow::FloatArray> median_before_column() const;
-    std::shared_ptr<arrow::DictionaryArray> end_reason_column() const;
-    std::shared_ptr<arrow::DictionaryArray> run_info_column() const;
 
-    Result<PoreData> get_pore(std::int16_t pore_index) const;
-    Result<CalibrationData> get_calibration(std::int16_t calibration_index) const;
-    Result<EndReasonData> get_end_reason(std::int16_t end_reason_index) const;
-    Result<RunInfoData> get_run_info(std::int16_t run_info_index) const;
+    Result<std::string> get_pore_type(std::int16_t pore_dict_index) const;
+    Result<std::pair<ReadEndReason, std::string>> get_end_reason(
+            std::int16_t end_reason_dict_index) const;
+    Result<std::string> get_run_info(std::int16_t run_info_dict_index) const;
 
     Result<ReadTableRecordColumns> columns() const;
 

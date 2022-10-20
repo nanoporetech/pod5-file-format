@@ -28,16 +28,6 @@ inline pod5::RunInfoData get_test_run_info_data(std::string suffix = "",
             "system_type" + suffix, {{"tracking" + suffix, "id" + suffix}});
 }
 
-inline pod5::CalibrationData get_test_calibration_data() {
-    return pod5::CalibrationData(100.0f, 2.0f);
-}
-
-inline pod5::EndReasonData get_test_end_reason_data() {
-    return pod5::EndReasonData(pod5::EndReasonData::ReadEndReason::mux_change, false);
-}
-
-inline pod5::PoreData get_test_pore_data() { return pod5::PoreData(431, 3, "Pore_type"); }
-
 inline arrow::Status remove_file_if_exists(std::string const& file) {
     ARROW_ASSIGN_OR_RAISE(auto arrow_reads_path,
                           ::arrow::internal::PlatformFilename::FromString(file));

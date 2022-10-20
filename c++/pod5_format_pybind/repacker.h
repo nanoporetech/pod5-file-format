@@ -154,12 +154,10 @@ public:
 
         m_reads_completed += source_read_table_batch.num_rows();
 
-        ARROW_ASSIGN_OR_RAISE(auto const& columns, source_read_table_batch.columns());
+        ARROW_ASSIGN_OR_RAISE(auto columns, source_read_table_batch.columns());
 
-        auto source_reads_pore_column =
-                std::static_pointer_cast<arrow::Int16Array>(columns.pore->indices());
-        auto source_reads_calibration_column =
-                std::static_pointer_cast<arrow::Int16Array>(columns.calibration->indices());
+        auto source_reads_pore_type_column =
+                std::static_pointer_cast<arrow::Int16Array>(columns.pore_type->indices());
         auto source_reads_end_reason_column =
                 std::static_pointer_cast<arrow::Int16Array>(columns.end_reason->indices());
         auto source_reads_run_info_column =
@@ -175,10 +173,22 @@ public:
             auto const& read_id = columns.read_id->Value(batch_row);
             auto const& read_number = columns.read_number->Value(batch_row);
             auto const& start_sample = columns.start_sample->Value(batch_row);
+            auto const& channel = columns.channel->Value(batch_row);
+            auto const& well = columns.well->Value(batch_row);
+            auto const& calibration_offset = columns.calibration_offset->Value(batch_row);
+            auto const& calibration_scale = columns.calibration_scale->Value(batch_row);
             auto const& median_before = columns.median_before->Value(batch_row);
+            auto const& end_reason_forced = columns.end_reason_forced->Value(batch_row);
+            auto const& num_minknow_events = columns.num_minknow_events->Value(batch_row);
+            auto const& tracked_scaling_scale = columns.tracked_scaling_scale->Value(batch_row);
+            auto const& tracked_scaling_shift = columns.tracked_scaling_shift->Value(batch_row);
+            auto const& predicted_scaling_scale = columns.predicted_scaling_scale->Value(batch_row);
+            auto const& predicted_scaling_shift = columns.predicted_scaling_shift->Value(batch_row);
+            auto const& num_reads_since_mux_change =
+                    columns.num_reads_since_mux_change->Value(batch_row);
+            auto const& time_since_mux_change = columns.time_since_mux_change->Value(batch_row);
 
-            auto const& pore_index = source_reads_pore_column->Value(batch_row);
-            auto const& calibration_index = source_reads_calibration_column->Value(batch_row);
+            auto const& pore_type_index = source_reads_pore_type_column->Value(batch_row);
             auto const& end_reason_index = source_reads_end_reason_column->Value(batch_row);
             auto const& run_info_index = source_reads_run_info_column->Value(batch_row);
 
@@ -213,10 +223,7 @@ public:
 
             ARROW_ASSIGN_OR_RAISE(
                     auto dest_pore_index,
-                    find_pore_index(source_file, source_read_table_batch, pore_index));
-            ARROW_ASSIGN_OR_RAISE(auto dest_calibration_index,
-                                  find_calibration_index(source_file, source_read_table_batch,
-                                                         calibration_index));
+                    find_pore_index(source_file, source_read_table_batch, pore_type_index));
             ARROW_ASSIGN_OR_RAISE(
                     auto dest_end_reason_index,
                     find_end_reason_index(source_file, source_read_table_batch, end_reason_index));
@@ -224,22 +231,15 @@ public:
                     auto dest_run_info_index,
                     find_run_info_index(source_file, source_read_table_batch, run_info_index));
 
-            auto read_data = pod5::ReadData(read_id, dest_pore_index, dest_calibration_index,
-                                            read_number, start_sample, median_before,
-                                            dest_end_reason_index, dest_run_info_index);
-
-            if (columns.table_version >= pod5::ReadTableSpecVersion::TableV1Version) {
-                read_data.set_v1_fields(columns.num_minknow_events->Value(batch_row),
-                                        columns.tracked_scaling_scale->Value(batch_row),
-                                        columns.tracked_scaling_shift->Value(batch_row),
-                                        columns.predicted_scaling_scale->Value(batch_row),
-                                        columns.predicted_scaling_shift->Value(batch_row),
-                                        columns.num_reads_since_mux_change->Value(batch_row),
-                                        columns.time_since_mux_change->Value(batch_row));
-            }
-
-            ARROW_RETURN_NOT_OK(
-                    m_output_file->add_complete_read(read_data, signal_rows, total_sample_count));
+            ARROW_RETURN_NOT_OK(m_output_file->add_complete_read(
+                    pod5::ReadData(read_id, read_number, start_sample, channel, well,
+                                   dest_pore_index, calibration_offset, calibration_scale,
+                                   median_before, dest_end_reason_index, end_reason_forced,
+                                   dest_run_info_index, num_minknow_events, tracked_scaling_scale,
+                                   tracked_scaling_shift, predicted_scaling_scale,
+                                   predicted_scaling_shift, num_reads_since_mux_change,
+                                   time_since_mux_change),
+                    signal_rows, total_sample_count));
         }
 
         return arrow::Status::OK();
@@ -256,26 +256,9 @@ public:
             return it->second;
         }
 
-        ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_pore(source_index));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_pore(source_data));
+        ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_pore_type(source_index));
+        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_pore_type(source_data));
         m_pore_indexes[key] = new_index;
-        return new_index;
-    }
-
-    // Find or create a calibration index in the output file - expects to run on strand.
-    arrow::Result<pod5::CalibrationDictionaryIndex> find_calibration_index(
-            std::shared_ptr<pod5::FileReader> const& source_file,
-            pod5::ReadTableRecordBatch const& source_batch,
-            pod5::CalibrationDictionaryIndex source_index) {
-        auto const key = std::make_pair(source_file, source_index);
-        auto const it = m_calibration_indexes.find(key);
-        if (it != m_calibration_indexes.end()) {
-            return it->second;
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_calibration(source_index));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_calibration(source_data));
-        m_calibration_indexes[key] = new_index;
         return new_index;
     }
 
@@ -291,7 +274,8 @@ public:
         }
 
         ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_end_reason(source_index));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_end_reason(source_data));
+        ARROW_ASSIGN_OR_RAISE(auto const new_index,
+                              m_output_file->lookup_end_reason(source_data.first));
         m_end_reason_indexes[key] = new_index;
         return new_index;
     }
@@ -308,7 +292,8 @@ public:
         }
 
         ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_run_info(source_index));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_run_info(source_data));
+        ARROW_ASSIGN_OR_RAISE(auto const run_info, source_file->find_run_info(source_data));
+        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_run_info(*run_info));
         m_run_info_indexes[key] = new_index;
         return new_index;
     }

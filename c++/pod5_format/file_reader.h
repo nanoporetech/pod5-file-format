@@ -79,10 +79,14 @@ public:
             gsl::span<std::uint64_t const> const& row_indices,
             std::vector<std::uint32_t>& sample_count) const = 0;
 
-    virtual Result<FileLocation> read_table_location() const = 0;
-    virtual Result<FileLocation> signal_table_location() const = 0;
+    virtual FileLocation const& run_info_table_location() const = 0;
+    virtual FileLocation const& read_table_location() const = 0;
+    virtual FileLocation const& signal_table_location() const = 0;
 
     virtual SignalType signal_type() const = 0;
+
+    virtual Result<std::shared_ptr<RunInfoData const>> find_run_info(
+            std::string const& acquisition_id) const = 0;
 };
 
 POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(

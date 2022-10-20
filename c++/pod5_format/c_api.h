@@ -35,6 +35,7 @@ enum pod5_error {
     POD5_ERROR_UNKNOWNERROR = 9,
     POD5_ERROR_NOTIMPLEMENTED = 10,
     POD5_ERROR_SERIALIZATIONERROR = 11,
+    POD5_ERROR_STRING_NOT_LONG_ENOUGH = 11,
 };
 typedef enum pod5_error pod5_error_t;
 
@@ -57,51 +58,21 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_terminate();
 // Shared Structures
 //---------------------------------------------------------------------------------------------------------------------
 
-typedef uint8_t read_id_t[16];
-
-// Single entry of read data:
-struct ReadBatchRowInfoV1 {
-    // The read id data, in binary form.
-    read_id_t read_id;
-
-    // Read number for the read.
-    uint32_t read_number;
-    // Start sample for the read.
-    uint64_t start_sample;
-    // Median before level.
-    float median_before;
-
-    // Pore type for the read.
-    int16_t pore;
-    // Palibration type for the read.
-    int16_t calibration;
-    // End reason type for the read.
-    int16_t end_reason;
-    // Run info type for the read.
-    int16_t run_info;
-
-    // Number of minknow events that the read contains
-    uint64_t num_minknow_events;
-
-    // Scale/Shift for tracked read scaling values (based on previous reads)
-    float tracked_scaling_scale;
-    float tracked_scaling_shift;
-
-    // Scale/Shift for predicted read scaling values (based on this read's raw signal)
-    float predicted_scaling_scale;
-    float predicted_scaling_shift;
-
-    // How many reads have been selected prior to this read on the channel-well since it was made active.
-    uint32_t num_reads_since_mux_change;
-    // How many seconds have passed since the channel-well was made active
-    float time_since_mux_change;
-
-    // Number of signal row entries for the read.
-    int64_t signal_row_count;
+enum pod5_end_reason {
+    POD5_END_REASON_UNKNOWN = 0,
+    POD5_END_REASON_MUX_CHANGE = 1,
+    POD5_END_REASON_UNBLOCK_MUX_CHANGE = 2,
+    POD5_END_REASON_DATA_SERVICE_UNBLOCK_MUX_CHANGE = 3,
+    POD5_END_REASON_SIGNAL_POSITIVE = 4,
+    POD5_END_REASON_SIGNAL_NEGATIVE = 5
 };
+typedef enum pod5_end_reason pod5_end_reason_t;
+
+typedef uint8_t read_id_t[16];
+typedef uint8_t run_id_t[16];
 
 // Single entry of read data:
-struct ReadBatchRowInfoV2 {
+struct ReadBatchRowInfoV3 {
     // The read id data, in binary form.
     read_id_t read_id;
 
@@ -112,13 +83,21 @@ struct ReadBatchRowInfoV2 {
     // Median before level.
     float median_before;
 
-    // Pore type for the read.
-    int16_t pore;
+    // Channel for the read.
+    uint16_t channel;
+    // Channel for the read.
+    uint8_t well;
+    // Dictionary index for the pore type.
+    int16_t pore_type;
+    // Calibration offset type for the read.
+    float calibration_offset;
     // Palibration type for the read.
-    int16_t calibration;
-    // End reason type for the read.
+    float calibration_scale;
+    // End reason index for the read.
     int16_t end_reason;
-    // Run info type for the read.
+    // Was the end reason for the read forced (0 for false, 1 for true).
+    uint8_t end_reason_forced;
+    // Dictionary index for run id for the read, can be used to look up run info.
     int16_t run_info;
 
     // Number of minknow events that the read contains
@@ -145,10 +124,10 @@ struct ReadBatchRowInfoV2 {
 };
 
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoV2 ReadBatchRowInfo_t;
+typedef struct ReadBatchRowInfoV3 ReadBatchRowInfo_t;
 
 // Array of read data:
-struct ReadBatchRowInfoArrayV1 {
+struct ReadBatchRowInfoArrayV3 {
     // The read id data, in binary form.
     read_id_t const* read_id;
 
@@ -159,14 +138,22 @@ struct ReadBatchRowInfoArrayV1 {
     // Median before level.
     float const* median_before;
 
+    // Channel for the read.
+    uint16_t const* channel;
+    // Well for the read.
+    uint8_t const* well;
     // Pore type for the read.
-    int16_t const* pore;
+    int16_t const* pore_type;
+    // Calibration offset type for the read.
+    float const* calibration_offset;
     // Palibration type for the read.
-    int16_t const* calibration;
+    float const* calibration_scale;
     // End reason type for the read.
-    int16_t const* end_reason;
+    pod5_end_reason_t const* end_reason;
+    // Was the end reason for the read forced (0 for false, 1 for true).
+    uint8_t const* end_reason_forced;
     // Run info type for the read.
-    int16_t const* run_info;
+    int16_t const* run_info_id;
 
     // Number of minknow events that the read contains
     uint64_t const* num_minknow_events;
@@ -180,23 +167,23 @@ struct ReadBatchRowInfoArrayV1 {
     float const* predicted_scaling_shift;
 
     // How many reads have been selected prior to this read on the channel-well since it was made active.
-    uint32_t* num_reads_since_mux_change;
+    uint32_t const* num_reads_since_mux_change;
     // How many seconds have passed since the channel-well was made active
-    float* time_since_mux_change;
+    float const* time_since_mux_change;
 };
 
-typedef struct ReadBatchRowInfoArrayV1 ReadBatchRowInfoArrayV2;
-
 // Typedef for latest batch row info structure.
-typedef ReadBatchRowInfoArrayV2 ReadBatchRowInfoArray_t;
+typedef struct ReadBatchRowInfoArrayV3 ReadBatchRowInfoArray_t;
 
 #define READ_BATCH_ROW_INFO_VERSION_0 0
 // Addition of num_minknow_events fields, scaling fields.
 #define READ_BATCH_ROW_INFO_VERSION_1 1
 // Addition of num_samples fields.
 #define READ_BATCH_ROW_INFO_VERSION_2 2
+// Flattening of read structures.
+#define READ_BATCH_ROW_INFO_VERSION_3 3
 // Latest available version.
-#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_2
+#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_3
 
 //---------------------------------------------------------------------------------------------------------------------
 // Reading files
@@ -231,23 +218,32 @@ typedef struct FileInfo FileInfo_t;
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo_t* file_info);
 
 struct EmbeddedFileData {
+    // The file name to open - note this may not be the original file name, if the file has been migrated.
+    char const* file_name;
     size_t offset;
     size_t length;
 };
 typedef struct EmbeddedFileData EmbeddedFileData_t;
 
-/// \brief Find the number of read batches in the file.
+/// \brief Find the location of the read table data
 /// \param[out] file        The combined file to be queried.
 /// \param      file_data   The output read table file data.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_combined_file_read_table_location(Pod5FileReader_t* reader, EmbeddedFileData_t* file_data);
 
-/// \brief Find the number of read batches in the file.
+/// \brief Find the location of the signal table data
 /// \param[out] file        The combined file to be queried.
 /// \param      file_data   The output signal table file data.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_combined_file_signal_table_location(Pod5FileReader_t* reader,
                                              EmbeddedFileData_t* file_data);
+
+/// \brief Find the location of the run info table data
+/// \param[out] file        The combined file to be queried.
+/// \param      file_data   The output signal table file data.
+POD5_FORMAT_EXPORT pod5_error_t
+pod5_get_combined_file_run_info_table_location(Pod5FileReader_t* reader,
+                                               EmbeddedFileData_t* file_data);
 
 /// \brief Plan the most efficient route through the data for the given read ids
 /// \param      file                The file to be queried.
@@ -296,31 +292,6 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_count(size_t* count,
 /// \brief Find the info for a row in a read batch.
 /// \param      batch               The read batch to query.
 /// \param      row                 The row index to query.
-/// \param[out] read_id             The read id data (must be 16 bytes).
-/// \param[out] pore                Output location for the pore type for the read.
-/// \param[out] calibration         Output location for the calibration type for the read.
-/// \param[out] read_number         Output location for the read number.
-/// \param[out] start_sample        Output location for the start sample.
-/// \param[out] median_before       Output location for the median before level.
-/// \param[out] end_reason          Output location for the end reason type for the read.
-/// \param[out] run_info            Output location for the run info type for the read.
-/// \param[out] signal_row_count    Output location for the number of signal row entries for the read.
-/// \deprecated Use pod5_get_read_batch_row_info_data instead.
-POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info(Pod5ReadRecordBatch_t* batch,
-                                                             size_t row,
-                                                             uint8_t* read_id,
-                                                             int16_t* pore,
-                                                             int16_t* calibration,
-                                                             uint32_t* read_number,
-                                                             uint64_t* start_sample,
-                                                             float* median_before,
-                                                             int16_t* end_reason,
-                                                             int16_t* run_info,
-                                                             int64_t* signal_row_count);
-
-/// \brief Find the info for a row in a read batch.
-/// \param      batch               The read batch to query.
-/// \param      row                 The row index to query.
 /// \param      struct_version      The version of the struct being passed in, calling code
 ///                                 should use [READ_BATCH_ROW_INFO_VERSION].
 /// \param[out] row_data            The data for reading into, should be a pointer to ReadBatchRowInfo_t.
@@ -344,40 +315,6 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal_row_indices(Pod5ReadRecordBatch_
                                                             int64_t signal_row_indices_count,
                                                             uint64_t* signal_row_indices);
 
-struct PoreDictData {
-    uint16_t channel;
-    uint8_t well;
-    char const* pore_type;
-};
-typedef struct PoreDictData PoreDictData_t;
-
-/// \brief Find the pore info for a row in a read batch.
-/// \param      batch               The read batch to query.
-/// \param      pore                The pore index to query.
-/// \param[out] pore_data           Output location for the pore data.
-/// \note The returned pore value should be released using pod5_release_pore when it is no longer used.
-POD5_FORMAT_EXPORT pod5_error_t pod5_get_pore(Pod5ReadRecordBatch_t* batch,
-                                              int16_t pore,
-                                              PoreDictData_t** pore_data);
-
-/// \brief Release a PoreDictData struct after use.
-POD5_FORMAT_EXPORT pod5_error_t pod5_release_pore(PoreDictData_t* pore_data);
-
-struct CalibrationDictData {
-    float offset;
-    float scale;
-};
-typedef struct CalibrationDictData CalibrationDictData_t;
-
-/// \brief Find the calibration info for a row in a read batch.
-/// \param      batch               The read batch to query.
-/// \param      calibration         The calibration index to query.
-/// \param[out] calibration_data    Output location for the calibration data.
-/// \note The returned calibration value should be released using pod5_release_calibration when it is no longer used.
-POD5_FORMAT_EXPORT pod5_error_t pod5_get_calibration(Pod5ReadRecordBatch_t* batch,
-                                                     int16_t calibration,
-                                                     CalibrationDictData_t** calibration_data);
-
 struct CalibrationExtraData {
     // The digitisation value used by the sequencer, equal to:
     //
@@ -390,36 +327,13 @@ typedef struct CalibrationExtraData CalibrationExtraData_t;
 
 /// \brief Find the extra calibration info for a row in a read batch.
 /// \param      batch                   The read batch to query.
-/// \param      calibration             The calibration index to query.
-/// \param      run_info                The run info index to query.
+/// \param      row                     The read row index.
 /// \param[out] calibration_extra_data  Output location for the calibration data.
 /// \note The values are computed from data held in the file, and written directly to the address provided, there is no need to release any data.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_calibration_extra_info(Pod5ReadRecordBatch_t* batch,
-                                int16_t calibration,
-                                int16_t run_info,
+                                size_t row,
                                 CalibrationExtraData_t* calibration_extra_data);
-
-/// \brief Release a CalibrationDictData struct after use.
-POD5_FORMAT_EXPORT pod5_error_t pod5_release_calibration(CalibrationDictData_t* calibration_data);
-
-struct EndReasonDictData {
-    char const* name;
-    int forced;
-};
-typedef struct EndReasonDictData EndReasonDictData_t;
-
-/// \brief Find the calibration info for a row in a read batch.
-/// \param      batch               The read batch to query.
-/// \param      end_reason          The end reason index to query.
-/// \param[out] end_reason_data     Output location for the end reason data.
-/// \note The returned end_reason value should be released using pod5_release_calibration when it is no longer used.
-POD5_FORMAT_EXPORT pod5_error_t pod5_get_end_reason(Pod5ReadRecordBatch_t* batch,
-                                                    int16_t end_reason,
-                                                    EndReasonDictData_t** end_reason_data);
-
-/// \brief Release a CalibrationDictData struct after use.
-POD5_FORMAT_EXPORT pod5_error_t pod5_release_end_reason(EndReasonDictData_t* end_reason_data);
 
 struct KeyValueData {
     size_t size;
@@ -450,17 +364,41 @@ struct RunInfoDictData {
 };
 typedef struct RunInfoDictData RunInfoDictData_t;
 
-/// \brief Find the calibration info for a row in a read batch.
+/// \brief Find the run info for a row in a read batch.
 /// \param      batch               The read batch to query.
-/// \param      run_info            The run info index to query.
+/// \param      run_info            The run info index to query from the passed batch.
 /// \param[out] run_info_data       Output location for the run info data.
 /// \note The returned end_reason value should be released using pod5_release_calibration when it is no longer used.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_run_info(Pod5ReadRecordBatch_t* batch,
                                                   int16_t run_info,
                                                   RunInfoDictData_t** run_info_data);
 
-/// \brief Release a CalibrationDictData struct after use.
+/// \brief Release a RunInfoDictData struct after use.
 POD5_FORMAT_EXPORT pod5_error_t pod5_release_run_info(RunInfoDictData_t* run_info_data);
+
+/// \brief Find the end reason for a row in a read batch.
+/// \param        batch                           The read batch to query.
+/// \param        end_reason                      The end reason index to query from the passed batch.
+/// \param        end_reason_value                The enum value for end reason.
+/// \param[out]   end_reason_string_value         Output location for the string value for the end reason.
+/// \param[inout] end_reason_string_value_size    Size of [end_reason_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
+/// \note If the string input is not long enough POD5_ERROR_STRING_NOT_LONG_ENOUGH is returned.
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_end_reason(Pod5ReadRecordBatch_t* batch,
+                                                    int16_t end_reason,
+                                                    pod5_end_reason_t* end_reason_value,
+                                                    char* end_reason_string_value,
+                                                    size_t* end_reason_string_value_size);
+
+/// \brief Find the pore type for a row in a read batch.
+/// \param        batch                           The read batch to query.
+/// \param        pore_type                       The pore type index to query from the passed batch.
+/// \param[out]   pore_type_string_value          Output location for the string value for the pore type.
+/// \param[inout] pore_type_string_value_size     Size of [pore_type_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
+/// \note If the string input is not long enough POD5_ERROR_STRING_NOT_LONG_ENOUGH is returned.
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_pore_type(Pod5ReadRecordBatch_t* batch,
+                                                   int16_t pore_type,
+                                                   char* pore_type_string_value,
+                                                   size_t* pore_type_string_value_size);
 
 struct SignalRowInfo {
     size_t batch_index;
@@ -576,44 +514,10 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_writer(Pod5FileWriter_t* fil
 /// \brief Add a new pore type to the file.
 /// \param[out] pore_index  The index of the added pore.
 /// \param      file        The file to add the new pore type to.
-/// \param      channel     The channel the pore type uses.
-/// \param      well        The well the pore type uses.
 /// \param      pore_type   The pore type string for the pore.
 POD5_FORMAT_EXPORT pod5_error_t pod5_add_pore(int16_t* pore_index,
                                               Pod5FileWriter_t* file,
-                                              uint16_t channel,
-                                              uint8_t well,
                                               char const* pore_type);
-
-enum pod5_end_reason {
-    POD5_END_REASON_UNKNOWN = 0,
-    POD5_END_REASON_MUX_CHANGE = 1,
-    POD5_END_REASON_UNBLOCK_MUX_CHANGE = 2,
-    POD5_END_REASON_DATA_SERVICE_UNBLOCK_MUX_CHANGE = 3,
-    POD5_END_REASON_SIGNAL_POSITIVE = 4,
-    POD5_END_REASON_SIGNAL_NEGATIVE = 5
-};
-typedef enum pod5_end_reason pod5_end_reason_t;
-
-/// \brief Add a new end reason type to the file.
-/// \param[out] end_reason_index  The index of the added end reason.
-/// \param      file        The file to add the new pore type to.
-/// \param      end_reason  The end reason enumeration type for the end reason.
-/// \param      forced      Was the end reason was forced by control, false if the end reason is signal driven.
-POD5_FORMAT_EXPORT pod5_error_t pod5_add_end_reason(int16_t* end_reason_index,
-                                                    Pod5FileWriter_t* file,
-                                                    pod5_end_reason_t end_reason,
-                                                    int forced);
-
-/// \brief Add a new calibration to the file, calibrations are used to map ADC raw data units into floating point pico-amp space.
-/// \param[out] end_reason_index  The index of the added end reason.
-/// \param      file        The file to add the new pore type to.
-/// \param      offset      The offset parameter for the calibration.
-/// \param      scale       The scale parameter for the calibration.
-POD5_FORMAT_EXPORT pod5_error_t pod5_add_calibration(int16_t* calibration_index,
-                                                     Pod5FileWriter_t* file,
-                                                     float offset,
-                                                     float scale);
 
 /// \brief Add a new run info to the file, containing tracking information about a sequencing run.
 /// \param[out] run_info_index              The index of the added run_info.
@@ -668,64 +572,6 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_run_info(int16_t* run_info_index,
                                                   size_t tracking_id_count,
                                                   char const** tracking_id_keys,
                                                   char const** tracking_id_values);
-
-/// \brief Add a read to the file.
-/// \param      file            The file to add the reads to.
-/// \param      read_count      The number of reads to add with this call.
-/// \param      read_id         The read id to use (in binary form, must be 16 bytes long).
-/// \param      pore            The pore type to use for the reads.
-/// \param      calibration     The calibration to use for the reads.
-/// \param      read_number     The read numbers.
-/// \param      start_sample    The read's start sample.
-/// \param      median_before   The median signal level before the read started.
-/// \param      end_reason      The end reason for the reads.
-/// \param      run_info        The run info for the reads.
-/// \param      signal          The signal data for the reads.
-/// \param      signal_size     The number of samples in the reads signal data.
-/// \deprecated Use pod5_add_reads_data instead.
-POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads(Pod5FileWriter_t* file,
-                                               uint32_t read_count,
-                                               read_id_t const* read_id,
-                                               int16_t const* pore,
-                                               int16_t const* calibration,
-                                               uint32_t const* read_number,
-                                               uint64_t const* start_sample,
-                                               float const* median_before,
-                                               int16_t const* end_reason,
-                                               int16_t const* run_info,
-                                               int16_t const** signal,
-                                               uint32_t const* signal_size);
-
-/// \brief Add a read to the file, with pre compressed signal chunk sections.
-/// \param      file                    The file to add the reads to.
-/// \param      read_count              The number of reads to add with this call.
-/// \param      read_id                 The read id to use (in binary form, must be 16 bytes long).
-/// \param      pore                    The pore type to use for the reads.
-/// \param      calibration             The calibration to use for the reads.
-/// \param      read_number             The read numbers.
-/// \param      start_sample            The read's start sample.
-/// \param      median_before           The median signal level before the read started.
-/// \param      end_reason              The end reason for the reads.
-/// \param      run_info                The run info for the reads.
-/// \param      compressed_signal       The signal chunks data for the reads.
-/// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
-/// \param      sample_counts           The number of samples of each signal chunk.
-/// \param      signal_chunk_count      The number of sections of compressed signal.
-/// \deprecated Use pod5_add_reads_data_pre_compressed instead.
-POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_pre_compressed(Pod5FileWriter_t* file,
-                                                              uint32_t read_count,
-                                                              read_id_t const* read_id,
-                                                              int16_t const* pore,
-                                                              int16_t const* calibration,
-                                                              uint32_t const* read_number,
-                                                              uint64_t const* start_sample,
-                                                              float const* median_before,
-                                                              int16_t const* end_reason,
-                                                              int16_t const* run_info,
-                                                              char const*** compressed_signal,
-                                                              size_t const** compressed_signal_size,
-                                                              uint32_t const** sample_counts,
-                                                              size_t const* signal_chunk_count);
 
 /// \brief Add a read to the file.
 /// \param      file            The file to add the reads to.
@@ -792,7 +638,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_vbz_decompress_signal(char const* compresse
 /// \brief Format a packed binary read id as a readable read id string:
 /// \param          read_id           A 16 byte binary formatted UUID.
 /// \param[out]     read_id_string    Output string containing the string formatted UUID (expects a string of at least 37 bytes, one null byte is written.)
-POD5_FORMAT_EXPORT pod5_error_t pod5_format_read_id(uint8_t const* read_id, char* read_id_string);
+POD5_FORMAT_EXPORT pod5_error_t pod5_format_read_id(read_id_t const read_id, char* read_id_string);
 
 #ifdef __cplusplus
 }

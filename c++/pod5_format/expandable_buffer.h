@@ -11,14 +11,19 @@ class ExpandableBuffer {
 public:
     static constexpr int EXPANSION_FACTOR = 2;
 
-    ExpandableBuffer() = default;
+    ExpandableBuffer(arrow::MemoryPool* pool = nullptr) { m_pool = pool; }
 
     arrow::Status init_buffer(arrow::MemoryPool* pool) {
         m_pool = pool;
         return clear();
     }
 
-    std::size_t size() const { return m_buffer->size() / sizeof(T); }
+    std::size_t size() const {
+        if (!m_buffer) {
+            return 0;
+        }
+        return m_buffer->size() / sizeof(T);
+    }
     std::uint8_t* mutable_data() { return m_buffer->mutable_data(); }
 
     std::shared_ptr<arrow::Buffer> get_buffer() const { return m_buffer; }
@@ -74,8 +79,13 @@ public:
 
 private:
     arrow::Status append_bytes(gsl::span<std::uint8_t const> const& bytes_span) {
-        assert(m_buffer);
-        auto const old_size = m_buffer->size();
+        auto old_size = 0;
+        if (!m_buffer) {
+            ARROW_ASSIGN_OR_RAISE(m_buffer,
+                                  arrow::AllocateResizableBuffer(bytes_span.size(), m_pool));
+        } else {
+            old_size = m_buffer->size();
+        }
         auto const new_size = old_size + bytes_span.size();
         ARROW_RETURN_NOT_OK(reserve(new_size));
 

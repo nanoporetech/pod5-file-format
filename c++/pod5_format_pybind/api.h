@@ -160,14 +160,16 @@ struct Pod5FileReaderPtr {
 
     Pod5FileReaderPtr(std::shared_ptr<pod5::FileReader>&& reader_) : reader(std::move(reader_)) {}
 
+    pod5::FileLocation get_combined_file_run_info_table_location() const {
+        return reader->run_info_table_location();
+    }
+
     pod5::FileLocation get_combined_file_read_table_location() const {
-        POD5_PYTHON_ASSIGN_OR_RAISE(auto file_location, reader->read_table_location());
-        return file_location;
+        return reader->read_table_location();
     }
 
     pod5::FileLocation get_combined_file_signal_table_location() const {
-        POD5_PYTHON_ASSIGN_OR_RAISE(auto file_location, reader->signal_table_location());
-        return file_location;
+        return reader->signal_table_location();
     }
 
     void close() { reader = nullptr; }
@@ -278,16 +280,19 @@ inline pod5::RunInfoDictionaryIndex FileWriter_add_run_info(
                                           std::move(tracking_id)}));
 }
 
-inline void FileWriter_add_reads(
-        pod5::FileWriter& w,
-        std::size_t count,
+inline pod5::ReadData make_read_data(
+        std::size_t row_id,
         py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const& read_id_data,
-        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& pores,
-        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& calibrations,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& read_numbers,
         py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const& start_samples,
+        py::array_t<std::uint16_t, py::array::c_style | py::array::forcecast> const& channels,
+        py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const& wells,
+        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& pore_types,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& calibration_offsets,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& calibration_scales,
         py::array_t<float, py::array::c_style | py::array::forcecast> const& median_befores,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& end_reasons,
+        py::array_t<bool, py::array::c_style | py::array::forcecast> const& end_reason_forceds,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& run_infos,
         py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const&
                 num_minknow_events,
@@ -299,13 +304,61 @@ inline void FileWriter_add_reads(
                 predicted_scaling_shift,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
                 num_reads_since_mux_change,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& time_since_mux_change,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                time_since_mux_change) {
+    auto read_ids = reinterpret_cast<boost::uuids::uuid const*>(read_id_data.data(0));
+    return pod5::ReadData{read_ids[row_id],
+                          *read_numbers.data(row_id),
+                          *start_samples.data(row_id),
+                          *channels.data(row_id),
+                          *wells.data(row_id),
+                          *pore_types.data(row_id),
+                          *calibration_offsets.data(row_id),
+                          *calibration_scales.data(row_id),
+                          *median_befores.data(row_id),
+                          *end_reasons.data(row_id),
+                          *end_reason_forceds.data(row_id),
+                          *run_infos.data(row_id),
+                          *num_minknow_events.data(row_id),
+                          *tracked_scaling_scale.data(row_id),
+                          *tracked_scaling_shift.data(row_id),
+                          *predicted_scaling_scale.data(row_id),
+                          *predicted_scaling_shift.data(row_id),
+                          *num_reads_since_mux_change.data(row_id),
+                          *time_since_mux_change.data(row_id)};
+}
+
+inline void FileWriter_add_reads(
+        pod5::FileWriter& w,
+        std::size_t count,
+        py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const& read_id_data,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& read_numbers,
+        py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const& start_samples,
+        py::array_t<std::uint16_t, py::array::c_style | py::array::forcecast> const& channels,
+        py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const& wells,
+        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& pore_types,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& calibration_offsets,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& calibration_scales,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& median_befores,
+        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& end_reasons,
+        py::array_t<bool, py::array::c_style | py::array::forcecast> const& end_reason_forceds,
+        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& run_infos,
+        py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const&
+                num_minknow_events,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_scales,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_shifts,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                predicted_scaling_scales,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const&
+                predicted_scaling_shifts,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
+                num_reads_since_mux_changes,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& time_since_mux_changes,
         py::list signal_ptrs) {
     if (read_id_data.shape(1) != 16) {
         throw std::runtime_error("Read id array is of unexpected size");
     }
 
-    auto read_ids = reinterpret_cast<boost::uuids::uuid const*>(read_id_data.data(0));
     auto signal_it = signal_ptrs.begin();
     for (std::size_t i = 0; i < count; ++i, ++signal_it) {
         if (signal_it == signal_ptrs.end()) {
@@ -315,15 +368,12 @@ inline void FileWriter_add_reads(
                 py::array_t<std::int16_t, py::array::c_style | py::array::forcecast>>();
         auto signal_span = gsl::make_span(signal.data(), signal.size());
 
-        pod5::ReadData read_data{
-                read_ids[i],           *pores.data(i),         *calibrations.data(i),
-                *read_numbers.data(i), *start_samples.data(i), *median_befores.data(i),
-                *end_reasons.data(i),  *run_infos.data(i)};
-        read_data.set_v1_fields(*num_minknow_events.data(i), *tracked_scaling_scale.data(i),
-                                *tracked_scaling_shift.data(i), *predicted_scaling_scale.data(i),
-                                *predicted_scaling_shift.data(i),
-                                *num_reads_since_mux_change.data(i),
-                                *time_since_mux_change.data(i));
+        auto read_data = make_read_data(
+                i, read_id_data, read_numbers, start_samples, channels, wells, pore_types,
+                calibration_offsets, calibration_scales, median_befores, end_reasons,
+                end_reason_forceds, run_infos, num_minknow_events, tracked_scaling_scales,
+                tracked_scaling_shifts, predicted_scaling_scales, predicted_scaling_shifts,
+                num_reads_since_mux_changes, time_since_mux_changes);
 
         throw_on_error(w.add_complete_read(read_data, signal_span));
     }
@@ -333,24 +383,28 @@ inline void FileWriter_add_reads_pre_compressed(
         pod5::FileWriter& w,
         std::size_t count,
         py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const& read_id_data,
-        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& pores,
-        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& calibrations,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& read_numbers,
         py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const& start_samples,
+        py::array_t<std::uint16_t, py::array::c_style | py::array::forcecast> const& channels,
+        py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> const& wells,
+        py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& pore_types,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& calibration_offsets,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& calibration_scales,
         py::array_t<float, py::array::c_style | py::array::forcecast> const& median_befores,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& end_reasons,
+        py::array_t<bool, py::array::c_style | py::array::forcecast> const& end_reason_forceds,
         py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const& run_infos,
         py::array_t<std::uint64_t, py::array::c_style | py::array::forcecast> const&
                 num_minknow_events,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_scale,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_shift,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_scales,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& tracked_scaling_shifts,
         py::array_t<float, py::array::c_style | py::array::forcecast> const&
-                predicted_scaling_scale,
+                predicted_scaling_scales,
         py::array_t<float, py::array::c_style | py::array::forcecast> const&
-                predicted_scaling_shift,
+                predicted_scaling_shifts,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
-                num_reads_since_mux_change,
-        py::array_t<float, py::array::c_style | py::array::forcecast> const& time_since_mux_change,
+                num_reads_since_mux_changes,
+        py::array_t<float, py::array::c_style | py::array::forcecast> const& time_since_mux_changes,
         py::list compressed_signal_ptrs,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const& sample_counts,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const&
@@ -387,15 +441,12 @@ inline void FileWriter_add_reads_pre_compressed(
             ++sample_counts_it;
         }
 
-        pod5::ReadData read_data{
-                read_ids[i],           *pores.data(i),         *calibrations.data(i),
-                *read_numbers.data(i), *start_samples.data(i), *median_befores.data(i),
-                *end_reasons.data(i),  *run_infos.data(i)};
-        read_data.set_v1_fields(*num_minknow_events.data(i), *tracked_scaling_scale.data(i),
-                                *tracked_scaling_shift.data(i), *predicted_scaling_scale.data(i),
-                                *predicted_scaling_shift.data(i),
-                                *num_reads_since_mux_change.data(i),
-                                *time_since_mux_change.data(i));
+        auto read_data = make_read_data(
+                i, read_id_data, read_numbers, start_samples, channels, wells, pore_types,
+                calibration_offsets, calibration_scales, median_befores, end_reasons,
+                end_reason_forceds, run_infos, num_minknow_events, tracked_scaling_scales,
+                tracked_scaling_shifts, predicted_scaling_scales, predicted_scaling_shifts,
+                num_reads_since_mux_changes, time_since_mux_changes);
 
         throw_on_error(w.add_complete_read(read_data, signal_rows, signal_duration_count));
     }

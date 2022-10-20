@@ -20,6 +20,7 @@ public:
     static constexpr std::uint32_t DEFAULT_SIGNAL_CHUNK_SIZE = 102'400;
     static constexpr std::uint32_t DEFAULT_SIGNAL_TABLE_BATCH_SIZE = 1000;
     static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 10000;
+    static constexpr std::uint32_t DEFAULT_RUN_INFO_TABLE_BATCH_SIZE = 10;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
 
     FileWriterOptions();
@@ -43,12 +44,18 @@ public:
     void set_read_table_batch_size(std::size_t batch_size) { m_read_table_batch_size = batch_size; }
     std::size_t read_table_batch_size() const { return m_read_table_batch_size; }
 
+    void set_run_info_table_batch_size(std::size_t batch_size) {
+        m_run_info_table_batch_size = batch_size;
+    }
+    std::size_t run_info_table_batch_size() const { return m_run_info_table_batch_size; }
+
 private:
     std::uint32_t m_max_signal_chunk_size;
     arrow::MemoryPool* m_memory_pool;
     SignalType m_signal_type;
     std::size_t m_signal_table_batch_size;
     std::size_t m_read_table_batch_size;
+    std::size_t m_run_info_table_batch_size;
 };
 
 class FileWriterImpl;
@@ -76,10 +83,9 @@ public:
             gsl::span<std::uint8_t const> const& signal_bytes,
             std::uint32_t sample_count);
 
-    pod5::Result<PoreDictionaryIndex> add_pore(PoreData const& pore_data);
-    pod5::Result<CalibrationDictionaryIndex> add_calibration(
-            CalibrationData const& calibration_data);
-    pod5::Result<EndReasonDictionaryIndex> add_end_reason(EndReasonData const& end_reason_data);
+    // Find or create an end reason index representing this read end reason.
+    pod5::Result<EndReasonDictionaryIndex> lookup_end_reason(ReadEndReason end_reason) const;
+    pod5::Result<PoreDictionaryIndex> add_pore_type(std::string const& pore_type_data);
     pod5::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data);
 
     SignalType signal_type() const;

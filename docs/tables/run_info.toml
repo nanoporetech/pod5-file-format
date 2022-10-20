@@ -1,0 +1,79 @@
+[fields.acquisition_id]
+type = "utf8"
+description = "A unique identifier for the acquisition - note that readers should not depend on this uniquely determining the other fields in the run_info, or being unique among the dictionary keys."
+
+[fields.acquisition_start_time]
+type = "timestamp(milliseconds)"
+description = "This is the clock time for sample 0, and can be used together with sample_rate and the :start read field to calculate a clock time for when a given read was acquired. The timezone should be set. MinKNOW will set this to the local timezone on file creation. When merging files that have different timezones, merging code will have to pick a timezone (possibly defaulting to 'UTC')."
+
+[fields.adc_max]
+type = "int16" 
+description = "The maximum ADC value that might be encountered. This is a hardware constraint."
+
+[fields.adc_min]
+type = "int16"
+description = "The minimum ADC value that might be encountered. This is a hardware constraint. adc_max - adc_min + 1 is the digitisation."
+
+[fields.context_tags]
+type = "map(utf8, utf8)"
+description = "The context tags for the run. For compatibility with fast5. Readers must not make any assumptions about the contents of this field."
+
+[fields.experiment_name]
+type = "utf8"
+description = "A user-supplied name for the experiment being run."
+
+[fields.flow_cell_id]
+type = "utf8"
+description = "Uniquely identifies the flow cell the data was captured on. This is written on the flow cell case."
+
+[fields.flow_cell_product_code]
+type = "utf8"
+description = "Identifies the type of flow cell the data was captured on."
+
+[fields.protocol_name]
+type = "utf8"
+description = "The name of the protocol that was run."
+
+[fields.protocol_run_id]
+type = "utf8"
+description = "A unique identifier for the protocol run that produced this data."
+
+[fields.protocol_start_time]
+type = "timestamp(milliseconds)"
+description = "): When the protocol that the acquisition was part of started. The same considerations apply as for acquisition_start_time."
+
+[fields.sample_id]
+type = "utf8"
+description = "A user-supplied name for the sample being analysed."
+
+[fields.sample_rate]
+type = "uint16"
+description = "The number of samples acquired each second on each channel. This can be used to convert numbers of samples into time durations."
+
+[fields.sequencing_kit]
+type = "utf8"
+description = "The type of sequencing kit used to prepare the sample."
+
+[fields.sequencer_position]
+type = "utf8"
+description = "The sequencer position the data was collected on. For removable positions, like MinION Mk1Bs, this is unique (e.g. 'MN12345'), while for integrated positions it is not (e.g. 'X1' on a GridION)."
+
+[fields.sequencer_position_type]
+type = "utf8"
+description = "The type of sequencing hardware the data was collected on. For example: 'MinION Mk1B' or 'GridION' or 'PromethION'."
+
+[fields.software]
+type = "utf8"
+description = "A description of the software that acquired the data. For example: 'MinKNOW 21.05.12 (Bream 5.1.6, Configurations 16.2.1, Core 5.1.9, Guppy 4.2.3)'."
+
+[fields.system_name]
+type = "utf8"
+description = "The name of the system the data was collected on. This might be a sequencer serial (eg: 'GXB1234') or a host name (e.g. 'Lab PC')."
+
+[fields.system_type]
+type = "utf8"
+description = "The type of system the data was collected on. For example, 'GridION Mk1' or 'PromethION P48'. If the system is not a Nanopore sequencer with built-in compute, this will be a description of the operating system (e.g. 'Ubuntu 20.04')."
+
+[fields.tracking_id]
+type = "map(utf8, utf8)"
+description = "The tracking id for the run. For compatibility with fast5. Readers must not make any assumptions about the contents of this field."

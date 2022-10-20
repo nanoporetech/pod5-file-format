@@ -27,18 +27,16 @@ class TestPod5ReaderCombined:
         [
             ("calibration", Calibration),
             ("calibration_digitisation", int),
-            ("calibration_index", int),
             ("calibration_range", float),
             ("end_reason", EndReason),
-            ("end_reason_index", int),
-            ("median_before", float),
-            ("pore", Pore),
-            ("pore_index", int),
             ("read_id", UUID),
-            ("run_info", RunInfo),
-            ("run_info_index", int),
             ("read_number", int),
             ("start_sample", int),
+            ("median_before", float),
+            ("run_info", RunInfo),
+            ("num_minknow_events", int),
+            ("num_reads_since_mux_change", int),
+            ("num_samples", int),
         ],
     )
     def test_combined_reader_reads_types(

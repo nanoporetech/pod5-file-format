@@ -82,30 +82,12 @@ int main(int argc, char** argv) {
         for (std::size_t row_index = 0; row_index < traversal_batch_counts[batch_index];
              ++row_index) {
             std::uint32_t batch_row = traversal_row_indices[row_index + row_offset];
-            // Read out the per read details:
-            boost::uuids::uuid read_id;
-            int16_t pore = 0;
-            int16_t calibration = 0;
-            uint32_t read_number = 0;
-            uint64_t start_sample = 0;
-            float median_before = 0.0f;
-            int16_t end_reason = 0;
-            int16_t run_info = 0;
-            int64_t signal_row_count = 0;
-            if (pod5_get_read_batch_row_info(batch, batch_row, read_id.begin(), &pore, &calibration,
-                                             &read_number, &start_sample, &median_before,
-                                             &end_reason, &run_info,
-                                             &signal_row_count) != POD5_OK) {
-                std::cerr << "Failed to get read " << batch_row << ": " << pod5_get_error_string()
-                          << "\n";
-                return EXIT_FAILURE;
-            }
 
-            // Now read out the calibration params:
-            CalibrationDictData_t* calib_data = nullptr;
-            if (pod5_get_calibration(batch, calibration, &calib_data) != POD5_OK) {
-                std::cerr << "Failed to get read " << batch_row
-                          << " calibration data: " << pod5_get_error_string() << "\n";
+            uint16_t read_table_version = 0;
+            ReadBatchRowInfo_t read_data;
+            if (pod5_get_read_batch_row_info_data(batch, batch_row, READ_BATCH_ROW_INFO_VERSION,
+                                                  &read_data, &read_table_version) != POD5_OK) {
+                std::cerr << "Failed to get read " << batch_row << "\n";
                 return EXIT_FAILURE;
             }
 
@@ -121,10 +103,8 @@ int main(int argc, char** argv) {
                 samples_sum += samples[i];
             }
 
-            pod5_release_calibration(calib_data);
-
-            output_stream << calib_data->offset << " " << calib_data->scale << " " << samples_sum
-                          << "\n";
+            output_stream << read_data.calibration_offset << " " << read_data.calibration_scale
+                          << " " << samples_sum << "\n";
             read_count += 1;
             samples_read += samples.size();
         }

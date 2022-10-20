@@ -242,8 +242,7 @@ Result<SignalTableReader> make_signal_table_reader(
     arrow::ipc::IpcReadOptions options;
     options.memory_pool = pool;
 
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          arrow::ipc::RecordBatchFileReader::Open(input.get(), options));
+    ARROW_ASSIGN_OR_RAISE(auto reader, arrow::ipc::RecordBatchFileReader::Open(input, options));
 
     auto read_metadata_key_values = reader->schema()->metadata();
     if (!read_metadata_key_values) {

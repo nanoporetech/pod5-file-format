@@ -1,6 +1,6 @@
 #include "pod5_format/signal_table_schema.h"
 
-#include "pod5_format/internal/schema_utils.h"
+#include "pod5_format/schema_utils.h"
 #include "pod5_format/types.h"
 
 #include <arrow/type.h>
@@ -50,7 +50,7 @@ Result<SignalTableSchemaDescription> read_signal_table_schema(
         auto const signal_arrow_type = signal_field->type();
         if (signal_arrow_type->id() == arrow::Type::LARGE_LIST) {
             auto const signal_list_field =
-                    static_cast<arrow::LargeListType*>(signal_field->type().get());
+                    std::static_pointer_cast<arrow::LargeListType>(signal_field->type());
             if (signal_list_field->value_type()->id() != arrow::Type::INT16) {
                 return Status::TypeError("Schema field 'signal' list value type is incorrect type");
             }

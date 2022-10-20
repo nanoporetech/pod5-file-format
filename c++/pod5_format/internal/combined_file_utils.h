@@ -1,6 +1,7 @@
 #pragma once
 
 #include "footer_generated.h"
+#include "pod5_format/result.h"
 #include "pod5_format/version.h"
 
 #include <arrow/io/file.h>
@@ -50,8 +51,22 @@ inline pod5::Status write_footer_magic(std::shared_ptr<arrow::io::OutputStream> 
 }
 
 struct FileInfo {
-    std::int64_t file_start_offset;
-    std::int64_t file_length;
+    std::int64_t file_start_offset = 0;
+    std::int64_t file_length = 0;
+};
+
+struct ParsedFileInfo : FileInfo {
+    std::string file_path;
+    std::shared_ptr<arrow::io::RandomAccessFile> file;
+
+    arrow::Status from_full_file(std::string in_file_path) {
+        file_path = in_file_path;
+        ARROW_ASSIGN_OR_RAISE(
+                file, arrow::io::MemoryMappedFile::Open(in_file_path, arrow::io::FileMode::READ));
+        file_start_offset = 0;
+        ARROW_ASSIGN_OR_RAISE(file_length, file->GetSize());
+        return arrow::Status::OK();
+    }
 };
 
 inline pod5::Result<std::int64_t> write_footer_flatbuffer(
@@ -59,6 +74,7 @@ inline pod5::Result<std::int64_t> write_footer_flatbuffer(
         boost::uuids::uuid const& file_identifier,
         std::string const& software_name,
         FileInfo const& signal_table,
+        FileInfo const& run_info_table,
         FileInfo const& reads_table) {
     flatbuffers::FlatBufferBuilder builder(1024);
 
@@ -66,12 +82,16 @@ inline pod5::Result<std::int64_t> write_footer_flatbuffer(
             builder, signal_table.file_start_offset, signal_table.file_length,
             Minknow::ReadsFormat::Format_FeatherV2, Minknow::ReadsFormat::ContentType_SignalTable);
 
+    auto run_info_file = Minknow::ReadsFormat::CreateEmbeddedFile(
+            builder, run_info_table.file_start_offset, run_info_table.file_length,
+            Minknow::ReadsFormat::Format_FeatherV2, Minknow::ReadsFormat::ContentType_RunInfoTable);
+
     auto reads_file = Minknow::ReadsFormat::CreateEmbeddedFile(
             builder, reads_table.file_start_offset, reads_table.file_length,
             Minknow::ReadsFormat::Format_FeatherV2, Minknow::ReadsFormat::ContentType_ReadsTable);
 
-    const std::vector<flatbuffers::Offset<Minknow::ReadsFormat::EmbeddedFile>> files{signal_file,
-                                                                                     reads_file};
+    const std::vector<flatbuffers::Offset<Minknow::ReadsFormat::EmbeddedFile>> files{
+            signal_file, run_info_file, reads_file};
     auto footer = Minknow::ReadsFormat::CreateFooterDirect(
             builder, boost::uuids::to_string(file_identifier).c_str(), software_name.c_str(),
             Pod5Version.c_str(), &files);
@@ -86,11 +106,12 @@ inline pod5::Status write_footer(std::shared_ptr<arrow::io::OutputStream> const&
                                  boost::uuids::uuid const& file_identifier,
                                  std::string const& software_name,
                                  FileInfo const& signal_table,
+                                 FileInfo const& run_info_table,
                                  FileInfo const& reads_table) {
     ARROW_RETURN_NOT_OK(write_footer_magic(sink));
     ARROW_ASSIGN_OR_RAISE(std::int64_t length,
                           write_footer_flatbuffer(sink, file_identifier, software_name,
-                                                  signal_table, reads_table));
+                                                  signal_table, run_info_table, reads_table));
     ARROW_RETURN_NOT_OK(padd_file(sink, 8));
 
     std::int64_t padded_flatbuffer_size = arrow::bit_util::ToLittleEndian(length);
@@ -105,8 +126,9 @@ struct ParsedFooter {
     std::string software_name;
     std::string writer_pod5_version;
 
-    FileInfo reads_table;
-    FileInfo signal_table;
+    ParsedFileInfo run_info_table;
+    ParsedFileInfo reads_table;
+    ParsedFileInfo signal_table;
 };
 
 inline pod5::Status check_signature(std::shared_ptr<arrow::io::RandomAccessFile> const& file,
@@ -131,6 +153,7 @@ inline pod5::Result<Minknow::ReadsFormat::Footer const*> read_footer_flatbuffer(
 }
 
 inline pod5::Result<ParsedFooter> read_footer(
+        std::string const& file_path,
         std::shared_ptr<arrow::io::RandomAccessFile> const& file) {
     // Verify signature at start and end of file:
     ARROW_RETURN_NOT_OK(check_signature(file, 0));
@@ -187,13 +210,23 @@ inline pod5::Result<ParsedFooter> read_footer(
             return arrow::Status::IOError("Invalid embedded file format");
         }
         switch (embedded_file->content_type()) {
+        case Minknow::ReadsFormat::ContentType_RunInfoTable:
+            footer.run_info_table.file_start_offset = embedded_file->offset();
+            footer.run_info_table.file_length = embedded_file->length();
+            footer.run_info_table.file = file;
+            footer.run_info_table.file_path = file_path;
+            break;
         case Minknow::ReadsFormat::ContentType_ReadsTable:
             footer.reads_table.file_start_offset = embedded_file->offset();
             footer.reads_table.file_length = embedded_file->length();
+            footer.reads_table.file = file;
+            footer.reads_table.file_path = file_path;
             break;
         case Minknow::ReadsFormat::ContentType_SignalTable:
             footer.signal_table.file_start_offset = embedded_file->offset();
             footer.signal_table.file_length = embedded_file->length();
+            footer.signal_table.file = file;
+            footer.signal_table.file_path = file_path;
             break;
 
         default:
@@ -201,14 +234,66 @@ inline pod5::Result<ParsedFooter> read_footer(
         }
     }
 
-    if (footer.reads_table.file_start_offset == 0 || footer.reads_table.file_length == 0) {
-        return arrow::Status::IOError("Invalid reads table found in file.");
-    }
-    if (footer.signal_table.file_start_offset == 0 || footer.signal_table.file_length == 0) {
-        return arrow::Status::IOError("Invalid signal table found in file.");
+    return footer;
+}
+
+class SubFile : public arrow::io::internal::RandomAccessFileConcurrencyWrapper<SubFile> {
+public:
+    SubFile(std::shared_ptr<arrow::io::RandomAccessFile> main_file,
+            std::int64_t sub_file_offset,
+            std::int64_t sub_file_length)
+            : m_file(std::move(main_file)),
+              m_sub_file_offset(sub_file_offset),
+              m_sub_file_length(sub_file_length) {}
+
+protected:
+    arrow::Status DoClose() { return m_file->Close(); }
+
+    bool closed() const override { return m_file->closed(); }
+
+    arrow::Result<std::int64_t> DoTell() const {
+        ARROW_ASSIGN_OR_RAISE(auto t, m_file->Tell());
+        return t - m_sub_file_offset;
     }
 
-    return footer;
+    arrow::Status DoSeek(int64_t offset) {
+        offset += m_sub_file_offset;
+        return m_file->Seek(offset);
+    }
+
+    arrow::Result<std::int64_t> DoRead(int64_t length, void* data) {
+        return m_file->Read(length, data);
+    }
+
+    arrow::Result<std::shared_ptr<arrow::Buffer>> DoRead(int64_t length) {
+        return m_file->Read(length);
+    }
+
+    Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out) {
+        return m_file->ReadAt(position + m_sub_file_offset, nbytes, out);
+    }
+
+    Result<std::shared_ptr<arrow::Buffer>> DoReadAt(int64_t position, int64_t nbytes) {
+        return m_file->ReadAt(position + m_sub_file_offset, nbytes);
+    }
+
+    arrow::Result<std::int64_t> DoGetSize() { return m_sub_file_length; }
+
+private:
+    friend RandomAccessFileConcurrencyWrapper<SubFile>;
+
+    std::shared_ptr<arrow::io::RandomAccessFile> m_file;
+    std::int64_t m_sub_file_offset;
+    std::int64_t m_sub_file_length;
+};
+
+inline arrow::Result<std::shared_ptr<SubFile>> open_sub_file(ParsedFileInfo file_info) {
+    if (!file_info.file) {
+        return arrow::Status::Invalid("Failed to open file from footer");
+    }
+    // Restrict our open file to just the run info section:
+    return std::make_shared<SubFile>(file_info.file, file_info.file_start_offset,
+                                     file_info.file_length);
 }
 
 }  // namespace combined_file_utils

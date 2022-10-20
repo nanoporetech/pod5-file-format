@@ -1,5 +1,7 @@
 #include "pod5_format/schema_metadata.h"
 
+#include "pod5_format/version.h"
+
 #include <arrow/util/key_value_metadata.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -50,6 +52,9 @@ Result<Version> parse_version_number(std::string const& ver) {
     }
 
     return Version{components[0], components[1], components[2]};
+}
+Version current_build_version_number() {
+    return Version(Pod5MajorVersion, Pod5MinorVersion, Pod5RevVersion);
 }
 
 Result<std::shared_ptr<const arrow::KeyValueMetadata>> make_schema_key_value_metadata(

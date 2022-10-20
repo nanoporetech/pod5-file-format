@@ -16,7 +16,6 @@ namespace pod5 {
 using SignalTableRowIndex = std::uint64_t;
 
 using PoreDictionaryIndex = std::int16_t;
-using CalibrationDictionaryIndex = std::int16_t;
 using EndReasonDictionaryIndex = std::int16_t;
 using RunInfoDictionaryIndex = std::int16_t;
 
@@ -25,69 +24,92 @@ public:
     ReadData() = default;
     /// \brief Create a new read data structure to add to a read.
     /// \param read_id The read id for the read entry.
-    /// \param pore Pore dictionary index which this read was sequenced with.
-    /// \param calibration Calibration dictionary index which is used to calibrate this read.
     /// \param read_number Read number for this read.
     /// \param start_sample The sample which this read starts at.
     /// \param median_before The median of the read chunk prior to the start of this read.
-    /// \param end_reason The dictionary index of the end reason which caused this read to complete.
-    /// \param run_info The dictionary index of the run info for this read.
+    /// \param end_reason The dictionary index of the end reason name which caused this read to complete.
+    /// \param end_reason_forced Boolean value indicating if the read end was forced.
+    /// \param run_info_id The dictionary index of the run info for this read.
+    /// \param num_minknow_events The number of minknow events in the read.
     ReadData(boost::uuids::uuid const& read_id,
-             PoreDictionaryIndex pore,
-             CalibrationDictionaryIndex calibration,
              std::uint32_t read_number,
              std::uint64_t start_sample,
+             std::uint16_t channel,
+             std::uint8_t well,
+             PoreDictionaryIndex pore_type,
+             float calibration_offset,
+             float calibration_scale,
              float median_before,
              EndReasonDictionaryIndex end_reason,
-             RunInfoDictionaryIndex run_info)
+             bool end_reason_forced,
+             RunInfoDictionaryIndex run_info,
+             std::uint64_t num_minknow_events,
+             float tracked_scaling_scale,
+             float tracked_scaling_shift,
+             float predicted_scaling_scale,
+             float predicted_scaling_shift,
+             std::uint32_t num_reads_since_mux_change,
+             float time_since_mux_change)
             : read_id(read_id),
-              pore(pore),
-              calibration(calibration),
               read_number(read_number),
               start_sample(start_sample),
               median_before(median_before),
               end_reason(end_reason),
-              run_info(run_info) {}
+              end_reason_forced(end_reason_forced),
+              run_info(run_info),
+              num_minknow_events(num_minknow_events),
+              tracked_scaling_scale(tracked_scaling_scale),
+              tracked_scaling_shift(tracked_scaling_shift),
+              predicted_scaling_scale(predicted_scaling_scale),
+              predicted_scaling_shift(predicted_scaling_shift),
+              num_reads_since_mux_change(num_reads_since_mux_change),
+              time_since_mux_change(time_since_mux_change),
+              channel(channel),
+              well(well),
+              pore_type(pore_type),
+              calibration_offset(calibration_offset),
+              calibration_scale(calibration_scale) {}
 
-    void set_v1_fields(std::uint64_t num_minknow_events_in,
-                       float tracked_scaling_scale_in,
-                       float tracked_scaling_shift_in,
-                       float predicted_scaling_scale_in,
-                       float predicted_scaling_shift_in,
-                       std::uint32_t num_reads_since_mux_change_in,
-                       float time_since_mux_change_in) {
-        num_minknow_events = num_minknow_events_in;
-        tracked_scaling_scale = tracked_scaling_scale_in;
-        tracked_scaling_shift = tracked_scaling_shift_in;
-        predicted_scaling_scale = predicted_scaling_scale_in;
-        predicted_scaling_shift = predicted_scaling_shift_in;
-        num_reads_since_mux_change = num_reads_since_mux_change_in;
-        time_since_mux_change = time_since_mux_change_in;
-    }
-
+    // V1 Fields
     boost::uuids::uuid read_id;
-    PoreDictionaryIndex pore;
-    CalibrationDictionaryIndex calibration;
     std::uint32_t read_number;
     std::uint64_t start_sample;
     float median_before;
     EndReasonDictionaryIndex end_reason;
+    bool end_reason_forced;
     RunInfoDictionaryIndex run_info;
 
-    std::uint64_t num_minknow_events = 0;
-    float tracked_scaling_scale = std::numeric_limits<float>::quiet_NaN();
-    float tracked_scaling_shift = std::numeric_limits<float>::quiet_NaN();
-    float predicted_scaling_scale = std::numeric_limits<float>::quiet_NaN();
-    float predicted_scaling_shift = std::numeric_limits<float>::quiet_NaN();
-    std::uint32_t num_reads_since_mux_change = 0;
-    float time_since_mux_change = 0.0f;
+    // V2 Fields
+    std::uint64_t num_minknow_events;
+    float tracked_scaling_scale;
+    float tracked_scaling_shift;
+    float predicted_scaling_scale;
+    float predicted_scaling_shift;
+    std::uint32_t num_reads_since_mux_change;
+    float time_since_mux_change;
+
+    // V3 Fields
+    std::uint16_t channel;
+    std::uint8_t well;
+    PoreDictionaryIndex pore_type;
+    float calibration_offset;
+    float calibration_scale;
 };
 
 inline bool operator==(ReadData const& a, ReadData const& b) {
-    return a.read_id == b.read_id && a.pore == b.pore && a.calibration == b.calibration &&
-           a.read_number == b.read_number && a.start_sample == b.start_sample &&
-           a.median_before == b.median_before && a.end_reason == b.end_reason &&
-           a.run_info == b.run_info;
+    return a.read_id == b.read_id && a.read_number == b.read_number &&
+           a.start_sample == b.start_sample && a.median_before == b.median_before &&
+           a.end_reason == b.end_reason && a.end_reason_forced == b.end_reason_forced &&
+           a.run_info == b.run_info && a.num_minknow_events == b.num_minknow_events &&
+           a.tracked_scaling_scale == b.tracked_scaling_scale &&
+           a.tracked_scaling_shift == b.tracked_scaling_shift &&
+           a.predicted_scaling_scale == b.predicted_scaling_scale &&
+           a.predicted_scaling_shift == b.predicted_scaling_shift &&
+           a.num_reads_since_mux_change == b.num_reads_since_mux_change &&
+           a.time_since_mux_change == b.time_since_mux_change && a.channel == b.channel &&
+           a.well == b.well && a.pore_type == b.pore_type &&
+           a.calibration_offset == b.calibration_offset &&
+           a.calibration_scale == b.calibration_scale;
 }
 
 class RunInfoData {
@@ -180,74 +202,55 @@ inline bool operator==(RunInfoData const& a, RunInfoData const& b) {
            a.tracking_id == b.tracking_id;
 }
 
-class PoreData {
-public:
-    PoreData(std::uint16_t channel, std::uint8_t well, char const* pore_type)
-            : channel(channel), well(well), pore_type(pore_type) {}
+enum class ReadEndReason : std::uint8_t {
+    unknown,
+    mux_change,
+    unblock_mux_change,
+    data_service_unblock_mux_change,
+    signal_positive,
+    signal_negative,
 
-    PoreData(std::uint16_t channel, std::uint8_t well, std::string&& pore_type)
-            : channel(channel), well(well), pore_type(std::move(pore_type)) {}
-
-    std::uint16_t channel;
-    std::uint8_t well;
-    std::string pore_type;
+    last_end_reason = signal_negative
 };
 
-inline bool operator==(PoreData const& a, PoreData const& b) {
-    return a.channel == b.channel && a.well == b.well && a.pore_type == b.pore_type;
+inline char const* end_reason_as_string(ReadEndReason reason) {
+    static_assert(ReadEndReason::last_end_reason == ReadEndReason::signal_negative,
+                  "Need to add new end reason to this function");
+    switch (reason) {
+    case ReadEndReason::mux_change:
+        return "mux_change";
+    case ReadEndReason::unblock_mux_change:
+        return "unblock_mux_change";
+    case ReadEndReason::data_service_unblock_mux_change:
+        return "data_service_unblock_mux_change";
+    case ReadEndReason::signal_positive:
+        return "signal_positive";
+    case ReadEndReason::signal_negative:
+        return "signal_negative";
+    case ReadEndReason::unknown:
+        break;
+    }
+    return "unknown";
 }
 
-class CalibrationData {
-public:
-    CalibrationData(float offset, float scale) : offset(offset), scale(scale) {}
-
-    float offset;
-    float scale;
-};
-
-inline bool operator==(CalibrationData const& a, CalibrationData const& b) {
-    return a.offset == b.offset && a.scale == b.scale;
-}
-
-class EndReasonData {
-public:
-    enum class ReadEndReason {
-        unknown,
-        mux_change,
-        unblock_mux_change,
-        data_service_unblock_mux_change,
-        signal_positive,
-        signal_negative
-    };
-
-    EndReasonData(ReadEndReason name, bool forced)
-            : name(end_reason_as_string(name)), forced(forced) {}
-    EndReasonData(std::string&& name, bool forced) : name(name), forced(forced) {}
-
-    static char const* end_reason_as_string(ReadEndReason reason) {
-        switch (reason) {
-        case ReadEndReason::mux_change:
-            return "mux_change";
-        case ReadEndReason::unblock_mux_change:
-            return "unblock_mux_change";
-        case ReadEndReason::data_service_unblock_mux_change:
-            return "data_service_unblock_mux_change";
-        case ReadEndReason::signal_positive:
-            return "signal_positive";
-        case ReadEndReason::signal_negative:
-            return "signal_negative";
-        case ReadEndReason::unknown:
-            break;
-        }
-        return "unknown";
+inline ReadEndReason end_reason_from_string(std::string const& reason) {
+    static_assert(ReadEndReason::last_end_reason == ReadEndReason::signal_negative,
+                  "Need to add new end reason to this function");
+    if (reason == "unknown") {
+        return ReadEndReason::unknown;
+    } else if (reason == "mux_change") {
+        return ReadEndReason::mux_change;
+    } else if (reason == "unblock_mux_change") {
+        return ReadEndReason::unblock_mux_change;
+    } else if (reason == "data_service_unblock_mux_change") {
+        return ReadEndReason::data_service_unblock_mux_change;
+    } else if (reason == "signal_positive") {
+        return ReadEndReason::signal_positive;
+    } else if (reason == "signal_negative") {
+        return ReadEndReason::signal_negative;
     }
 
-    std::string name;
-    bool forced;
-};
-
-inline bool operator==(EndReasonData const& a, EndReasonData const& b) {
-    return a.name == b.name && a.forced == b.forced;
+    return ReadEndReason::unknown;
 }
 
 /// \brief Input query to a search for a number of read ids in a file:

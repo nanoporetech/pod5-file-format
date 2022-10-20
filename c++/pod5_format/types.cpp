@@ -6,12 +6,12 @@
 namespace pod5 {
 
 const boost::uuids::uuid *UuidArray::raw_values() const {
-    auto const array = static_cast<arrow::FixedSizeBinaryArray const *>(storage().get());
+    auto const array = std::static_pointer_cast<arrow::FixedSizeBinaryArray const>(storage());
     return reinterpret_cast<boost::uuids::uuid const *>(array->GetValue(0));
 }
 
 boost::uuids::uuid UuidArray::Value(int64_t i) const {
-    auto const array = static_cast<arrow::FixedSizeBinaryArray const *>(storage().get());
+    auto const array = std::static_pointer_cast<arrow::FixedSizeBinaryArray const>(storage());
     return *reinterpret_cast<boost::uuids::uuid const *>(array->GetValue(i));
 }
 
@@ -40,7 +40,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> UuidType::Deserialize(
 }
 
 gsl::span<std::uint8_t const> VbzSignalArray::Value(int64_t i) const {
-    auto const array = static_cast<arrow::LargeBinaryArray const *>(storage().get());
+    auto const array = std::static_pointer_cast<arrow::LargeBinaryArray const>(storage());
 
     arrow::LargeBinaryArray::offset_type value_length = 0;
     auto value_ptr = array->GetValue(i, &value_length);
@@ -48,7 +48,7 @@ gsl::span<std::uint8_t const> VbzSignalArray::Value(int64_t i) const {
 }
 
 std::shared_ptr<arrow::Buffer> VbzSignalArray::ValueAsBuffer(int64_t i) const {
-    auto const array = static_cast<arrow::LargeBinaryArray const *>(storage().get());
+    auto const array = std::static_pointer_cast<arrow::LargeBinaryArray const>(storage());
 
     auto offset = array->value_offset(i);
     auto length = array->value_length(i);

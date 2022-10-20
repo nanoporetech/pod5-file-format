@@ -128,7 +128,7 @@ SignalTableWriter::SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWrit
           m_signal_builder(std::move(signal_builder)) {
     auto uuid_type = m_schema->field(m_field_locations.read_id)->type();
     assert(uuid_type->id() == arrow::Type::EXTENSION);
-    auto uuid_extension = static_cast<arrow::ExtensionType*>(uuid_type.get());
+    auto uuid_extension = std::static_pointer_cast<arrow::ExtensionType>(uuid_type);
     m_read_id_builder =
             std::make_unique<arrow::FixedSizeBinaryBuilder>(uuid_extension->storage_type(), m_pool);
     assert(m_read_id_builder->byte_width() == 16);

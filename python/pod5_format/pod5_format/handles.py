@@ -42,6 +42,8 @@ class ReaderHandle:
 
         self._path = path
         self._location = location
+        if self._location:
+            self._path = Path(location.file_path)
 
         self._reader: Optional[pa.ipc.RecordBatchFileReader] = None
         self._fh: Optional[IO] = None
@@ -105,6 +107,7 @@ class ReaderHandleManager:
     def __init__(
         self,
         file_reader: p5b.Pod5FileReader,
+        run_info_reader: ReaderHandle,
         read_reader: ReaderHandle,
         signal_reader: ReaderHandle,
     ):
@@ -118,6 +121,7 @@ class ReaderHandleManager:
         """
         self._file_reader: Optional[p5b.Pod5FileReader] = file_reader
         self._read_reader: Optional[ReaderHandle] = read_reader
+        self._run_info_reader: Optional[ReaderHandle] = run_info_reader
         self._signal_reader: Optional[ReaderHandle] = signal_reader
 
     @classmethod
@@ -142,7 +146,6 @@ class ReaderHandleManager:
         Pod5ApiException
             If there is an error opening the file reader
         """
-        print("Open ", combined_path)
         combined_path = Path(combined_path)
 
         if not combined_path.is_file():
@@ -152,6 +155,9 @@ class ReaderHandleManager:
         if not reader:
             raise Pod5ApiException(f"Failed to open reader: {p5b.get_error_string()}")
 
+        run_info_reader = ReaderHandle(
+            combined_path, reader.get_combined_file_run_info_table_location()
+        )
         read_reader = ReaderHandle(
             combined_path, reader.get_combined_file_read_table_location()
         )
@@ -159,7 +165,7 @@ class ReaderHandleManager:
             combined_path, reader.get_combined_file_signal_table_location()
         )
 
-        return cls(reader, read_reader, signal_reader)
+        return cls(reader, run_info_reader, read_reader, signal_reader)
 
     @classmethod
     def from_split(
@@ -220,6 +226,24 @@ class ReaderHandleManager:
         return self._file_reader
 
     @property
+    def run_info(self) -> ReaderHandle:
+        """
+        Get the :py:class:`ReaderHandle` for the run info data
+
+        Returns
+        -------
+        :py:class:`ReaderHandle`
+
+        Raises
+        ------
+        Pod5ApiException
+            If the reader has been closed
+        """
+        if self._run_info_reader is None:
+            raise Pod5ApiException("ReadHandle (Run Info) has been closed")
+        return self._run_info_reader
+
+    @property
     def read(self) -> ReaderHandle:
         """
         Get the :py:class:`ReaderHandle` for the read data
@@ -269,6 +293,9 @@ class ReaderHandleManager:
         if self._signal_reader is not None:
             self._signal_reader.close()
             self._signal_reader = None
+        if self._run_info_reader is not None:
+            self._run_info_reader.close()
+            self._run_info_reader = None
         if self._read_reader is not None:
             self._read_reader.close()
             self._read_reader = None

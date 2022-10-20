@@ -32,9 +32,12 @@ class Pod5Conan(ConanFile):
         package_suffix = ""
         if self.options.nanopore_internal_build:
             package_suffix = "@nanopore/stable"
+            self.requires(f"arrow/8.0.0.1{package_suffix}")
+            self.requires(f"boost/1.78.0.1{package_suffix}")
+        else:
+            self.requires(f"arrow/8.0.0")
+            self.requires(f"boost/1.78.0")
 
-        self.requires(f"arrow/8.0.0.1{package_suffix}")
-        self.requires(f"boost/1.78.0.1{package_suffix}")
         self.requires(f"flatbuffers/2.0.0{package_suffix}")
         self.requires(f"zstd/1.4.8{package_suffix}")
 

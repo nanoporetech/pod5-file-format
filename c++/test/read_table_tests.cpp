@@ -3,6 +3,7 @@
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/types.h"
 #include "pod5_format/version.h"
+#include "test_utils.h"
 #include "utils.h"
 
 #include <arrow/array/array_dict.h>
@@ -47,9 +48,25 @@ SCENARIO("Read table Tests") {
 
         return std::make_tuple(
                 pod5::ReadData{
-                        read_id, 0, 0, std::uint32_t(index * 2), std::uint64_t(index * 10),
-                        index * 5.0f, 0,
-                        0  //std::int16_t(index % 2)
+                        read_id,
+                        std::uint32_t(index * 2),
+                        std::uint64_t(index * 10),
+                        std::uint16_t(index + 1),
+                        std::uint8_t(index + 2),
+                        0,
+                        index * 0.1f,
+                        index * 0.2f,
+                        index * 100.0f,
+                        0,
+                        true,
+                        0,
+                        std::uint64_t(index * 150),
+                        index * 0.4f,
+                        index * 0.3f,
+                        index * 0.6f,
+                        index * 0.5f,
+                        std::uint32_t(index + 10),
+                        index * 50.0f,
 
                 },
                 std::vector<std::uint64_t>{index + 2, index + 3});
@@ -64,41 +81,32 @@ SCENARIO("Read table Tests") {
         auto const record_batch_count = GENERATE(1, 2, 5, 10);
         auto const read_count = GENERATE(1, 2);
 
-        auto run_info_data_0 = get_test_run_info_data();
-        auto run_info_data_1 = get_test_run_info_data("_2");
-
         {
             auto schema_metadata = make_schema_key_value_metadata(
                     {file_identifier, "test_software", *parse_version_number(Pod5Version)});
-            REQUIRE(schema_metadata.ok());
-            REQUIRE(file_out.ok());
+            REQUIRE_ARROW_STATUS_OK(schema_metadata);
+            REQUIRE_ARROW_STATUS_OK(file_out);
 
             auto pore_writer = pod5::make_pore_writer(pool);
-            REQUIRE(pore_writer.ok());
-            auto calibration_writer = pod5::make_calibration_writer(pool);
-            REQUIRE(calibration_writer.ok());
+            REQUIRE_ARROW_STATUS_OK(pore_writer);
             auto end_reason_writer = pod5::make_end_reason_writer(pool);
-            REQUIRE(end_reason_writer.ok());
+            REQUIRE_ARROW_STATUS_OK(end_reason_writer);
             auto run_info_writer = pod5::make_run_info_writer(pool);
-            REQUIRE(run_info_writer.ok());
+            REQUIRE_ARROW_STATUS_OK(run_info_writer);
 
             auto writer = pod5::make_read_table_writer(*file_out, *schema_metadata, read_count,
-                                                       *pore_writer, *calibration_writer,
-                                                       *end_reason_writer, *run_info_writer, pool);
-            REQUIRE(writer.ok());
+                                                       *pore_writer, *end_reason_writer,
+                                                       *run_info_writer, pool);
+            REQUIRE_ARROW_STATUS_OK(writer);
 
-            auto const pore_1 = (*pore_writer)->add({12, 2, "Well Type"});
-            REQUIRE(pore_1.ok());
-            auto const calib_1 = (*calibration_writer)->add({100.0f, 0.5f});
-            REQUIRE(calib_1.ok());
-            auto const end_reason_1 =
-                    (*end_reason_writer)
-                            ->add({pod5::EndReasonData::ReadEndReason::mux_change, false});
-            REQUIRE(end_reason_1.ok());
-            auto const run_info_1 = (*run_info_writer)->add(run_info_data_0);
-            REQUIRE(run_info_1.ok());
-            auto const run_info_2 = (*run_info_writer)->add(run_info_data_1);
-            REQUIRE(run_info_2.ok());
+            auto const pore_1 = (*pore_writer)->add("Well Type");
+            REQUIRE_ARROW_STATUS_OK(pore_1);
+            auto const end_reason_1 = (*end_reason_writer)->lookup(pod5::ReadEndReason::mux_change);
+            REQUIRE_ARROW_STATUS_OK(end_reason_1);
+            auto const run_info_1 = (*run_info_writer)->add("acq_id_1");
+            REQUIRE_ARROW_STATUS_OK(run_info_1);
+            auto const run_info_2 = (*run_info_writer)->add("acq_id_2");
+            REQUIRE_ARROW_STATUS_OK(run_info_2);
 
             for (std::size_t i = 0; i < record_batch_count; ++i) {
                 for (std::size_t j = 0; j < read_count; ++j) {
@@ -109,20 +117,19 @@ SCENARIO("Read table Tests") {
                     std::tie(read_data, signal) = data_for_index(idx);
                     auto row = writer->add_read(read_data, signal, signal.size());
 
-                    REQUIRE(row.ok());
+                    REQUIRE_ARROW_STATUS_OK(row);
                     CHECK(*row == idx);
                 }
             }
-            REQUIRE(writer->close().ok());
+            REQUIRE_ARROW_STATUS_OK(writer->close());
         }
 
         auto file_in = arrow::io::ReadableFile::Open(filename, pool);
         {
-            REQUIRE(file_in.ok());
+            REQUIRE_ARROW_STATUS_OK(file_in);
 
             auto reader = pod5::make_read_table_reader(*file_in, pool);
-            CAPTURE(reader);
-            REQUIRE(reader.ok());
+            REQUIRE_ARROW_STATUS_OK(reader);
 
             auto metadata = reader->schema_metadata();
             CHECK(metadata.file_identifier == file_identifier);
@@ -132,27 +139,28 @@ SCENARIO("Read table Tests") {
             REQUIRE(reader->num_record_batches() == record_batch_count);
             for (std::size_t i = 0; i < record_batch_count; ++i) {
                 auto const record_batch = reader->read_record_batch(i);
-                CAPTURE(record_batch);
-                REQUIRE(record_batch.ok());
+                REQUIRE_ARROW_STATUS_OK(record_batch);
                 REQUIRE(record_batch->num_rows() == read_count);
 
                 auto columns = record_batch->columns();
 
                 CHECK(columns->read_id->length() == read_count);
                 CHECK(columns->signal->length() == read_count);
-                CHECK(columns->pore->length() == read_count);
-                CHECK(columns->calibration->length() == read_count);
+                CHECK(columns->channel->length() == read_count);
+                CHECK(columns->well->length() == read_count);
+                CHECK(columns->pore_type->length() == read_count);
+                CHECK(columns->calibration_offset->length() == read_count);
+                CHECK(columns->calibration_scale->length() == read_count);
                 CHECK(columns->read_number->length() == read_count);
                 CHECK(columns->start_sample->length() == read_count);
                 CHECK(columns->median_before->length() == read_count);
                 CHECK(columns->num_samples->length() == read_count);
                 CHECK(columns->end_reason->length() == read_count);
+                CHECK(columns->end_reason_forced->length() == read_count);
                 CHECK(columns->run_info->length() == read_count);
 
                 auto pore_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(columns->pore->indices());
-                auto calibration_indices = std::static_pointer_cast<arrow::Int16Array>(
-                        columns->calibration->indices());
+                        std::static_pointer_cast<arrow::Int16Array>(columns->pore_type->indices());
                 auto end_reason_indices =
                         std::static_pointer_cast<arrow::Int16Array>(columns->end_reason->indices());
                 auto run_info_indices =
@@ -175,38 +183,32 @@ SCENARIO("Read table Tests") {
                     CHECK(columns->start_sample->Value(j) == read_data.start_sample);
                     CHECK(columns->median_before->Value(j) == read_data.median_before);
                     CHECK(columns->num_samples->Value(j) == expected_signal.size());
+                    CHECK(columns->calibration_offset->Value(j) == read_data.calibration_offset);
+                    CHECK(columns->calibration_scale->Value(j) == read_data.calibration_scale);
+                    CHECK(columns->channel->Value(j) == read_data.channel);
+                    CHECK(columns->well->Value(j) == read_data.well);
 
-                    CHECK(calibration_indices->Value(j) == read_data.calibration);
                     CHECK(end_reason_indices->Value(j) == read_data.end_reason);
-                    CHECK(pore_indices->Value(j) == read_data.pore);
+                    CHECK(pore_indices->Value(j) == read_data.pore_type);
                     CHECK(run_info_indices->Value(j) == read_data.run_info);
                 }
 
-                auto pore_data = record_batch->get_pore(0);
-                REQUIRE(pore_data.ok());
-                CHECK(pore_data->channel == 12);
-                CHECK(pore_data->well == 2);
-                CHECK(pore_data->pore_type == "Well Type");
+                auto pore_data = record_batch->get_pore_type(0);
+                REQUIRE_ARROW_STATUS_OK(pore_data);
+                CHECK(*pore_data == "Well Type");
 
-                auto calibration_data = record_batch->get_calibration(0);
-                REQUIRE(calibration_data.ok());
-                CHECK(calibration_data->offset == 100.0f);
-                CHECK(calibration_data->scale == 0.5f);
-
-                auto end_reason_data = record_batch->get_end_reason(0);
-                REQUIRE(end_reason_data.ok());
-                CHECK(end_reason_data->name == "mux_change");
-                CHECK(end_reason_data->forced == false);
+                auto end_reason_data = record_batch->get_end_reason(1);
+                REQUIRE_ARROW_STATUS_OK(end_reason_data);
+                CHECK(end_reason_data->first == pod5::ReadEndReason::mux_change);
+                CHECK(end_reason_data->second == "mux_change");
 
                 auto run_info_data = record_batch->get_run_info(0);
-                CAPTURE(run_info_data);
-                REQUIRE(run_info_data.ok());
-                CHECK(*run_info_data == run_info_data_0);
+                REQUIRE_ARROW_STATUS_OK(run_info_data);
+                CHECK(*run_info_data == "acq_id_1");
 
                 run_info_data = record_batch->get_run_info(1);
-                CAPTURE(run_info_data);
-                REQUIRE(run_info_data.ok());
-                CHECK(*run_info_data == run_info_data_1);
+                REQUIRE_ARROW_STATUS_OK(run_info_data);
+                CHECK(*run_info_data == "acq_id_2");
             }
         }
     }
