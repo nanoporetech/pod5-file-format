@@ -88,8 +88,7 @@ Inspect the pod5 file, find a specific read and print its details.
 Pod5-merge
 ==========
 
-`pod5-merge` is a tool for merging multiple combined `.pod5` files into one monolithic 
-combined pod5 file. 
+`pod5-merge` is a tool for merging multiple  `.pod5` files into one monolithic pod5 file. 
 
 The contents of the input files are checked for duplicate read_ids to avoid 
 accidentally merging identical reads. To override this check set the argument 
@@ -100,13 +99,13 @@ accidentally merging identical reads. To override this check set the argument
     # View help
     $ pod5-merge --help
 
-    # Merge a pair of combined pod5 files
-    $ pod5-merge combined_1.pod5 combined_2.pod5 --output merged.pod5
+    # Merge a pair of pod5 files
+    $ pod5-merge example_1.pod5 example_2.pod5 --output merged.pod5
 
-    # Merge a glob of combined pod5 files
+    # Merge a glob of pod5 files
     $ pod5-merge *.pod5 -o merged.pod5
 
-    # Merge a glob of combined pod5 files ignoring duplicate read ids
+    # Merge a glob of pod5 files ignoring duplicate read ids
     $ pod5-merge *.pod5 -o merged.pod5 --duplicate_ok
 
 
@@ -266,13 +265,19 @@ Pod5-convert-from-fast5
 =======================
 
 The `pod5-convert-from-fast5` tool takes one or more `.fast5` files and converts them
-to one or more `.pod5` files in either split or combined formats.
+to one or more `.pod5` files.
 
 .. warning::
 
     Some content previously stored in `.fast5` files is **not** compatible with the POD5 
     format and will not be converted. This includes all analyses stored in the 
     `.fast5` file.
+
+.. important::
+
+    The conversion of single-read fast5 files is not supported by this tool. Please
+    first convert single-read fast5 files to multi-read fast5 files using the 
+    ont_fast5_api tools. 
 
 .. code-block:: console
     
@@ -308,6 +313,5 @@ but this can be controlled with the `--file-read-count` argument.
     $ pod5-convert-to-fast5 example.pod5 pod5_to_fast5
     $ ls pod5_to_fast5/
     output_1.fast5 output_2.fast5 ... output_N.fast5
-
 
 

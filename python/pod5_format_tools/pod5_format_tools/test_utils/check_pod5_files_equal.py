@@ -13,8 +13,8 @@ def main():
 
     args = parser.parse_args()
 
-    file_a = p5.CombinedReader(args.input_a)
-    file_b = p5.CombinedReader(args.input_b)
+    file_a = p5.Reader(args.input_a)
+    file_b = p5.Reader(args.input_b)
 
     fields = [
         "read_number",

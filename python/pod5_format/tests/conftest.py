@@ -16,34 +16,28 @@ import pod5_format as p5
 TEST_UUID = uuid4()
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent / "test_data"
-POD5_COMBINED_PATH = TEST_DATA_PATH / "multi_fast5_zip_v2.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
 
 
 @pytest.fixture(scope="function")
-def combined_reader() -> Generator[p5.CombinedReader, None, None]:
-    """Create a CombinedReader from a combined file"""
-    with p5.CombinedReader(combined_path=POD5_COMBINED_PATH) as reader:
+def reader() -> Generator[p5.Reader, None, None]:
+    """Create a Reader from a pod5 file"""
+    with p5.Reader(path=POD5_PATH) as reader:
         yield reader
 
-    assert reader._handles._file_reader is None
-    assert reader._handles._signal_reader is None
-    assert reader._handles._read_reader is None
-
     try:
-        os.rename(POD5_COMBINED_PATH, POD5_COMBINED_PATH.with_suffix(".TEMP"))
-        os.rename(POD5_COMBINED_PATH.with_suffix(".TEMP"), POD5_COMBINED_PATH)
+        os.rename(POD5_PATH, POD5_PATH.with_suffix(".TEMP"))
+        os.rename(POD5_PATH.with_suffix(".TEMP"), POD5_PATH)
     except OSError:
         assert False, "File handle still open"
 
 
 @pytest.fixture(scope="function")
-def combined_writer(tmp_path: Path) -> Generator[p5.Writer, None, None]:
-    """Create a Pod5Writer to a combined file in a temporary directory"""
-    test_pod5 = tmp_path / "test_combined.pod5"
-    with p5.Writer.open_combined(test_pod5) as writer:
+def writer(tmp_path: Path) -> Generator[p5.Writer, None, None]:
+    """Create a Pod5Writer to a file in a temporary directory"""
+    test_pod5 = tmp_path / "test.pod5"
+    with p5.Writer(test_pod5) as writer:
         yield writer
-
-    assert writer._writer is None
 
     try:
         os.rename(test_pod5, test_pod5.with_suffix(".TEMP"))

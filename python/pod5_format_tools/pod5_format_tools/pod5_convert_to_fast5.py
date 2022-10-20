@@ -316,12 +316,12 @@ def convert_from_fast5(
 
     for filename in iterate_inputs(inputs, recursive, "*.pod5"):
         try:
-            combined_reader = p5.CombinedReader(filename)
+            reader = p5.Reader(filename)
         except Exception as exc:
             print(f"Error opening: {filename}: {exc}")
             continue
 
-        for read in combined_reader.reads(preload={"samples"}):
+        for read in reader.reads(preload={"samples"}):
             now = time.time()
             if t_last_update + update_interval < now:
                 t_last_update = now
@@ -332,7 +332,7 @@ def convert_from_fast5(
                     f"{read_count} reads, {format_sample_count(sample_count)}, {mb_total/time_total:.1f} MB/s"
                 )
 
-            extracted_read = extract_read(combined_reader.reads_table_version, read)
+            extracted_read = extract_read(reader.reads_table_version, read)
             current_reads_batch.append(extracted_read)
             read_count += 1
             sample_count += len(extracted_read.signal)

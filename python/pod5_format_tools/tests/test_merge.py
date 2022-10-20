@@ -19,7 +19,7 @@ class TestMerge:
 
         assert output.exists()
 
-        with p5.CombinedReader(output) as reader:
+        with p5.Reader(output) as reader:
             reads = list(reader.reads())
             assert reads
 

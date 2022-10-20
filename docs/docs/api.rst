@@ -13,29 +13,8 @@ on how to install the pod5-format packages.
 Reading POD5 Files
 ========================
 
-POD5 data can come in two forms, combined and split, please head to 
-:ref:`format overview <DESIGN:Summary>` for more information on the distinction 
-between these forms.
 
-To use the module to open a combined POD5 file, create a 
-:class:`~pod5_format.reader.CombinedReader` instance:
-
-.. code-block:: python
-
-    from pod5_format import CombinedReader
-
-    combined_reader = CombinedReader("combined.pod5")
-
-
-Similarly, for split POD5 files where the signal data and read information are stored
-in separate files, create a :class:`~pod5_format.reader.SplitReader` instance:
-
-.. code-block:: python
-
-    from pod5_format import SplitReader
-
-    split_reader = SplitReader("signal.pod5", "reads.pod5")
-
+To use the module to open a POD5 file, create a :class:`~pod5_format.reader.Reader`. 
 It is strongly recommended that users use python's 
 `with statement <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>`_ 
 to ensure that any opened resources (e.g. file handles) are safely closed when they are 
@@ -43,17 +22,12 @@ no longer needed.
 
 .. code-block:: python
 
-    from pod5_format import CombinedReader
+    from pod5_format import Reader
 
-    with CombinedReader("combined.pod5") as combined_reader:
-        # Use combined_reader within this context manager
+    with Reader("example.pod5") as reader:
+        # Use reader within this context manager
         ...
     # Resources are safely closed
-
-Note that both :class:`~pod5_format.reader.CombinedReader` and 
-:class:`~pod5_format.reader.SplitReader` are sub-classes of :class:`~pod5_format.reader.Reader`
-which contains the working logic to read POD5 files. The sub-classes are included
-to provide explicit support for both combined and split POD5 use cases.
 
 Iterate Over Reads
 ------------------
@@ -65,25 +39,25 @@ to generate a :class:`~pod5_format.reader.ReadRecord` instance for each read in 
 
     import pod5_format as p5
 
-    with p5.CombinedReader("combined.pod5") as combined_reader:
-        for read_record in combined_reader.reads():
+    with p5.Reader("example.pod5") as reader:
+        for read_record in reader.reads():
             print(read_record.read_id)
 
 To iterate over a `filtered` selection of read_ids, provide :func:`~pod5_format.reader.Reader.reads`
-with a collection of read_ids:
+with a collection of read_ids which must be ``UUIDs``:
 
 .. code-block:: python
 
     import pod5_format as p5
 
-    # Create a collection of read_ids
+    # Create a collection of read_id UUIDs
     read_ids = {
         "00445e58-3c58-4050-bacf-3411bb716cc3",
         "00520473-4d3d-486b-86b5-f031c59f6591",
     }
 
-    with p5.CombinedReader("combined.pod5") as combined_reader:
-        for read_record in combined_reader.reads(read_ids):
+    with p5.Reader("example.pod5") as reader:
+        for read_record in reader.reads(read_ids):
             assert str(read_record.read_id) in read_ids
 
 
@@ -135,11 +109,11 @@ Here is an example of how a user may plot a read's signal data against time.
 
     import pod5_format as p5
 
-    # Using the example combined pod5 file provided
-    combined_pod5 = "test_data/multi_fast5_zip.pod5"
+    # Using the example pod5 file provided
+    example_pod5 = "test_data/multi_fast5_zip.pod5"
     selected_read_id = '0000173c-bf67-44e7-9a9c-1ad0bc728e74'
 
-    with p5.CombinedReader(combined_pod5) as reader:
+    with p5.Reader(example_pod5) as reader:
 
         # Read the selected read from the pod5 file
         # next() is required here as Reader.reads() returns a Generator
@@ -171,34 +145,13 @@ there are certainly use cases where writing ones own POD5 files would be desirab
     New tools may be added to support our users and if you have a suggestion for a 
     new tool please submit a request on the `pod5-file-format GitHub issues page <p5_git_>`_.
 
-Writing Reads to a POD5 File
-----------------------------
 
-To create a new combined POD5 file one must first generate **all** of the required read data
-fields of which there are over 30. These fields are grouped into container classes
-such as :class:`~pod5_format.pod5_types.RunInfo` and :class:`~pod5_format.pod5_types.Calibration`.
-
-In many cases, instances of these container classes are shared among many reads. 
-As such, each unique instance of these classes are stored in the POD5 file only once using a
-`Dictionary Array <https://arrow.apache.org/docs/python/data.html#dictionary-arrays>`_.
-It is the index of this object in the dictionary array which is stored alongside 
-the read records. 
-
-When writing reads to a POD5 one should use the :py:class:`~pod5_format.writer.Writer` 
-method :py:meth:`~pod5_format.writer.Writer.add`, to add new instances of these 
-container classes and to get their respective indices which are passed as parameters
-to :py:meth:`~pod5_format.writer.Writer.add_read` or :py:meth:`~pod5_format.writer.Writer.add_reads`. 
-
-However, if one first creates a :class:`~pod5_format.pod5_types.Read`
-object and calls the :py:meth:`~pod5_format.writer.Writer.add_read_object` method 
-the `Writer` will automatically manage the dictionary array indices.
 
 Adding Reads Example
 ---------------------
 
-Below is a conceptual example of how one may either add reads to a POD5 using
-:py:meth:`~pod5_format.writer.Writer.add` and :py:meth:`~pod5_format.writer.Writer.add_read`
-or by using the :py:meth:`~pod5_format.writer.Writer.add_read_object` method.
+Below is an example of how one may add reads to a new POD5 file using the :py:class:`~pod5_format.writer.Writer`
+and it's :py:meth:`~pod5_format.writer.Writer.add_read_object` method.
 
 .. code-block:: python
 
@@ -216,22 +169,6 @@ or by using the :py:meth:`~pod5_format.writer.Writer.add_read_object` method.
     )
     signal = ... # some signal data 
 
-    # Create a new combined POD5 file and open a writer handle to it
-    with p5.CombinedWriter("combined.pod5") as writer:
-        writer.add_read(
-            read_id=UUID("0000173c-bf67-44e7-9a9c-1ad0bc728e74"),
-            end_reason=writer.add(end_reason), # Add new item and return the index
-            calibration=writer.add(calibration),
-            pore=writer.add(pore),
-            run_info=writer.add(run_info),
-            ...
-            signal=signal,
-            sample_count=len(signal),
-            pre_compressed_signal=False
-        )
-
-    # Alternatively, one can create Read objects and have the writer manage indices
-    # of its members
     read = p5.Read(
         read_id=UUID("0000173c-bf67-44e7-9a9c-1ad0bc728e74"),
         end_reason=end_reason,
@@ -244,7 +181,6 @@ or by using the :py:meth:`~pod5_format.writer.Writer.add_read_object` method.
         pre_compressed_signal=False,
     )
 
-    with p5.CombinedWriter("combined.pod5") as writer:
+    with p5.Writer("example.pod5") as writer:
         # Write the read object and all of its members
         writer.add_read_object(read)
-

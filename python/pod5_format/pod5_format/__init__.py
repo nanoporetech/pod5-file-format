@@ -24,20 +24,9 @@ from .pod5_types import (
 from .reader import (
     ReadRecord,
     Reader,
-    SplitReader,
-    CombinedReader,
     ReadRecordBatch,
-    open_combined_file,
-    open_split_file,
 )
-from .reader_utils import make_split_filename
-from .writer import (
-    Writer,
-    CombinedWriter,
-    SplitWriter,
-    create_combined_file,
-    create_split_file,
-)
+from .writer import Writer
 from .signal_tools import (
     vbz_compress_signal,
     vbz_decompress_signal_chunked,

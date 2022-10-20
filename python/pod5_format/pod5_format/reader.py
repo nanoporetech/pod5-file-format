@@ -6,6 +6,7 @@ from collections import namedtuple
 from dataclasses import fields
 import enum
 from functools import total_ordering
+import mmap
 from pathlib import Path
 from typing import (
     Collection,
@@ -24,8 +25,6 @@ import packaging.version
 
 import numpy as np
 import numpy.typing as npt
-from pod5_format.handles import ReaderHandleManager
-from pod5_format.reader_utils import make_split_filename
 import pyarrow as pa
 
 import pod5_format.pod5_format_pybind as p5b
@@ -39,7 +38,7 @@ from pod5_format.pod5_types import (
     ShiftScalePair,
 )
 
-from .api_utils import deprecation_warning, pack_read_ids
+from .api_utils import pack_read_ids, Pod5ApiException
 from .signal_tools import vbz_decompress_signal_into, vbz_decompress_signal
 
 
@@ -562,24 +561,92 @@ class ReadRecordBatch:
         return self._signal_cache.samples
 
 
+class ArrowTableHandle:
+    """Class for managing arrow file handles and memory view mapping of tables"""
+
+    def __init__(self, location: p5b.EmbeddedFileData) -> None:
+        """
+        Open a pod5 file at the given `path` and use the location data to load
+        an arrow table (e.g. signal table)
+
+        Parameters
+        ----------
+        location : pod5_format.pod5_format_pybind.EmbeddedFileData
+            Location data for how a pod5 file should be spit in memory to read a table.
+            This is returned from p5b.Pod5FileReader.get_file_X_location methods
+
+        Raises
+        ------
+        Pod5ApiException
+            If handle could not be opened
+        """
+
+        # The location data is passed from the p5b.Pod5FileReader.get_file_X_location
+        # methods
+        self._location = location
+        self._path = Path(self._location.file_path)
+
+        # Open the file
+        self._fh = self._path.open("r")
+
+        # Create a memory view of the file and select the region for the table
+        _mmap = mmap.mmap(self._fh.fileno(), length=0, access=mmap.ACCESS_READ)
+        map_view = memoryview(_mmap)
+        arrow_table_view = map_view[
+            self._location.offset : self._location.offset + self._location.length
+        ]
+
+        # Open the table
+        try:
+            self._reader = pa.ipc.open_file(pa.BufferReader(arrow_table_view))
+        except pa.ArrowInvalid as exc:
+            raise Pod5ApiException(f"Failed to open ArrowTable: {self._path}") from exc
+
+    @property
+    def reader(self) -> pa.ipc.RecordBatchFileReader:
+        """Return the pyarrow file reader object"""
+        if self._reader is not None:
+            return self._reader
+
+        raise RuntimeError(f"Could not open pyarrow reader: {p5b.get_error_string()}")
+
+    def close(self) -> None:
+        """
+        Cleanly close the open file handles and memory views.
+        """
+        self._reader = None
+        self._fh.close()
+
+    def __enter__(self) -> "ArrowTableHandle":
+        return self
+
+    def __exit__(self, *exc_details) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        self.close()
+
+
 class Reader:
     """
     The base reader for POD5 data
-
-    Note
-    ----
-    Use :py:class:`CombinedReader` and :py:class:`SplitReader` convenience classes
-    or :py:meth:`Reader.from_combined` and :py:meth:`Reader.from_split` class methods
-    to open a :py:class:`Reader` from combined or split pod5 files respectively.
     """
 
-    def __init__(self, *, handles: ReaderHandleManager):
+    def __init__(self, path: PathOrStr):
         """
-        Initialise a :py:class:`Reader` instance from the supplied :py:class:`ReaderHandleManager`.
+        Open a pod5 filepath for reading
         """
-        self._handles = handles
 
-        schema_metadata = self._handles.read.reader.schema.metadata
+        self._path = Path(path).absolute()
+
+        self._file_reader: Optional[p5b.Pod5FileReader] = None
+        self._read_handle: Optional[ArrowTableHandle] = None
+        self._run_info_handle: Optional[ArrowTableHandle] = None
+        self._signal_handle: Optional[ArrowTableHandle] = None
+
+        self._open_arrow_table_handles()
+
+        schema_metadata = self.read_table.schema.metadata
         self._file_identifier = UUID(
             schema_metadata[b"MINKNOW:file_identifier"].decode("utf-8")
         )
@@ -605,67 +672,26 @@ class Reader:
         self._is_vbz_compressed: Optional[bool] = None
         self._signal_batch_row_count: Optional[int] = None
 
-    @classmethod
-    def from_combined(cls, combined_path: PathOrStr) -> "Reader":
-        """
-        Open a combined pod5 file for reading.
+    def _open_arrow_table_handles(self) -> None:
+        """Open handles to the underlying arrow tables within this pod5 file"""
+        if not self._path.is_file():
+            raise FileNotFoundError(f"Failed to open pod5 file at: {self._path}")
 
-        See also :py:class:`CombinedReader`
+        self._file_reader = p5b.open_file(str(self._path))
+        if not self._file_reader:
+            raise Pod5ApiException(
+                f"Failed to open reader for {self._path} Reason: {p5b.get_error_string()}"
+            )
 
-        Parameters
-        ----------
-        combined_path : os.PathLike, str
-            The combined pod5 file to open.
-
-        Returns
-        -------
-        A :py:class:`Reader` with `combined_path` opened for reading.
-        """
-        return cls(handles=ReaderHandleManager.from_combined(Path(combined_path)))
-
-    @classmethod
-    def from_split(cls, split_path: PathOrStr, reads_path: PathOrStr) -> "Reader":
-        """
-        Open a split pair of pod5 files for reading, one for signal data, one for read
-        data.
-
-        See also :py:class:`SplitReader`
-
-        Parameters
-        ----------
-        split_path : os.PathLike, str
-            The name of the signal file in the split pod5 file pair.
-        reads_file : os.PathLike, str
-            The name of the reads file in the split pod5 file pair.
-
-        Returns
-        -------
-        A :py:class:`Reader`, prepared to read from a split pair of pod5 files.
-        """
-        return cls(
-            handles=ReaderHandleManager.from_split(Path(split_path), Path(reads_path))
+        self._read_handle = ArrowTableHandle(
+            self._file_reader.get_file_read_table_location()
         )
-
-    @classmethod
-    def from_inferred_split(cls, path: PathOrStr) -> "Reader":
-        """
-        Open a split pair of pod5 files for reading, one for signal data, one for read
-        data.
-
-        See also :py:meth:`SplitReader.from_inferred`
-
-        Parameters
-        ----------
-        path : os.PathLike, str
-            The basename of the split pair - "my_files.pod5" will open
-            pair "my_files_signal.pod5" and "my_files_reads.pod5",
-
-        Returns
-        -------
-        A :py:class:`Reader`, prepared to read from a split pair of pod5 files.
-        """
-        split_path, reads_path = make_split_filename(Path(path), assert_exists=True)
-        return cls(handles=ReaderHandleManager.from_split(split_path, reads_path))
+        self._run_info_handle = ArrowTableHandle(
+            self._file_reader.get_file_run_info_table_location()
+        )
+        self._signal_handle = ArrowTableHandle(
+            self._file_reader.get_file_signal_table_location()
+        )
 
     def __del__(self) -> None:
         self.close()
@@ -678,9 +704,57 @@ class Reader:
 
     def close(self) -> None:
         """Close files handles"""
-        self._handles.close()
+        if self._read_handle is not None:
+            self._read_handle.close()
+            self._read_handle = None
+
+        if self._run_info_handle is not None:
+            self._run_info_handle.close()
+            self._run_info_handle = None
+
+        if self._signal_handle is not None:
+            self._signal_handle.close()
+            self._signal_handle = None
+
+        if self._file_reader is not None:
+            self._file_reader.close()
+            self._file_reader = None
+
         # Explicitly clear this dictionary to close file handles used in cache
         self._cached_signal_batches = {}
+
+    @property
+    def path(self) -> Path:
+        """Return the path to this pod5 file"""
+        return self._path
+
+    @property
+    def inner_file_reader(self) -> p5b.Pod5FileReader:
+        """Access the inner c_api Pod5FileReader - use with caution"""
+        if self._file_reader is None:
+            raise RuntimeError("Pod5FileReader has been closed!")
+        return self._file_reader
+
+    @property
+    def read_table(self) -> pa.ipc.RecordBatchFileReader:
+        """Access the pod5 read table"""
+        if self._read_handle is None:
+            raise RuntimeError("ArrowTableHandle has been closed!")
+        return self._read_handle.reader
+
+    @property
+    def run_info_table(self) -> pa.ipc.RecordBatchFileReader:
+        """Access the pod5 run_info table"""
+        if self._run_info_handle is None:
+            raise RuntimeError("ArrowTableHandle has been closed!")
+        return self._run_info_handle.reader
+
+    @property
+    def signal_table(self) -> pa.ipc.RecordBatchFileReader:
+        """Access the pod5 signal table - use with caution"""
+        if self._signal_handle is None:
+            raise RuntimeError("ArrowTableHandle has been closed!")
+        return self._signal_handle.reader
 
     @property
     def file_version(self) -> packaging.version.Version:
@@ -702,7 +776,7 @@ class Reader:
     def is_vbz_compressed(self) -> bool:
         """Return if this file's signal is compressed"""
         if self._is_vbz_compressed is None:
-            self._is_vbz_compressed = self._handles.signal.reader.schema.field(
+            self._is_vbz_compressed = self.signal_table.schema.field(
                 "signal"
             ).type.equals(pa.large_binary())
         return self._is_vbz_compressed
@@ -711,10 +785,8 @@ class Reader:
     def signal_batch_row_count(self) -> int:
         """Return signal batch row count"""
         if self._signal_batch_row_count is None:
-            if self._handles.signal.reader.num_record_batches > 0:
-                self._signal_batch_row_count = self._handles.signal.reader.get_batch(
-                    0
-                ).num_rows
+            if self.signal_table.num_record_batches > 0:
+                self._signal_batch_row_count = self.signal_table.get_batch(0).num_rows
             else:
                 self._signal_batch_row_count = 0
         return self._signal_batch_row_count
@@ -724,7 +796,7 @@ class Reader:
         """
         Find the number of read batches available in the file.
         """
-        return self._handles.read.reader.num_record_batches
+        return self.read_table.num_record_batches
 
     def get_batch(self, index: int) -> ReadRecordBatch:
         """
@@ -735,7 +807,7 @@ class Reader:
         :py:class:`ReadRecordBatch`
             The requested batch as a ReadRecordBatch.
         """
-        return ReadRecordBatch(self, self._handles.read.reader.get_batch(index))
+        return ReadRecordBatch(self, self.read_table.get_batch(index))
 
     def read_batches(
         self,
@@ -827,12 +899,12 @@ class Reader:
         """Generate the record batches"""
         signal_cache = None
         if preload:
-            signal_cache = self._handles.file.batch_get_signal(
+            signal_cache = self.inner_file_reader.batch_get_signal(
                 "samples" in preload,
                 "sample_count" in preload,
             )
 
-        for idx in range(self._handles.read.reader.num_record_batches):
+        for idx in range(self.read_table.num_record_batches):
             batch = self.get_batch(idx)
             if signal_cache:
                 batch.set_cached_signal(signal_cache.release_next_batch())
@@ -846,7 +918,7 @@ class Reader:
         """Generate the selected record batches"""
         signal_cache = None
         if preload:
-            signal_cache = self._handles.file.batch_get_signal_batches(
+            signal_cache = self.inner_file_reader.batch_get_signal_batches(
                 "samples" in preload,
                 "sample_count" in preload,
                 np.array(batch_selection, dtype=np.uint32),
@@ -876,7 +948,7 @@ class Reader:
 
         signal_cache: Optional[p5b.Pod5AsyncSignalLoader] = None
         if preload:
-            signal_cache = self._handles.file.batch_get_signal_selection(
+            signal_cache = self.inner_file_reader.batch_get_signal_selection(
                 "samples" in preload,
                 "sample_count" in preload,
                 per_batch_counts,
@@ -929,7 +1001,7 @@ class Reader:
         batch_rows = np.empty(dtype="u4", shape=read_ids.shape[0])
         per_batch_counts = np.empty(dtype="u4", shape=self.batch_count)
 
-        successful_find_count = self._handles.file.plan_traversal(
+        successful_find_count = self.inner_file_reader.plan_traversal(
             read_ids,
             per_batch_counts,
             batch_rows,
@@ -942,7 +1014,7 @@ class Reader:
         if batch_id in self._cached_signal_batches:
             return self._cached_signal_batches[batch_id]
 
-        batch = self._handles.signal.reader.get_batch(batch_id)
+        batch = self.signal_table.get_batch(batch_id)
 
         signal_batch = Signal(*[batch.column(name) for name in Signal._fields])
 
@@ -959,8 +1031,8 @@ class Reader:
             return self._cached_run_infos[acquisition_id]
 
         run_info = None
-        for idx in range(self._handles.run_info.reader.num_record_batches):
-            run_info_batch = self._handles.run_info.reader.get_batch(idx)
+        for idx in range(self.run_info_table.num_record_batches):
+            run_info_batch = self.run_info_table.get_batch(idx)
             acquisition_id_col = run_info_batch.column("acquisition_id")
             for row in range(run_info_batch.num_rows):
                 if acquisition_id_col[row].as_py() == acquisition_id:
@@ -1025,169 +1097,3 @@ class Reader:
         value = field_data[batch_row_id].as_py()
         storage[row_id] = value  # type: ignore
         return value
-
-
-class SplitReader(Reader):
-    """
-    A reader for POD5 data for split pod5 files. This subclass is a convenience
-    class for Reader.from_split
-    """
-
-    def __init__(self, signal_path: PathOrStr, reads_path: PathOrStr) -> None:
-        """
-        Open a split pair of pod5 files for reading.
-
-        Parameters
-        ----------
-        signal_path : os.PathLike, str
-           The path to the signal pod5 file
-        reads_path : os.PathLike, str
-           The path to the reads pod5 file
-
-        Raises
-        ------
-        FileNotFoundError
-            If there is no file at either `signal_path` or `reads_path`
-        Pod5ApiException
-            If there is an error opening the file reader
-        """
-        self._reads_path = Path(reads_path)
-        self._signal_path = Path(signal_path)
-
-        handles = ReaderHandleManager.from_split(self._signal_path, self._reads_path)
-        super().__init__(handles=handles)
-
-    @classmethod
-    def from_inferred(cls, path: PathOrStr) -> "SplitReader":
-        """
-        Open a split pair of pod5 file for reading. Given path, infer the pair
-        of split pod5 filepaths.
-
-        Parameters
-        ----------
-        path : os.PathLike, str
-           The path to search _signal and _reads paths using :py:meth:`make_split_filename`
-
-        Returns
-        -------
-        :py:class:`SplitReader`, prepared to read from a split pair of pod5 files.
-
-        Raises
-        ------
-        FileNotFoundError
-            If there is no file at either `signal_path` or `reads_path`
-        Pod5ApiException
-            If there is an error opening the file reader
-        """
-        signal_path, reads_path = make_split_filename(path, assert_exists=True)
-        return cls(signal_path, reads_path)
-
-    @property
-    def reads_path(self) -> Path:
-        """
-        Returns
-        -------
-        reads_path : pathlib.Path
-            The path to the reads pod5 file
-        """
-        return self._reads_path
-
-    @property
-    def signal_path(self) -> Path:
-        """
-        Returns
-        -------
-        signal_path : pathlib.Path
-            The path to the signal pod5 file
-        """
-        return self._signal_path
-
-
-class CombinedReader(Reader):
-    """
-    A reader for combined pod5 files.
-    """
-
-    def __init__(self, combined_path: PathOrStr) -> None:
-        """
-        Open a combined Pod5 file for reading
-
-        Parameters
-        ----------
-        combined_path : os.PathLike, str
-           The path to the combined pod5 file
-
-        Raises
-        ------
-        FileNotFoundError
-            If there is no file at `combined_path`
-        Pod5ApiException
-            If there is an error opening the file reader
-        """
-        self._combined_path = Path(combined_path)
-        super().__init__(handles=ReaderHandleManager.from_combined(self._combined_path))
-
-    @property
-    def combined_path(self) -> Path:
-        """
-        Returns
-        -------
-        combined_path : pathlib.Path
-            The path to the combined pod5 file
-        """
-        return self._combined_path
-
-
-def open_combined_file(combined_path: PathOrStr) -> CombinedReader:
-    """
-    Open a combined pod5 file for reading.
-
-    Note
-    ----
-    This function has been deprecated in favour of :py:class:`CombinedReader`
-
-    Parameters
-    ----------
-    combined_path : os.PathLike, str
-        The combined POD5 file to open.
-
-    Returns
-    -------
-    :py:class:`CombinedReader`, prepared to read from a combined pod5 file.
-    """
-    deprecation_warning(
-        "pod5_format.reader.open_combined_file",
-        "pod5_format.reader.CombinedReader",
-    )
-    return CombinedReader(Path(combined_path))
-
-
-def open_split_file(path: PathOrStr, reads_path: PathOrStr = None) -> SplitReader:
-    """
-    Open a split pair of pod5 files for reading, one for signal data, one for read data.
-
-    Note
-    ----
-    This function has been deprecated in favour of :py:class:`SplitReader`
-
-    Parameters
-    ----------
-    path : os.PathLike, str
-        Either the basename of the split pair - "my_files.pod5" will open
-        pair "my_files_signal.pod5" and "my_files_reads.pod5",
-        or the direct path to the signal file. if [reads_path] is None, file
-        must be the basename for the split pair.
-    reads_path : os.PathLike, str
-        The name of the reads file in the split file pair.
-
-    Returns
-    -------
-    :py:class:`SplitReader`, prepared to read from a split pair of pod5 files.
-    """
-    deprecation_warning(
-        "pod5_format.reader.open_split_file",
-        "pod5_format.reader.SplitReader",
-    )
-    if not reads_path:
-        return SplitReader.from_inferred(Path(path))
-    return SplitReader(Path(path), Path(reads_path))

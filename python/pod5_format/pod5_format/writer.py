@@ -10,18 +10,16 @@ from typing import (
     Dict,
     Iterable,
     List,
-    Optional,
     Tuple,
     Type,
     TypeVar,
     Union,
 )
-from pod5_format.api_utils import deprecation_warning, Pod5ApiException
 import pytz
-
 import numpy as np
 
 import pod5_format.pod5_format_pybind as p5b
+from pod5_format.api_utils import Pod5ApiException
 from pod5_format.pod5_types import (
     BaseRead,
     Calibration,
@@ -32,8 +30,6 @@ from pod5_format.pod5_types import (
     Read,
     RunInfo,
 )
-
-from pod5_format import make_split_filename
 
 DEFAULT_SOFTWARE_NAME = "Python API"
 
@@ -70,28 +66,29 @@ def timestamp_to_int(time_stamp: Union[datetime.datetime, int]) -> int:
 class Writer:
     """Pod5 File Writer"""
 
-    def __init__(self, writer: p5b.FileWriter) -> None:
+    def __init__(self, path: PathOrStr, software_name: str = DEFAULT_SOFTWARE_NAME):
         """
-        Initialise a Pod5 file Writer
-
-        Note
-        ----
-        Do not use this method to instantiate a :py:class:`Writer`.
-
-        Instantiate this class from one of the factory class methods instead:
-            :py:meth:`Writer.open_combined`
-            :py:meth:`Writer.open_split`
+        Open a pod5 file for Writing.
 
         Parameters
         ----------
-        writer : pod5_format.pod5_format_pybind.FileWriter
-            An instance of the bound c_api FileWriter
+        path : os.PathLike, str
+            The path to the pod5 file to create
+        software_name : str
+            The name of the application used to create this pod5 file
         """
+        self._path = Path(path).absolute()
+        self._software_name = software_name
 
-        if not writer:
-            raise Pod5ApiException(f"Failed to open writer: {p5b.get_error_string()}")
+        if self._path.is_file():
+            raise FileExistsError("Input path already exists. Refusing to overwrite.")
 
-        self._writer: p5b.FileWriter = writer
+        self._writer = p5b.create_file(str(self._path), software_name, None)
+        if not self._writer:
+            raise Pod5ApiException(
+                f"Failed to open writer at {self._path} : {p5b.get_error_string()}"
+            )
+
         self._calibrations: Dict[Calibration, int] = {}
         self._end_reasons: Dict[EndReason, int] = {}
         self._pores: Dict[PoreType, int] = {}
@@ -112,79 +109,6 @@ class Writer:
             RunInfo: self._add_run_info,
         }
 
-    @classmethod
-    def open_combined(
-        cls, path: PathOrStr, software_name: str = DEFAULT_SOFTWARE_NAME
-    ) -> "Writer":
-        """
-        Instantiate a :py:class:`Writer` instance to write a new combined file at path
-
-        Note
-        ----
-        "path" must not point to an existing file object
-
-
-        Parameters
-        ----------
-        path : os.PathLike, str
-            A path to open a new combined Pod5 file for writing
-        software_name : str
-            The name of the software used to create this file (Default: "Python API")
-
-        Returns
-        -------
-        :py:class:`Writer` ready to write a new combined pod5 file
-
-        """
-        abs_path = str(Path(path).absolute())
-        return cls(p5b.create_file(abs_path, software_name, None))
-
-    @classmethod
-    def open_split(
-        cls,
-        path: PathOrStr,
-        reads_path: Optional[PathOrStr] = None,
-        software_name: str = DEFAULT_SOFTWARE_NAME,
-    ) -> "Writer":
-        """
-        Instantiate a :py:class:`Writer` instance to write a new split signal and read
-        pod5 files. Given only "path", an derived pair of split and read filenames are
-        created using :py:meth:`make_split_filename`.
-
-        Note
-        ----
-        "path" must not point to an existing file object
-
-        Parameters
-        ----------
-        path : os.PathLike, str
-            A path to the signal pod5 file or a basename from which filenames are
-            derived
-        reads_path : Optional, os.PathLike, str
-            Optionally provide the read pod5 file path
-        software_name : str
-            The name of the software used to create this file (Default: "Python API")
-
-        Returns
-        -------
-        :py:class:`Writer` ready to write a new split pod5 file
-
-        """
-        signal_path = Path(path).absolute()
-        if reads_path is None:
-            signal_path, reads_path = make_split_filename(path)
-        else:
-            reads_path = Path(reads_path).absolute()
-
-        return cls(
-            p5b.create_split_file(
-                str(signal_path),
-                str(reads_path),
-                software_name,
-                None,
-            )
-        )
-
     def __enter__(self):
         return self
 
@@ -196,6 +120,16 @@ class Writer:
         if self._writer:
             self._writer.close()
             self._writer = None
+
+    @property
+    def path(self) -> Path:
+        """Return the path to the pod5 file"""
+        return self._path
+
+    @property
+    def software_name(self) -> str:
+        """Return the software name used to open this file"""
+        return self._software_name
 
     def add(self, obj: Union[Calibration, EndReason, PoreType, RunInfo]) -> int:
         """
@@ -443,184 +377,3 @@ class Writer:
             num_reads_since_mux_change,
             time_since_mux_change,
         ]
-
-
-class CombinedWriter(Writer):
-    """
-    Pod5 Combined File Writer
-    """
-
-    def __init__(
-        self, combined_path: PathOrStr, software_name: str = DEFAULT_SOFTWARE_NAME
-    ) -> None:
-        """
-        Open a combined pod5 file for Writing.
-
-        Parameters
-        ----------
-        combined_path : os.PathLike, str
-           The path to the combined pod5 file to create
-        software_name : str
-            The name of the application used to create this split pod5 file
-        """
-        self._combined_path = Path(combined_path).absolute()
-        self._software_name = software_name
-
-        if self.combined_path.is_file():
-            raise FileExistsError("Input path already exists. Refusing to overwrite.")
-
-        super().__init__(p5b.create_file(str(combined_path), software_name, None))
-
-    @property
-    def combined_path(self) -> Path:
-        """Return the path to the combined pod5 file"""
-        return self._combined_path
-
-    @property
-    def software_name(self) -> str:
-        """Return the software name used to open this file"""
-        return self._software_name
-
-
-class SplitWriter(Writer):
-    """
-    Pod5 Split File Writer
-    """
-
-    def __init__(
-        self,
-        signal_path: PathOrStr,
-        reads_path: PathOrStr,
-        software_name: str = DEFAULT_SOFTWARE_NAME,
-    ) -> None:
-        """
-        Open a split pair of pod5 file for Writing.
-
-        Parameters
-        ----------
-        signal_path : os.PathLike, str
-           The path to the signal file to create
-        reads_path : os.PathLike, str
-           The path to the reads file to create
-        software_name : str
-            The name of the application used to create this split pod5 file
-
-        Raises
-        ------
-        FileExistsError
-            If either of the signal_path or reads_path already exist
-        """
-        self._signal_path = Path(signal_path).absolute()
-        self._reads_path = Path(reads_path).absolute()
-        self._software_name = software_name
-
-        if self._signal_path.is_file() or self._reads_path.is_file():
-            raise FileExistsError("Input path already exists. Refusing to overwrite.")
-
-        super().__init__(
-            p5b.create_split_file(
-                str(signal_path), str(reads_path), software_name, None
-            )
-        )
-
-    @classmethod
-    def from_inferred(
-        cls, path: PathOrStr, software_name: str = DEFAULT_SOFTWARE_NAME
-    ) -> "SplitWriter":
-        """
-        Open a split pair of pod5 file for Writing. Given only "path", infer the pair
-        of split pod5 filepaths using :py:meth:`make_split_filename`.
-
-        Parameters
-        ----------
-        path : os.PathLike, str
-           The base path to create _signal and _reads paths using make_split_filename
-        software_name`: os.PathLike, str
-            The name of the application used to create this split pod5 file
-
-        Raises
-        ------
-        FileExistsError
-            If either of the inferred signal_path or reads_path already exist
-        """
-        signal_path, reads_path = make_split_filename(path, assert_exists=True)
-        return cls(signal_path, reads_path, software_name)
-
-    @property
-    def reads_path(self) -> Path:
-        """Return the path to the reads pod5 file"""
-        return self._reads_path
-
-    @property
-    def signal_path(self) -> Path:
-        """Return the path to the signal pod5 file"""
-        return self._signal_path
-
-    @property
-    def software_name(self) -> str:
-        """Return the software name used to open this file"""
-        return self._software_name
-
-
-def create_combined_file(
-    filename: PathOrStr, software_name: str = DEFAULT_SOFTWARE_NAME
-) -> CombinedWriter:
-    """
-    Returns a :py:class:`CombinedWriter` instance
-
-    Parameters
-    ----------
-    filename : os.PathLike, str
-        The path used to create a new combined pod5 file
-    software_name : str
-        The name of the application used to create this split pod5 file
-    Warns
-    -----
-    FutureWarning
-        This method is deprecated in favour of :py:class:`CombinedWriter`
-    """
-    deprecation_warning(
-        "pod5_format.writer.create_combined_file",
-        "pod5_format.writer.CombinedWriter",
-    )
-    return CombinedWriter(combined_path=filename, software_name=software_name)
-
-
-def create_split_file(
-    file: Path,
-    reads_file: Optional[Path] = None,
-    software_name: str = DEFAULT_SOFTWARE_NAME,
-) -> SplitWriter:
-    """
-    Returns a :py:class:`SplitWriter` instance
-
-    Parameters
-    ----------
-    file : os.PathLike, str
-        The base path to create _signal and _reads paths using make_split_filename
-        unless reads_file is also given
-    read_file : Optional, os.PathLike, str
-        If given, use "file" as _signal and this as the _reads paths when opening
-        split pod5 files
-    software_name : str
-        The name of the application used to create this split pod5 file
-
-    Raises
-    ------
-    FileExistsError
-        If either of the inferred signal_path or reads_path already exist
-
-    Warns
-    -----
-    FutureWarning
-        This method is deprecated in favour of :py:class:`SplitWriter`
-    """
-    deprecation_warning(
-        "pod5_format.writer.create_split_file",
-        "pod5_format.writer.SplitWriter",
-    )
-    if reads_file is None:
-        return SplitWriter.from_inferred(path=Path(file), software_name=software_name)
-    return SplitWriter(
-        signal_path=Path(file), reads_path=Path(reads_file), software_name=software_name
-    )

@@ -9,18 +9,18 @@ from pod5_format.reader import SignalRowInfo
 import pytest
 
 import pod5_format as p5
-from pod5_format.pod5_types import Calibration, EndReason, Pore, RunInfo
+from pod5_format.pod5_types import Calibration, EndReason, RunInfo
 
 
-class TestPod5ReaderCombined:
-    """Test the Pod5Reader from a combined pod5 file"""
+class TestPod5Reader:
+    """Test the Pod5Reader from a pod5 file"""
 
-    def test_combined_reader_fixture(self, combined_reader: p5.Reader) -> None:
-        """Basic assertions on the combined_reader fixture"""
-        assert isinstance(combined_reader, p5.Reader)
-        assert isinstance(combined_reader.batch_count, int)
-        assert combined_reader.is_vbz_compressed is True
-        assert combined_reader.batch_count > 0
+    def test_reader_fixture(self, reader: p5.Reader) -> None:
+        """Basic assertions on the reader fixture"""
+        assert isinstance(reader, p5.Reader)
+        assert isinstance(reader.batch_count, int)
+        assert reader.is_vbz_compressed is True
+        assert reader.batch_count > 0
 
     @pytest.mark.parametrize(
         "attribute,expected_type",
@@ -39,12 +39,12 @@ class TestPod5ReaderCombined:
             ("num_samples", int),
         ],
     )
-    def test_combined_reader_reads_types(
-        self, combined_reader: p5.Reader, attribute: str, expected_type: Type
+    def test_reader_reads_types(
+        self, reader: p5.Reader, attribute: str, expected_type: Type
     ) -> None:
         """Assert the types returned for reads are consistent with expectations"""
         minimum_reads = 5
-        for pod5_read in combined_reader.reads():
+        for pod5_read in reader.reads():
             assert isinstance(pod5_read, p5.ReadRecord)
             assert isinstance(getattr(pod5_read, attribute), expected_type)
             minimum_reads -= 1
@@ -60,16 +60,16 @@ class TestPod5ReaderCombined:
             ("signal_pa", numpy.ndarray, numpy.float32),
         ],
     )
-    def test_combined_reader_reads_numpy_types(
+    def test_reader_reads_numpy_types(
         self,
-        combined_reader: p5.Reader,
+        reader: p5.Reader,
         attribute: str,
         collection_type: Type,
         dtype: numpy.typing.DTypeLike,
     ) -> None:
         """Assert the types returned for reads are consistent with expectations"""
         minimum_reads = 5
-        for pod5_read in combined_reader.reads():
+        for pod5_read in reader.reads():
             assert isinstance(pod5_read, p5.ReadRecord)
             collection = getattr(pod5_read, attribute)
             assert isinstance(collection, collection_type)
@@ -87,16 +87,16 @@ class TestPod5ReaderCombined:
             ("signal_rows", list, SignalRowInfo),
         ],
     )
-    def test_combined_reader_reads_container_types(
+    def test_reader_reads_container_types(
         self,
-        combined_reader: p5.Reader,
+        reader: p5.Reader,
         attribute: str,
         collection_type: Type,
         leaf_type: Type,
     ) -> None:
         """Assert the types returned for reads are consistent with expectations"""
         minimum_reads = 5
-        for pod5_read in combined_reader.reads():
+        for pod5_read in reader.reads():
             assert isinstance(pod5_read, p5.ReadRecord)
             collection = getattr(pod5_read, attribute)
             assert isinstance(collection, collection_type)
