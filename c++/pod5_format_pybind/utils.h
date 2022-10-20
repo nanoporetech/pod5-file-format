@@ -2,16 +2,25 @@
 
 #include "pod5_format/result.h"
 
-#define POD5_PYTHON_RETURN_NOT_OK(result)                     \
-    if (!result.ok()) {                                       \
-        throw std::runtime_error(result.status().ToString()); \
+inline void raise_error(arrow::Status const& status) {
+    throw std::runtime_error(status.ToString());
+}
+
+template <typename T>
+inline void raise_error(arrow::Result<T> const& result) {
+    throw std::runtime_error(result.status().ToString());
+}
+
+#define POD5_PYTHON_RETURN_NOT_OK(result) \
+    if (!result.ok()) {                   \
+        raise_error(result);              \
     }
 
-#define POD5_PYTHON_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr)  \
-    auto&& result_name = (rexpr);                                  \
-    if (!(result_name).ok()) {                                     \
-        throw std::runtime_error(result_name.status().ToString()); \
-    }                                                              \
+#define POD5_PYTHON_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
+    auto&& result_name = (rexpr);                                 \
+    if (!(result_name).ok()) {                                    \
+        raise_error(result_name);                                 \
+    }                                                             \
     lhs = std::move(result_name).ValueUnsafe();
 
 #define POD5_PYTHON_ASSIGN_OR_RAISE(lhs, rexpr)                                                \

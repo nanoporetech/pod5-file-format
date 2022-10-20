@@ -3,6 +3,7 @@
 #include "pod5_format/async_signal_loader.h"
 #include "pod5_format/c_api.h"
 #include "pod5_format/file_reader.h"
+#include "pod5_format/file_updater.h"
 #include "pod5_format/file_writer.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_compression.h"
@@ -214,6 +215,11 @@ struct Pod5FileReaderPtr {
 inline Pod5FileReaderPtr open_file(char const* filename) {
     POD5_PYTHON_ASSIGN_OR_RAISE(auto reader, pod5::open_file_reader(filename, {}));
     return Pod5FileReaderPtr(std::move(reader));
+}
+
+inline void write_updated_file_to_dest(Pod5FileReaderPtr source, char const* dest_filename) {
+    POD5_PYTHON_RETURN_NOT_OK(
+            pod5::update_file(arrow::default_memory_pool(), source.reader, dest_filename));
 }
 
 inline pod5::RunInfoDictionaryIndex FileWriter_add_run_info(
