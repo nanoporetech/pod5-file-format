@@ -18,15 +18,9 @@
 #include <iostream>
 #include <numeric>
 
-class FileInterface {
-public:
-    virtual pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
-            pod5::FileWriterOptions const& options) = 0;
-
-    virtual pod5::Result<std::shared_ptr<pod5::FileReader>> open_file() = 0;
-};
-
-void run_file_reader_writer_tests(FileInterface& file_ifc) {
+void run_file_reader_writer_tests() {
+    static constexpr char const* file = "./foo.pod5";
+    REQUIRE_ARROW_STATUS_OK(remove_file_if_exists(file));
     (void)pod5::register_extension_types();
     auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
@@ -60,7 +54,7 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
         options.set_read_table_batch_size(1);
         options.set_signal_table_batch_size(5);
 
-        auto writer = file_ifc.create_file(options);
+        auto writer = pod5::create_file_writer(file, "test_software", options);
         REQUIRE_ARROW_STATUS_OK(writer);
 
         auto run_info = (*writer)->add_run_info(run_info_data);
@@ -82,7 +76,7 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
     // Open the file for reading:
     // Write a file:
     {
-        auto reader = file_ifc.open_file();
+        auto reader = pod5::open_file_reader(file, {});
         REQUIRE_ARROW_STATUS_OK(reader);
 
         REQUIRE((*reader)->num_read_record_batches() == 10);
@@ -155,48 +149,7 @@ void run_file_reader_writer_tests(FileInterface& file_ifc) {
     }
 }
 
-/*SCENARIO("Split File Reader Writer Tests") {
-    static constexpr char const* split_file_signal = "./foo_signal.pod5";
-    static constexpr char const* split_file_reads = "./foo_reads.pod5";
-
-    class SplitFileInterface : public FileInterface {
-    public:
-        pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
-                pod5::FileWriterOptions const& options) override {
-            REQUIRE(remove_file_if_exists(split_file_signal).ok());
-            REQUIRE(remove_file_if_exists(split_file_reads).ok());
-            return pod5::create_split_file_writer(split_file_signal, split_file_reads,
-                                                  "test_software", options);
-        }
-
-        pod5::Result<std::shared_ptr<pod5::FileReader>> open_file() override {
-            return pod5::open_split_file_reader(split_file_signal, split_file_reads, {});
-        }
-    };
-
-    SplitFileInterface file_ifc;
-    run_file_reader_writer_tests(file_ifc);
-}*/
-
-SCENARIO("Combined File Reader Writer Tests") {
-    static constexpr char const* combined_file = "./foo.pod5";
-
-    class CombinedFileInterface : public FileInterface {
-    public:
-        pod5::Result<std::unique_ptr<pod5::FileWriter>> create_file(
-                pod5::FileWriterOptions const& options) override {
-            REQUIRE_ARROW_STATUS_OK(remove_file_if_exists(combined_file));
-            return pod5::create_combined_file_writer(combined_file, "test_software", options);
-        }
-
-        pod5::Result<std::shared_ptr<pod5::FileReader>> open_file() override {
-            return pod5::open_combined_file_reader(combined_file, {});
-        }
-    };
-
-    CombinedFileInterface file_ifc;
-    run_file_reader_writer_tests(file_ifc);
-}
+SCENARIO("File Reader Writer Tests") { run_file_reader_writer_tests(); }
 
 SCENARIO("Opening older files") {
     (void)pod5::register_extension_types();
@@ -294,7 +247,7 @@ SCENARIO("Opening older files") {
                               *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
                               *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
                               *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"));
-    auto reader = pod5::open_combined_file_reader(path.ToString(), {});
+    auto reader = pod5::open_file_reader(path.ToString(), {});
     CHECK_ARROW_STATUS_OK(reader);
 
     auto metadata = (*reader)->schema_metadata();

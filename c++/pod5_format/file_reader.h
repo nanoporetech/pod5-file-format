@@ -89,12 +89,7 @@ public:
             std::string const& acquisition_id) const = 0;
 };
 
-POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(
-        std::string const& signal_path,
-        std::string const& reads_path,
-        FileReaderOptions const& options = {});
-
-POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
+POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
         std::string const& path,
         FileReaderOptions const& options = {});
 

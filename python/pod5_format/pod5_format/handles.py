@@ -151,18 +151,16 @@ class ReaderHandleManager:
         if not combined_path.is_file():
             raise FileNotFoundError(f"Failed to open combined_path: {combined_path}")
 
-        reader = p5b.open_combined_file(str(combined_path))
+        reader = p5b.open_file(str(combined_path))
         if not reader:
             raise Pod5ApiException(f"Failed to open reader: {p5b.get_error_string()}")
 
         run_info_reader = ReaderHandle(
-            combined_path, reader.get_combined_file_run_info_table_location()
+            combined_path, reader.get_file_run_info_table_location()
         )
-        read_reader = ReaderHandle(
-            combined_path, reader.get_combined_file_read_table_location()
-        )
+        read_reader = ReaderHandle(combined_path, reader.get_file_read_table_location())
         signal_reader = ReaderHandle(
-            combined_path, reader.get_combined_file_signal_table_location()
+            combined_path, reader.get_file_signal_table_location()
         )
 
         return cls(reader, run_info_reader, read_reader, signal_reader)

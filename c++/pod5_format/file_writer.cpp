@@ -343,73 +343,7 @@ pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::M
     return writers;
 }
 
-pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
-        std::string const& signal_path,
-        std::string const& reads_path,
-        std::string const& writing_software_name,
-        FileWriterOptions const& options) {
-    auto pool = options.memory_pool();
-    if (!pool) {
-        return Status::Invalid("Invalid memory pool specified for file writer");
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto arrow_reads_path,
-                          ::arrow::internal::PlatformFilename::FromString(reads_path));
-    ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_reads_path));
-    if (file_exists) {
-        return Status::Invalid("Unable to create new file '", reads_path, "', already exists");
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto arrow_signal_path,
-                          ::arrow::internal::PlatformFilename::FromString(signal_path));
-    ARROW_ASSIGN_OR_RAISE(file_exists, arrow::internal::FileExists(arrow_signal_path));
-    if (file_exists) {
-        return Status::Invalid("Unable to create new file '", signal_path, "', already exists");
-    }
-
-    // Open dictionary writrs:
-    ARROW_ASSIGN_OR_RAISE(auto dict_writers, make_dictionary_writers(pool));
-
-    // Prep file metadata:
-    auto file_identifier = boost::uuids::random_generator_mt19937()();
-
-    ARROW_ASSIGN_OR_RAISE(auto file_schema_metadata,
-                          make_schema_key_value_metadata({file_identifier, writing_software_name,
-                                                          *parse_version_number(Pod5Version)}));
-
-    // Open run info file table:
-    auto run_info_path = reads_path + ".run_info";
-    ARROW_ASSIGN_OR_RAISE(auto run_info_table_file,
-                          arrow::io::FileOutputStream::Open(run_info_path, false));
-    ARROW_ASSIGN_OR_RAISE(auto run_info_table_writer,
-                          make_run_info_table_writer(run_info_table_file, file_schema_metadata,
-                                                     options.read_table_batch_size(), pool));
-
-    // Open read file table:
-    ARROW_ASSIGN_OR_RAISE(auto read_table_file,
-                          arrow::io::FileOutputStream::Open(reads_path, false));
-    ARROW_ASSIGN_OR_RAISE(
-            auto read_table_writer,
-            make_read_table_writer(read_table_file, file_schema_metadata,
-                                   options.read_table_batch_size(), dict_writers.pore_writer,
-                                   dict_writers.end_reason_writer, dict_writers.run_info_writer,
-                                   pool));
-
-    // Open signal file table:
-    ARROW_ASSIGN_OR_RAISE(auto signal_table_file,
-                          arrow::io::FileOutputStream::Open(signal_path, false));
-    ARROW_ASSIGN_OR_RAISE(auto signal_table_writer,
-                          make_signal_table_writer(signal_table_file, file_schema_metadata,
-                                                   options.signal_table_batch_size(),
-                                                   options.signal_type(), pool));
-
-    // Throw it all together into a writer object:
-    return std::make_unique<FileWriter>(std::make_unique<FileWriterImpl>(
-            std::move(dict_writers), std::move(run_info_table_writer), std::move(read_table_writer),
-            std::move(signal_table_writer), options.max_signal_chunk_size(), pool));
-}
-
-pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
+pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         std::string const& path,
         std::string const& writing_software_name,
         FileWriterOptions const& options) {

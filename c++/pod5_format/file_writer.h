@@ -94,13 +94,7 @@ private:
     std::unique_ptr<FileWriterImpl> m_impl;
 };
 
-POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_split_file_writer(
-        std::string const& signal_path,
-        std::string const& reads_path,
-        std::string const& writing_software_name,
-        FileWriterOptions const& options = {});
-
-POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_combined_file_writer(
+POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         std::string const& path,
         std::string const& writing_software_name,
         FileWriterOptions const& options = {});

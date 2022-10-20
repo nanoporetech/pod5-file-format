@@ -18,27 +18,13 @@
 
 namespace py = pybind11;
 
-inline std::shared_ptr<pod5::FileWriter> create_combined_file(
-        char const* path,
-        std::string const& writer_name,
-        pod5::FileWriterOptions const* options) {
+inline std::shared_ptr<pod5::FileWriter> create_file(char const* path,
+                                                     std::string const& writer_name,
+                                                     pod5::FileWriterOptions const* options) {
     pod5::FileWriterOptions dummy;
     POD5_PYTHON_ASSIGN_OR_RAISE(
-            auto writer,
-            pod5::create_combined_file_writer(path, writer_name,
-                                              options ? *options : pod5::FileWriterOptions{}));
-    return writer;
-}
-
-inline std::shared_ptr<pod5::FileWriter> create_split_file(char const* signal_path,
-                                                           char const* reads_path,
-                                                           std::string const& writer_name,
-                                                           pod5::FileWriterOptions const* options) {
-    pod5::FileWriterOptions dummy;
-    POD5_PYTHON_ASSIGN_OR_RAISE(
-            auto writer,
-            pod5::create_split_file_writer(signal_path, reads_path, writer_name,
-                                           options ? *options : pod5::FileWriterOptions{}));
+            auto writer, pod5::create_file_writer(path, writer_name,
+                                                  options ? *options : pod5::FileWriterOptions{}));
     return writer;
 }
 
@@ -160,15 +146,15 @@ struct Pod5FileReaderPtr {
 
     Pod5FileReaderPtr(std::shared_ptr<pod5::FileReader>&& reader_) : reader(std::move(reader_)) {}
 
-    pod5::FileLocation get_combined_file_run_info_table_location() const {
+    pod5::FileLocation get_file_run_info_table_location() const {
         return reader->run_info_table_location();
     }
 
-    pod5::FileLocation get_combined_file_read_table_location() const {
+    pod5::FileLocation get_file_read_table_location() const {
         return reader->read_table_location();
     }
 
-    pod5::FileLocation get_combined_file_signal_table_location() const {
+    pod5::FileLocation get_file_signal_table_location() const {
         return reader->signal_table_location();
     }
 
@@ -225,14 +211,8 @@ struct Pod5FileReaderPtr {
     }
 };
 
-inline Pod5FileReaderPtr open_combined_file(char const* filename) {
-    POD5_PYTHON_ASSIGN_OR_RAISE(auto reader, pod5::open_combined_file_reader(filename, {}));
-    return Pod5FileReaderPtr(std::move(reader));
-}
-
-inline Pod5FileReaderPtr open_split_file(char const* signal_filename, char const* reads_filename) {
-    POD5_PYTHON_ASSIGN_OR_RAISE(auto reader,
-                                pod5::open_split_file_reader(signal_filename, reads_filename, {}));
+inline Pod5FileReaderPtr open_file(char const* filename) {
+    POD5_PYTHON_ASSIGN_OR_RAISE(auto reader, pod5::open_file_reader(filename, {}));
     return Pod5FileReaderPtr(std::move(reader));
 }
 

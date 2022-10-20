@@ -105,43 +105,8 @@ private:
     SignalTableReader m_signal_table_reader;
 };
 
-pod5::Result<std::shared_ptr<FileReader>> open_split_file_reader(std::string const& signal_path,
-                                                                 std::string const& reads_path,
-                                                                 FileReaderOptions const& options) {
-    auto pool = options.memory_pool();
-    if (!pool) {
-        return Status::Invalid("Invalid memory pool specified for file writer");
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto run_info_table_file,
-                          arrow::io::ReadableFile::Open(reads_path, pool));
-    ARROW_ASSIGN_OR_RAISE(auto run_info_table_reader,
-                          make_run_info_table_reader(run_info_table_file, pool));
-
-    ARROW_ASSIGN_OR_RAISE(auto read_table_file, arrow::io::ReadableFile::Open(reads_path, pool));
-    ARROW_ASSIGN_OR_RAISE(auto read_table_reader, make_read_table_reader(read_table_file, pool));
-
-    ARROW_ASSIGN_OR_RAISE(auto signal_table_file, arrow::io::ReadableFile::Open(signal_path, pool));
-    ARROW_ASSIGN_OR_RAISE(auto signal_table_reader,
-                          make_signal_table_reader(signal_table_file, pool));
-
-    auto signal_metadata = signal_table_reader.schema_metadata();
-    auto reads_metadata = read_table_reader.schema_metadata();
-    if (signal_metadata.file_identifier != reads_metadata.file_identifier) {
-        return Status::Invalid("Invalid read and signal file pair signal identifier: ",
-                               signal_metadata.file_identifier,
-                               ", reads identifier: ", reads_metadata.file_identifier);
-    }
-
-    auto val = static_cast<MigrationResult*>(0);
-    return std::make_shared<FileReaderImpl>(std::move(*val), std::move(run_info_table_reader),
-                                            std::move(read_table_reader),
-                                            std::move(signal_table_reader));
-}
-
-pod5::Result<std::shared_ptr<FileReader>> open_combined_file_reader(
-        std::string const& path,
-        FileReaderOptions const& options) {
+pod5::Result<std::shared_ptr<FileReader>> open_file_reader(std::string const& path,
+                                                           FileReaderOptions const& options) {
     auto pool = options.memory_pool();
     if (!pool) {
         return Status::Invalid("Invalid memory pool specified for file writer");
