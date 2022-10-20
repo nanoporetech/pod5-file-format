@@ -415,7 +415,6 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal_row_info(Pod5FileReader_t* reade
 /// \param      signal_rows_count           The number of signal rows to release.
 /// \param      signal_row_info             The signal row infos to release.
 /// \note Calls to pod5_free_signal_row_info must be 1:1 with [pod5_get_signal_row_info], you cannot free part of the returned data.
-
 POD5_FORMAT_EXPORT pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count,
                                                           SignalRowInfo_t** signal_row_info);
 

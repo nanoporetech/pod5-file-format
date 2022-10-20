@@ -664,10 +664,10 @@ pod5_error_t pod5_get_signal(Pod5FileReader* reader,
     return POD5_OK;
 }
 
-POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_complete_sample_count(Pod5FileReader_t* reader,
-                                                                    Pod5ReadRecordBatch_t* batch,
-                                                                    size_t batch_row,
-                                                                    size_t* sample_count) {
+pod5_error_t pod5_get_read_complete_sample_count(Pod5FileReader_t* reader,
+                                                 Pod5ReadRecordBatch_t* batch,
+                                                 size_t batch_row,
+                                                 size_t* sample_count) {
     pod5_reset_error();
 
     if (!check_not_null(reader) || !check_output_pointer_not_null(sample_count)) {
