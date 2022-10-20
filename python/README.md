@@ -11,12 +11,24 @@ POD5 Format Tools
 The ``pod5_format_tools`` package provides the following tools for inspecting and manipulating
 `.pod5` files as well as converting between `.pod5` and `.fast5` file formats. 
 
-1. [pod5-inspect](#pod5-inspect)
-2. [pod5-demux](#pod5-demux)
-3. [pod5-repack](#pod5-repack)
-4. [pod5-convert-from-fast5](#pod5-convert-from-fast5)
-5. [pod5-convert-to-fast5](#pod5-convert-to-fast5)
+1. [pod5-update](#pod5-update)
+2. [pod5-inspect](#pod5-inspect)
+3. [pod5-demux](#pod5-demux)
+4. [pod5-repack](#pod5-repack)
+5. [pod5-convert-from-fast5](#pod5-convert-from-fast5)
+6. [pod5-convert-to-fast5](#pod5-convert-to-fast5)
 
+
+pod5-update
+===========
+
+The `pod5-update` tool can be used to update a file in an older pod5 format to the latest available format.
+
+```bash
+# View help on pod5-update tools
+> pod5-update --help
+> pod5-update my-old-pod5-file.pod5 ./migrated_files/
+```
 
 pod5-inspect
 ============
@@ -42,6 +54,7 @@ read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before
 00520473-4d3d-486b-86b5-f031c59f6591,220,1,not_set,7936,16135986,signal_positive,192.0,-233.0,0.1,167769,146495,0.437
 ...
 ```
+
 
 ### pod5-inspect read
 

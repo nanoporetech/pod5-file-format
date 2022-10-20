@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.378 - 2022-10-18
+### Removed
+- Support for opening and writing "split" pod5 files. All API's now expect and return combined pod5 files.
+
+### Changed
+- All data in the read table that was previously contained in dictionaries of structs is now stored in the read table, or a new "run info" table.
+    This change simplifies data access into the pod5 files, and helps users who want to convert the pod5 data to pandas or other arrow-compatible reader formats.
+    Old data is migrated on load, and will continue to work, data can be permanently migrated using the tool `pod5-migrate`
+
+
 ## [0.0.37] - 2022-10-18
 ### Changed
 - Updated Conan recipe to support building without specifying C++ standard version.
