@@ -137,7 +137,7 @@ class Writer:
 
         """
         abs_path = str(Path(path).absolute())
-        return cls(p5b.create_combined_file(abs_path, software_name, None))
+        return cls(p5b.create_file(abs_path, software_name, None))
 
     @classmethod
     def open_split(
@@ -469,9 +469,7 @@ class CombinedWriter(Writer):
         if self.combined_path.is_file():
             raise FileExistsError("Input path already exists. Refusing to overwrite.")
 
-        super().__init__(
-            p5b.create_combined_file(str(combined_path), software_name, None)
-        )
+        super().__init__(p5b.create_file(str(combined_path), software_name, None))
 
     @property
     def combined_path(self) -> Path:

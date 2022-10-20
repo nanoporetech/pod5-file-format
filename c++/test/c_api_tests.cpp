@@ -14,7 +14,7 @@
 #include <numeric>
 
 SCENARIO("C API") {
-    static constexpr char const* combined_filename = "./foo_c_api.pod5";
+    static constexpr char const* filename = "./foo_c_api.pod5";
 
     pod5_init();
     auto fin = gsl::finally([] { pod5_terminate(); });
@@ -46,21 +46,21 @@ SCENARIO("C API") {
     // Write the file:
     {
         CHECK(pod5_get_error_no() == POD5_OK);
-        CHECK(!pod5_create_combined_file(NULL, "c_software", NULL));
+        CHECK(!pod5_create_file(NULL, "c_software", NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
-        CHECK(!pod5_create_combined_file("", "c_software", NULL));
+        CHECK(!pod5_create_file("", "c_software", NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
-        CHECK(!pod5_create_combined_file("", NULL, NULL));
+        CHECK(!pod5_create_file("", NULL, NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
 
-        REQUIRE(remove_file_if_exists(combined_filename).ok());
+        REQUIRE(remove_file_if_exists(filename).ok());
 
-        auto combined_file = pod5_create_combined_file(combined_filename, "c_software", NULL);
-        REQUIRE(combined_file);
+        auto file = pod5_create_file(filename, "c_software", NULL);
+        REQUIRE(file);
         CHECK(pod5_get_error_no() == POD5_OK);
 
         std::int16_t pore_type_id = -1;
-        CHECK(pod5_add_pore(&pore_type_id, combined_file, "pore_type") == POD5_OK);
+        CHECK(pod5_add_pore(&pore_type_id, file, "pore_type") == POD5_OK);
         CHECK(pore_type_id == 0);
 
         std::vector<char const*> context_tags_keys{"thing", "foo"};
@@ -69,8 +69,8 @@ SCENARIO("C API") {
         std::vector<char const*> tracking_id_values{"baz_val", "other_val"};
 
         std::int16_t run_info_id = -1;
-        CHECK(pod5_add_run_info(&run_info_id, combined_file, "acquisition_id", 15400, adc_max,
-                                adc_min, context_tags_keys.size(), context_tags_keys.data(),
+        CHECK(pod5_add_run_info(&run_info_id, file, "acquisition_id", 15400, adc_max, adc_min,
+                                context_tags_keys.size(), context_tags_keys.data(),
                                 context_tags_values.data(), "experiment_name", "flow_cell_id",
                                 "flow_cell_product_code", "protocol_name", "protocol_run_id",
                                 200000, "sample_id", 4000, "sequencing_kit", "sequencer_position",
@@ -112,8 +112,8 @@ SCENARIO("C API") {
             std::int16_t const* signal_arr[] = {signal_1.data()};
             std::uint32_t signal_size[] = {(std::uint32_t)signal_1.size()};
 
-            CHECK(pod5_add_reads_data(combined_file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data,
-                                      signal_arr, signal_size) == POD5_OK);
+            CHECK(pod5_add_reads_data(file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data, signal_arr,
+                                      signal_size) == POD5_OK);
             read_count += 1;
         }
 
@@ -131,32 +131,31 @@ SCENARIO("C API") {
 
             std::size_t signal_counts = 1;
 
-            CHECK(pod5_add_reads_data_pre_compressed(combined_file, 1,
-                                                     READ_BATCH_ROW_INFO_VERSION_3, &row_data,
-                                                     &compressed_data_ptr, &compressed_size_ptr,
-                                                     &signal_size_ptr, &signal_counts) == POD5_OK);
+            CHECK(pod5_add_reads_data_pre_compressed(
+                          file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data, &compressed_data_ptr,
+                          &compressed_size_ptr, &signal_size_ptr, &signal_counts) == POD5_OK);
             read_count += 1;
         }
 
-        CHECK(pod5_close_and_free_writer(combined_file) == POD5_OK);
+        CHECK(pod5_close_and_free_writer(file) == POD5_OK);
         CHECK(pod5_get_error_no() == POD5_OK);
     }
 
     // Read the file back:
     {
         CHECK(pod5_get_error_no() == POD5_OK);
-        CHECK(!pod5_open_combined_file(NULL));
-        auto combined_file = pod5_open_combined_file(combined_filename);
+        CHECK(!pod5_open_file(NULL));
+        auto file = pod5_open_file(filename);
         CHECK(pod5_get_error_no() == POD5_OK);
-        CHECK(!!combined_file);
+        CHECK(!!file);
 
         FileInfo_t file_info;
-        CHECK(pod5_get_file_info(combined_file, &file_info) == POD5_OK);
+        CHECK(pod5_get_file_info(file, &file_info) == POD5_OK);
         CHECK(file_info.version.major == pod5::Pod5MajorVersion);
         CHECK(file_info.version.minor == pod5::Pod5MinorVersion);
         CHECK(file_info.version.revision == pod5::Pod5RevVersion);
         {
-            auto reader = pod5::open_combined_file_reader(combined_filename);
+            auto reader = pod5::open_file_reader(filename);
             boost::uuids::uuid file_identifier;
             std::copy(file_info.file_identifier,
                       file_info.file_identifier + sizeof(file_info.file_identifier),
@@ -165,11 +164,11 @@ SCENARIO("C API") {
         }
 
         std::size_t batch_count = 0;
-        CHECK(pod5_get_read_batch_count(&batch_count, combined_file) == POD5_OK);
+        CHECK(pod5_get_read_batch_count(&batch_count, file) == POD5_OK);
         REQUIRE(batch_count == 1);
 
         Pod5ReadRecordBatch* batch_0 = nullptr;
-        CHECK(pod5_get_read_batch(&batch_0, combined_file, 0) == POD5_OK);
+        CHECK(pod5_get_read_batch(&batch_0, file, 0) == POD5_OK);
         REQUIRE(!!batch_0);
 
         for (std::size_t row = 0; row < read_count; ++row) {
@@ -220,22 +219,22 @@ SCENARIO("C API") {
                                               signal_row_indices.data()) == POD5_OK);
 
             std::vector<SignalRowInfo*> signal_row_info(v3_struct.signal_row_count);
-            CHECK(pod5_get_signal_row_info(combined_file, signal_row_indices.size(),
+            CHECK(pod5_get_signal_row_info(file, signal_row_indices.size(),
                                            signal_row_indices.data(),
                                            signal_row_info.data()) == POD5_OK);
 
             std::vector<int16_t> read_signal(signal_row_info.front()->stored_sample_count);
             REQUIRE(signal_row_info.front()->stored_sample_count == signal.size());
-            CHECK(pod5_get_signal(combined_file, signal_row_info.front(),
+            CHECK(pod5_get_signal(file, signal_row_info.front(),
                                   signal_row_info.front()->stored_sample_count,
                                   read_signal.data()) == POD5_OK);
             CHECK(read_signal == signal);
 
             std::size_t sample_count = 0;
-            CHECK(pod5_get_read_complete_sample_count(combined_file, batch_0, row, &sample_count) ==
+            CHECK(pod5_get_read_complete_sample_count(file, batch_0, row, &sample_count) ==
                   POD5_OK);
             CHECK(sample_count == signal_row_info.front()->stored_sample_count);
-            CHECK(pod5_get_read_complete_signal(combined_file, batch_0, row, sample_count,
+            CHECK(pod5_get_read_complete_signal(file, batch_0, row, sample_count,
                                                 read_signal.data()) == POD5_OK);
             CHECK(read_signal == signal);
 
@@ -283,7 +282,7 @@ SCENARIO("C API") {
 
         pod5_free_read_batch(batch_0);
 
-        pod5_close_and_free_reader(combined_file);
+        pod5_close_and_free_reader(file);
         CHECK(pod5_get_error_no() == POD5_OK);
     }
 }

@@ -159,31 +159,14 @@ pod5_error_t pod5_get_error_no() { return g_pod5_error_no; }
 char const* pod5_get_error_string() { return g_pod5_error_string.c_str(); }
 
 //---------------------------------------------------------------------------------------------------------------------
-Pod5FileReader* pod5_open_split_file(char const* signal_filename, char const* reads_filename) {
-    pod5_reset_error();
-
-    if (!check_string_not_empty(signal_filename) || !check_string_not_empty(reads_filename)) {
-        return nullptr;
-    }
-
-    auto internal_reader = pod5::open_split_file_reader(signal_filename, reads_filename, {});
-    if (!internal_reader.ok()) {
-        pod5_set_error(internal_reader.status());
-        return nullptr;
-    }
-
-    auto reader = std::make_unique<Pod5FileReader>(std::move(*internal_reader));
-    return reader.release();
-}
-
-Pod5FileReader* pod5_open_combined_file(char const* filename) {
+Pod5FileReader* pod5_open_file(char const* filename) {
     pod5_reset_error();
 
     if (!check_string_not_empty(filename)) {
         return nullptr;
     }
 
-    auto internal_reader = pod5::open_combined_file_reader(filename, {});
+    auto internal_reader = pod5::open_file_reader(filename, {});
     if (!internal_reader.ok()) {
         pod5_set_error(internal_reader.status());
         return nullptr;
@@ -220,8 +203,8 @@ pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo* file_info) {
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_combined_file_read_table_location(Pod5FileReader_t* reader,
-                                                        EmbeddedFileData_t* file_data) {
+pod5_error_t pod5_get_file_read_table_location(Pod5FileReader_t* reader,
+                                               EmbeddedFileData_t* file_data) {
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
@@ -235,8 +218,8 @@ pod5_error_t pod5_get_combined_file_read_table_location(Pod5FileReader_t* reader
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_combined_file_signal_table_location(Pod5FileReader_t* reader,
-                                                          EmbeddedFileData_t* file_data) {
+pod5_error_t pod5_get_file_signal_table_location(Pod5FileReader_t* reader,
+                                                 EmbeddedFileData_t* file_data) {
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
@@ -249,8 +232,8 @@ pod5_error_t pod5_get_combined_file_signal_table_location(Pod5FileReader_t* read
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_combined_file_run_info_table_location(Pod5FileReader_t* reader,
-                                                            EmbeddedFileData_t* file_data) {
+pod5_error_t pod5_get_file_run_info_table_location(Pod5FileReader_t* reader,
+                                                   EmbeddedFileData_t* file_data) {
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
@@ -724,39 +707,17 @@ pod5_error_t pod5_get_read_complete_signal(Pod5FileReader_t* reader,
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-Pod5FileWriter* pod5_create_split_file(char const* signal_filename,
-                                       char const* reads_filename,
-                                       char const* writer_name,
-                                       Pod5WriterOptions const* options) {
-    pod5_reset_error();
-
-    if (!check_string_not_empty(signal_filename) || !check_string_not_empty(reads_filename) ||
-        !check_string_not_empty(writer_name)) {
-        return nullptr;
-    }
-
-    auto internal_writer = pod5::create_split_file_writer(
-            signal_filename, reads_filename, writer_name, make_internal_writer_options(options));
-    if (!internal_writer.ok()) {
-        pod5_set_error(internal_writer.status());
-        return nullptr;
-    }
-
-    auto writer = std::make_unique<Pod5FileWriter>(std::move(*internal_writer));
-    return writer.release();
-}
-
-Pod5FileWriter* pod5_create_combined_file(char const* filename,
-                                          char const* writer_name,
-                                          Pod5WriterOptions const* options) {
+Pod5FileWriter* pod5_create_file(char const* filename,
+                                 char const* writer_name,
+                                 Pod5WriterOptions const* options) {
     pod5_reset_error();
 
     if (!check_string_not_empty(filename) || !check_string_not_empty(writer_name)) {
         return nullptr;
     }
 
-    auto internal_writer = pod5::create_combined_file_writer(filename, writer_name,
-                                                             make_internal_writer_options(options));
+    auto internal_writer =
+            pod5::create_file_writer(filename, writer_name, make_internal_writer_options(options));
     if (!internal_writer.ok()) {
         pod5_set_error(internal_writer.status());
         return nullptr;

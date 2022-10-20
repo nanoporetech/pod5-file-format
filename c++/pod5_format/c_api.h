@@ -189,14 +189,9 @@ typedef struct ReadBatchRowInfoArrayV3 ReadBatchRowInfoArray_t;
 // Reading files
 //---------------------------------------------------------------------------------------------------------------------
 
-/// \brief Open a split file reader
-/// \param signal_filename  The filename of the signal file.
-/// \param reads_filename   The filename of the reads file.
-POD5_FORMAT_EXPORT Pod5FileReader_t* pod5_open_split_file(char const* signal_filename,
-                                                          char const* reads_filename);
-/// \brief Open a combined file reader
-/// \param filename         The filename of the combined pod5 file.
-POD5_FORMAT_EXPORT Pod5FileReader_t* pod5_open_combined_file(char const* filename);
+/// \brief Open a file reader
+/// \param filename         The filename of the pod5 file.
+POD5_FORMAT_EXPORT Pod5FileReader_t* pod5_open_file(char const* filename);
 
 /// \brief Close a file reader, releasing all memory held by the reader.
 POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_reader(Pod5FileReader_t* file);
@@ -213,7 +208,7 @@ struct FileInfo {
 typedef struct FileInfo FileInfo_t;
 
 /// \brief Find the number of read batches in the file.
-/// \param[out] file        The combined file to be queried.
+/// \param[out] file        The file to be queried.
 /// \param      file_info   The info read from the file.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo_t* file_info);
 
@@ -226,24 +221,22 @@ struct EmbeddedFileData {
 typedef struct EmbeddedFileData EmbeddedFileData_t;
 
 /// \brief Find the location of the read table data
-/// \param[out] file        The combined file to be queried.
+/// \param[out] file        The file to be queried.
 /// \param      file_data   The output read table file data.
-POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_combined_file_read_table_location(Pod5FileReader_t* reader, EmbeddedFileData_t* file_data);
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_read_table_location(Pod5FileReader_t* reader,
+                                                                  EmbeddedFileData_t* file_data);
 
 /// \brief Find the location of the signal table data
-/// \param[out] file        The combined file to be queried.
+/// \param[out] file        The file to be queried.
 /// \param      file_data   The output signal table file data.
-POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_combined_file_signal_table_location(Pod5FileReader_t* reader,
-                                             EmbeddedFileData_t* file_data);
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_signal_table_location(Pod5FileReader_t* reader,
+                                                                    EmbeddedFileData_t* file_data);
 
 /// \brief Find the location of the run info table data
-/// \param[out] file        The combined file to be queried.
+/// \param[out] file        The file to be queried.
 /// \param      file_data   The output signal table file data.
 POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_combined_file_run_info_table_location(Pod5FileReader_t* reader,
-                                               EmbeddedFileData_t* file_data);
+pod5_get_file_run_info_table_location(Pod5FileReader_t* reader, EmbeddedFileData_t* file_data);
 
 /// \brief Plan the most efficient route through the data for the given read ids
 /// \param      file                The file to be queried.
@@ -491,22 +484,13 @@ struct Pod5WriterOptions {
 };
 typedef struct Pod5WriterOptions Pod5WriterOptions_t;
 
-/// \brief Create a new split pod5 file using specified filenames and options.
-/// \param signal_filename  The filename of the signal file.
-/// \param reads_filename   The filename of the reads file.
-/// \param writer_name      A descriptive string for the user software writing this file.
-/// \param options          Options controlling how the file will be written (optional).
-POD5_FORMAT_EXPORT Pod5FileWriter_t* pod5_create_split_file(char const* signal_filename,
-                                                            char const* reads_filename,
-                                                            char const* writer_name,
-                                                            Pod5WriterOptions_t const* options);
-/// \brief Create a new combined pod5 file using specified filenames and options.
-/// \param filename         The filename of the combined pod5 file.
+/// \brief Create a new pod5 file using specified filenames and options.
+/// \param filename         The filename of the pod5 file.
 /// \param writer_name      A descriptive string for the user software writing this file.
 /// \param options          Options controlling how the file will be written.
-POD5_FORMAT_EXPORT Pod5FileWriter_t* pod5_create_combined_file(char const* filename,
-                                                               char const* writer_name,
-                                                               Pod5WriterOptions_t const* options);
+POD5_FORMAT_EXPORT Pod5FileWriter_t* pod5_create_file(char const* filename,
+                                                      char const* writer_name,
+                                                      Pod5WriterOptions_t const* options);
 
 /// \brief Close a file writer, releasing all memory held by the writer.
 POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_writer(Pod5FileWriter_t* file);

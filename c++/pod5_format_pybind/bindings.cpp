@@ -48,12 +48,11 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
             .def_property_readonly("samples", &Pod5SignalCacheBatch::samples);
 
     py::class_<Pod5FileReaderPtr>(m, "Pod5FileReader")
-            .def("get_combined_file_run_info_table_location",
-                 &Pod5FileReaderPtr::get_combined_file_run_info_table_location)
-            .def("get_combined_file_read_table_location",
-                 &Pod5FileReaderPtr::get_combined_file_read_table_location)
-            .def("get_combined_file_signal_table_location",
-                 &Pod5FileReaderPtr::get_combined_file_signal_table_location)
+            .def("get_file_run_info_table_location",
+                 &Pod5FileReaderPtr::get_file_run_info_table_location)
+            .def("get_file_read_table_location", &Pod5FileReaderPtr::get_file_read_table_location)
+            .def("get_file_signal_table_location",
+                 &Pod5FileReaderPtr::get_file_signal_table_location)
 
             .def("plan_traversal", &Pod5FileReaderPtr::plan_traversal)
             .def("batch_get_signal", &Pod5FileReaderPtr::batch_get_signal)
@@ -65,15 +64,11 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
     m.def("get_error_string", &pod5_get_error_string, "Get the most recent error as a string");
 
     // Creating files
-    m.def("create_combined_file", &create_combined_file, "Create a combined POD5 file for writing",
-          py::arg("filename"), py::arg("writer_name"), py::arg("options") = nullptr);
-    m.def("create_split_file", &create_split_file, "Create a split POD5 file for writing",
-          py::arg("signal_filename"), py::arg("reads_filename"), py::arg("writer_name"),
-          py::arg("options") = nullptr);
+    m.def("create_file", &create_file, "Create a POD5 file for writing", py::arg("filename"),
+          py::arg("writer_name"), py::arg("options") = nullptr);
 
     // Opening files
-    m.def("open_combined_file", &open_combined_file, "Open a combined POD5 file for reading");
-    m.def("open_split_file", &open_split_file, "Open a split POD5 file for reading");
+    m.def("open_file", &open_file, "Open a POD5 file for reading");
 
     // Signal API
     m.def("decompress_signal", &decompress_signal_wrapper, "Decompress a numpy array of signal");

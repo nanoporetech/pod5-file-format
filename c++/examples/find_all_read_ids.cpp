@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     pod5_init();
 
     // Open the file ready for walking:
-    Pod5FileReader_t* file = pod5_open_combined_file(argv[1]);
+    Pod5FileReader_t* file = pod5_open_file(argv[1]);
     if (!file) {
         std::cerr << "Failed to open file " << argv[1] << ": " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
