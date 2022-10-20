@@ -1,11 +1,13 @@
 #pragma once
 
 #include "footer_generated.h"
+#include "pod5_format/file_reader.h"
 #include "pod5_format/result.h"
 #include "pod5_format/version.h"
 
 #include <arrow/io/file.h>
 #include <arrow/util/endian.h>
+#include <arrow/util/io_util.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <flatbuffers/flatbuffers.h>
@@ -294,6 +296,62 @@ inline arrow::Result<std::shared_ptr<SubFile>> open_sub_file(ParsedFileInfo file
     // Restrict our open file to just the run info section:
     return std::make_shared<SubFile>(file_info.file, file_info.file_start_offset,
                                      file_info.file_length);
+}
+
+enum class SubFileCleanup { CleanupOriginalFile, LeaveOrignalFile };
+
+inline arrow::Result<combined_file_utils::FileInfo> write_file(
+        arrow::MemoryPool* pool,
+        std::shared_ptr<arrow::io::FileOutputStream> const& file,
+        FileLocation const& file_location,
+        SubFileCleanup cleanup_mode) {
+    combined_file_utils::FileInfo table_data;
+    // Record file start location in bytes within the main file:
+    ARROW_ASSIGN_OR_RAISE(table_data.file_start_offset, file->Tell());
+
+    {
+        // Stream out the reads table into the main file:
+        ARROW_ASSIGN_OR_RAISE(auto reads_table_file_in,
+                              arrow::io::ReadableFile::Open(file_location.file_path, pool));
+        ARROW_RETURN_NOT_OK(reads_table_file_in->Seek(file_location.offset));
+        std::int64_t copied_bytes = 0;
+        std::int64_t target_chunk_size = 10 * 1024 * 1024;  // Read in 10MB of data at a time
+        std::vector<char> read_data(target_chunk_size);
+        while (copied_bytes < std::int64_t(file_location.size)) {
+            std::size_t const to_read =
+                    std::min<std::int64_t>(file_location.size - copied_bytes, target_chunk_size);
+            ARROW_ASSIGN_OR_RAISE(auto const read_bytes,
+                                  reads_table_file_in->Read(to_read, read_data.data()));
+            copied_bytes += read_bytes;
+            ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
+        }
+
+        // Store the reads file length for later reading:
+        ARROW_ASSIGN_OR_RAISE(table_data.file_length, file->Tell());
+        table_data.file_length -= table_data.file_start_offset;
+    }
+
+    if (cleanup_mode == SubFileCleanup::CleanupOriginalFile) {
+        // Clean up the tmp read path:
+        ARROW_ASSIGN_OR_RAISE(auto arrow_path, ::arrow::internal::PlatformFilename::FromString(
+                                                       file_location.file_path));
+        ARROW_RETURN_NOT_OK(arrow::internal::DeleteFile(arrow_path));
+    }
+
+    return table_data;
+}
+
+inline arrow::Result<combined_file_utils::FileInfo> write_file_and_marker(
+        arrow::MemoryPool* pool,
+        std::shared_ptr<arrow::io::FileOutputStream> const& file,
+        FileLocation const& file_location,
+        SubFileCleanup cleanup_mode,
+        boost::uuids::uuid const& section_marker) {
+    ARROW_ASSIGN_OR_RAISE(auto file_info, write_file(pool, file, file_location, cleanup_mode));
+    // Padd file to 8 bytes and mark section:
+    ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
+    ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, section_marker));
+    return file_info;
 }
 
 }  // namespace combined_file_utils

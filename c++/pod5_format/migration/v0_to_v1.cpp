@@ -29,9 +29,10 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
         ARROW_ASSIGN_OR_RAISE(auto v1_schema,
                               arrow::UnifySchemas({v0_reader.schema, v1_new_schama}));
 
-        ARROW_ASSIGN_OR_RAISE(
-                auto v1_writer,
-                make_record_batch_writer(pool, v1_reads_table_path, v1_schema, v0_reader.metadata));
+        ARROW_ASSIGN_OR_RAISE(auto new_metadata,
+                              update_metadata(v0_reader.metadata, Version(0, 0, 24)));
+        ARROW_ASSIGN_OR_RAISE(auto v1_writer, make_record_batch_writer(pool, v1_reads_table_path,
+                                                                       v1_schema, new_metadata));
 
         for (std::int64_t batch_idx = 0; batch_idx < v0_reader.reader->num_record_batches();
              ++batch_idx) {

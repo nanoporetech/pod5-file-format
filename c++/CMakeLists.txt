@@ -43,6 +43,8 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/file_writer.h
     pod5_format/file_reader.cpp
     pod5_format/file_reader.h
+    pod5_format/file_updater.cpp
+    pod5_format/file_updater.h
 
     pod5_format/async_signal_loader.cpp
     pod5_format/async_signal_loader.h

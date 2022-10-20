@@ -70,6 +70,9 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
     // Opening files
     m.def("open_file", &open_file, "Open a POD5 file for reading");
 
+    m.def("update_file", &write_updated_file_to_dest,
+          "Update a POD5 file to the latest writer format");
+
     // Signal API
     m.def("decompress_signal", &decompress_signal_wrapper, "Decompress a numpy array of signal");
     m.def("compress_signal", &compress_signal_wrapper, "Compress a numpy array of signal");

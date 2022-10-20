@@ -12,7 +12,6 @@
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
 #include <arrow/util/future.h>
-#include <arrow/util/io_util.h>
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
 
@@ -226,14 +225,29 @@ public:
         ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
         ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, m_section_marker));
 
-        // Write in run_info table:
-        ARROW_ASSIGN_OR_RAISE(auto run_info_info_table, write_sub_file(file, m_run_info_tmp_path));
-        // Write in read table:
-        ARROW_ASSIGN_OR_RAISE(auto reads_info_table, write_sub_file(file, m_reads_tmp_path));
+        auto file_location_for_full_file =
+                [&](std::string const& filename) -> arrow::Result<FileLocation> {
+            ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(filename, pool()));
+            ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
+            return FileLocation{filename, 0, std::size_t(size)};
+        };
 
-        // Padd file to 8 bytes and mark section:
-        ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
-        ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, m_section_marker));
+        // Write in run_info table:
+        ARROW_ASSIGN_OR_RAISE(auto run_info_location,
+                              file_location_for_full_file(m_run_info_tmp_path));
+        ARROW_ASSIGN_OR_RAISE(auto run_info_info_table,
+                              combined_file_utils::write_file_and_marker(
+                                      pool(), file, run_info_location,
+                                      combined_file_utils::SubFileCleanup::CleanupOriginalFile,
+                                      m_section_marker));
+
+        // Write in read table:
+        ARROW_ASSIGN_OR_RAISE(auto reads_location, file_location_for_full_file(m_reads_tmp_path));
+        ARROW_ASSIGN_OR_RAISE(auto reads_info_table,
+                              combined_file_utils::write_file_and_marker(
+                                      pool(), file, reads_location,
+                                      combined_file_utils::SubFileCleanup::CleanupOriginalFile,
+                                      m_section_marker));
 
         // Write full file footer:
         ARROW_RETURN_NOT_OK(combined_file_utils::write_footer(
@@ -243,42 +257,6 @@ public:
     }
 
 private:
-    arrow::Result<combined_file_utils::FileInfo> write_sub_file(
-            std::shared_ptr<arrow::io::FileOutputStream> const& file,
-            std::string const& filename) {
-        combined_file_utils::FileInfo table_data;
-        // Record file start location in bytes within the main file:
-        ARROW_ASSIGN_OR_RAISE(table_data.file_start_offset, file->Tell());
-
-        {
-            // Stream out the reads table into the main file:
-            ARROW_ASSIGN_OR_RAISE(auto reads_table_file_in,
-                                  arrow::io::ReadableFile::Open(filename, pool()));
-            ARROW_ASSIGN_OR_RAISE(auto file_size, reads_table_file_in->GetSize());
-            std::int64_t copied_bytes = 0;
-            std::int64_t target_chunk_size = 10 * 1024 * 1024;  // Read in 10MB of data at a time
-            std::vector<char> read_data(target_chunk_size);
-            while (copied_bytes < file_size) {
-                ARROW_ASSIGN_OR_RAISE(
-                        auto const read_bytes,
-                        reads_table_file_in->Read(target_chunk_size, read_data.data()));
-                copied_bytes += read_bytes;
-                ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
-            }
-
-            // Store the reads file length for later reading:
-            ARROW_ASSIGN_OR_RAISE(table_data.file_length, file->Tell());
-            table_data.file_length -= table_data.file_start_offset;
-        }
-
-        // Clean up the tmp read path:
-        ARROW_ASSIGN_OR_RAISE(auto arrow_path,
-                              ::arrow::internal::PlatformFilename::FromString(filename));
-        ARROW_RETURN_NOT_OK(arrow::internal::DeleteFile(arrow_path));
-
-        return table_data;
-    }
-
     std::string m_path;
     std::string m_run_info_tmp_path;
     std::string m_reads_tmp_path;
@@ -366,9 +344,10 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     auto const section_marker = uuid_gen();
     auto const file_identifier = uuid_gen();
 
+    ARROW_ASSIGN_OR_RAISE(auto current_version, parse_version_number(Pod5Version));
     ARROW_ASSIGN_OR_RAISE(auto file_schema_metadata,
-                          make_schema_key_value_metadata({file_identifier, writing_software_name,
-                                                          *parse_version_number(Pod5Version)}));
+                          make_schema_key_value_metadata(
+                                  {file_identifier, writing_software_name, current_version}));
 
     auto reads_tmp_path = arrow_path.Parent().ToString() + "/" +
                           ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");

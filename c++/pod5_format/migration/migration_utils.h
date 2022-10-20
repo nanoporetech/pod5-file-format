@@ -3,6 +3,7 @@
 #include <arrow/array.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
+#include <arrow/util/key_value_metadata.h>
 
 namespace pod5 {
 
@@ -92,6 +93,15 @@ inline pod5::Result<Pod5BatchRecordReader> open_record_batch_reader(
         return Status::IOError("Missing metadata on read table schema");
     }
 
+    return result;
+}
+
+inline pod5::Result<std::shared_ptr<const arrow::KeyValueMetadata>> update_metadata(
+        std::shared_ptr<const arrow::KeyValueMetadata> original_metadata,
+        Version version_to_write) {
+    auto result = original_metadata->Copy();
+    // Update the reader for the new version:
+    ARROW_RETURN_NOT_OK(result->Set("MINKNOW:pod5_version", version_to_write.to_string()));
     return result;
 }
 

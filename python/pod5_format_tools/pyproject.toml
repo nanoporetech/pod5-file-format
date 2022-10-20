@@ -47,6 +47,7 @@ pod5-demux = "pod5_format_tools.pod5_demux:main"
 pod5-inspect = "pod5_format_tools.pod5_inspect:main"
 pod5-merge = "pod5_format_tools.pod5_merge:main"
 pod5-repack = "pod5_format_tools.pod5_repack:main"
+pod5-update = "pod5_format_tools.pod5_update:main"
 
 [tool.black]
 target-version = ["py37"]

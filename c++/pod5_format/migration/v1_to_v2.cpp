@@ -69,11 +69,12 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(MigrationResult&& v1_input,
         }
 
         auto v2_new_schama = arrow::schema({arrow::field("num_samples", arrow::uint64())});
+        ARROW_ASSIGN_OR_RAISE(auto new_metadata,
+                              update_metadata(v1_reader.metadata, Version(0, 0, 32)));
         ARROW_ASSIGN_OR_RAISE(auto v2_schema,
                               arrow::UnifySchemas({v1_reader.schema, v2_new_schama}));
-        ARROW_ASSIGN_OR_RAISE(
-                auto v2_writer,
-                make_record_batch_writer(pool, v2_reads_table_path, v2_schema, v1_reader.metadata));
+        ARROW_ASSIGN_OR_RAISE(auto v2_writer, make_record_batch_writer(pool, v2_reads_table_path,
+                                                                       v2_schema, new_metadata));
 
         for (std::int64_t batch_idx = 0; batch_idx < v1_reader.reader->num_record_batches();
              ++batch_idx) {

@@ -110,6 +110,8 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
     {
         ARROW_ASSIGN_OR_RAISE(auto v2_reader,
                               open_record_batch_reader(pool, v2_input.footer().reads_table));
+        ARROW_ASSIGN_OR_RAISE(auto new_metadata,
+                              update_metadata(v2_reader.metadata, Version(0, 0, 35)));
 
         {
             auto v3_reads_schema = arrow::schema(
@@ -134,10 +136,10 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
                      arrow::field("end_reason", arrow::dictionary(arrow::int16(), arrow::utf8())),
                      arrow::field("end_reason_forced", arrow::boolean()),
                      arrow::field("run_info", arrow::dictionary(arrow::int16(), arrow::utf8()))},
-                    v2_reader.schema->metadata());
+                    new_metadata);
             ARROW_ASSIGN_OR_RAISE(auto v3_reads_writer,
                                   make_record_batch_writer(pool, v3_reads_table_path,
-                                                           v3_reads_schema, v2_reader.metadata));
+                                                           v3_reads_schema, new_metadata));
 
             std::vector<std::string> const columns_to_copy{"read_id",
                                                            "signal",
@@ -251,11 +253,10 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
             }
 
             // Append all the run info dict-struct data to the new table:
-            auto v3_run_info_schema =
-                    arrow::schema(run_info_items_type->fields(), v2_reader.schema->metadata());
+            auto v3_run_info_schema = arrow::schema(run_info_items_type->fields(), new_metadata);
             ARROW_ASSIGN_OR_RAISE(auto v3_run_info_writer,
                                   make_record_batch_writer(pool, v3_run_info_table_path,
-                                                           v3_run_info_schema, v2_reader.metadata));
+                                                           v3_run_info_schema, new_metadata));
 
             auto const& fields = run_info_items->fields();
             std::vector<std::shared_ptr<arrow::Array>> v3_columns(
