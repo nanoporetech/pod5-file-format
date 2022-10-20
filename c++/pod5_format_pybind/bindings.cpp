@@ -21,25 +21,19 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
     py::class_<FileWriter, std::shared_ptr<FileWriter>>(m, "FileWriter")
             .def("close", [](pod5::FileWriter& w) { throw_on_error(w.close()); })
             .def("add_pore",
-                 [](pod5::FileWriter& w, std::uint16_t channel, std::uint8_t well,
-                    std::string pore_type) {
-                     return throw_on_error(
-                             w.add_pore(pod5::PoreData{channel, well, std::move(pore_type)}));
+                 [](pod5::FileWriter& w, std::string pore_type) {
+                     return throw_on_error(w.add_pore_type(std::move(pore_type)));
                  })
             .def("add_end_reason",
-                 [](pod5::FileWriter& w, int name, bool forced) {
-                     return throw_on_error(w.add_end_reason(pod5::EndReasonData{
-                             (pod5::EndReasonData::ReadEndReason)name, forced}));
-                 })
-            .def("add_calibration",
-                 [](pod5::FileWriter& w, float offset, float scale) {
-                     return throw_on_error(w.add_calibration(pod5::CalibrationData{offset, scale}));
+                 [](pod5::FileWriter& w, int name) {
+                     return throw_on_error(w.lookup_end_reason((pod5::ReadEndReason)name));
                  })
             .def("add_run_info", FileWriter_add_run_info)
             .def("add_reads", FileWriter_add_reads)
             .def("add_reads_pre_compressed", FileWriter_add_reads_pre_compressed);
 
     py::class_<pod5::FileLocation>(m, "EmbeddedFileData")
+            .def_readonly("file_path", &pod5::FileLocation::file_path)
             .def_readonly("offset", &pod5::FileLocation::offset)
             .def_readonly("length", &pod5::FileLocation::size);
 
@@ -54,10 +48,13 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
             .def_property_readonly("samples", &Pod5SignalCacheBatch::samples);
 
     py::class_<Pod5FileReaderPtr>(m, "Pod5FileReader")
+            .def("get_combined_file_run_info_table_location",
+                 &Pod5FileReaderPtr::get_combined_file_run_info_table_location)
             .def("get_combined_file_read_table_location",
                  &Pod5FileReaderPtr::get_combined_file_read_table_location)
             .def("get_combined_file_signal_table_location",
                  &Pod5FileReaderPtr::get_combined_file_signal_table_location)
+
             .def("plan_traversal", &Pod5FileReaderPtr::plan_traversal)
             .def("batch_get_signal", &Pod5FileReaderPtr::batch_get_signal)
             .def("batch_get_signal_selection", &Pod5FileReaderPtr::batch_get_signal_selection)

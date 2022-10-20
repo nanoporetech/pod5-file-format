@@ -62,6 +62,13 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/read_table_utils.cpp
     pod5_format/read_table_utils.h
 
+    pod5_format/run_info_table_reader.cpp
+    pod5_format/run_info_table_reader.h
+    pod5_format/run_info_table_schema.cpp
+    pod5_format/run_info_table_schema.h
+    pod5_format/run_info_table_writer.cpp
+    pod5_format/run_info_table_writer.h
+
     pod5_format/signal_compression.cpp
     pod5_format/signal_compression.h
     pod5_format/signal_table_reader.cpp
@@ -79,15 +86,22 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/errors.h
     pod5_format/expandable_buffer.h
     pod5_format/result.h
+    pod5_format/schema_utils.cpp
+    pod5_format/schema_utils.h
     pod5_format/table_reader.cpp
     pod5_format/table_reader.h
     pod5_format/tuple_utils.h
     pod5_format/types.cpp
     pod5_format/types.h
 
+    pod5_format/migration/migration.h
+    pod5_format/migration/migration_utils.h
+    pod5_format/migration/v0_to_v1.cpp
+    pod5_format/migration/v1_to_v2.cpp
+    pod5_format/migration/v2_to_v3.cpp
+
     pod5_format/internal/async_output_stream.h
     pod5_format/internal/combined_file_utils.h
-    pod5_format/internal/schema_utils.h
 
     pod5_format/svb16/common.hpp
     pod5_format/svb16/decode.hpp
@@ -113,6 +127,8 @@ list(APPEND public_headers
     pod5_format/read_table_writer.h
     pod5_format/read_table_writer_utils.h
     pod5_format/read_table_utils.h
+
+    pod5_format/run_info_table_writer.h
 
     pod5_format/signal_compression.h
     pod5_format/signal_table_reader.h

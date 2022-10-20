@@ -6,13 +6,25 @@ description = "Globally-unique identifier for the read, can be converted to a st
 type = "list(uint64)"
 description = "A list of zero-indexed row numbers in the Signal table. This must be all the rows in the Signal table that have a matching read_id, in order. It functions as an index for the Signal table."
 
-[fields.pore]
-type = "dictionary(int16, Pore)"
-description = "Describes the pore the read was acquired on."
+[fields.channel]
+type = "uint16"
+description = "1-indexed channel"
 
-[fields.calibration]
-type = "dictionary(int16, Calibration)"
-description = "Parameters to convert the signal data to picoamps, accorind to the formula 'picoamps = (adc + offset) * scale'. These are typically fixed per channel, but storing them in this form allows the possibility of calibrations being adjusted throughout the run in the future."
+[fields.well]
+type = "uint8"
+description = "1-indexed well (typically 1, 2, 3 or 4)"
+
+[fields.pore_type]
+type = "dictionary(string)"
+description = "Name of the pore type present in the well"
+
+[fields.calibration_offset]
+type = "float"
+description = "Calibration offset used to scale raw ADC data into pA readings."
+
+[fields.calibration_scale]
+type = "float"
+description = "Calibration scale factor used to scale raw ADC data into pA readings."
 
 [fields.read_number]
 type = "uint32"
@@ -51,145 +63,23 @@ type = "float"
 description = "Time in seconds since the last mux change on this reads channel"
 
 [fields.num_minknow_events]
-type = i8
+type = "int8"
 description = "Number of minknow events that the read contains"
 
 [fields.end_reason]
-type = "dictionary(int16, EndReason)"
-description = "Why the read ended."
+type = "dictionary(string)"
+description = "The end reason, currently one of: unknown, mux_change, unblock_mux_change, data_service_unblock_mux_change, signal_positive or signal_negative."
+
+[fields.end_reason_forced]
+type = "bool"
+description = "True if this read was ended 'forcibly' (eg: mux_change, unblock), false if it was a data-driven read break (signal_positive, signal_negative). This allows simple categorisation even in the presence of new reasons that reading code is unaware of."
 
 [fields.run_info]
-type = "dictionary(int16, RunInfo)"
-description = "Describes higher-level information about the reads that correspond to a single (part of) an experiment/protocol/acquisition."
+type = "dictionary(minknow.uuid)"
+description = "A zero-indexed row in the run_info table, containing information about the reads that correspond to a single (part of) an experiment/protocol/acquisition."
 
 [fields.num_samples]
 type = "uint64"
 description = "The full length of the signal for this read in samples (equal to the sum of all 'samples' fields of signal chunks)"
 
 
-
-[types.Pore]
-type = "struct"
-
-[types.Pore.fields.channel]
-type = "uint16"
-description = "1-indexed channel"
-
-[types.Pore.fields.well]
-type = "uint8"
-description = "1-indexed well (typically 1, 2, 3 or 4)"
-
-[types.Pore.fields.pore_type]
-type = "string"
-description = "Name of the pore type present in the well"
-
-
-
-[types.Calibration]
-type = "struct"
-
-[types.Calibration.fields.offset]
-type = "float"
-description = "Calibration offset used to scale raw ADC data into pA readings."
-
-[types.Calibration.fields.scale]
-type = "float"
-description = "Calibration scale factor used to scale raw ADC data into pA readings."
-
-
-
-[types.EndReason]
-type = "struct"
-
-[types.EndReason.fields.name]
-type = "string"
-description = "The end reason, currently one of: unknown, mux_change, unblock_mux_change, data_service_unblock_mux_change, signal_positive or signal_negative."
-
-[types.EndReason.fields.forced]
-type = "bool"
-description = "True if it is a 'forced' read break (eg: mux_change, unblock), false if it was a data-driven read break (signal_positive, signal_negative). This allows simple categorisation even in the presence of new reasons that reading code is unaware of."
-
-
-
-[types.RunInfo]
-type = "struct"
-
-[types.RunInfo.fields.acquisition_id]
-type = "utf8"
-description = "A unique identifier for the acquisition - note that readers should not depend on this uniquely determining the other fields in the run_info, or being unique among the dictionary keys."
-
-[types.RunInfo.fields.acquisition_start_time]
-type = "timestamp(milliseconds)"
-description = "This is the clock time for sample 0, and can be used together with sample_rate and the :start read field to calculate a clock time for when a given read was acquired. The timezone should be set. MinKNOW will set this to the local timezone on file creation. When merging files that have different timezones, merging code will have to pick a timezone (possibly defaulting to 'UTC')."
-
-[types.RunInfo.fields.adc_max]
-type = "int16" 
-description = "The maximum ADC value that might be encountered. This is a hardware constraint."
-
-[types.RunInfo.fields.adc_min]
-type = "int16"
-description = "The minimum ADC value that might be encountered. This is a hardware constraint. adc_max - adc_min + 1 is the digitisation."
-
-[types.RunInfo.fields.context_tags]
-type = "map(utf8, utf8)"
-description = "The context tags for the run. For compatibility with fast5. Readers must not make any assumptions about the contents of this field."
-
-[types.RunInfo.fields.experiment_name]
-type = "utf8"
-description = "A user-supplied name for the experiment being run."
-
-[types.RunInfo.fields.flow_cell_id]
-type = "utf8"
-description = "Uniquely identifies the flow cell the data was captured on. This is written on the flow cell case."
-
-[types.RunInfo.fields.flow_cell_product_code]
-type = "utf8"
-description = "Identifies the type of flow cell the data was captured on."
-
-[types.RunInfo.fields.protocol_name]
-type = "utf8"
-description = "The name of the protocol that was run."
-
-[types.RunInfo.fields.protocol_run_id]
-type = "utf8"
-description = "A unique identifier for the protocol run that produced this data."
-
-[types.RunInfo.fields.protocol_start_time]
-type = "timestamp(milliseconds)"
-description = "): When the protocol that the acquisition was part of started. The same considerations apply as for acquisition_start_time."
-
-[types.RunInfo.fields.sample_id]
-type = "utf8"
-description = "A user-supplied name for the sample being analysed."
-
-[types.RunInfo.fields.sample_rate]
-type = "uint16"
-description = "The number of samples acquired each second on each channel. This can be used to convert numbers of samples into time durations."
-
-[types.RunInfo.fields.sequencing_kit]
-type = "utf8"
-description = "The type of sequencing kit used to prepare the sample."
-
-[types.RunInfo.fields.sequencer_position]
-type = "utf8"
-description = "The sequencer position the data was collected on. For removable positions, like MinION Mk1Bs, this is unique (e.g. 'MN12345'), while for integrated positions it is not (e.g. 'X1' on a GridION)."
-
-[types.RunInfo.fields.sequencer_position_type]
-type = "utf8"
-description = "The type of sequencing hardware the data was collected on. For example: 'MinION Mk1B' or 'GridION' or 'PromethION'."
-
-[types.RunInfo.fields.software]
-type = "utf8"
-description = "A description of the software that acquired the data. For example: 'MinKNOW 21.05.12 (Bream 5.1.6, Configurations 16.2.1, Core 5.1.9, Guppy 4.2.3)'."
-
-[types.RunInfo.fields.system_name]
-type = "utf8"
-description = "The name of the system the data was collected on. This might be a sequencer serial (eg: 'GXB1234') or a host name (e.g. 'Lab PC')."
-
-[types.RunInfo.fields.system_type]
-type = "utf8"
-description = "The type of system the data was collected on. For example, 'GridION Mk1' or 'PromethION P48'. If the system is not a Nanopore sequencer with built-in compute, this will be a description of the operating system (e.g. 'Ubuntu 20.04')."
-
-[types.RunInfo.fields.tracking_id]
-type = "map(utf8, utf8)"
-description = "The tracking id for the run. For compatibility with fast5. Readers must not make any assumptions about the contents of this field."

@@ -7,6 +7,7 @@ import os
 from typing import (
     Dict,
     List,
+    TypeVar,
     Union,
 )
 from dataclasses import dataclass, field
@@ -88,8 +89,8 @@ class Pore:
         1-indexed channel.
     well: int
         1-indexed well.
-    pore_type: str
-        Name of the pore type present in the well.
+    pore_type: PoreType
+        The pore type present in the well.
     """
 
     #: 1-indexed channel.

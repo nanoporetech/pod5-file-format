@@ -49,7 +49,6 @@ public:
     ~SignalTableWriter();
 
     /// \brief Add a read to the signal table, adding to the current batch.
-    ///        The batch is not flushed to disk until #flush is called.
     /// \param read_id The read id for the read entry
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.

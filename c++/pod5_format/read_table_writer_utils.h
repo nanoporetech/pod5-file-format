@@ -1,11 +1,13 @@
 #pragma once
 
+#include "pod5_format/dictionary_writer.h"
 #include "pod5_format/expandable_buffer.h"
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/read_table_utils.h"
 #include "pod5_format/result.h"
 #include "pod5_format/tuple_utils.h"
 
+#include <arrow/array/array_binary.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/util/bit_util.h>
 #include <gsl/gsl-lite.hpp>
@@ -57,6 +59,9 @@ private:
 
 class StringDictionaryKeyBuilder {
 public:
+    StringDictionaryKeyBuilder(arrow::MemoryPool* pool = nullptr)
+            : m_offset_values(pool), m_string_values(pool) {}
+
     arrow::Status init_buffer(arrow::MemoryPool* pool) {
         ARROW_RETURN_NOT_OK(m_offset_values.init_buffer(pool));
         return m_string_values.init_buffer(pool);
@@ -148,122 +153,62 @@ private:
     std::tuple<BuilderTypes...> m_builders;
 };
 
-class POD5_FORMAT_EXPORT DictionaryWriter {
-public:
-    virtual ~DictionaryWriter() = default;
-
-    pod5::Result<std::shared_ptr<arrow::Array>> build_dictionary_array(
-            std::shared_ptr<arrow::Array> const& indices);
-    virtual pod5::Result<std::shared_ptr<arrow::Array>> get_value_array() = 0;
-    virtual std::size_t item_count() = 0;
-};
-
 class POD5_FORMAT_EXPORT PoreWriter : public DictionaryWriter {
 public:
     PoreWriter(arrow::MemoryPool* pool);
 
-    pod5::Result<PoreDictionaryIndex> add(PoreData const& pore_data) {
-        return m_builder.append(pore_data.channel, pore_data.well, pore_data.pore_type);
+    pod5::Result<PoreDictionaryIndex> add(std::string const& pore_type) {
+        auto const index = item_count();
+        ARROW_RETURN_NOT_OK(m_builder.append(pore_type));
+        return index;
     }
 
-    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array();
-    std::size_t item_count();
+    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array() override;
+    std::size_t item_count() override;
 
 private:
-    std::shared_ptr<arrow::StructType> m_type;
-    StructBuilder<detail::PrimitiveDictionaryKeyBuilder<std::uint16_t>,
-                  detail::PrimitiveDictionaryKeyBuilder<std::uint8_t>,
-                  detail::StringDictionaryKeyBuilder>
-            m_builder;
+    detail::StringDictionaryKeyBuilder m_builder;
 };
 
 class POD5_FORMAT_EXPORT EndReasonWriter : public DictionaryWriter {
 public:
-    EndReasonWriter(arrow::MemoryPool* pool);
+    EndReasonWriter(std::shared_ptr<arrow::StringArray> const& end_reasons);
 
-    pod5::Result<EndReasonDictionaryIndex> add(EndReasonData const& end_reason_data) {
-        return m_builder.append(end_reason_data.name, end_reason_data.forced);
+    pod5::Result<EndReasonDictionaryIndex> lookup(ReadEndReason end_reason) const {
+        if (end_reason > ReadEndReason::last_end_reason) {
+            return pod5::Status::Invalid("Invalid read end reason requested");
+        }
+        return EndReasonDictionaryIndex(end_reason);
     }
 
-    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array();
-    std::size_t item_count();
+    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array() override;
+    std::size_t item_count() override;
 
 private:
-    std::shared_ptr<arrow::StructType> m_type;
-    StructBuilder<detail::StringDictionaryKeyBuilder, detail::PrimitiveDictionaryKeyBuilder<bool>>
-            m_builder;
-};
-
-class POD5_FORMAT_EXPORT CalibrationWriter : public DictionaryWriter {
-public:
-    CalibrationWriter(arrow::MemoryPool* pool);
-
-    pod5::Result<CalibrationDictionaryIndex> add(CalibrationData const& calibration_data) {
-        return m_builder.append(calibration_data.offset, calibration_data.scale);
-    }
-
-    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array();
-    std::size_t item_count();
-
-private:
-    std::shared_ptr<arrow::StructType> m_type;
-    StructBuilder<detail::PrimitiveDictionaryKeyBuilder<float>,
-                  detail::PrimitiveDictionaryKeyBuilder<float>>
-            m_builder;
+    std::shared_ptr<arrow::StringArray> m_end_reasons;
 };
 
 class POD5_FORMAT_EXPORT RunInfoWriter : public DictionaryWriter {
 public:
     RunInfoWriter(arrow::MemoryPool* pool);
 
-    pod5::Result<RunInfoDictionaryIndex> add(RunInfoData const& run_info_data) {
-        return m_builder.append(
-                run_info_data.acquisition_id, run_info_data.acquisition_start_time,
-                run_info_data.adc_max, run_info_data.adc_min, run_info_data.context_tags,
-                run_info_data.experiment_name, run_info_data.flow_cell_id,
-                run_info_data.flow_cell_product_code, run_info_data.protocol_name,
-                run_info_data.protocol_run_id, run_info_data.protocol_start_time,
-                run_info_data.sample_id, run_info_data.sample_rate, run_info_data.sequencing_kit,
-                run_info_data.sequencer_position, run_info_data.sequencer_position_type,
-                run_info_data.software, run_info_data.system_name, run_info_data.system_type,
-                run_info_data.tracking_id);
+    pod5::Result<RunInfoDictionaryIndex> add(std::string const& acquisition_id) {
+        auto const index = item_count();
+        ARROW_RETURN_NOT_OK(m_builder.append(acquisition_id));
+        return index;
     }
 
-    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array();
-    std::size_t item_count();
+    pod5::Result<std::shared_ptr<arrow::Array>> get_value_array() override;
+    std::size_t item_count() override;
 
 private:
-    std::shared_ptr<arrow::StructType> m_type;
-    StructBuilder<detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::int64_t>,
-                  detail::PrimitiveDictionaryKeyBuilder<std::int16_t>,
-                  detail::PrimitiveDictionaryKeyBuilder<std::int16_t>,
-                  detail::StringMapDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::int64_t>,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::PrimitiveDictionaryKeyBuilder<std::uint16_t>,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringDictionaryKeyBuilder,
-                  detail::StringMapDictionaryKeyBuilder>
-            m_builder;
+    detail::StringDictionaryKeyBuilder m_builder;
 };
 
 POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<PoreWriter>> make_pore_writer(
         arrow::MemoryPool* pool);
 
 POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<EndReasonWriter>> make_end_reason_writer(
-        arrow::MemoryPool* pool);
-
-POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<CalibrationWriter>> make_calibration_writer(
         arrow::MemoryPool* pool);
 
 POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<RunInfoWriter>> make_run_info_writer(

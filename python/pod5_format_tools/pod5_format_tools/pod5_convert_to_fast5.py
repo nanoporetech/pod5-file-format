@@ -207,28 +207,6 @@ def put_write_fast5_file(file_reads, write_request_queue, write_data_queue):
 def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRecord):
     run_info = read.run_info
 
-    v1_fields = None
-    if read_table_version >= p5.reader.ReadTableVersion.V1:
-        v1_fields = {
-            "num_minknow_events": read.num_minknow_events,
-            "tracked_scaling_scale": read.tracked_scaling.scale,
-            "tracked_scaling_shift": read.tracked_scaling.shift,
-            "predicted_scaling_scale": read.predicted_scaling.scale,
-            "predicted_scaling_shift": read.predicted_scaling.shift,
-            "num_reads_since_mux_change": read.num_reads_since_mux_change,
-            "time_since_mux_change": read.time_since_mux_change,
-        }
-    else:
-        v1_fields = {
-            "num_minknow_events": 0,
-            "tracked_scaling_scale": float("nan"),
-            "tracked_scaling_shift": float("nan"),
-            "predicted_scaling_scale": float("nan"),
-            "predicted_scaling_shift": float("nan"),
-            "num_reads_since_mux_change": 0,
-            "time_since_mux_change": 0.0,
-        }
-
     return Read(
         read.read_id,
         read.signal,
@@ -246,7 +224,13 @@ def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRe
         read.end_reason.name,
         run_info.tracking_id,
         run_info.context_tags,
-        **v1_fields,
+        read.num_minknow_events,
+        read.tracked_scaling.scale,
+        read.tracked_scaling.shift,
+        read.predicted_scaling.scale,
+        read.predicted_scaling.shift,
+        read.num_reads_since_mux_change,
+        read.time_since_mux_change,
     )
 
 

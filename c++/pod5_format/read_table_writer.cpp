@@ -16,7 +16,6 @@ ReadTableWriter::ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&
                                  std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
                                  std::size_t table_batch_size,
                                  std::shared_ptr<PoreWriter> const& pore_writer,
-                                 std::shared_ptr<CalibrationWriter> const& calibration_writer,
                                  std::shared_ptr<EndReasonWriter> const& end_reason_writer,
                                  std::shared_ptr<RunInfoWriter> const& run_info_writer,
                                  arrow::MemoryPool* pool)
@@ -24,14 +23,8 @@ ReadTableWriter::ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&
           m_field_locations(field_locations),
           m_table_batch_size(table_batch_size),
           m_writer(std::move(writer)),
-          /*m_pore_writer(pore_writer),
-          m_calibration_writer(calibration_writer),
-          m_end_reason_writer(end_reason_writer),
-          m_run_info_writer(run_info_writer),*/
           m_field_builders(m_field_locations, pool) {
-    m_field_builders.get_builder(m_field_locations->pore).set_dict_writer(pore_writer);
-    m_field_builders.get_builder(m_field_locations->calibration)
-            .set_dict_writer(calibration_writer);
+    m_field_builders.get_builder(m_field_locations->pore_type).set_dict_writer(pore_writer);
     m_field_builders.get_builder(m_field_locations->end_reason).set_dict_writer(end_reason_writer);
     m_field_builders.get_builder(m_field_locations->run_info).set_dict_writer(run_info_writer);
 }
@@ -55,9 +48,8 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_field_builders.append(
             // V0 Fields
-            read_data.read_id, signal, read_data.pore, read_data.calibration, read_data.read_number,
-            read_data.start_sample, read_data.median_before, read_data.end_reason,
-            read_data.run_info,
+            read_data.read_id, signal, read_data.read_number, read_data.start_sample,
+            read_data.median_before,
 
             // V1 Fields
             read_data.num_minknow_events, read_data.tracked_scaling_scale,
@@ -66,7 +58,12 @@ Result<std::size_t> ReadTableWriter::add_read(ReadData const& read_data,
             read_data.time_since_mux_change,
 
             // V2 Fields
-            signal_duration));
+            signal_duration,
+
+            // V3 Fields
+            read_data.channel, read_data.well, read_data.pore_type, read_data.calibration_offset,
+            read_data.calibration_scale, read_data.end_reason, read_data.end_reason_forced,
+            read_data.run_info));
 
     ++m_current_batch_row_count;
 
@@ -117,12 +114,11 @@ Result<ReadTableWriter> make_read_table_writer(
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
         std::size_t table_batch_size,
         std::shared_ptr<PoreWriter> const& pore_writer,
-        std::shared_ptr<CalibrationWriter> const& calibration_writer,
         std::shared_ptr<EndReasonWriter> const& end_reason_writer,
         std::shared_ptr<RunInfoWriter> const& run_info_writer,
         arrow::MemoryPool* pool) {
     auto field_locations = std::make_shared<ReadTableSchemaDescription>();
-    auto schema = field_locations->make_schema(metadata);
+    auto schema = field_locations->make_writer_schema(metadata);
 
     arrow::ipc::IpcWriteOptions options;
     options.memory_pool = pool;
@@ -132,9 +128,9 @@ Result<ReadTableWriter> make_read_table_writer(
 
     ARROW_ASSIGN_OR_RAISE(auto writer, arrow::ipc::MakeFileWriter(sink, schema, options, metadata));
 
-    auto read_table_writer = ReadTableWriter(std::move(writer), std::move(schema), field_locations,
-                                             table_batch_size, pore_writer, calibration_writer,
-                                             end_reason_writer, run_info_writer, pool);
+    auto read_table_writer =
+            ReadTableWriter(std::move(writer), std::move(schema), field_locations, table_batch_size,
+                            pore_writer, end_reason_writer, run_info_writer, pool);
 
     ARROW_RETURN_NOT_OK(read_table_writer.reserve_rows());
 

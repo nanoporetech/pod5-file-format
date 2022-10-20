@@ -13,25 +13,36 @@ import pod5_format as p5
 TEST_UUID = uuid4()
 
 
-def gen_test_read(seed) -> p5.Read:
+def gen_test_read(seed, compressed=False) -> p5.Read:
     numpy.random.seed(seed)
 
     def get_random_float() -> float:
-        return float(numpy.random.rand(1)[0])
+        return float(numpy.random.rand(100000)[0])
 
     def get_random_int(low: int, high: int) -> int:
         return int(numpy.random.randint(low, high, 1)[0])
 
     def get_random_str(prefix: str) -> str:
-        return f"{prefix}_{numpy.random.randint(1)}"
+        return f"{prefix}_{numpy.random.randint(100000)}"
 
     size = get_random_int(0, 1000)
     signal = numpy.random.randint(0, 1024, size, dtype=numpy.int16)
 
-    return p5.Read(
+    cls = p5.Read
+    signal_args = {"signal": signal}
+    if compressed:
+        cls = p5.CompressedRead
+        signal_args = {
+            "signal_chunks": [p5.signal_tools.vbz_compress_signal(signal)],
+            "signal_chunk_lengths": [len(signal)],
+        }
+
+    return cls(
         uuid5(TEST_UUID, str(seed)),
         p5.Pore(
-            get_random_int(0, 3000), get_random_int(0, 4), get_random_str("pore_type_")
+            get_random_int(0, 3000),
+            get_random_int(0, 4),
+            get_random_str("pore_type"),
         ),
         p5.Calibration(get_random_float(), get_random_float()),
         get_random_int(0, 100000),
@@ -66,101 +77,23 @@ def gen_test_read(seed) -> p5.Read:
                 (get_random_str("tracking"), get_random_str("id")),
             ],
         ),
-        signal=signal,
         num_minknow_events=5,
         tracked_scaling=p5.pod5_types.ShiftScalePair(10.0, 50),
         predicted_scaling=p5.pod5_types.ShiftScalePair(5.0, 100.0),
         num_reads_since_mux_change=123,
         time_since_mux_change=456.0,
+        **signal_args,
     )
-
-
-def single_read_attributes_as_dict(writer, read_object):
-    return {
-        "read_id": read_object.read_id,
-        "pore": writer.add(read_object.pore),
-        "calibration": writer.add(read_object.calibration),
-        "read_number": read_object.read_number,
-        "start_sample": read_object.start_sample,
-        "median_before": read_object.median_before,
-        "end_reason": writer.add(read_object.end_reason),
-        "run_info": writer.add(read_object.run_info),
-        "num_minknow_events": read_object.num_minknow_events,
-        "tracked_scaling": read_object.tracked_scaling,
-        "predicted_scaling": read_object.predicted_scaling,
-        "num_reads_since_mux_change": read_object.num_reads_since_mux_change,
-        "time_since_mux_change": read_object.time_since_mux_change,
-    }
-
-
-def read_list_attributes_as_dict(writer, read_objects):
-    return {
-        "read_ids": numpy.array(
-            [numpy.frombuffer(r.read_id.bytes, dtype=numpy.uint8) for r in read_objects]
-        ),
-        "pores": numpy.array(
-            [writer.add(r.pore) for r in read_objects], dtype=numpy.int16
-        ),
-        "calibrations": numpy.array(
-            [writer.add(r.calibration) for r in read_objects],
-            dtype=numpy.int16,
-        ),
-        "read_numbers": numpy.array(
-            [r.read_number for r in read_objects], dtype=numpy.uint32
-        ),
-        "start_samples": numpy.array(
-            [r.start_sample for r in read_objects], dtype=numpy.uint64
-        ),
-        "median_befores": numpy.array(
-            [r.median_before for r in read_objects], dtype=numpy.float32
-        ),
-        "end_reasons": numpy.array(
-            [writer.add(r.end_reason) for r in read_objects],
-            dtype=numpy.int16,
-        ),
-        "run_infos": numpy.array(
-            [writer.add(r.run_info) for r in read_objects],
-            dtype=numpy.int16,
-        ),
-        "num_minknow_events": numpy.array(
-            [r.num_minknow_events for r in read_objects], dtype=numpy.uint64
-        ),
-        "tracked_scaling_scale": numpy.array(
-            [r.tracked_scaling.scale for r in read_objects], dtype=numpy.float32
-        ),
-        "tracked_scaling_shift": numpy.array(
-            [r.tracked_scaling.shift for r in read_objects], dtype=numpy.float32
-        ),
-        "predicted_scaling_scale": numpy.array(
-            [r.predicted_scaling.scale for r in read_objects], dtype=numpy.float32
-        ),
-        "predicted_scaling_shift": numpy.array(
-            [r.predicted_scaling.shift for r in read_objects], dtype=numpy.float32
-        ),
-        "num_reads_since_mux_change": numpy.array(
-            [r.num_reads_since_mux_change for r in read_objects], dtype=numpy.uint32
-        ),
-        "time_since_mux_change": numpy.array(
-            [r.time_since_mux_change for r in read_objects], dtype=numpy.float32
-        ),
-    }
 
 
 def run_writer_test(f: Writer):
-    test_read = gen_test_read(0)
+    test_read = gen_test_read(0, compressed=False)
     print("read", test_read.read_id, test_read.run_info.adc_max)
-    f.add_read(
-        signal=test_read.signal,
-        **single_read_attributes_as_dict(f, test_read),
-    )
+    f.add_read_object(test_read)
 
-    test_read = gen_test_read(1)
+    test_read = gen_test_read(1, compressed=True)
     print("read", test_read.read_id, test_read.run_info.adc_max)
-    f.add_read_pre_compressed(
-        signal_chunks=[p5.signal_tools.vbz_compress_signal(test_read.signal)],
-        signal_chunk_lengths=[test_read.sample_count],
-        **single_read_attributes_as_dict(f, test_read),
-    )
+    f.add_read_object(test_read)
 
     test_reads = [
         gen_test_read(2),
@@ -169,28 +102,15 @@ def run_writer_test(f: Writer):
         gen_test_read(5),
     ]
     print("read", test_reads[0].read_id, test_reads[0].run_info.adc_max)
-    f.add_reads(
-        **read_list_attributes_as_dict(f, test_reads),
-        signals=[r.signal for r in test_reads],
-    )
+    f.add_read_objects(test_reads)
 
     test_reads = [
-        gen_test_read(6),
-        gen_test_read(7),
-        gen_test_read(8),
-        gen_test_read(9),
+        gen_test_read(6, compressed=True),
+        gen_test_read(7, compressed=True),
+        gen_test_read(8, compressed=True),
+        gen_test_read(9, compressed=True),
     ]
-    f.add_reads_pre_compressed(
-        **read_list_attributes_as_dict(f, test_reads),
-        # Pass an array of arrays here, as we have pre compressed data
-        # top level array is per read, then the sub arrays are chunks within the reads.
-        # the two arrays here should have the same dimensions, first contains compressed
-        # sample array, the second contains the sample counts
-        signal_chunks=[
-            [p5.signal_tools.vbz_compress_signal(r.signal)] for r in test_reads
-        ],
-        signal_chunk_lengths=[[len(r.signal)] for r in test_reads],
-    )
+    f.add_read_objects_pre_compressed(test_reads)
 
 
 def run_reader_test(reader: p5.Reader):
@@ -314,6 +234,7 @@ def test_pyarrow_combined_str():
             run_reader_test(_fh)
 
 
+"""
 @pytest.mark.filterwarnings("ignore: pod5_format.")
 def test_pyarrow_split():
     with tempfile.TemporaryDirectory() as temp:
@@ -347,3 +268,4 @@ def test_pyarrow_split_one_name():
 
         with p5.Reader.from_inferred_split(split_path) as _fh:
             run_reader_test(_fh)
+"""

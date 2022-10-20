@@ -4,6 +4,7 @@
 #include "pod5_format/signal_table_writer.h"
 #include "pod5_format/types.h"
 #include "pod5_format/version.h"
+#include "test_utils.h"
 #include "utils.h"
 
 #include <arrow/array/array_nested.h>
@@ -43,23 +44,23 @@ SCENARIO("Signal table Tests") {
         {
             auto schema_metadata = make_schema_key_value_metadata(
                     {file_identifier, "test_software", *parse_version_number(Pod5Version)});
-            REQUIRE(schema_metadata.ok());
-            REQUIRE(file_out.ok());
+            REQUIRE_ARROW_STATUS_OK(schema_metadata);
+            REQUIRE_ARROW_STATUS_OK(file_out);
 
             auto writer = pod5::make_signal_table_writer(*file_out, *schema_metadata, 100,
                                                          signal_type, pool);
-            REQUIRE(writer.ok());
+            REQUIRE_ARROW_STATUS_OK(writer);
 
             WHEN("Writing a read") {
                 auto row_1 = writer->add_signal(read_id_1, gsl::make_span(signal_1));
 
                 auto row_2 = writer->add_signal(read_id_2, gsl::make_span(signal_2));
 
-                REQUIRE(writer->close().ok());
+                REQUIRE_ARROW_STATUS_OK(writer->close());
 
                 THEN("Read row ids are correct") {
-                    REQUIRE(row_1.ok());
-                    REQUIRE(row_2.ok());
+                    REQUIRE_ARROW_STATUS_OK(row_1);
+                    REQUIRE_ARROW_STATUS_OK(row_2);
                     CHECK(*row_1 == 0);
                     CHECK(*row_2 == 1);
                 }
@@ -68,11 +69,11 @@ SCENARIO("Signal table Tests") {
 
         auto file_in = arrow::io::ReadableFile::Open(filename, pool);
         {
-            REQUIRE(file_in.ok());
+            REQUIRE_ARROW_STATUS_OK(file_in);
 
             auto reader = pod5::make_signal_table_reader(*file_in, pool);
             CAPTURE(reader);
-            REQUIRE(reader.ok());
+            REQUIRE_ARROW_STATUS_OK(reader);
 
             auto metadata = reader->schema_metadata();
             CHECK(metadata.file_identifier == file_identifier);
@@ -81,7 +82,7 @@ SCENARIO("Signal table Tests") {
 
             REQUIRE(reader->num_record_batches() == 1);
             auto const record_batch_0 = reader->read_record_batch(0);
-            REQUIRE(!!record_batch_0.ok());
+            REQUIRE_ARROW_STATUS_OK(record_batch_0);
             REQUIRE(record_batch_0->num_rows() == 2);
 
             auto read_id = record_batch_0->read_id_column();
@@ -98,8 +99,7 @@ SCENARIO("Signal table Tests") {
                             std::vector<std::int16_t> const& expected) {
                             auto decompressed = pod5::decompress_signal(compressed_actual,
                                                                         expected.size(), pool);
-                            CAPTURE(decompressed);
-                            REQUIRE(decompressed.ok());
+                            REQUIRE_ARROW_STATUS_OK(decompressed);
 
                             auto actual =
                                     gsl::make_span((*decompressed)->data(), (*decompressed)->size())

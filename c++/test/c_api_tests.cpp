@@ -56,23 +56,12 @@ SCENARIO("C API") {
         REQUIRE(remove_file_if_exists(combined_filename).ok());
 
         auto combined_file = pod5_create_combined_file(combined_filename, "c_software", NULL);
-        CAPTURE(pod5_get_error_string());
         REQUIRE(combined_file);
         CHECK(pod5_get_error_no() == POD5_OK);
 
-        std::int16_t pore_id = -1;
-        CHECK(pod5_add_pore(&pore_id, combined_file, 43, 2, "pore_type") == POD5_OK);
-        CHECK(pore_id == 0);
-
-        std::int16_t end_reason_id = -1;
-        CHECK(pod5_add_end_reason(&end_reason_id, combined_file, POD5_END_REASON_MUX_CHANGE,
-                                  false) == POD5_OK);
-        CHECK(end_reason_id == 0);
-
-        std::int16_t calibration_id = -1;
-        CHECK(pod5_add_calibration(&calibration_id, combined_file, calibration_offset,
-                                   calibration_scale) == POD5_OK);
-        CHECK(calibration_id == 0);
+        std::int16_t pore_type_id = -1;
+        CHECK(pod5_add_pore(&pore_type_id, combined_file, "pore_type") == POD5_OK);
+        CHECK(pore_type_id == 0);
 
         std::vector<char const*> context_tags_keys{"thing", "foo"};
         std::vector<char const*> context_tags_values{"thing_val", "foo_val"};
@@ -93,15 +82,23 @@ SCENARIO("C API") {
         std::uint32_t read_number = 12;
         std::uint64_t start_sample = 10245;
         float median_before = 200.0f;
+        std::uint16_t channel = 43;
+        std::uint8_t well = 4;
+        pod5_end_reason_t end_reason = POD5_END_REASON_MUX_CHANGE;
+        uint8_t end_reason_forced = false;
         auto read_id_array = (read_id_t const*)input_read_id.begin();
 
-        ReadBatchRowInfoArrayV1 row_data{read_id_array,
+        ReadBatchRowInfoArrayV3 row_data{read_id_array,
                                          &read_number,
                                          &start_sample,
                                          &median_before,
-                                         &pore_id,
-                                         &calibration_id,
-                                         &end_reason_id,
+                                         &channel,
+                                         &well,
+                                         &pore_type_id,
+                                         &calibration_offset,
+                                         &calibration_scale,
+                                         &end_reason,
+                                         &end_reason_forced,
                                          &run_info_id,
                                          &num_minknow_events,
                                          &tracked_scale,
@@ -115,7 +112,7 @@ SCENARIO("C API") {
             std::int16_t const* signal_arr[] = {signal_1.data()};
             std::uint32_t signal_size[] = {(std::uint32_t)signal_1.size()};
 
-            CHECK(pod5_add_reads_data(combined_file, 1, READ_BATCH_ROW_INFO_VERSION_1, &row_data,
+            CHECK(pod5_add_reads_data(combined_file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data,
                                       signal_arr, signal_size) == POD5_OK);
             read_count += 1;
         }
@@ -135,7 +132,7 @@ SCENARIO("C API") {
             std::size_t signal_counts = 1;
 
             CHECK(pod5_add_reads_data_pre_compressed(combined_file, 1,
-                                                     READ_BATCH_ROW_INFO_VERSION_1, &row_data,
+                                                     READ_BATCH_ROW_INFO_VERSION_3, &row_data,
                                                      &compressed_data_ptr, &compressed_size_ptr,
                                                      &signal_size_ptr, &signal_counts) == POD5_OK);
             read_count += 1;
@@ -151,7 +148,6 @@ SCENARIO("C API") {
         CHECK(!pod5_open_combined_file(NULL));
         auto combined_file = pod5_open_combined_file(combined_filename);
         CHECK(pod5_get_error_no() == POD5_OK);
-        CAPTURE(pod5_get_error_string());
         CHECK(!!combined_file);
 
         FileInfo_t file_info;
@@ -177,110 +173,53 @@ SCENARIO("C API") {
         REQUIRE(!!batch_0);
 
         for (std::size_t row = 0; row < read_count; ++row) {
-            boost::uuids::uuid read_read_id{};
-            int16_t pore = 0;
-            int16_t calibration = 0;
-            uint32_t read_number = 0;
-            uint64_t start_sample = 0;
-            float median_before = 0.0f;
-            int16_t end_reason = 0;
-            int16_t run_info = 0;
-            int64_t signal_row_count = 0;
-
-            CHECK(pod5_get_read_batch_row_info(batch_0, row, (uint8_t*)read_read_id.begin(), &pore,
-                                               &calibration, &read_number, &start_sample,
-                                               &median_before, &end_reason, &run_info,
-                                               &signal_row_count) == POD5_OK);
-
-            std::string formatted_uuid(36, '\0');
-            CHECK(pod5_format_read_id((uint8_t*)read_read_id.begin(), &formatted_uuid[0]) ==
-                  POD5_OK);
-            CHECK(formatted_uuid.size() == boost::uuids::to_string(read_read_id).size());
-            CHECK(formatted_uuid == boost::uuids::to_string(read_read_id));
-
-            CHECK(read_read_id == input_read_id);
-            CHECK(read_number == 12);
-            CHECK(start_sample == 10245);
-            CHECK(median_before == 200.0f);
-            CHECK(pore == 0);
-            CHECK(calibration == 0);
-            CHECK(end_reason == 0);
-            CHECK(run_info == 0);
-            CHECK(signal_row_count == 1);
-
             auto signal = signal_1;
             if (row == 1) {
                 signal = signal_2;
             }
 
-            auto test_old_fields = [](auto const& obj) {
-                std::string formatted_uuid(36, '\0');
-                CHECK(pod5_format_read_id(obj.read_id, &formatted_uuid[0]) == POD5_OK);
-                CHECK(formatted_uuid.size() ==
-                      boost::uuids::to_string(*(boost::uuids::uuid*)obj.read_id).size());
-                CHECK(formatted_uuid == boost::uuids::to_string(*(boost::uuids::uuid*)obj.read_id));
-
-                CHECK(obj.read_number == 12);
-                CHECK(obj.start_sample == 10245);
-                CHECK(obj.median_before == 200.0f);
-                CHECK(obj.pore == 0);
-                CHECK(obj.calibration == 0);
-                CHECK(obj.end_reason == 0);
-                CHECK(obj.run_info == 0);
-                CHECK(obj.signal_row_count == 1);
-            };
-
-            auto test_v1_fields = [&](auto const& obj) {
-                CHECK(obj.tracked_scaling_scale == tracked_scale);
-                CHECK(obj.tracked_scaling_shift == tracked_shift);
-                CHECK(obj.predicted_scaling_scale == predicted_scale);
-                CHECK(obj.predicted_scaling_shift == predicted_shift);
-                CHECK(obj.num_reads_since_mux_change == num_reads_since_mux_change);
-                CHECK(obj.time_since_mux_change == time_since_mux_change);
-                CHECK(obj.num_minknow_events == num_minknow_events);
-            };
-
-            static_assert(std::is_same<ReadBatchRowInfoV2, ReadBatchRowInfo_t>::value,
+            static_assert(std::is_same<ReadBatchRowInfoV3, ReadBatchRowInfo_t>::value,
                           "Update this if new structs added");
 
-            // Test V2 read:
-            {
-                std::uint16_t input_version = 0;
-                ReadBatchRowInfoV2 v2_struct;
-                CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION,
-                                                        &v2_struct, &input_version) == POD5_OK);
-                CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
-                test_old_fields(v2_struct);
-                test_v1_fields(v2_struct);
-                CHECK(v2_struct.num_samples == signal.size());
-            }
+            ReadBatchRowInfoV3 v3_struct;
+            uint16_t input_version = 0;
+            CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION,
+                                                    &v3_struct, &input_version) == POD5_OK);
+            CHECK(input_version == 3);
 
-            // Test V1 read:
-            {
-                std::uint16_t input_version = 0;
-                ReadBatchRowInfoV1 v1_struct;
-                CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION,
-                                                        &v1_struct, &input_version) == POD5_OK);
-                CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
-                test_old_fields(v1_struct);
-                test_v1_fields(v1_struct);
-            }
+            std::string formatted_uuid(36, '\0');
+            CHECK(pod5_format_read_id(v3_struct.read_id, &formatted_uuid[0]) == POD5_OK);
+            CHECK(formatted_uuid.size() ==
+                  boost::uuids::to_string(*(boost::uuids::uuid*)v3_struct.read_id).size());
+            CHECK(formatted_uuid ==
+                  boost::uuids::to_string(*(boost::uuids::uuid*)v3_struct.read_id));
 
-            // Test V0 read:
-            {
-                std::uint16_t input_version = 0;
-                ReadBatchRowInfoV1 v0_struct;
-                CHECK(pod5_get_read_batch_row_info_data(batch_0, row, READ_BATCH_ROW_INFO_VERSION_1,
-                                                        &v0_struct, &input_version) == POD5_OK);
-                CHECK(input_version == READ_BATCH_ROW_INFO_VERSION);
-                test_old_fields(v0_struct);
-            }
+            CHECK(v3_struct.read_number == 12);
+            CHECK(v3_struct.start_sample == 10245);
+            CHECK(v3_struct.median_before == 200.0f);
+            CHECK(v3_struct.channel == 43);
+            CHECK(v3_struct.well == 4);
+            CHECK(v3_struct.pore_type == 0);
+            CHECK(v3_struct.calibration_offset == calibration_offset);
+            CHECK(v3_struct.calibration_scale == calibration_scale);
+            CHECK(v3_struct.end_reason == 1);
+            CHECK(v3_struct.end_reason_forced == false);
+            CHECK(v3_struct.run_info == 0);
+            CHECK(v3_struct.num_minknow_events == num_minknow_events);
+            CHECK(v3_struct.tracked_scaling_scale == tracked_scale);
+            CHECK(v3_struct.tracked_scaling_shift == tracked_shift);
+            CHECK(v3_struct.predicted_scaling_scale == predicted_scale);
+            CHECK(v3_struct.predicted_scaling_shift == predicted_shift);
+            CHECK(v3_struct.num_reads_since_mux_change == num_reads_since_mux_change);
+            CHECK(v3_struct.time_since_mux_change == time_since_mux_change);
+            CHECK(v3_struct.signal_row_count == 1);
+            CHECK(v3_struct.num_samples == signal.size());
 
-            std::vector<uint64_t> signal_row_indices(signal_row_count);
+            std::vector<uint64_t> signal_row_indices(v3_struct.signal_row_count);
             CHECK(pod5_get_signal_row_indices(batch_0, row, signal_row_indices.size(),
                                               signal_row_indices.data()) == POD5_OK);
 
-            std::vector<SignalRowInfo*> signal_row_info(signal_row_count);
+            std::vector<SignalRowInfo*> signal_row_info(v3_struct.signal_row_count);
             CHECK(pod5_get_signal_row_info(combined_file, signal_row_indices.size(),
                                            signal_row_indices.data(),
                                            signal_row_info.data()) == POD5_OK);
@@ -303,19 +242,28 @@ SCENARIO("C API") {
             CHECK(pod5_free_signal_row_info(signal_row_indices.size(), signal_row_info.data()) ==
                   POD5_OK);
 
-            CalibrationDictData* calib_data = nullptr;
-            CHECK(pod5_get_calibration(batch_0, calibration, &calib_data) == POD5_OK);
-            CHECK(!!calib_data);
-            CHECK(calib_data->offset == calibration_offset);
-            CHECK(calib_data->scale == calibration_scale);
+            std::array<char, 256> char_buffer{};
+            std::size_t returned_size = char_buffer.size();
+            CHECK(pod5_get_pore_type(batch_0, v3_struct.pore_type, char_buffer.data(),
+                                     &returned_size) == POD5_OK);
+            std::string expected_pore_type{"pore_type"};
+            CHECK(returned_size == expected_pore_type.size() + 1);
+            CHECK(std::string{char_buffer.data()} == expected_pore_type);
+
+            returned_size = char_buffer.size();
+            pod5_end_reason end_reason = POD5_END_REASON_UNKNOWN;
+            CHECK(pod5_get_end_reason(batch_0, v3_struct.end_reason, &end_reason,
+                                      char_buffer.data(), &returned_size) == POD5_OK);
+            std::string expected_end_reason{"mux_change"};
+            CHECK(returned_size == expected_end_reason.size() + 1);
+            CHECK(end_reason == POD5_END_REASON_MUX_CHANGE);
+            CHECK(std::string{char_buffer.data()} == expected_end_reason);
 
             CalibrationExtraData calibration_extra_data{};
-            CHECK(pod5_get_calibration_extra_info(batch_0, calibration, run_info,
-                                                  &calibration_extra_data) == POD5_OK);
+            CHECK(pod5_get_calibration_extra_info(batch_0, row, &calibration_extra_data) ==
+                  POD5_OK);
             CHECK(calibration_extra_data.digitisation == adc_max - adc_min + 1);
             CHECK(calibration_extra_data.range == 8192 * calibration_scale);
-
-            CHECK(pod5_release_calibration(calib_data) == POD5_OK);
         }
 
         RunInfoDictData* run_info_data_out = nullptr;

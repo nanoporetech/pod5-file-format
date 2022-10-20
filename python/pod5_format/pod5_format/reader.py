@@ -3,10 +3,9 @@ Tools for accessing POD5 data from PyArrow files
 """
 
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import fields
 import enum
 from functools import total_ordering
-import packaging.version
 from pathlib import Path
 from typing import (
     Collection,
@@ -17,10 +16,11 @@ from typing import (
     Optional,
     Set,
     Tuple,
-    Type,
     Union,
 )
 from uuid import UUID
+
+import packaging.version
 
 import numpy as np
 import numpy.typing as npt
@@ -42,39 +42,23 @@ from pod5_format.pod5_types import (
 from .api_utils import deprecation_warning, pack_read_ids
 from .signal_tools import vbz_decompress_signal_into, vbz_decompress_signal
 
-_ReaderCaches = Union[
-    Dict[int, Calibration],
-    Dict[int, EndReason],
-    Dict[int, Pore],
-    Dict[int, RunInfo],
-]
 
-_ReadDataTypes = Union[
-    Type[Calibration],
-    Type[EndReason],
-    Type[Pore],
-    Type[RunInfo],
-]
-
-ReadRecordV0Columns = namedtuple(
-    "ReadRecordV0Columns",
+ReadRecordV3Columns = namedtuple(
+    "ReadRecordV3Columns",
     [
         "read_id",
         "read_number",
         "start",
+        "channel",
+        "well",
         "median_before",
-        "pore",
-        "calibration",
+        "pore_type",
+        "calibration_offset",
+        "calibration_scale",
         "end_reason",
+        "end_reason_forced",
         "run_info",
         "signal",
-    ],
-)
-
-ReadRecordV1Columns = namedtuple(
-    "ReadRecordV1Columns",
-    [
-        *ReadRecordV0Columns._fields,
         "num_minknow_events",
         "tracked_scaling_scale",
         "tracked_scaling_shift",
@@ -82,13 +66,6 @@ ReadRecordV1Columns = namedtuple(
         "predicted_scaling_shift",
         "num_reads_since_mux_change",
         "time_since_mux_change",
-    ],
-)
-
-ReadRecordV2Columns = namedtuple(
-    "ReadRecordV2Columns",
-    [
-        *ReadRecordV1Columns._fields,
         "num_samples",
     ],
 )
@@ -98,9 +75,7 @@ ReadRecordV2Columns = namedtuple(
 class ReadTableVersion(enum.Enum):
     """Version of read table"""
 
-    V0 = 0
-    V1 = 1
-    V2 = 2
+    V3 = 3
 
     def __lt__(self, other):
         if self.__class__ is other.__class__:
@@ -113,7 +88,6 @@ class ReadTableVersion(enum.Enum):
         return NotImplemented
 
 
-ReadRecordColumns = Union[ReadRecordV0Columns, ReadRecordV1Columns, ReadRecordV2Columns]
 Signal = namedtuple("Signal", ["signal", "samples"])
 SignalRowInfo = namedtuple(
     "SignalRowInfo",
@@ -167,8 +141,6 @@ class ReadRecord:
         """
         Get the number of samples in the reads signal data.
         """
-        if self._reader.reads_table_version < ReadTableVersion.V2:
-            return sum(r.sample_count for r in self.signal_rows)
         return self._batch.columns.num_samples[self._row].as_py()
 
     @property
@@ -183,8 +155,6 @@ class ReadRecord:
         """
         Find the number of minknow events in the read.
         """
-        if self._reader.reads_table_version < ReadTableVersion.V1:
-            return 0
         return self._batch.columns.num_minknow_events[self._row].as_py()
 
     @property
@@ -192,9 +162,6 @@ class ReadRecord:
         """
         Find the tracked scaling value in the read.
         """
-        if self._reader.reads_table_version < ReadTableVersion.V1:
-            return ShiftScalePair(float("nan"), float("nan"))
-
         return ShiftScalePair(
             self._batch.columns.tracked_scaling_shift[self._row].as_py(),
             self._batch.columns.tracked_scaling_scale[self._row].as_py(),
@@ -205,8 +172,6 @@ class ReadRecord:
         """
         Find the predicted scaling value in the read.
         """
-        if self._reader.reads_table_version < ReadTableVersion.V1:
-            return ShiftScalePair(float("nan"), float("nan"))
         return ShiftScalePair(
             self._batch.columns.predicted_scaling_shift[self._row].as_py(),
             self._batch.columns.predicted_scaling_scale[self._row].as_py(),
@@ -217,8 +182,6 @@ class ReadRecord:
         """
         Number of selected reads since the last mux change on this reads channel.
         """
-        if self._reader.reads_table_version < ReadTableVersion.V1:
-            return 0
         return self._batch.columns.num_reads_since_mux_change[self._row].as_py()
 
     @property
@@ -226,8 +189,6 @@ class ReadRecord:
         """
         Time in seconds since the last mux change on this reads channel.
         """
-        if self._reader.reads_table_version < ReadTableVersion.V1:
-            return 0
         return self._batch.columns.time_since_mux_change[self._row].as_py()
 
     @property
@@ -235,14 +196,21 @@ class ReadRecord:
         """
         Get the pore data associated with the read.
         """
-        return self._reader._lookup_pore(self._batch, self._row)
+        return Pore(
+            self._batch.columns.channel[self._row].as_py(),
+            self._batch.columns.well[self._row].as_py(),
+            self._reader._lookup_pore_type(self._batch, self._row),
+        )
 
     @property
     def calibration(self) -> Calibration:
         """
         Get the calibration data associated with the read.
         """
-        return self._reader._lookup_calibration(self._batch, self._row)
+        return Calibration(
+            self._batch.columns.calibration_offset[self._row].as_py(),
+            self._batch.columns.calibration_scale[self._row].as_py(),
+        )
 
     @property
     def calibration_digitisation(self) -> int:
@@ -267,7 +235,10 @@ class ReadRecord:
         """
         Get the end reason data associated with the read.
         """
-        return self._reader._lookup_end_reason(self._batch, self._row)
+        return EndReason(
+            name=self._reader._lookup_end_reason(self._batch, self._row),
+            forced=self._batch.columns.end_reason_forced[self._row].as_py(),
+        )
 
     @property
     def run_info(self) -> RunInfo:
@@ -496,13 +467,13 @@ class ReadRecordBatch:
 
         self._signal_cache: Optional[p5b.Pod5SignalCacheBatch] = None
         self._selected_batch_rows: Optional[Iterable[int]] = None
-        self._columns: Optional[ReadRecordColumns] = None
+        self._columns: Optional[ReadRecordV3Columns] = None
 
     @property
-    def columns(self) -> ReadRecordColumns:
+    def columns(self) -> ReadRecordV3Columns:
         """Return the data from this batch as a ReadRecordColumns instance"""
         if self._columns is None:
-            self._columns = self._reader._columns_type(
+            self._columns = ReadRecordV3Columns(
                 *[
                     self._batch.column(name)
                     for name in self._reader._columns_type._fields
@@ -616,15 +587,8 @@ class Reader:
         writing_version_str = schema_metadata[b"MINKNOW:pod5_version"].decode("utf-8")
         writing_version = packaging.version.parse(writing_version_str)
 
-        if writing_version >= packaging.version.Version("0.0.32"):
-            self._columns_type = ReadRecordV2Columns
-            self._reads_table_version = ReadTableVersion.V2
-        elif writing_version >= packaging.version.Version("0.0.24"):
-            self._columns_type = ReadRecordV1Columns
-            self._reads_table_version = ReadTableVersion.V1
-        else:
-            self._columns_type = ReadRecordV0Columns
-            self._reads_table_version = ReadTableVersion.V0
+        self._columns_type = ReadRecordV3Columns
+        self._reads_table_version = ReadTableVersion.V3
 
         self._file_version = writing_version
 
@@ -632,9 +596,10 @@ class Reader:
         # this dictionary is cleared before closing.
         self._cached_signal_batches: Dict[int, Signal] = {}
 
-        self._cached_run_infos: Dict[int, RunInfo] = {}
-        self._cached_end_reasons: Dict[int, EndReason] = {}
-        self._cached_calibrations: Dict[int, Calibration] = {}
+        self._cached_run_info_ids: Dict[int, str] = {}
+        self._cached_run_infos: Dict[str, RunInfo] = {}
+        self._cached_end_reasons: Dict[int, str] = {}
+        self._cached_calibrations: Dict[int, str] = {}
         self._cached_pores: Dict[int, Pore] = {}
 
         self._is_vbz_compressed: Optional[bool] = None
@@ -986,57 +951,62 @@ class Reader:
 
     def _lookup_run_info(self, batch: ReadRecordBatch, batch_row_id: int) -> RunInfo:
         """Get the :py:class:`RunInfo` from the batch at batch_row_id"""
-        return self._lookup_dict_value(
-            self._cached_run_infos, "run_info", RunInfo, batch, batch_row_id
+        acquisition_id = self._lookup_dict_value(
+            self._cached_run_info_ids, "run_info", batch, batch_row_id
         )
 
-    def _lookup_pore(self, batch: ReadRecordBatch, batch_row_id: int) -> Pore:
-        """Get the :py:class:`Pore` from the batch at batch_row_id"""
+        if acquisition_id in self._cached_run_infos:
+            return self._cached_run_infos[acquisition_id]
+
+        run_info = None
+        for idx in range(self._handles.run_info.reader.num_record_batches):
+            run_info_batch = self._handles.run_info.reader.get_batch(idx)
+            acquisition_id_col = run_info_batch.column("acquisition_id")
+            for row in range(run_info_batch.num_rows):
+                if acquisition_id_col[row].as_py() == acquisition_id:
+                    values = {}
+                    for field in fields(RunInfo):
+                        col = run_info_batch.column(field.name)
+                        values[field.name] = col[row].as_py()
+                    run_info = RunInfo(**values)
+
+        if not run_info:
+            raise Exception(
+                f"Failed to find run info '{acquisition_id}' in run info table"
+            )
+
+        self._cached_run_infos[acquisition_id] = run_info
+        return run_info
+
+    def _lookup_pore_type(self, batch: ReadRecordBatch, batch_row_id: int) -> str:
+        """Get the pore_type string from the batch at batch_row_id"""
         return self._lookup_dict_value(
-            self._cached_pores, "pore", Pore, batch, batch_row_id
+            self._cached_pores, "pore_type", batch, batch_row_id
         )
 
-    def _lookup_calibration(
-        self, batch: ReadRecordBatch, batch_row_id: int
-    ) -> Calibration:
-        """Get the :py:class:`Calibration` from the batch at batch_row_id"""
-        return self._lookup_dict_value(
-            self._cached_calibrations,
-            "calibration",
-            Calibration,
-            batch,
-            batch_row_id,
-        )
-
-    def _lookup_end_reason(
-        self, batch: ReadRecordBatch, batch_row_id: int
-    ) -> EndReason:
+    def _lookup_end_reason(self, batch: ReadRecordBatch, batch_row_id: int) -> str:
         """Get the :py:class:`types.EndReason` from the batch at batch_row_id"""
         return self._lookup_dict_value(
-            self._cached_end_reasons, "end_reason", EndReason, batch, batch_row_id
+            self._cached_end_reasons, "end_reason", batch, batch_row_id
         )
 
     @staticmethod
     def _lookup_dict_value(
-        storage: _ReaderCaches,
+        storage: Dict[int, str],
         field_name: str,
-        cls_type: _ReadDataTypes,
         batch: ReadRecordBatch,
         batch_row_id: int,
-    ):
+    ) -> str:
         """
-        Static method for getting cached instances of "cls_type" from "storage" or
+        Static method for getting cached str data from "storage" or
         loading it from the file if it hasn't already been cached.
 
         Parameters
         ----------
-        storage : Dict[int, [Calibration, EndReason, Pore, RunInfo]]
-            A ReaderCache containing cached objects from this file
+        storage : Dict[int, str]
+            A Dict containing cached strings from this file
         field_name: str
-            The field name in the pod5 columns which contains data to instantiate a
-            new instance of "cls_type"
-        cls_type: Type[Calibration, EndReason, Pore, RunInfo]
-            The class type to instantiate and return
+            The field name in the pod5 columns which contains the data
         batch: ReadRecordBatch
             The ReadRecordBatch instance to get data from
         batch_row_id: int
@@ -1044,7 +1014,7 @@ class Reader:
 
         Returns
         -------
-        object: Type[Calibration, EndReason, Pore, RunInfo]
+        object: Type[EndReason, Pore, RunInfo]
             The recovered cached instance or newly created instance of "cls_type"
         """
         field_data = getattr(batch.columns, field_name)
@@ -1052,9 +1022,9 @@ class Reader:
         if row_id in storage:
             return storage[row_id]
 
-        pod5_named_tuple = cls_type(**field_data[batch_row_id].as_py())
-        storage[row_id] = pod5_named_tuple  # type: ignore
-        return pod5_named_tuple
+        value = field_data[batch_row_id].as_py()
+        storage[row_id] = value  # type: ignore
+        return value
 
 
 class SplitReader(Reader):

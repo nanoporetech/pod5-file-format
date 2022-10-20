@@ -9,6 +9,8 @@ enum ContentType:short {
     ReadIdIndex,
     // An index based on other columns and/or tables (it will need to be opened to find out what it indexes)
     OtherIndex,
+    // The Run Info table (an Arrow table)
+    RunInfoTable,
 }
  
 enum Format:short {

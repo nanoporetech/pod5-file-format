@@ -163,11 +163,17 @@ arrow::Result<std::shared_ptr<PoreWriter>> make_pore_writer(arrow::MemoryPool* p
 }
 
 arrow::Result<std::shared_ptr<EndReasonWriter>> make_end_reason_writer(arrow::MemoryPool* pool) {
-    return std::make_shared<EndReasonWriter>(pool);
-}
+    std::shared_ptr<arrow::StringArray> end_reasons;
+    {
+        arrow::StringBuilder builder(pool);
+        for (int end_reason = 0; end_reason <= (int)ReadEndReason::last_end_reason; ++end_reason) {
+            ARROW_RETURN_NOT_OK(builder.Append(end_reason_as_string((ReadEndReason)end_reason)));
+        }
 
-arrow::Result<std::shared_ptr<CalibrationWriter>> make_calibration_writer(arrow::MemoryPool* pool) {
-    return std::make_shared<CalibrationWriter>(pool);
+        ARROW_RETURN_NOT_OK(builder.Finish(&end_reasons));
+    }
+
+    return std::make_shared<EndReasonWriter>(end_reasons);
 }
 
 arrow::Result<std::shared_ptr<RunInfoWriter>> make_run_info_writer(arrow::MemoryPool* pool) {
@@ -180,48 +186,31 @@ pod5::Result<std::shared_ptr<arrow::Array>> DictionaryWriter::build_dictionary_a
     return arrow::DictionaryArray::FromArrays(indices, res);
 }
 
-PoreWriter::PoreWriter(arrow::MemoryPool* pool) : m_builder(pool) {
-    m_type = make_pore_struct_type();
-}
+PoreWriter::PoreWriter(arrow::MemoryPool* pool) : m_builder(pool) {}
 
 pod5::Result<std::shared_ptr<arrow::Array>> PoreWriter::get_value_array() {
-    ARROW_ASSIGN_OR_RAISE(auto result, detail::get_struct_array(m_type, m_builder.builders()));
-    return result;
+    ARROW_ASSIGN_OR_RAISE(auto array_data, get_array_data(arrow::utf8(), m_builder, item_count()));
+    return std::make_shared<arrow::StringArray>(array_data);
 }
 
-std::size_t PoreWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
+std::size_t PoreWriter::item_count() { return m_builder.length(); }
 
-EndReasonWriter::EndReasonWriter(arrow::MemoryPool* pool) : m_builder(pool) {
-    m_type = make_end_reason_struct_type();
-}
+EndReasonWriter::EndReasonWriter(std::shared_ptr<arrow::StringArray> const& end_reasons)
+        : m_end_reasons(end_reasons) {}
 
 pod5::Result<std::shared_ptr<arrow::Array>> EndReasonWriter::get_value_array() {
-    ARROW_ASSIGN_OR_RAISE(auto result, detail::get_struct_array(m_type, m_builder.builders()));
-    return result;
+    return m_end_reasons;
 }
 
-std::size_t EndReasonWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
+std::size_t EndReasonWriter::item_count() { return m_end_reasons->length(); }
 
-CalibrationWriter::CalibrationWriter(arrow::MemoryPool* pool) : m_builder(pool) {
-    m_type = make_calibration_struct_type();
-}
-
-pod5::Result<std::shared_ptr<arrow::Array>> CalibrationWriter::get_value_array() {
-    ARROW_ASSIGN_OR_RAISE(auto result, detail::get_struct_array(m_type, m_builder.builders()));
-    return result;
-}
-
-std::size_t CalibrationWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
-
-RunInfoWriter::RunInfoWriter(arrow::MemoryPool* pool) : m_builder(pool) {
-    m_type = make_run_info_struct_type();
-}
+RunInfoWriter::RunInfoWriter(arrow::MemoryPool* pool) : m_builder(pool) {}
 
 pod5::Result<std::shared_ptr<arrow::Array>> RunInfoWriter::get_value_array() {
-    ARROW_ASSIGN_OR_RAISE(auto result, detail::get_struct_array(m_type, m_builder.builders()));
-    return result;
+    ARROW_ASSIGN_OR_RAISE(auto array_data, get_array_data(arrow::utf8(), m_builder, item_count()));
+    return std::make_shared<arrow::StringArray>(array_data);
 }
 
-std::size_t RunInfoWriter::item_count() { return std::get<0>(m_builder.builders()).length(); }
+std::size_t RunInfoWriter::item_count() { return m_builder.length(); }
 
 }  // namespace pod5

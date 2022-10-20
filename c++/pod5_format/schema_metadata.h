@@ -51,6 +51,7 @@ private:
 };
 
 Result<Version> parse_version_number(std::string const& ver);
+Version current_build_version_number();
 
 struct SchemaMetadataDescription {
     boost::uuids::uuid file_identifier;

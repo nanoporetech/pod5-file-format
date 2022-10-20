@@ -29,7 +29,6 @@ public:
                     std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
                     std::size_t table_batch_size,
                     std::shared_ptr<PoreWriter> const& pore_writer,
-                    std::shared_ptr<CalibrationWriter> const& calibration_writer,
                     std::shared_ptr<EndReasonWriter> const& end_reason_writer,
                     std::shared_ptr<RunInfoWriter> const& run_info_writer,
                     arrow::MemoryPool* pool);
@@ -40,7 +39,6 @@ public:
     ~ReadTableWriter();
 
     /// \brief Add a read to the read table, adding to the current batch.
-    ///        The batch is not flushed to disk until #flush is called.
     /// \param read_data The data to add as a read.
     /// \param signal List of signal table row indices that belong to this read.
     /// \param signal_duration The length of the read in samples.
@@ -82,7 +80,6 @@ POD5_FORMAT_EXPORT Result<ReadTableWriter> make_read_table_writer(
         std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
         std::size_t table_batch_size,
         std::shared_ptr<PoreWriter> const& pore_writer,
-        std::shared_ptr<CalibrationWriter> const& calibration_writer,
         std::shared_ptr<EndReasonWriter> const& end_reason_writer,
         std::shared_ptr<RunInfoWriter> const& run_info_writer,
         arrow::MemoryPool* pool);
