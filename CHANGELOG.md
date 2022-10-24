@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.378 - 2022-10-18
+## [0.0.39] - 2022-10-18
+### Changed
+- Fixed building against the c++ api - previously missing include files.
+
+## [0.0.38] - 2022-10-18
 ### Removed
 - Support for opening and writing "split" pod5 files. All API's now expect and return combined pod5 files.
 
