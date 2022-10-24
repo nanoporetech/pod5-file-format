@@ -131,6 +131,8 @@ list(APPEND public_headers
     pod5_format/read_table_utils.h
 
     pod5_format/run_info_table_writer.h
+    pod5_format/run_info_table_reader.h
+    pod5_format/run_info_table_schema.h
 
     pod5_format/signal_compression.h
     pod5_format/signal_table_reader.h
@@ -141,7 +143,11 @@ list(APPEND public_headers
     pod5_format/c_api.h
 
     pod5_format/errors.h
+    pod5_format/expandable_buffer.h
     pod5_format/result.h
+    pod5_format/dictionary_writer.h
+    pod5_format/schema_field_builder.h
+    pod5_format/schema_utils.h
     pod5_format/table_reader.h
     pod5_format/tuple_utils.h
     pod5_format/types.h
