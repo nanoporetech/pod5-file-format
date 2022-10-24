@@ -1,7 +1,6 @@
 #pragma once
 
 #include "pod5_format/schema_metadata.h"
-#include "pod5_format/version.h"
 
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
