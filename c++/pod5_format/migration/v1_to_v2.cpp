@@ -52,8 +52,8 @@ arrow::Result<std::size_t> get_num_samples(
 
 arrow::Result<MigrationResult> migrate_v1_to_v2(MigrationResult&& v1_input,
                                                 arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto temp_dir, arrow::internal::TemporaryDir::Make("v1_v2_migration"));
-    auto v2_reads_table_path = temp_dir->path().ToString() + "reads_table.arrow";
+    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("v1_v2_migration"));
+    ARROW_ASSIGN_OR_RAISE(auto v2_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
 
     {
         ARROW_ASSIGN_OR_RAISE(auto v1_reader,
@@ -73,8 +73,9 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(MigrationResult&& v1_input,
                               update_metadata(v1_reader.metadata, Version(0, 0, 32)));
         ARROW_ASSIGN_OR_RAISE(auto v2_schema,
                               arrow::UnifySchemas({v1_reader.schema, v2_new_schama}));
-        ARROW_ASSIGN_OR_RAISE(auto v2_writer, make_record_batch_writer(pool, v2_reads_table_path,
-                                                                       v2_schema, new_metadata));
+        ARROW_ASSIGN_OR_RAISE(auto v2_writer,
+                              make_record_batch_writer(pool, v2_reads_table_path.ToString(),
+                                                       v2_schema, new_metadata));
 
         for (std::int64_t batch_idx = 0; batch_idx < v1_reader.reader->num_record_batches();
              ++batch_idx) {
@@ -103,7 +104,7 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(MigrationResult&& v1_input,
 
     // Set up migrated data to point at our new table:
     MigrationResult result = std::move(v1_input);
-    ARROW_RETURN_NOT_OK(result.footer().reads_table.from_full_file(v2_reads_table_path));
+    ARROW_RETURN_NOT_OK(result.footer().reads_table.from_full_file(v2_reads_table_path.ToString()));
     result.add_temp_dir(std::move(temp_dir));
 
     return result;

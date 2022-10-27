@@ -10,8 +10,8 @@ namespace pod5 {
 
 arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
                                                 arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto temp_dir, arrow::internal::TemporaryDir::Make("v0_v1_migration"));
-    auto v1_reads_table_path = temp_dir->path().ToString() + "reads_table.arrow";
+    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("v0_v1_migration"));
+    ARROW_ASSIGN_OR_RAISE(auto v1_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
 
     {
         ARROW_ASSIGN_OR_RAISE(auto v0_reader,
@@ -31,8 +31,9 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
 
         ARROW_ASSIGN_OR_RAISE(auto new_metadata,
                               update_metadata(v0_reader.metadata, Version(0, 0, 24)));
-        ARROW_ASSIGN_OR_RAISE(auto v1_writer, make_record_batch_writer(pool, v1_reads_table_path,
-                                                                       v1_schema, new_metadata));
+        ARROW_ASSIGN_OR_RAISE(auto v1_writer,
+                              make_record_batch_writer(pool, v1_reads_table_path.ToString(),
+                                                       v1_schema, new_metadata));
 
         for (std::int64_t batch_idx = 0; batch_idx < v0_reader.reader->num_record_batches();
              ++batch_idx) {
@@ -75,7 +76,7 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
 
     // Set up migrated data to point at our new table:
     MigrationResult result = std::move(v0_input);
-    ARROW_RETURN_NOT_OK(result.footer().reads_table.from_full_file(v1_reads_table_path));
+    ARROW_RETURN_NOT_OK(result.footer().reads_table.from_full_file(v1_reads_table_path.ToString()));
     result.add_temp_dir(std::move(temp_dir));
 
     return result;

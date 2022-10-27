@@ -96,6 +96,7 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/types.cpp
     pod5_format/types.h
 
+    pod5_format/migration/migration.cpp
     pod5_format/migration/migration.h
     pod5_format/migration/migration_utils.h
     pod5_format/migration/v0_to_v1.cpp
