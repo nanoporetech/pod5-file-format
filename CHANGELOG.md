@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.40] - 2022-10-27
+### Changed
+- Fixed migrating of large files from older versions.
+
 ## [0.0.39] - 2022-10-18
 ### Changed
 - Fixed building against the c++ api - previously missing include files.
