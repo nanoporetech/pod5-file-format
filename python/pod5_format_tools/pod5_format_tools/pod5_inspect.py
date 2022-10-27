@@ -20,7 +20,7 @@ def format_shift_scale_pair_num(pair):
     return f"({pair.shift:.1f} {pair.scale:.1f})"
 
 
-def do_reads_command(readerer):
+def do_reads_command(reader):
     keys = [
         "read_id",
         "channel",
@@ -33,17 +33,12 @@ def do_reads_command(readerer):
         "num_samples",
         "byte_count",
         "signal_compression_ratio",
+        "num_minknow_events",
+        "tracked_scaling",
+        "predicted_scaling",
+        "num_reads_since_mux_change",
+        "time_since_mux_change",
     ]
-    if reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
-        keys.extend(
-            [
-                "num_minknow_events",
-                "tracked_scaling",
-                "predicted_scaling",
-                "num_reads_since_mux_change",
-                "time_since_mux_change",
-            ]
-        )
 
     csv_read_writer = csv.DictWriter(sys.stdout, keys)
     csv_read_writer.writeheader()
@@ -60,22 +55,12 @@ def do_reads_command(readerer):
             "num_samples": read.num_samples,
             "byte_count": read.byte_count,
             "signal_compression_ratio": f"{read.byte_count / float(read.sample_count*2):.3f}",
+            "num_minknow_events": read.num_minknow_events,
+            "tracked_scaling": format_shift_scale_pair_num(read.tracked_scaling),
+            "predicted_scaling": format_shift_scale_pair_num(read.predicted_scaling),
+            "num_reads_since_mux_change": read.num_reads_since_mux_change,
+            "time_since_mux_change": read.time_since_mux_change,
         }
-
-        if reader.reads_table_version >= p5.reader.ReadTableVersion.V1:
-            fields.update(
-                {
-                    "num_minknow_events": read.num_minknow_events,
-                    "tracked_scaling": format_shift_scale_pair_num(
-                        read.tracked_scaling
-                    ),
-                    "predicted_scaling": format_shift_scale_pair_num(
-                        read.predicted_scaling
-                    ),
-                    "num_reads_since_mux_change": read.num_reads_since_mux_change,
-                    "time_since_mux_change": read.time_since_mux_change,
-                }
-            )
 
         try:
             csv_read_writer.writerow(fields)
