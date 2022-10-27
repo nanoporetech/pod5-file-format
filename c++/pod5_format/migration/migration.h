@@ -8,6 +8,20 @@
 
 namespace pod5 {
 
+class TemporaryDir {
+public:
+    TemporaryDir(arrow::internal::PlatformFilename&& path) : m_path(path) {}
+
+    ~TemporaryDir() { (void)::arrow::internal::DeleteDirTree(m_path); }
+
+    arrow::internal::PlatformFilename const& path() { return m_path; };
+
+private:
+    arrow::internal::PlatformFilename m_path;
+};
+
+Result<std::unique_ptr<TemporaryDir>> MakeTmpDir(char const* suffix);
+
 class MigrationResult {
 public:
     MigrationResult(combined_file_utils::ParsedFooter const& footer) : m_footer(footer) {}
@@ -19,13 +33,13 @@ public:
     combined_file_utils::ParsedFooter& footer() { return m_footer; }
     combined_file_utils::ParsedFooter const& footer() const { return m_footer; }
 
-    void add_temp_dir(std::unique_ptr<arrow::internal::TemporaryDir>&& temp_dir) {
+    void add_temp_dir(std::unique_ptr<TemporaryDir>&& temp_dir) {
         m_temp_dirs.emplace_back(std::move(temp_dir));
     }
 
 private:
     combined_file_utils::ParsedFooter m_footer;
-    std::vector<std::unique_ptr<arrow::internal::TemporaryDir>> m_temp_dirs;
+    std::vector<std::unique_ptr<TemporaryDir>> m_temp_dirs;
 };
 
 arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
@@ -56,7 +70,6 @@ inline arrow::Result<MigrationResult> migrate_if_required(
         // Flattening fields
         ARROW_ASSIGN_OR_RAISE(result, migrate_v2_to_v3(std::move(result), pool));
     }
-
     return result;
 }
 

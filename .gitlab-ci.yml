@@ -111,7 +111,7 @@ build-standalone-ubu20:
     - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt update
-    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev
+    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev=8.0.0-1
     - mkdir build
     - cd build
     - cmake -DBUILD_PYTHON_WHEEL=OFF ..

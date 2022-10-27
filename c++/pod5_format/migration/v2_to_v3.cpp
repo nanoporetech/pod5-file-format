@@ -22,10 +22,17 @@ struct StringDictBuilder {
     arrow::StringBuilder items;
 
     arrow::Result<std::shared_ptr<arrow::Array>> finish() {
-        ARROW_ASSIGN_OR_RAISE(auto indices, indices.Finish());
-        ARROW_ASSIGN_OR_RAISE(auto items, items.Finish());
+        ARROW_ASSIGN_OR_RAISE(auto finished_indices, indices.Finish());
+        ARROW_ASSIGN_OR_RAISE(auto finished_items, items.Finish());
 
-        return arrow::DictionaryArray::FromArrays(indices, items);
+        auto finished_items_val = std::static_pointer_cast<arrow::StringArray>(finished_items);
+
+        // Re append the finished items to the now blank list
+        for (std::int64_t i = 0; i < finished_items_val->length(); ++i) {
+            ARROW_RETURN_NOT_OK(items.Append(finished_items_val->GetString(i)));
+        }
+
+        return arrow::DictionaryArray::FromArrays(finished_indices, finished_items);
     }
 
     std::unordered_map<std::string, std::int16_t> lookup;
@@ -103,9 +110,10 @@ arrow::Status append_struct_row_to_dict(StructRow const& struct_row,
 
 arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
                                                 arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto temp_dir, arrow::internal::TemporaryDir::Make("v2_v3_migration"));
-    auto v3_reads_table_path = temp_dir->path().ToString() + "reads_table.arrow";
-    auto v3_run_info_table_path = temp_dir->path().ToString() + "run_info_table.arrow";
+    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("v2_v3_migration"));
+    ARROW_ASSIGN_OR_RAISE(auto v3_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
+    ARROW_ASSIGN_OR_RAISE(auto v3_run_info_table_path,
+                          temp_dir->path().Join("run_info_table.arrow"));
 
     {
         ARROW_ASSIGN_OR_RAISE(auto v2_reader,
@@ -138,7 +146,7 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
                      arrow::field("run_info", arrow::dictionary(arrow::int16(), arrow::utf8()))},
                     new_metadata);
             ARROW_ASSIGN_OR_RAISE(auto v3_reads_writer,
-                                  make_record_batch_writer(pool, v3_reads_table_path,
+                                  make_record_batch_writer(pool, v3_reads_table_path.ToString(),
                                                            v3_reads_schema, new_metadata));
 
             std::vector<std::string> const columns_to_copy{"read_id",
@@ -155,6 +163,10 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
                                                            "time_since_mux_change",
                                                            "num_samples"};
 
+            // Builders for dict columns
+            StringDictBuilder pore_type;
+            StringDictBuilder end_reason;
+            StringDictBuilder run_info;
             for (std::int64_t batch_idx = 0; batch_idx < v2_reader.reader->num_record_batches();
                  ++batch_idx) {
                 // Read V2 data:
@@ -172,12 +184,9 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
 
                 arrow::UInt16Builder channel;
                 arrow::UInt8Builder well;
-                StringDictBuilder pore_type;
                 arrow::FloatBuilder calibration_offset;
                 arrow::FloatBuilder calibration_scale;
-                StringDictBuilder end_reason;
                 arrow::BooleanBuilder end_reason_forced;
-                StringDictBuilder run_info;
                 for (std::int64_t row = 0; row < num_rows; ++row) {
                     ARROW_ASSIGN_OR_RAISE(auto calibration_data,
                                           get_dict_struct(v2_batch, row, "calibration"));
@@ -255,7 +264,7 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
             // Append all the run info dict-struct data to the new table:
             auto v3_run_info_schema = arrow::schema(run_info_items_type->fields(), new_metadata);
             ARROW_ASSIGN_OR_RAISE(auto v3_run_info_writer,
-                                  make_record_batch_writer(pool, v3_run_info_table_path,
+                                  make_record_batch_writer(pool, v3_run_info_table_path.ToString(),
                                                            v3_run_info_schema, new_metadata));
 
             auto const& fields = run_info_items->fields();
@@ -273,8 +282,9 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
 
     // Set up migrated data to point at our new table:
     MigrationResult result = std::move(v2_input);
-    ARROW_RETURN_NOT_OK(result.footer().reads_table.from_full_file(v3_reads_table_path));
-    ARROW_RETURN_NOT_OK(result.footer().run_info_table.from_full_file(v3_run_info_table_path));
+    ARROW_RETURN_NOT_OK(result.footer().reads_table.from_full_file(v3_reads_table_path.ToString()));
+    ARROW_RETURN_NOT_OK(
+            result.footer().run_info_table.from_full_file(v3_run_info_table_path.ToString()));
     result.add_temp_dir(std::move(temp_dir));
 
     return result;
