@@ -66,7 +66,7 @@ inline arrow::Result<MigrationResult> migrate_if_required(
         ARROW_ASSIGN_OR_RAISE(result, migrate_v1_to_v2(std::move(result), pool));
     }
 
-    if (writer_version < Version(0, 0, 35)) {
+    if (writer_version < Version(0, 0, 38)) {
         // Flattening fields
         ARROW_ASSIGN_OR_RAISE(result, migrate_v2_to_v3(std::move(result), pool));
     }
