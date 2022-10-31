@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.41] - 2022-10-27
+### Changed
+- Fixed pod5-inspect erroring when loading data.
+- Fixed issue where some files inbetween 0.34 - 0.38 wouldn't load correctly.
+
 ## [0.0.40] - 2022-10-27
 ### Changed
 - Fixed migrating of large files from older versions.
@@ -22,7 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All data in the read table that was previously contained in dictionaries of structs is now stored in the read table, or a new "run info" table.
     This change simplifies data access into the pod5 files, and helps users who want to convert the pod5 data to pandas or other arrow-compatible reader formats.
     Old data is migrated on load, and will continue to work, data can be permanently migrated using the tool `pod5-migrate`
-
 
 ## [0.0.37] - 2022-10-18
 ### Changed
