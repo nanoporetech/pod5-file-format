@@ -110,7 +110,7 @@ arrow::Status append_struct_row_to_dict(StructRow const& struct_row,
 
 arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
                                                 arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("v2_v3_migration"));
+    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("pod5_v2_v3_migration"));
     ARROW_ASSIGN_OR_RAISE(auto v3_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
     ARROW_ASSIGN_OR_RAISE(auto v3_run_info_table_path,
                           temp_dir->path().Join("run_info_table.arrow"));
