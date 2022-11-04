@@ -10,7 +10,7 @@ namespace pod5 {
 
 arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
                                                 arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("v0_v1_migration"));
+    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("pod5_v0_v1_migration"));
     ARROW_ASSIGN_OR_RAISE(auto v1_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
 
     {

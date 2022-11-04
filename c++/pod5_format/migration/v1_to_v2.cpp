@@ -52,7 +52,7 @@ arrow::Result<std::size_t> get_num_samples(
 
 arrow::Result<MigrationResult> migrate_v1_to_v2(MigrationResult&& v1_input,
                                                 arrow::MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("v1_v2_migration"));
+    ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("pod5_v1_v2_migration"));
     ARROW_ASSIGN_OR_RAISE(auto v2_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
 
     {
