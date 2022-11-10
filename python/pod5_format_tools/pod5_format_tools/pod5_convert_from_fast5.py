@@ -67,6 +67,7 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
         "--signal-chunk-size",
         default=DEFAULT_SIGNAL_CHUNK_SIZE,
         help="Chunk size to use for signal data set",
+        type=int,
     )
 
     return parser

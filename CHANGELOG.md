@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Fixed signal_chunk_size type error in convert-from-fast5
 
 ## [0.0.41] - 2022-10-27
 ### Changed
