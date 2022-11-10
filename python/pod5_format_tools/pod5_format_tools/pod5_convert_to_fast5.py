@@ -10,13 +10,12 @@ from typing import List
 
 import h5py
 import numpy
-from ont_fast5_api.compression_settings import register_plugin
+
+import vbz_h5py_plugin
+
 import pod5_format as p5
 
 from .utils import iterate_inputs
-
-
-register_plugin()
 
 
 def format_sample_count(count):
