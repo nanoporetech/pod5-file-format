@@ -13,10 +13,10 @@ import multiprocessing as mp
 from queue import Empty
 
 import h5py
+import vbz_h5py_plugin
 import iso8601
 
 import more_itertools
-from ont_fast5_api.compression_settings import register_plugin
 
 import pod5_format as p5
 from pod5_format.signal_tools import (
@@ -25,8 +25,6 @@ from pod5_format.signal_tools import (
 )
 from pod5_format_tools.utils import iterate_inputs
 
-
-register_plugin()
 
 READ_CHUNK_SIZE = 100
 

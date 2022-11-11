@@ -26,7 +26,7 @@ dependencies = [
   "pod5_format",
   "h5py",
   "more_itertools",
-  "ont-fast5-api",
+  "vbz_h5py_plugin",
   "pandas",
   "jsonschema"
 ]
