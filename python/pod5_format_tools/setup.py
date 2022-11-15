@@ -12,32 +12,7 @@ not actually installed there. See INSTALL.md for further details.
 
 """
 
-from pathlib import Path
-import sys
+import setuptools
 
-from setuptools import find_packages, setup
-
-PYTHON_ROOT = Path(__file__).resolve().parent
-
-sys.path.insert(0, str(PYTHON_ROOT / "pod5_format_tools"))
-from _version import __version__
-
-del sys.path[0]
-
-setup(
-    name="pod5_format_tools",
-    version=__version__,
-    description="Tools for use with the POD5 file format",
-    author="Oxford Nanopore Technologies plc",
-    author_email="support@nanoporetech.com",
-    url="https://github.com/nanoporetech/pod5-file-format",
-    packages=find_packages(),
-    install_requires=[
-        "h5py",
-        "jsonschema",
-        "more_itertools",
-        "ont-fast5-api",
-        "pandas",
-        "pod5_format",
-    ],
-)
+if __name__ == "__main__":
+    setuptools.setup()

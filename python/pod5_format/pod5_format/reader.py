@@ -27,7 +27,7 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 from pod5_format.pod5_types import (
     Calibration,
     EndReason,
@@ -571,7 +571,7 @@ class ArrowTableHandle:
 
         Parameters
         ----------
-        location : pod5_format.pod5_format_pybind.EmbeddedFileData
+        location : lib_pod5_format.pod5_format_pybind.EmbeddedFileData
             Location data for how a pod5 file should be spit in memory to read a table.
             This is returned from p5b.Pod5FileReader.get_file_X_location methods
 

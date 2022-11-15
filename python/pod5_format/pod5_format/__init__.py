@@ -3,9 +3,17 @@
 Bindings for the POD5 file format
 """
 
-from ._version import __version__
 
-from . import pod5_format_pybind
+# Pull the version from the pyproject.toml
+import sys
+
+if sys.version_info >= (3, 8):
+    from importlib import metadata
+else:
+    import importlib_metadata as metadata
+
+__version__ = metadata.version("pod5_format")
+
 from .api_utils import (
     load_read_id_iterable,
     pack_read_ids,

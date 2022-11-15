@@ -93,8 +93,6 @@ enable_testing()
 if (BUILD_PYTHON_WHEEL)
     find_package (Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
     add_subdirectory(third_party/pybind11)
-    
-    add_subdirectory(python)
 endif()
 
 add_subdirectory(c++)

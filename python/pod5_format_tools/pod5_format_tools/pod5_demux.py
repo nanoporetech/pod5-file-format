@@ -13,7 +13,7 @@ import jsonschema
 import pandas as pd
 
 import pod5_format as p5
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 import pod5_format.repack as p5_repack
 
 # Json Schema used to validate json mapping
