@@ -1,8 +1,5 @@
 #!/bin/bash
 
-output_sku=$1
-auditwheel_platform=$2
-
 CURRENT_DIR=$(pwd)
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )

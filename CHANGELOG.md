@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Fixed signal_chunk_size type error in convert-from-fast5
+- Replaced `ont_fast5_api` dependency with `vbz_h5py_plugin`
+- Restructured Python packaging to include `lib_pod5_format` which contains the native bindings build from pybind11.
+- `pod5_format` and `pod5_format_tools` are now pure python packages which depend on `lib_pod5_format`
 
 ## [0.0.41] - 2022-10-27
 ### Changed

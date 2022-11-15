@@ -18,7 +18,7 @@ from typing import (
 import pytz
 import numpy as np
 
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 from pod5_format.api_utils import Pod5ApiException
 from pod5_format.pod5_types import (
     BaseRead,

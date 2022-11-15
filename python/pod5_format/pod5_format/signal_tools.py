@@ -6,7 +6,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 
 
 DEFAULT_SIGNAL_CHUNK_SIZE = 102400

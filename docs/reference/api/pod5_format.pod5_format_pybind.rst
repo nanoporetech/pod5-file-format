@@ -3,7 +3,7 @@ pod5\_format\_pybind
 ========================================
 
 ..
- .. autoclass:: pod5_format.pod5_format_pybind
+ .. autoclass:: lib_pod5_format.pod5_format_pybind
     :members:
     :undoc-members:
     :show-inheritance:

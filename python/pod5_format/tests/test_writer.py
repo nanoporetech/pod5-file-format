@@ -3,7 +3,7 @@ Testing Pod5Writer
 """
 import pytest
 import pod5_format as p5
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 
 
 class TestPod5Reader:

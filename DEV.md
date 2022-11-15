@@ -9,7 +9,7 @@ Developing with conan
 For this development process you will need conan installed, you can install conan using pip, or your platforms package manager (eg. brew):
 
 ```bash
-> pip install conan
+> pip install conan build
 > conan --version
 # Prints:
 Conan version 1.48.0
@@ -24,9 +24,8 @@ Conan version 1.48.0
 > cd build
 # Install libs for a Release build using the system default compiler + settings:
 # Note the build=missing, will build any libs not available on your current platfrom as binaries:
-> conan install --build=missing -s build_type=Release ..
-> cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release ..
-> make -j
+> conan install --build=missing -s build_type=Release .. && cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release .. && make -j
+
 ```
 
 ### Arm 64 MacOS Builds:

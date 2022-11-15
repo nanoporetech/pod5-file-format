@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools >= 40.6.0", "wheel", "Cython"]
+requires = ["setuptools >= 61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 
 [project]
 name = "pod5_format_tools"
-authors = []
+authors = [{author="Oxford Nanopore Technologies, Limited", email="support@nanoporetech.com"}]
 readme = "README.md"
 requires-python = "~= 3.7"
-dynamic = ["version", "description"]
+version="0.0.41"
+description="Oxford Nanopore Technologies Pod5 File Format Python Tools"
 
 keywords = ['nanopore']
 
@@ -23,7 +24,7 @@ classifiers=[
 ]
 
 dependencies = [
-  "pod5_format",
+  "pod5_format ~= 0.0.41",
   "h5py",
   "more_itertools",
   "vbz_h5py_plugin",

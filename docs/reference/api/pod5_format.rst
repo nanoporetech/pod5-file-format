@@ -9,7 +9,6 @@ Submodules
 
    pod5_format.api_utils
    pod5_format.handles
-   pod5_format.pod5_format_pybind
    pod5_format.reader
    pod5_format.reader_utils
    pod5_format.repack

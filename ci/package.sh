@@ -16,7 +16,7 @@ cd ${CURRENT_DIR}
 # Tar up the archive build:
 (
     cd ./archive
-    tar -cvzf ${REPO_ROOT}/pod5-file-format-${pod5_version}-${output_sku}.tar.gz .
+    tar -cvzf ${REPO_ROOT}/lib_pod5_format-${pod5_version}-${output_sku}.tar.gz .
 )
 
 # Find the wheel:

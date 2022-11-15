@@ -8,7 +8,7 @@ import sys
 import typing
 
 import pod5_format as p5
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 
 
 def update(inputs: typing.List[Path], output: Path, force_overwrite: bool):

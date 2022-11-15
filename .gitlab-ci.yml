@@ -1,8 +1,8 @@
 stages:
   - .pre
   - pre-flight
-  - build
-  - build-tools
+  - build-lib
+  - build-python-api
   - build-archive
   - test-python
   - build-conan
@@ -102,7 +102,7 @@ pre-commit checks:
             - ${PRE_COMMIT_HOME}
 
 build-standalone-ubu20:
-  stage: build
+  stage: build-lib
   image: ubuntu:20.04
   script:
     - export DEBIAN_FRONTEND=noninteractive
@@ -118,7 +118,7 @@ build-standalone-ubu20:
     - make -j
 
 .build-linux:
-  stage: build
+  stage: build-lib
   before_script:
     - /opt/python/cp310-cp310/bin/pip install conan auditwheel
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
@@ -141,8 +141,8 @@ build-standalone-ubu20:
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "pod5-file-format*.tar.gz"
-      - "*.whl"
+      - "lib_pod5*.tar.gz"
+      - "lib_pod5*.whl"
 
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
@@ -172,14 +172,14 @@ linux-aarch64-gcc9-release-build:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
 
 .build-osx-common:
-  stage: build
+  stage: build-lib
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
     - export PATH="$(pwd)/python/Python.framework/Versions/Current/bin/:${PATH}"
     - python3 -m venv .venv/
     - source .venv/bin/activate
-    - pip install --upgrade pip wheel
+    - pip install --upgrade pip build
     - which python
     - python --version
   script:
@@ -200,8 +200,8 @@ linux-aarch64-gcc9-release-build:
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "pod5-file-format*.tar.gz"
-      - "*.whl"
+      - "lib_pod5*.tar.gz"
+      - "lib_pod5*.whl"
 
 osx-x64-clang12-release-build:
   extends: [".build-osx-common"]
@@ -247,7 +247,7 @@ osx-arm64-clang13-release-build:
         POD5_OVERRIDE_WHEEL_PLAT_NAME: "macosx_11_0_universal2"
 
 win-x64-msvc2017-release-build:
-  stage: build
+  stage: build-lib
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
   tags:
@@ -257,7 +257,7 @@ win-x64-msvc2017-release-build:
     - conan
   script:
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - pip install wheel
+    - pip install build
     - mkdir build
     - cd build
     - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
@@ -276,26 +276,27 @@ win-x64-msvc2017-release-build:
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "pod5-file-format*.tar.gz"
-      - "*.whl"
+      - "lib_pod5*.tar.gz"
+      - "lib_pod5*.whl"
     
-build-tools:
-  stage: build-tools
+build-python-api:
+  stage: build-python-api
   needs: ["linux-x64-gcc9-release-build"]
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
   tags:
     - linux
   script:
-    - apt update; apt install -y cmake
-    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - pip install pod5_format-*cp310*.whl
-    - cd python/pod5_format_tools/
-    - echo "__version__ = \"${pod5_version}\"" >pod5_format_tools/_version.py
-    - pip wheel . --wheel-dir ../../ --no-deps
+    - cd python/pod5_format/
+    - pip install -U pip build
+    - python -m build --outdir ../../
+    - cd ../../python/pod5_format_tools/
+    - python -m build --outdir ../../
+    - cd ../..
+    - ls *.whl
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
-      - "pod5_format_tools-*.whl"
+      - "pod5*.whl"
 
 build-archive:
   stage: build-archive
@@ -305,7 +306,7 @@ build-archive:
     - osx-x64-clang12-release-build
     - osx-arm64-clang13-release-build
     - win-x64-msvc2017-release-build
-    - build-tools
+    - build-python-api
   script:
     - find .
   artifacts:
@@ -323,13 +324,13 @@ build-archive:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - pip install ./${WHEEL_GLOB}
+    - pip install ./${LIB_WHEEL_GLOB} pod5_format-*.whl
     - pip install pytest pytest-cov
     - pytest python/pod5_format/ -v --color=yes
-    - pip install pod5_format_tools*.whl
+    - pip install pod5_format_tools-*.whl
     - pytest python/pod5_format_tools/ -v --color=yes
 
-    
+
 tools-linux-x64:
   stage: test-python
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
@@ -340,9 +341,9 @@ tools-linux-x64:
     - source .venv/bin/activate
   needs:
     - linux-x64-gcc9-release-build
-    - build-tools
+    - build-python-api
   script:
-    - pip install pod5_format-*cp39*.whl pod5_format_tools*.whl
+    - pip install lib_pod5*cp39*.whl pod5_format-*.whl pod5_format_tools-*.whl
     - pod5-convert-from-fast5 ./test_data/ ./output_files --output-one-to-one
     - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
     - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
@@ -351,9 +352,8 @@ tools-linux-x64:
     - pod5-convert-to-fast5 ./output_files/ ./output_files
     - pod5-convert-from-fast5 ./output_files/*.fast5 ./output_files_2 --output-one-to-one
     - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
-    
   variables:
-    WHEEL_GLOB: "*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
 pytest-linux-x64:
   extends: [".pytest"]
@@ -362,9 +362,9 @@ pytest-linux-x64:
     - linux
   needs:
     - linux-x64-gcc9-release-build
-    - build-tools
+    - build-python-api
   variables:
-    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
 pytest-linux-aarch64:
   extends: [".pytest"]
@@ -374,9 +374,9 @@ pytest-linux-aarch64:
     - high-cpu
   needs:
     - linux-aarch64-gcc9-release-build
-    - build-tools
+    - build-python-api
   variables:
-    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
 pytest-osx-x64:
   extends: [".pytest"]
@@ -387,9 +387,9 @@ pytest-osx-x64:
     - conan
   needs:
     - osx-x64-clang12-release-build
-    - build-tools
+    - build-python-api
   variables:
-    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
 pytest-win-x64:
   extends: [".pytest"]
@@ -400,12 +400,13 @@ pytest-win-x64:
     - conan
   needs:
     - win-x64-msvc2017-release-build
-    - build-tools
+    - build-python-api
   before_script:
     - python -m venv .venv/
     - source .venv/Scripts/activate
+    - python -m pip install --upgrade pip
   variables:
-    WHEEL_GLOB: "pod5_format-*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp37*.whl"
 
 .benchmark:
   stage: test-python
@@ -413,7 +414,7 @@ pytest-win-x64:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - pip install ./${WHEEL_GLOB} pod5_format_tools*.whl
+    - pip install ./${LIB_WHEEL_GLOB} pod5_format-*.whl pod5_format_tools-*.whl
     - pip install -r ./benchmarks/image/requirements-benchmarks.txt
     - ./benchmarks/image/install_slow5.sh
     - export PATH="$(pwd)/slow5tools-v0.5.0/:$PATH"
@@ -426,9 +427,9 @@ benchmark-linux-x64:
     - linux
   needs:
     - linux-x64-gcc9-release-build
-    - build-tools
+    - build-python-api
   variables:
-    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
 benchmark-linux-aarch64:
   extends: [".benchmark"]
@@ -438,9 +439,10 @@ benchmark-linux-aarch64:
     - high-cpu
   needs:
     - linux-aarch64-gcc9-release-build
-    - build-tools
+    - build-python-api
   variables:
-    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+
 .capture-version-for-conan:
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
@@ -611,13 +613,13 @@ pages:
   script:
     - pip install --upgrade pip
     - pip install ./${WHEEL_GLOB}
-    - pip install pod5_format_tools*.whl
+    - pip install pod5_format_tools-*.whl
     - pip install sphinx==v5.1.1 sphinx-rtd-theme myst-parser
     - mkdir ./public
     - sphinx-build -b html ./docs ./public
   needs:
     - linux-x64-gcc9-release-build
-    - build-tools
+    - build-python-api
   variables:
     WHEEL_GLOB: "pod5_format-*cp39*.whl"
   artifacts:

@@ -5,7 +5,7 @@ import time
 from typing import Collection
 
 import pod5_format as p5
-import pod5_format.pod5_format_pybind as p5b
+import lib_pod5_format.pod5_format_pybind as p5b
 
 # The default interval in seconds to check for completion
 DEFAULT_INTERVAL = 15
@@ -80,7 +80,7 @@ class Repacker:
 
         Parameters
         ----------
-        output_ref : pod5_format.pod5_format_pybind.Pod5RepackerOutput
+        output_ref : lib_pod5_format.pod5_format_pybind.Pod5RepackerOutput
             The repacker handle reference returned from :py:meth:`add_output`
         reader : :py:class:`Reader`
             The Pod5 file reader to copy reads from
@@ -116,7 +116,7 @@ class Repacker:
 
         Parameters
         ----------
-        output_ref : pod5_format.pod5_format_pybind.Pod5RepackerOutput
+        output_ref : lib_pod5_format.pod5_format_pybind.Pod5RepackerOutput
             The repacker handle reference returned from :py:meth:`add_output`
         reader : :py:class:`Reader`
             The Pod5 file reader to copy reads from

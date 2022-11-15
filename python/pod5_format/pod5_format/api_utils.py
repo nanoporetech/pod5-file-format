@@ -10,7 +10,10 @@ import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
 
-from pod5_format.pod5_format_pybind import load_read_id_iterable, format_read_id_to_str
+from lib_pod5_format.pod5_format_pybind import (
+    load_read_id_iterable,
+    format_read_id_to_str,
+)
 
 
 class Pod5ApiException(Exception):
