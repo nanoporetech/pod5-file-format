@@ -10,7 +10,7 @@ import tempfile
 import numpy
 import pandas as pd
 
-import pod5_format as p5
+import pod5 as p5
 
 SelectReadIdsData = namedtuple(
     "SelectReadIdsData", ["path", "slice_start", "slice_end", "shape"]

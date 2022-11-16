@@ -2,35 +2,24 @@
 Install 
 =======
 
-Install pod5-format
-===================
+Install pod5
+============
 
-The most recent release of the  pod5-format package can be installed using pip_
+The most recent release of the  ``pod5`` package can be installed using pip_
    
 .. code-block:: console
 
-   $ pip install pod5_format
+   $ pip install pod5
 
-This python package will contain the underlying C-API compiled for the most 
-common OS platforms and should therefore work out of the box.
-
-
-Install pod5-format-tools
--------------------------
-
-The most recent release of the pod5-format-tools package can also be installed using pip_:
-
-.. code-block:: console
-   
-   $ pip install pod5_format_tools
-
-This python package will contain pod5_format as a dependency.
+This package depends upon ``lib_pod5`` which provides the OS-dependent C++ pod5 library. 
+The ``lib_pod5`` package will be installed automatically py pip_ and as such, 
+common OS platforms and should work out of the box.
 
 
 Installation from Source 
 ========================
 
-If you want to contribute to pod5_file_format or if our pre-built binaries 
+If you want to contribute to pod5 or if our pre-built binaries 
 do not meet your platform requirements, you can build pod5 from source using the 
 instructions below.
 

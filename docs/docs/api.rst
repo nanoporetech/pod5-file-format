@@ -2,7 +2,7 @@
 Getting Started
 =====================
 
-The pod5-format python module can be used to read and write nanopore reads stored
+The ``pod5`` python module can be used to read and write nanopore reads stored
 in POD5 files.
 
 This page provides a quick introduction to the pod5-format API with introductory examples.
@@ -14,7 +14,7 @@ Reading POD5 Files
 ========================
 
 
-To use the module to open a POD5 file, create a :class:`~pod5_format.reader.Reader`. 
+To use the module to open a POD5 file, create a :class:`~pod5.reader.Reader`. 
 It is strongly recommended that users use python's 
 `with statement <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>`_ 
 to ensure that any opened resources (e.g. file handles) are safely closed when they are 
@@ -22,7 +22,7 @@ no longer needed.
 
 .. code-block:: python
 
-    from pod5_format import Reader
+    from pod5 import Reader
 
     with Reader("example.pod5") as reader:
         # Use reader within this context manager
@@ -32,23 +32,23 @@ no longer needed.
 Iterate Over Reads
 ------------------
 
-With an open :class:`~pod5_format.reader.Reader` call :func:`~pod5_format.reader.Reader.reads` 
-to generate a :class:`~pod5_format.reader.ReadRecord` instance for each read in the file:
+With an open :class:`~pod5.reader.Reader` call :func:`~pod5.reader.Reader.reads` 
+to generate a :class:`~pod5.reader.ReadRecord` instance for each read in the file:
 
 .. code-block:: python
 
-    import pod5_format as p5
+    import pod5 as p5
 
     with p5.Reader("example.pod5") as reader:
         for read_record in reader.reads():
             print(read_record.read_id)
 
-To iterate over a `filtered` selection of read_ids, provide :func:`~pod5_format.reader.Reader.reads`
+To iterate over a `filtered` selection of read_ids, provide :func:`~pod5.reader.Reader.reads`
 with a collection of read_ids which must be ``UUIDs``:
 
 .. code-block:: python
 
-    import pod5_format as p5
+    import pod5 as p5
 
     # Create a collection of read_id UUIDs
     read_ids = {
@@ -66,10 +66,10 @@ Reads and ReadRecords
 
 Nanopore sequencing data comprises Reads which are formed from signal data and other 
 metadata about how and when the sample was sequenced. This data is accessible via the 
-:class:`~pod5_format.pod5_types.Read` or :class:`~pod5_format.reader.ReadRecord` classes.
+:class:`~pod5.pod5_types.Read` or :class:`~pod5.reader.ReadRecord` classes.
 
 Although these two classes have very similar interfaces, know that the 
-:class:`~pod5_format.reader.ReadRecord` is a `Read`
+:class:`~pod5.reader.ReadRecord` is a `Read`
 formed from a POD5 file record which uses caching to improve read performance.
 
 .. note::
@@ -77,10 +77,10 @@ formed from a POD5 file record which uses caching to improve read performance.
     There will likely be revisions to this beta implementation to unify these similar
     classes into a common interface.
 
-Here are some of the most important members of a :class:`~pod5_format.reader.ReadRecord`.
-Please read the :class:`~pod5_format.reader.ReadRecord` API reference for the complete set.
+Here are some of the most important members of a :class:`~pod5.reader.ReadRecord`.
+Please read the :class:`~pod5.reader.ReadRecord` API reference for the complete set.
 
-.. currentmodule:: pod5_format.reader
+.. currentmodule:: pod5.reader
 
 .. autosummary::
 
@@ -101,13 +101,13 @@ Here is an example of how a user may plot a read's signal data against time.
 .. code-block:: python
 
     """
-    Example use of pod5_format to plot the signal data from a selected read.
+    Example use of pod5 to plot the signal data from a selected read.
     """
 
     import matplotlib.pyplot as plt
     import numpy as np
 
-    import pod5_format as p5
+    import pod5 as p5
 
     # Using the example pod5 file provided
     example_pod5 = "test_data/multi_fast5_zip.pod5"
@@ -150,12 +150,12 @@ there are certainly use cases where writing ones own POD5 files would be desirab
 Adding Reads Example
 ---------------------
 
-Below is an example of how one may add reads to a new POD5 file using the :py:class:`~pod5_format.writer.Writer`
-and it's :py:meth:`~pod5_format.writer.Writer.add_read_object` method.
+Below is an example of how one may add reads to a new POD5 file using the :py:class:`~pod5.writer.Writer`
+and it's :py:meth:`~pod5.writer.Writer.add_read_object` method.
 
 .. code-block:: python
 
-    import pod5_format as p5
+    import pod5 as p5
 
     # Example container classes for read information
     pore = p5.Pore(channel=123, well=3, pore_type="pore_type")

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `ont_fast5_api` dependency with `vbz_h5py_plugin`
 - Restructured Python packaging to include `lib_pod5_format` which contains the native bindings build from pybind11.
 - `pod5_format` and `pod5_format_tools` are now pure python packages which depend on `lib_pod5_format`
+- Python pacakges `pod5_format` and `pod5_format_tools` have been merged into single `pod5` pure-python package.
 
 ## [0.0.41] - 2022-10-27
 ### Changed

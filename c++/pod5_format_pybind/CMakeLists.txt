@@ -18,11 +18,11 @@ set_target_properties(pod5_format_pybind
         CXX_STANDARD 14
 )
 
-set(python_project_root "${CMAKE_SOURCE_DIR}/python/lib_pod5_format/")
+set(python_project_root "${CMAKE_SOURCE_DIR}/python/lib_pod5/")
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/_version.py.in
-    ${python_project_root}/src/lib_pod5_format/_version.py
+    ${python_project_root}/src/lib_pod5/_version.py
 )
 
 set(wheel_output_stub "${CMAKE_CURRENT_BINARY_DIR}/wheel.touch")
@@ -44,7 +44,7 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(pod5_format_python_wheel ALL
+add_custom_target(lib_pod5_python_wheel ALL
     SOURCES
         build_wheel.cmake
     DEPENDS
@@ -55,5 +55,5 @@ install(
     DIRECTORY "${wheel_output_dir}/"
     DESTINATION "."
     COMPONENT wheel
-    FILES_MATCHING PATTERN "lib_pod5_format*.whl"
+    FILES_MATCHING PATTERN "lib_pod5*.whl"
 )

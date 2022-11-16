@@ -13,5 +13,5 @@ ENV PATH="/slow5tools-v0.4.0/:$PATH"
 
 RUN pip install numpy
 
-COPY ./pod5_format*.whl /
+COPY ./pod5*.whl /
 RUN pip install *.whl && rm *.whl

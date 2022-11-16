@@ -286,10 +286,8 @@ build-python-api:
   tags:
     - linux
   script:
-    - cd python/pod5_format/
+    - cd python/pod5/
     - pip install -U pip build
-    - python -m build --outdir ../../
-    - cd ../../python/pod5_format_tools/
     - python -m build --outdir ../../
     - cd ../..
     - ls *.whl
@@ -324,11 +322,9 @@ build-archive:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - pip install ./${LIB_WHEEL_GLOB} pod5_format-*.whl
+    - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl
     - pip install pytest pytest-cov
-    - pytest python/pod5_format/ -v --color=yes
-    - pip install pod5_format_tools-*.whl
-    - pytest python/pod5_format_tools/ -v --color=yes
+    - pytest python/pod5/ -v --color=yes
 
 
 tools-linux-x64:
@@ -343,15 +339,15 @@ tools-linux-x64:
     - linux-x64-gcc9-release-build
     - build-python-api
   script:
-    - pip install lib_pod5*cp39*.whl pod5_format-*.whl pod5_format_tools-*.whl
+    - pip install lib_pod5*cp39*.whl pod5-*.whl
     - pod5-convert-from-fast5 ./test_data/ ./output_files --output-one-to-one
-    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
-    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
-    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
-    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
+    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
+    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
+    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
+    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
     - pod5-convert-to-fast5 ./output_files/ ./output_files
     - pod5-convert-from-fast5 ./output_files/*.fast5 ./output_files_2 --output-one-to-one
-    - python3 python/pod5_format_tools/pod5_format_tools/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
+    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
@@ -414,7 +410,7 @@ pytest-win-x64:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - pip install ./${LIB_WHEEL_GLOB} pod5_format-*.whl pod5_format_tools-*.whl
+    - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl
     - pip install -r ./benchmarks/image/requirements-benchmarks.txt
     - ./benchmarks/image/install_slow5.sh
     - export PATH="$(pwd)/slow5tools-v0.5.0/:$PATH"
@@ -612,8 +608,7 @@ pages:
     - source .venv/bin/activate
   script:
     - pip install --upgrade pip
-    - pip install ./${WHEEL_GLOB}
-    - pip install pod5_format_tools-*.whl
+    - pip install ./${LIB_WHEEL_GLOB} ./${POD5_WHEEL_GLOB}
     - pip install sphinx==v5.1.1 sphinx-rtd-theme myst-parser
     - mkdir ./public
     - sphinx-build -b html ./docs ./public
@@ -621,7 +616,8 @@ pages:
     - linux-x64-gcc9-release-build
     - build-python-api
   variables:
-    WHEEL_GLOB: "pod5_format-*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5-*cp39*.whl"
+    PO5_WHEEL_GLOB: "pod5-*cp39*.whl"
   artifacts:
     paths:
       - public

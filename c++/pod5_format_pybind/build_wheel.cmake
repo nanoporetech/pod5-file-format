@@ -13,7 +13,7 @@ if (NOT $ENV{POD5_OVERRIDE_WHEEL_PLAT_NAME} STREQUAL "")
     set(EXTRA_ARGS ${EXTRA_ARGS} --config-setting=--plat-name=$ENV{POD5_OVERRIDE_WHEEL_PLAT_NAME})
 endif()
 
-file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5_format")
+file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5")
 
 message("  using: ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR} ${EXTRA_ARGS}")
 

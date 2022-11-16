@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel", "pybind11~=2.10.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "lib_pod5"
+authors = [{author="Oxford Nanopore Technologies, Limited", email="support@nanoporetech.com"}]
+readme="README.md"
+requires-python=">=3.7"
+description="Python bindings for the POD5 file format"
+dynamic = ["version"]
+keywords = ['nanopore']
+classifiers=[
+    'Environment :: Console',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+]
+dependencies = ["numpy"]
+
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "pytest"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "lib_pod5._version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["test"]
+
+[tool.setuptools.package-data]
+"lib_pod5" = ["*"]
+
+[tool.black]
+target-version = ["py37"]

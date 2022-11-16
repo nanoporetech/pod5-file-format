@@ -21,21 +21,15 @@ Usage
 POD5 is also bundled as a python module for easy use in scripts, a user can install using:
 
 ```bash
-> pip install pod5_format
+> pip install pod5
 ```
 
 This python module provides the python library to write custom scripts against.
 
-Please see [examples](./python/pod5_format/pod5_format/examples) for documentation on using the library.
+Please see [examples](./python/pod5/examples) for documentation on using the library.
 
-Tools
------
+The `pod5` package also provides [a selection of tools](./python/pod5/README.md).
 
-POD5 also provides [a selection of tools](./python/README.md) which can be installed with:
-
-```bash
-> pip install pod5_format_tools
-```
 
 Design
 ------
