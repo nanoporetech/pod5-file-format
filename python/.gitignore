@@ -1,5 +1,5 @@
-pod5_format/pod5_format/_version.py
 __pycache__/
 *.egg-info/
 *.whl
-pod5_format/pod5_format/*.so
+*.so
+.DS_Store

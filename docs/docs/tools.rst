@@ -3,18 +3,12 @@ Tools
 =====
 
 
-The `pod5_format_tools` package provides the following tools for inspecting and manipulating
+The ``pod5`` package provides the following tools for inspecting and manipulating
 POD5 files as well as converting between `.pod5` and `.fast5` file formats. 
-
-See the :ref:`pod5-format-tools installation instructions <docs/install:Install pod5-format-tools>` 
-for installation instructions. Remember that if the packages are installed in a Python 
-virtual environment one must activate the virtual environment before the tool entry-points
-will be available.
 
 .. contents:: Entry-Points
     :local:
     :depth: 1
-
 
 
 Pod5-inspect

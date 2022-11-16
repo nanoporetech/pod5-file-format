@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "pod5"
+authors = [{author="Oxford Nanopore Technologies, Limited", email="support@nanoporetech.com"}]
+readme = "README.md"
+requires-python = "~= 3.7"
+version="0.0.41"
+description="Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
+
+keywords = ['nanopore']
+
+classifiers=[
+    'Environment :: Console',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+]
+
+dependencies = [
+    "iso8601",
+    "jsonschema",
+    "lib_pod5 ~= 0.0.41",
+    "more_itertools",
+    "numpy >= 1.20.0",
+    "pyarrow ~= 8.0.0",
+    "pytz",
+    "packaging",
+    "pandas",
+    "vbz_h5py_plugin",
+]
+
+[project.optional-dependencies]
+dev = [
+  "black == 22.3.0",
+  "mypy",
+  "myst-parser",
+  "pre-commit",
+  "pytest ~= 6.2",
+  "pytest-cov ~= 3.0",
+  "sphinx==v5.1.1",
+  "sphinx-rtd-theme",
+]
+
+[project.scripts]
+pod5-convert-from-fast5 = "pod5.tools.pod5_convert_from_fast5:main"
+pod5-convert-fast5 = "pod5.tools.pod5_convert_from_fast5:main"
+pod5-convert-to-fast5 = "pod5.tools.pod5_convert_to_fast5:main"
+pod5-demux = "pod5.tools.pod5_demux:main"
+pod5-inspect = "pod5.tools.pod5_inspect:main"
+pod5-merge = "pod5.tools.pod5_merge:main"
+pod5-repack = "pod5.tools.pod5_repack:main"
+pod5-update = "pod5.tools.pod5_update:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["test*"]
+
+[tool.black]
+target-version = ["py37"]

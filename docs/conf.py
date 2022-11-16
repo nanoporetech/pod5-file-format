@@ -25,7 +25,7 @@ author = "Oxford Nanopore Technologies Ltd."
 
 
 # Set up the version
-from pod5_format import __version__ as p5_version
+from pod5 import __version__ as p5_version
 
 version = p5_version
 release = p5_version

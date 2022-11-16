@@ -2,8 +2,6 @@ build*/
 dist/
 .DS_Store
 .pod5
-python/pod5_format/pod5_format/_version.py
-python/pod5_format_tools/pod5_format_tools/_version.py
 venv/
 docs/public/
 .tmp_pod5*

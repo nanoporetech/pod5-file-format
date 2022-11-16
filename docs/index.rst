@@ -26,7 +26,7 @@ To install the latest python release, type:
 
 .. code-block:: console
    
-   $ pip install pod5_format
+   $ pip install pod5
 
 This python module provides the python library to write custom scripts against.
 See the :ref:`Installation Documentation <docs/install:Install>` for further details.
@@ -45,8 +45,8 @@ See the :ref:`Installation Documentation <docs/install:Install>` for further det
    :maxdepth: 1
    :titlesonly:
 
-   reference/api/pod5_format.rst
-   reference/tools/pod5_format_tools.rst
+   reference/api/pod5.rst
+   reference/tools/pod5_tools.rst
    DESIGN.md
    SPECIFICATION.md
 
