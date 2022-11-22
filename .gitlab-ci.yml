@@ -607,7 +607,7 @@ pages:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - ls ${LIB_WHEEL_GLOB} ${POD5_WHEEL_GLOB}
+    - ls *.whl
     - pip install --upgrade pip
     - pip install ./${LIB_WHEEL_GLOB} ./${POD5_WHEEL_GLOB}
     - pip install sphinx==v5.1.1 sphinx-rtd-theme myst-parser
@@ -618,7 +618,7 @@ pages:
     - build-python-api
   variables:
     LIB_WHEEL_GLOB: "lib_pod5-*cp39*.whl"
-    POD5_WHEEL_GLOB: "pod5-*cp39*.whl"
+    POD5_WHEEL_GLOB: "pod5*.whl"
   artifacts:
     paths:
       - public
