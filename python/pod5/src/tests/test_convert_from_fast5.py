@@ -2,6 +2,7 @@
 Test for the convert_from_fast5 tool
 """
 from pathlib import Path
+import tempfile
 from typing import Dict
 import datetime
 from uuid import UUID
@@ -14,6 +15,7 @@ import pod5 as p5
 from pod5.tools.pod5_convert_from_fast5 import (
     convert_fast5_read,
     assert_multi_read_fast5,
+    convert_from_fast5,
 )
 
 
@@ -243,3 +245,87 @@ class TestFast5Conversion:
                 for expected_read_id in _f5:
                     cache = {}
                     convert_fast5_read(_f5[expected_read_id], cache)
+
+
+class TestConvertBehaviour:
+    """Test the runtime behaviour of the conversion tool based on the cli arguments"""
+
+    def test_no_unforced_overwrite(self, tmp_path: Path):
+        """Assert that the conversion tool will not overwrite existing files"""
+
+        existing = tmp_path / "exists.pod5"
+        existing.touch()
+        with pytest.raises(FileExistsError):
+            convert_from_fast5(inputs=[FAST5_PATH], output=existing)
+
+    def test_forced_overwrite(self, tmp_path: Path):
+        """Assert that the conversion tool will overwrite existing file if forced"""
+
+        existing = tmp_path / "exists.pod5"
+        existing.touch()
+        convert_from_fast5(inputs=[FAST5_PATH], output=existing, force_overwrite=True)
+
+    def test_directory_output(self, tmp_path: Path):
+        """
+        Assert that the conversion tool will write to a output directory creating
+        a default named output.pod5 file
+        """
+
+        assert len(list(tmp_path.rglob("*"))) == 0
+        convert_from_fast5(inputs=[FAST5_PATH], output=tmp_path)
+        assert len(list(tmp_path.rglob("*.pod5"))) == 1
+        assert (tmp_path / "output.pod5").exists()
+
+    def test_single_file_output(self, tmp_path: Path):
+        """Assert that the conversion tool will write to a specified file path"""
+
+        output = tmp_path / "filename.pod5"
+        assert len(list(tmp_path.rglob("*"))) == 0
+        convert_from_fast5(inputs=[FAST5_PATH], output=output)
+        assert len(list(tmp_path.rglob("*"))) == 1
+        assert output.exists()
+
+    def test_output_121_relative(self, tmp_path: Path):
+        """
+        Assert that the conversion tool will not write one-to-one files as expected
+        """
+
+        clone_1 = tmp_path / "clone1.fast5"
+        clone_1.write_bytes(FAST5_PATH.read_bytes())
+
+        clone_2 = tmp_path / "subdir/clone2.fast5"
+        clone_2.parent.mkdir(parents=True, exist_ok=False)
+        clone_2.write_bytes(FAST5_PATH.read_bytes())
+
+        output = tmp_path / "output"
+        output.mkdir(parents=True, exist_ok=True)
+
+        convert_from_fast5(
+            inputs=[clone_1, clone_2], output=output, output_one_to_one=tmp_path
+        )
+
+        assert (output / "clone1.pod5").exists()
+        assert (output / "subdir/clone2.pod5").exists()
+
+    def test_output_121_relative_no_parents(self, tmp_path: Path):
+        """
+        Assert that the conversion tool will not write one-to-one files outside of the
+        desired output folder
+        """
+
+        clone_1 = tmp_path / "relative_parent.fast5"
+        clone_1.write_bytes(FAST5_PATH.read_bytes())
+
+        clone_2 = tmp_path / "subdir/clone2.fast5"
+        clone_2.parent.mkdir(parents=True, exist_ok=False)
+        clone_2.write_bytes(FAST5_PATH.read_bytes())
+
+        output = tmp_path / "output"
+        output.mkdir(parents=True, exist_ok=True)
+
+        with pytest.raises(RuntimeError):
+            convert_from_fast5(
+                inputs=[clone_1, clone_2],
+                output=output,
+                output_one_to_one=tmp_path / "subdir",
+            )
