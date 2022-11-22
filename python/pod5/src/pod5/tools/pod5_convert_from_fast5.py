@@ -37,7 +37,11 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
 
     parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
     parser.add_argument(
-        "output", type=Path, help="Output directory path for the pod5 file(s)"
+        "output",
+        type=Path,
+        help="Output path for the pod5 file(s). This can be an existing "
+        "directory (creating 'output.pod5' within it) or a new named file path. "
+        "A directory must be given for --output-one-to-one.",
     )
     parser.add_argument(
         "-r",
@@ -54,12 +58,20 @@ def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
         help="Set the number of processes to use",
     )
     parser.add_argument(
+        "-O",
         "--output-one-to-one",
-        action="store_true",
-        help="Output files should be 1:1 with input files, written as children of [output] argument.",
+        type=Path,
+        default=None,
+        help="Output files are written 1:1 to inputs. 1:1 output files are "
+        "written to the output directory in a new directory structure relative to the "
+        "directory path provided to this argument. This directory path must be a "
+        "relative parent of all inputs.",
     )
     parser.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
+        "-f",
+        "--force-overwrite",
+        action="store_true",
+        help="Overwrite destination files",
     )
     parser.add_argument(
         "--signal-chunk-size",
@@ -137,6 +149,14 @@ def get_datetime_as_epoch_ms(time_str: Optional[str]) -> datetime.datetime:
 
 class RequestQItem(NamedTuple):
     """Enqueued to request more reads"""
+
+
+class ExceptionQItem(NamedTuple):
+    """Enqueued to pass exceptions"""
+
+    exception: Exception
+    trace: str
+    path: Path
 
 
 class StartFileQItem(NamedTuple):
@@ -348,8 +368,7 @@ def get_reads_from_files(
         except Exception as exc:
             import traceback
 
-            traceback.print_exc()
-            print(f"Error in file {fast5_file}: {exc}", file=sys.stderr)
+            data_queue.put(ExceptionQItem(exc, traceback.format_exc(), fast5_file))
 
         data_queue.put(EndFileQItem(fast5_file, count_reads_sent))
 
@@ -360,7 +379,7 @@ class OutputHandler:
     def __init__(
         self,
         output_root: Path,
-        one_to_one: bool,
+        one_to_one: Optional[Path],
         force_overwrite: bool,
     ):
         self.output_root = output_root
@@ -374,8 +393,8 @@ class OutputHandler:
         if output_path in self._output_files:
             return self._output_files[output_path]
 
-        if self._force_overwrite:
-            output_path.unlink(missing_ok=True)
+        if output_path.exists() and self._force_overwrite:
+            output_path.unlink()
 
         writer = p5.Writer(output_path)
         self._output_files[output_path] = writer
@@ -384,10 +403,35 @@ class OutputHandler:
     def get_writer(self, input_path: Path) -> p5.Writer:
         """Get a Pod5Writer to write data from the input_path"""
         if input_path not in self._input_to_output_path:
-            if self._one_to_one:
-                out_path = self.output_root / input_path.with_suffix(".pod5").name
+            if self._one_to_one is not None:
+
+                try:
+                    # find the relative path between the input fast5 file and the
+                    # output-one-to-one root
+                    relative = input_path.with_suffix(".pod5").relative_to(
+                        self._one_to_one
+                    )
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"--output-one-to-one directory must be a relative parent of "
+                        f"all input fast5 files. For {input_path} "
+                        f"relative to {self._one_to_one}"
+                    ) from exc
+
+                # Resolve the new final output path relative to the output directory
+                # This path is to a file with the equivalent filename(.pod5)
+                out_path = self.output_root / relative
+
+                # Create directory structure if needed
+                out_path.parent.mkdir(parents=True, exist_ok=True)
             else:
-                out_path = self.output_root / "output.pod5"
+                if self.output_root.is_dir():
+                    # If the output path is a directory, the write the default filename
+                    out_path = self.output_root / "output.pod5"
+                else:
+                    # The provided output path is assumed to be a named file
+                    out_path = self.output_root
+
             self._input_to_output_path[input_path] = out_path
 
         output_path = self._input_to_output_path[input_path]
@@ -505,12 +549,19 @@ def convert_from_fast5(
     output: Path,
     recursive: bool = False,
     processes: int = 10,
-    output_one_to_one: bool = False,
+    output_one_to_one: Optional[Path] = None,
     force_overwrite: bool = False,
-    signal_chunk_size: bool = DEFAULT_SIGNAL_CHUNK_SIZE,
+    signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
 ) -> None:
+    """
+    Convert fast5 files found (optionally recursively) at the given input Paths
+    into pod5 file(s). If output_one_to_one is a Path then the new pod5 files are
+    created in a new relative directory structure within output relative to the the
+    output_one_to_one Path.
+    """
+    if len(output.parts) > 1:
+        output.parent.mkdir(parents=True, exist_ok=True)
 
-    output.mkdir(parents=True, exist_ok=True)
     output_handler = OutputHandler(output, output_one_to_one, force_overwrite)
 
     ctx = mp.get_context("spawn")
@@ -579,6 +630,11 @@ def convert_from_fast5(
                 output_handler.set_input_complete(item.file)
                 status.increment(files_ended=1)
 
+            elif isinstance(item, ExceptionQItem):
+                print(f"Error processing {item.path}\n", file=sys.stderr)
+                print(f"Sub-process trace:\n{item.trace}", file=sys.stderr)
+                raise RuntimeError from item.exception
+
         # Finished running
         status.print_status(force=True)
         status.check_all_reads_processed()
@@ -609,8 +665,10 @@ def main():
     parser = pod5_convert_from_fast5_argparser()
     args = parser.parse_args()
 
-    if args.output.is_file():
-        raise FileExistsError("Output path points to an existing file")
+    if args.output.is_file() and not args.force_overwrite:
+        raise FileExistsError(
+            "Output path points to an existing file and --force-overwrite not set"
+        )
 
     convert_from_fast5(
         args.input,

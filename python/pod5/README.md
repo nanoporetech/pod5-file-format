@@ -237,7 +237,7 @@ pod5-convert-from-fast5
 -----------------------
 
 The `pod5-convert-from-fast5` tool takes one or more `.fast5` files and converts them
-to one or more `.pod5` files in either split or combined formats.
+to one or more `.pod5` files.
 
 **Some content previously stored in fast5 files is not compatible with the pod5 format and will not be converted**
 
@@ -245,15 +245,30 @@ to one or more `.pod5` files in either split or combined formats.
 # View help
 > pod5-convert-from-fast5 --help
 
-# Convert fast5 files into a monolithic output
-> pod5-convert-from-fast5 fast5s/* pod5
-> ls pod5/
-output.pod5 # default name
+# Convert fast5 files into a monolithic output file
+> pod5-convert-from-fast5 ./input/*.fast5 converted.pod5
 
-# Convert each fast5 to it's relative output
-> pod5-convert-from-fast5 fast5s/* pod5s --output-one-to-one
-> ls pod5s/
+# Convert fast5 files into a monolithic output in an existing directory
+> pod5-convert-from-fast5 ./input/*.fast5 outputs/
+> ls outputs/
+outputs/output.pod5 # default name
+
+# Convert each fast5 to its relative converted output. The output files are written 
+# into the output directory at paths relatve to the path given to the 
+# --output-one-to-one argument. Note: This path must be a relative parent to all 
+# input paths.
+> ls input/*.fast5
+fast5_1.fast5 fast5_2.fast5 ... fast5_N.fast5
+> pod5-convert-from-fast5 ./input/*.fast5 output_pod5s --output-one-to-one input/
+> ls output_pod5s/
 fast5_1.pod5 fast5_2.pod5 ... fast5_N.pod5
+
+# Note the different --output-one-to-one path which is now the current working directory.
+# The new sub-directory output_pod5/input is created.
+> pod5-convert-from-fast5 ./input/*.fast5 output_pod5s --output-one-to-one ./
+> ls output_pod5s/
+input/fast5_1.pod5 input/fast5_2.pod5 ... input/fast5_N.pod5
+
 ```
 
 pod5-convert-to-fast5

@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restructured Python packaging to include `lib_pod5_format` which contains the native bindings build from pybind11.
 - `pod5_format` and `pod5_format_tools` are now pure python packages which depend on `lib_pod5_format`
 - Python pacakges `pod5_format` and `pod5_format_tools` have been merged into single `pod5` pure-python package.
+- `pod5-convert-from-fast5` `--output-one-to-one` reworked so that output files maintain the input structure making this argument more flexible and avoid filename clobbering.
+- `pod5-convert-from-fast5` `output` now takes existing directories and
+writes `output.pod5` (current behaviour) or creates a new file with the given name if it doesn't exist.
 
 ## [0.0.41] - 2022-10-27
 ### Changed
