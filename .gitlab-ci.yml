@@ -120,7 +120,7 @@ build-standalone-ubu20:
 .build-linux:
   stage: build-lib
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install conan auditwheel
+    - /opt/python/cp310-cp310/bin/pip install conan auditwheel build
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
@@ -607,6 +607,7 @@ pages:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
+    - ls ${LIB_WHEEL_GLOB} ${POD5_WHEEL_GLOB}
     - pip install --upgrade pip
     - pip install ./${LIB_WHEEL_GLOB} ./${POD5_WHEEL_GLOB}
     - pip install sphinx==v5.1.1 sphinx-rtd-theme myst-parser
@@ -617,7 +618,7 @@ pages:
     - build-python-api
   variables:
     LIB_WHEEL_GLOB: "lib_pod5-*cp39*.whl"
-    PO5_WHEEL_GLOB: "pod5-*cp39*.whl"
+    POD5_WHEEL_GLOB: "pod5-*cp39*.whl"
   artifacts:
     paths:
       - public
