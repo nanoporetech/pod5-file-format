@@ -16,6 +16,7 @@ class MemoryPool;
 
 namespace pod5 {
 
+class Version;
 struct SchemaMetadataDescription;
 
 class POD5_FORMAT_EXPORT FileReaderOptions {
@@ -82,6 +83,8 @@ public:
     virtual FileLocation const& run_info_table_location() const = 0;
     virtual FileLocation const& read_table_location() const = 0;
     virtual FileLocation const& signal_table_location() const = 0;
+
+    virtual Version file_version_pre_migration() const = 0;
 
     virtual SignalType signal_type() const = 0;
 

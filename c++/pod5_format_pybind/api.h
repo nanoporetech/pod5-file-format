@@ -159,6 +159,10 @@ struct Pod5FileReaderPtr {
         return reader->signal_table_location();
     }
 
+    std::string get_file_version_pre_migration() const {
+        return reader->file_version_pre_migration().to_string();
+    }
+
     void close() { reader = nullptr; }
 
     std::size_t plan_traversal(

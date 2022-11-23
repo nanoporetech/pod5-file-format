@@ -658,6 +658,9 @@ class Reader:
         self._reads_table_version = ReadTableVersion.V3
 
         self._file_version = writing_version
+        self._file_version_pre_migration = (
+            self._file_reader.get_file_version_pre_migration()
+        )
 
         # Warning: The cached signal maintains an open file handle. So ensure that
         # this dictionary is cleared before closing.
@@ -759,6 +762,10 @@ class Reader:
     @property
     def file_version(self) -> packaging.version.Version:
         return self._file_version
+
+    @property
+    def file_version_pre_migration(self) -> packaging.version.Version:
+        return self._file_version_pre_migration
 
     @property
     def writing_software(self) -> str:
