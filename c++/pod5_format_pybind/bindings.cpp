@@ -53,7 +53,8 @@ PYBIND11_MODULE(pod5_format_pybind, m) {
             .def("get_file_read_table_location", &Pod5FileReaderPtr::get_file_read_table_location)
             .def("get_file_signal_table_location",
                  &Pod5FileReaderPtr::get_file_signal_table_location)
-
+            .def("get_file_version_pre_migration",
+                 &Pod5FileReaderPtr::get_file_version_pre_migration)
             .def("plan_traversal", &Pod5FileReaderPtr::plan_traversal)
             .def("batch_get_signal", &Pod5FileReaderPtr::batch_get_signal)
             .def("batch_get_signal_selection", &Pod5FileReaderPtr::batch_get_signal_selection)

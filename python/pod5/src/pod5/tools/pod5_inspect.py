@@ -171,8 +171,9 @@ def do_summary_command(reader: p5.Reader):
     total_read_count = 0
 
     print(
-        f"File version {reader.file_version}, read table version {reader.reads_table_version}."
+        f"File version in memory {reader.file_version}, read table version {reader.reads_table_version}."
     )
+    print(f"File version on disk {reader.file_version_pre_migration}.")
 
     for batch in reader.read_batches():
         batch_count += 1
