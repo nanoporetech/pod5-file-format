@@ -2,7 +2,6 @@
 Tool for converting fast5 files to the pod5 format
 """
 
-import argparse
 import datetime
 from pathlib import Path
 import sys
@@ -13,6 +12,7 @@ import multiprocessing as mp
 from queue import Empty
 
 import h5py
+from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
 import vbz_h5py_plugin
 import iso8601
 
@@ -27,60 +27,6 @@ from pod5.tools.utils import iterate_inputs
 
 
 READ_CHUNK_SIZE = 100
-
-
-def pod5_convert_from_fast5_argparser() -> argparse.ArgumentParser:
-    """
-    Create an argument parser for the pod5 convert-from-fast5 tool
-    """
-    parser = argparse.ArgumentParser("Convert a fast5 file into an pod5 file")
-
-    parser.add_argument("input", type=Path, nargs="+", help="Input path for fast5 file")
-    parser.add_argument(
-        "output",
-        type=Path,
-        help="Output path for the pod5 file(s). This can be an existing "
-        "directory (creating 'output.pod5' within it) or a new named file path. "
-        "A directory must be given for --output-one-to-one.",
-    )
-    parser.add_argument(
-        "-r",
-        "--recursive",
-        default=False,
-        action="store_true",
-        help="Search for input files recursively",
-    )
-    parser.add_argument(
-        "-p",
-        "--processes",
-        default=10,
-        type=int,
-        help="Set the number of processes to use",
-    )
-    parser.add_argument(
-        "-O",
-        "--output-one-to-one",
-        type=Path,
-        default=None,
-        help="Output files are written 1:1 to inputs. 1:1 output files are "
-        "written to the output directory in a new directory structure relative to the "
-        "directory path provided to this argument. This directory path must be a "
-        "relative parent of all inputs.",
-    )
-    parser.add_argument(
-        "-f",
-        "--force-overwrite",
-        action="store_true",
-        help="Overwrite destination files",
-    )
-    parser.add_argument(
-        "--signal-chunk-size",
-        default=DEFAULT_SIGNAL_CHUNK_SIZE,
-        help="Chunk size to use for signal data set",
-        type=int,
-    )
-
-    return parser
 
 
 def assert_multi_read_fast5(h5_file: h5py.File) -> None:
@@ -548,7 +494,7 @@ def convert_from_fast5(
     inputs: List[Path],
     output: Path,
     recursive: bool = False,
-    processes: int = 10,
+    threads: int = 10,
     output_one_to_one: Optional[Path] = None,
     force_overwrite: bool = False,
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
@@ -559,6 +505,12 @@ def convert_from_fast5(
     created in a new relative directory structure within output relative to the the
     output_one_to_one Path.
     """
+
+    if output.is_file() and not force_overwrite:
+        raise FileExistsError(
+            "Output path points to an existing file and --force-overwrite not set"
+        )
+
     if len(output.parts) > 1:
         output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -577,10 +529,10 @@ def convert_from_fast5(
 
     print(f"Converting {len(pending_files)} fast5 files.. ")
 
-    processes = min(processes, len(pending_files))
+    threads = min(threads, len(pending_files))
 
     # Create equally sized lists of files to process by each process
-    for fast5s in more_itertools.distribute(processes, pending_files):
+    for fast5s in more_itertools.distribute(threads, pending_files):
 
         # spawn a new process to begin converting fast5 files
         process = ctx.Process(
@@ -596,7 +548,7 @@ def convert_from_fast5(
         active_processes.append(process)
 
     # start requests for reads, we probably dont need more reads in memory at a time
-    for _ in range(processes * 3):
+    for _ in range(threads * 3):
         request_queue.put(RequestQItem())
 
     status = StatusMonitor(len(pending_files))
@@ -662,23 +614,7 @@ def convert_from_fast5(
 
 def main():
     """Main function for pod5_convert_from_fast5"""
-    parser = pod5_convert_from_fast5_argparser()
-    args = parser.parse_args()
-
-    if args.output.is_file() and not args.force_overwrite:
-        raise FileExistsError(
-            "Output path points to an existing file and --force-overwrite not set"
-        )
-
-    convert_from_fast5(
-        args.input,
-        args.output,
-        args.recursive,
-        args.processes,
-        args.output_one_to_one,
-        args.force_overwrite,
-        args.signal_chunk_size,
-    )
+    run_tool(pod5_convert_from_fast5_argparser())
 
 
 if __name__ == "__main__":

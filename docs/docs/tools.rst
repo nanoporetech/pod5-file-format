@@ -11,41 +11,41 @@ POD5 files as well as converting between `.pod5` and `.fast5` file formats.
     :depth: 1
 
 
-Pod5-inspect
+Pod5 inspect
 ============
 
-The `pod5-inspect` tool can be used to extract details and summaries of 
-the contents of `.pod5` files. There are two programs for users within `pod5-inspect` 
+The `pod5 inspect` tool can be used to extract details and summaries of 
+the contents of `.pod5` files. There are two programs for users within `pod5 inspect` 
 and these are read and reads
 
 .. code-block:: console
 
-    $ pod5-inspect --help
-    $ pod5-inspect {reads, read} --help
+    $ pod5 inspect --help
+    $ pod5 inspect {reads, read, summary} --help
 
 
-Pod5-inspect reads 
+pod5 inspect reads 
 ------------------
 
 Inspect all reads and print a csv table of the details of all reads in the given `.pod5` files.
 
 .. code-block:: console
     
-    $ pod5-inspect reads pod5_file.pod5
+    $ pod5 inspect reads pod5_file.pod5
 
     read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before,calibration_offset,calibration_scale,sample_count,byte_count,signal_compression_ratio
     00445e58-3c58-4050-bacf-3411bb716cc3,908,1,not_set,100776,374223800,signal_positive,205.3,-240.0,0.1,65582,58623,0.447
     00520473-4d3d-486b-86b5-f031c59f6591,220,1,not_set,7936,16135986,signal_positive,192.0,-233.0,0.1,167769,146495,0.437
     ...
 
-Pod5-inspect read
+pod5 inspect read
 -----------------
 
 Inspect the pod5 file, find a specific read and print its details.
 
 .. code-block:: console
 
-    $ pod5-inspect read pod5_file.pod5 00445e58-3c58-4050-bacf-3411bb716cc3
+    $ pod5 inspect read pod5_file.pod5 00445e58-3c58-4050-bacf-3411bb716cc3
 
     File: out-tmp/output.pod5
     read_id: 0e5d6827-45f6-462c-9f6b-21540eef4426
@@ -79,10 +79,10 @@ Inspect the pod5 file, find a specific read and print its details.
 
 
 
-Pod5-merge
+pod5 merge
 ==========
 
-`pod5-merge` is a tool for merging multiple  `.pod5` files into one monolithic pod5 file. 
+`pod5 merge` is a tool for merging multiple  `.pod5` files into one monolithic pod5 file. 
 
 The contents of the input files are checked for duplicate read_ids to avoid 
 accidentally merging identical reads. To override this check set the argument 
@@ -91,26 +91,26 @@ accidentally merging identical reads. To override this check set the argument
 .. code-block:: console
 
     # View help
-    $ pod5-merge --help
+    $ pod5 merge --help
 
     # Merge a pair of pod5 files
-    $ pod5-merge example_1.pod5 example_2.pod5 --output merged.pod5
+    $ pod5 merge example_1.pod5 example_2.pod5 --output merged.pod5
 
     # Merge a glob of pod5 files
-    $ pod5-merge *.pod5 -o merged.pod5
+    $ pod5 merge *.pod5 -o merged.pod5
 
     # Merge a glob of pod5 files ignoring duplicate read ids
-    $ pod5-merge *.pod5 -o merged.pod5 --duplicate_ok
+    $ pod5 merge *.pod5 -o merged.pod5 --duplicate_ok
 
 
-Pod5-demux
-==========
+pod5 subset
+===========
 
-`pod5-demux` is a tool for separating the reads in `.pod5` files into one or more
+`pod5 subset` is a tool for separating the reads in `.pod5` files into one or more
 output files. This tool can be used to create new `.pod5` files which contain a 
 user-defined subset of reads from the input. 
 
-The `pod5-demux` tool requires a mapping which defines which read_ids should be 
+The `pod5 subset` tool requires a mapping which defines which read_ids should be 
 written to which output. There are multiple ways of specifying this mapping which are
 defined in either a `.csv` or `.json` file or by using a tab-separated table 
 (e.g. basecaller sequencing summary) and instructions on how to interpret it.
@@ -118,30 +118,30 @@ defined in either a `.csv` or `.json` file or by using a tab-separated table
 .. code-block:: console
 
     # View help
-    $ pod5-demux --help
+    $ pod5 subset --help
 
-    # Demultiplex input(s) using a pre-defined mapping
-    $ pod5-demux example_1.pod5 --csv mapping.csv
-    $ pod5-demux examples_*.pod5 --json mapping.json
+    # Subset input(s) using a pre-defined mapping
+    $ pod5 subset example_1.pod5 --csv mapping.csv
+    $ pod5 subset examples_*.pod5 --json mapping.json
 
-    # Demultiplex input(s) using a dynamic mapping created at runtime 
-    $ pod5-demux example_1.pod5 --summary summary.txt --demux_columns barcode alignment_genome
+    # Subset input(s) using a dynamic mapping created at runtime 
+    $ pod5 subset example_1.pod5 --summary summary.txt --subset_columns barcode alignment_genome
 
 .. important::
     
-    Care should be taken to ensure that when providing multiple input `.pod5` files to `pod5-demux`
+    Care should be taken to ensure that when providing multiple input `.pod5` files to `pod5 subset`
     that there are no read_id UUID clashes. If this occurs both reads are written to the output.
 
-Creating a Demultiplex Mapping
+Creating a Subset Mapping
 ------------------------------
 
 The `.csv` or `.json` inputs should define a mapping of destination filename to an array 
 of read_ids which will be written to the destination.
 
-Demultiplex Mapping (.csv)
-++++++++++++++++++++++++++
+Subset Mapping (.csv)
++++++++++++++++++++++++
 
-In the example below of a `.csv` demux mapping, note that the output filename can be specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
+In the example below of a `.csv` subset mapping, note that the output filename can be specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
 
 .. code-block:: text
 
@@ -150,10 +150,10 @@ In the example below of a `.csv` demux mapping, note that the output filename ca
     output_2.pod5, 0e359c40-296d-4edc-8f4a-cca135310ab2
     output_2.pod5, 0e9aa0f8-99ad-40b3-828a-45adbb4fd30c
 
-Demultiplex Mapping (.json)
+Subset Mapping (.json)
 +++++++++++++++++++++++++++
 
-See below an example of a `.json` demux mapping. This file must of course be well-formatted 
+See below an example of a `.json` subset mapping. This file must of course be well-formatted 
 `json` in addition to the formatting standard required by the tool. The formatting requirements
 for the `.json` mapping are that keys should be unique filenames mapped to an array 
 of read_id strings.
@@ -171,21 +171,21 @@ of read_id strings.
         ]
     }
 
-Demultiplex Mapping from Summary
+Subset Mapping from Summary
 ++++++++++++++++++++++++++++++++
 
-`pod5-demux` can dynamically generate output targets and collect associated reads 
+`pod5 subset` can dynamically generate output targets and collect associated reads 
 based on a tab-separated file (e.g. sequencing summary) which contains a header row
 and a series of columns on which to group unique collections of values. Internally
 this process uses the `pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_ 
 function where the `by` parameter is the sequence of column names specified with 
-the `--demux_columns` argument.
+the `--columns` argument.
 
 .. warning:: 
 
-    The column names specified in `--demux_columns` should be **categorical** in nature.
+    The column names specified in `--columns` should be **categorical** in nature.
     There may be an excessive number of output files if a continuous variable 
-    is used for demultiplexing.
+    is used for subsetting.
 
 Given the following example summary file, observe the resultant outputs given various 
 arguments:
@@ -200,19 +200,19 @@ arguments:
 
 .. code-block:: console
 
-    $ pod5-demux example_1.pod5 --output barcode_demux --summary summary.txt --demux_columns barcode
-    $ ls barcode_demux
+    $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
+    $ ls barcode_subset
     barcode-barcode_a.pod5     # Contains: read_a
     barcode-barcode_b.pod5     # Contains: read_b, read_c
     barcode-barcode_c.pod5     # Contains: read_d
 
-    $ pod5-demux example_1.pod5 --output mux_demux --summary summary.txt --demux_columns mux
-    $ ls mux_demux
+    $ pod5 subset example_1.pod5 --output mux_subset --summary summary.txt --columns mux
+    $ ls mux_subset
     mux-1.pod5     # Contains: read_a, read_b
     mus-2.pod5     # Contains: read_c, read_d
 
-    $ pod5-demux example_1.pod5 --output barcode_mux_demux --summary summary.txt --demux_columns barcode mux
-    $ ls barcode_demux
+    $ pod5 subset example_1.pod5 --output barcode_mux_subset --summary summary.txt --columns barcode mux
+    $ ls barcode_mux_subset
     barcode-barcode_a_mux-1.pod5    # Contains: read_a
     barcode-barcode_b_mux-1.pod5    # Contains: read_b
     barcode-barcode_b_mux-2.pod5    # Contains: read_c
@@ -221,44 +221,44 @@ arguments:
 Output Filename Templating
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When demultiplexing using a summary the output filename is generated from a template 
+When subsetting using a summary the output filename is generated from a template 
 string. The automatically generated template is the sequential concatenation of 
 `column_name-column_value` followed by the `.pod5` file extension. 
 
 The user can set their own filename template using the `--template` argument. 
 This argument accepts a string in the `Python f-string style <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`_
-where the demultiplexed variables are used for keyword placeholder substitution. 
+where the subsetting variables are used for keyword placeholder substitution. 
 Keywords should be placed withing curly-braces. For example:
 
 .. code-block:: console
     
     # default template used = "barcode-{barcode}.pod5"
-    $ pod5-demux example_1.pod5 --output barcode_demux --summary summary.txt --demux_columns barcode
+    $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
 
     # default template used = "barcode-{barcode}_mux-{mux}.pod5"
-    $ pod5-demux example_1.pod5 --output barcode_mux_demux --summary summary.txt --demux_columns barcode mux
+    $ pod5 subset example_1.pod5 --output barcode_mux_subset --summary summary.txt --columns barcode mux
 
-    $ pod5-demux example_1.pod5 --output barcode_demux --summary summary.txt --demux_columns barcode --template "{barcode}.demux.pod5"
-    $ ls barcode_demux
-    barcode_a.demux.pod5    # Contains: read_a
-    barcode_b.demux.pod5    # Contains: read_b, read_c
-    barcode_c.demux.pod5    # Contains: read_d
+    $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode --template "{barcode}.subset.pod5"
+    $ ls barcode_subset
+    barcode_a.subset.pod5    # Contains: read_a
+    barcode_b.subset.pod5    # Contains: read_b, read_c
+    barcode_c.subset.pod5    # Contains: read_d
 
 
-Pod5-repack
+pod5 repack
 ===========
 
-`pod5-repack` will simply repack `.pod5` files into one-for-one output files of the same name.
+`pod5 repack` will simply repack `.pod5` files into one-for-one output files of the same name.
 
 .. code-block:: console
 
-    $ pod5-repack pod5s/*.pod5 repacked_pods/
+    $ pod5 repack pod5s/*.pod5 repacked_pods/
 
 
-Pod5-convert-from-fast5
+pod5 convert fast5
 =======================
 
-The `pod5-convert-from-fast5` tool takes one or more `.fast5` files and converts them
+The `pod5 convert fast5` tool takes one or more `.fast5` files and converts them
 to one or more `.pod5` files.
 
 .. warning::
@@ -276,13 +276,13 @@ to one or more `.pod5` files.
 .. code-block:: console
     
     # View help
-    $ pod5-convert-from-fast5 --help
+    $ pod5 convert fast5 --help
 
     # Convert fast5 files into a monolithic output file
-    $ pod5-convert-from-fast5 ./input/*.fast5 converted.pod5
+    $ pod5 convert fast5 ./input/*.fast5 converted.pod5
 
     # Convert fast5 files into a monolithic output in an existing directory
-    $ pod5-convert-from-fast5 ./input/*.fast5 outputs/
+    $ pod5 convert fast5 ./input/*.fast5 outputs/
     $ ls outputs/
     outputs/output.pod5 # default name
 
@@ -292,36 +292,36 @@ to one or more `.pod5` files.
     # input paths.
     $ ls input/*.fast5
     file_1.fast5 file_2.fast5 ... file_N.fast5
-    $ pod5-convert-from-fast5 ./input/*.fast5 output_pod5s --output-one-to-one input/
+    $ pod5 convert fast5 ./input/*.fast5 output_pod5s --output-one-to-one input/
     $ ls output_pod5s/
     file_1.pod5 file_2.pod5 ... file_N.pod5
 
     # Note the different --output-one-to-one path which is now the current working directory.
     # The new sub-directory output_pod5/input is created.
-    $ pod5-convert-from-fast5 ./input/*.fast5 output_pod5s --output-one-to-one ./
+    $ pod5 convert fast5 ./input/*.fast5 output_pod5s --output-one-to-one ./
     $ ls output_pod5s/
     input/file_1.pod5 input/file_2.pod5 ... input/file_N.pod5
 
     # Convert all inputs so that they have neibouring pod5 files
-    $ pod5-convert-from-fast5 ./input/*.fast5 ./input/ --output-one-to-one ./input/
+    $ pod5 convert fast5 ./input/*.fast5 ./input/ --output-one-to-one ./input/
     $ ls input/*
     file_1.fast5 file_1.pod5 file_2.fast5 file_2.pod5  ... file_N.fast5 file_N.pod5
 
 
-Pod5-convert-to-fast5
+pod5 convert to_fast5
 =====================
 
-The `pod5-convert-to-fast5` tool takes one or more `.pod5` files and converts them
+The `pod5 convert to_fast5` tool takes one or more `.pod5` files and converts them
 to multiple `.fast5` files. The default behaviour is to write 4000 reads per output file
 but this can be controlled with the `--file-read-count` argument.
 
 .. code-block:: console
 
     # View help
-    $ pod5-convert-to-fast5 --help
+    $ pod5 convert to_fast5 --help
 
     # Convert pod5 files to fast5 files with default 4000 reads per file
-    $ pod5-convert-to-fast5 example.pod5 pod5_to_fast5
+    $ pod5 convert to_fast5 example.pod5 pod5_to_fast5
     $ ls pod5_to_fast5/
     output_1.fast5 output_2.fast5 ... output_N.fast5
 

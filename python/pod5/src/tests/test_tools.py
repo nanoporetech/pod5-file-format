@@ -1,0 +1,175 @@
+"""
+Testing Pod5 Tools 
+"""
+import argparse
+from pathlib import Path
+from typing import Callable, Dict, List
+import pytest
+from unittest.mock import patch, Mock
+import pod5
+from pod5.tools import parsers, main
+
+
+TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
+FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+SUBSET_CSV_PATH = TEST_DATA_PATH / "demux_mapping_examples/demux.csv"
+
+
+def assert_exit_code(func: Callable, func_kwargs: Dict, exit_code: int = 0) -> None:
+    """Assert that a function returns the given SystemExit exit code"""
+    try:
+        func(**func_kwargs)
+    except SystemExit as exc:
+        assert exc.code == exit_code
+
+
+class TestPod5Tools:
+    """Test the Pod5 tools interface"""
+
+    @patch("pod5.tools.main.run_tool")
+    def test_main_calls_run(self, m_run_tool: Mock) -> None:
+        """Assert that main calls run_tool and that it returns to main"""
+        m_run_tool.return_value = "_return_value"
+        return_value = main.main()
+        m_run_tool.assert_called()
+        assert return_value == "_return_value"
+
+    def test_run_tool_debug_env(self, capsys: pytest.CaptureFixture) -> None:
+        """Assert that exceptions are printed nicely without POD5_DEBUG"""
+
+        dummy_error_string = "Dummy Error String"
+
+        def _func():
+            raise Exception(dummy_error_string)
+
+        parser = argparse.ArgumentParser()
+        parser.set_defaults(func=_func)
+
+        # Intentionally raise an error
+        with patch("argparse._sys.argv", ["_raises_an_exception"]):
+            assert_exit_code(parsers.run_tool, {"parser": parser}, 1)
+
+        error_str: str = capsys.readouterr().err
+        assert "POD5_DEBUG=1" in error_str
+        assert dummy_error_string in error_str
+
+    def test_pod5_version_argument(self, capsys: pytest.CaptureFixture) -> None:
+        """Assert that pod5 has a --version argument"""
+        with patch("argparse._sys.argv", ["pod5", "--version"]):
+            assert_exit_code(main.main, {}, 0)
+
+        assert f"pod5 version: {pod5.__version__}" in capsys.readouterr().out.lower()
+
+    @pytest.mark.parametrize("subcommand", ["fast5", "to_fast5", "from_fast5"])
+    def test_convert_exists(self, subcommand: str) -> None:
+        """Assert that pod5 convert exists"""
+
+        with patch("argparse._sys.argv", ["pod5", "convert", subcommand, "--help"]):
+            assert_exit_code(main.main, {}, 0)
+
+    @pytest.mark.parametrize("subcommand", ["summary", "read", "reads", "debug"])
+    def test_inspect_exists(self, subcommand: str) -> None:
+        """Assert that pod5 inspect exists"""
+
+        with patch("argparse._sys.argv", ["pod5", "inspect", subcommand, "--help"]):
+            assert_exit_code(main.main, {}, 0)
+
+    @pytest.mark.parametrize(
+        "command", ["convert", "inspect", "merge", "subset", "repack", "update"]
+    )
+    def test_tool_exists(self, command: str) -> None:
+        """Assert that a pod5 tool exists"""
+
+        with patch("argparse._sys.argv", ["pod5", command, "--help"]):
+            assert_exit_code(main.main, {}, 0)
+
+    def test_convert_from_fast5_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "convert",
+            "from_fast5",
+            str(FAST5_PATH),
+            str(tmp_path / "new.pod5"),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_convert_to_fast5_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "convert",
+            "to_fast5",
+            str(POD5_PATH),
+            str(tmp_path / "new.fast5"),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    @pytest.mark.parametrize("subcommand", ["summary", "reads"])
+    def test_inspect_command_runs(self, tmp_path: Path, subcommand: str) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "inspect",
+            subcommand,
+            str(POD5_PATH),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_merge_command_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "merge",
+            str(POD5_PATH),
+            str(tmp_path / "new.pod5"),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_repack_command_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "repack",
+            str(POD5_PATH),
+            str(tmp_path / "new.pod5"),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_subset_command_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "subset",
+            str(POD5_PATH),
+            "--output",
+            str(tmp_path / "test_dir"),
+            "--csv",
+            str(SUBSET_CSV_PATH),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_update_command_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "update",
+            str(POD5_PATH),
+            str(tmp_path / "new.pod5"),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()

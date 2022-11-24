@@ -1,11 +1,10 @@
 """
-Tool for demultiplexing, separating or sub-setting pod5 files into one or more outputs
+Tool for subsetting pod5 files into one or more outputs
 """
 
-import argparse
 from collections import defaultdict, Counter
 from string import Formatter
-import json
+from json import load as json_load
 from pathlib import Path
 import typing
 
@@ -15,13 +14,14 @@ import pandas as pd
 import pod5 as p5
 import lib_pod5 as p5b
 import pod5.repack as p5_repack
+from pod5.tools.parsers import prepare_pod5_subset_argparser, run_tool
 
 # Json Schema used to validate json mapping
 JSON_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "demux.schema.json",
-    "title": "demux",
-    "description": "pod5_demux json schema",
+    "$id": "subset.schema.json",
+    "title": "subset",
+    "description": "pod5_subset json schema",
     "type": "object",
     # Allow any not-empty filename to array of non-empty strings (read_ids)
     "patternProperties": {
@@ -47,97 +47,10 @@ TransferMap = typing.DefaultDict[
 ]
 
 
-def prepare_pod5_demux_argparser() -> argparse.ArgumentParser:
-    """Create an argument parser for the pod5 demux tool"""
-
-    parser = argparse.ArgumentParser(
-        description="Given one or more pod5 input files, demultiplex (separate) reads "
-        "into one or more pod5 output files by a user-supplied mapping."
-    )
-
-    # Core arguments
-    parser.add_argument(
-        "inputs", type=Path, nargs="+", help="Pod5 filepaths to use as inputs"
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        default=Path.cwd(),
-        help="Destination directory to write outputs [cwd]",
-    )
-    parser.add_argument(
-        "-f",
-        "--force_overwrite",
-        action="store_true",
-        help="Overwrite destination files",
-    )
-
-    mapping_group = parser.add_argument_group("direct mapping")
-    mapping_exclusive = mapping_group.add_mutually_exclusive_group(required=False)
-    mapping_exclusive.add_argument(
-        "--csv",
-        type=Path,
-        help="CSV file mapping output filename to read ids",
-    )
-    mapping_exclusive.add_argument(
-        "--json", type=Path, help="JSON mapping output filename to array of read ids."
-    )
-    summary_group = parser.add_argument_group("sequencing summary mapping")
-    summary_group.add_argument("--summary", type=Path, help="Sequencing summary path")
-    summary_group.add_argument(
-        "-r",
-        "--read_id_column",
-        type=str,
-        default=DEFAULT_READ_ID_COLUMN,
-        help=f"Name of the read_id column in the summary. [{DEFAULT_READ_ID_COLUMN}]",
-    )
-    summary_group.add_argument(
-        "-d",
-        "--demux_columns",
-        type=str,
-        nargs="+",
-        help="Names of summary columns demultiplex read_ids",
-    )
-    summary_group.add_argument(
-        "-t",
-        "--template",
-        type=str,
-        default=None,
-        help="template string to generate output filenames "
-        '(e.g. "mux-{mux}_barcode-{barcode}.pod5"). '
-        "default is to concatenate all columns to values as shown in the example.",
-    )
-    summary_group.add_argument(
-        "-T",
-        "--ignore_incomplete_template",
-        action="store_true",
-        default=None,
-        help="Suppress the exception raised if the --template string does not contain "
-        "every --demux_columns key",
-    )
-
-    content_group = parser.add_argument_group("content settings")
-    content_group.add_argument(
-        "-M",
-        "--missing_ok",
-        action="store_true",
-        help="Allow missing read_ids",
-    )
-    content_group.add_argument(
-        "-D",
-        "--duplicate_ok",
-        action="store_true",
-        help="Allow duplicate read_ids",
-    )
-
-    return parser
-
-
 def parse_summary_mapping(
     summary_path: Path,
     filename_template: typing.Optional[str],
-    demux_columns: typing.List[str],
+    subset_columns: typing.List[str],
     read_id_column: str = DEFAULT_READ_ID_COLUMN,
     ignore_incomplete_template: bool = False,
 ) -> typing.Dict[str, typing.Set[str]]:
@@ -146,14 +59,14 @@ def parse_summary_mapping(
     output targets to read ids
     """
     if not filename_template:
-        filename_template = create_default_filename_template(demux_columns)
+        filename_template = create_default_filename_template(subset_columns)
 
     assert_filename_template(
-        filename_template, demux_columns, ignore_incomplete_template
+        filename_template, subset_columns, ignore_incomplete_template
     )
 
     # Parse the summary using pandas asserting that usecols exists
-    summary = pd.read_table(summary_path, usecols=demux_columns + [read_id_column])
+    summary = pd.read_table(summary_path, usecols=subset_columns + [read_id_column])
 
     def group_name_to_dict(
         group_name: typing.Any, columns: typing.List[str]
@@ -166,12 +79,12 @@ def parse_summary_mapping(
     mapping: typing.Dict[str, typing.Set[str]] = {}
 
     # Convert length 1 list to string to silence pandas warning
-    demux_group_keys = demux_columns if len(demux_columns) > 1 else demux_columns[0]
+    subset_group_keys = subset_columns if len(subset_columns) > 1 else subset_columns[0]
 
-    # Create groups by unique sets of demux_column values
-    for group_name, df_group in summary.groupby(demux_group_keys):
+    # Create groups by unique sets of subset_columns values
+    for group_name, df_group in summary.groupby(subset_group_keys):
         # Create filenames from the unique keys
-        group_dict = group_name_to_dict(group_name, demux_columns)
+        group_dict = group_name_to_dict(group_name, subset_columns)
         filename = filename_template.format(**group_dict)
 
         # Add all the read_ids to the mapping
@@ -181,15 +94,15 @@ def parse_summary_mapping(
 
 
 def assert_filename_template(
-    template: str, demux_columns: typing.List[str], ignore_incomplete_template: bool
+    template: str, subset_columns: typing.List[str], ignore_incomplete_template: bool
 ) -> None:
     """
-    Get the keys named in the template to assert that they exist in demux_columns
+    Get the keys named in the template to assert that they exist in subset_columns
     """
     # Parse the template string to get the keywords
     # "{hello}_world_{name}" -> ["hello", "name"]
     template_keys = set(args[1] for args in Formatter().parse(template) if args[1])
-    allowed_keys = set(demux_columns)
+    allowed_keys = set(subset_columns)
 
     # Assert there are no unexpected keys in the template
     unexpected = template_keys - allowed_keys
@@ -207,9 +120,9 @@ def assert_filename_template(
             )
 
 
-def create_default_filename_template(demux_columns: typing.List[str]) -> str:
-    """Create the default filename template from the demux_columns selected"""
-    default = "_".join(f"{col}-{{{col}}}" for col in demux_columns)
+def create_default_filename_template(subset_columns: typing.List[str]) -> str:
+    """Create the default filename template from the subset_columns selected"""
+    default = "_".join(f"{col}-{{{col}}}" for col in subset_columns)
     default += ".pod5"
     return default
 
@@ -264,7 +177,7 @@ def parse_json_mapping(json_path: Path) -> typing.Dict[str, typing.Set[str]]:
     """Parse the json direct mapping of output target to read_ids"""
 
     with json_path.open("r") as _fh:
-        json_data = json.load(_fh)
+        json_data = json_load(_fh)
         jsonschema.validate(instance=json_data, schema=JSON_SCHEMA)
 
     return json_data
@@ -412,7 +325,7 @@ def launch_repacker(
     print("Done")
 
 
-def demux_pod5s(
+def subset_pod5s_with_mapping(
     inputs: typing.Iterable[Path],
     output: Path,
     mapping: typing.Dict[str, typing.Iterable[str]],
@@ -463,37 +376,47 @@ def demux_pod5s(
     return list(outputs)
 
 
-def main():
-    """
-    pod5_demux main program
-    """
-    parser = prepare_pod5_demux_argparser()
-    args = parser.parse_args()
+def subset_pod5(
+    inputs: typing.List[Path],
+    output: Path,
+    csv: typing.Optional[Path],
+    json: typing.Optional[Path],
+    summary: typing.Optional[Path],
+    columns: typing.List[str],
+    template: str,
+    read_id_column: str,
+    missing_ok: bool,
+    duplicate_ok: bool,
+    ignore_incomplete_template: bool,
+    force_overwrite: bool,
+) -> typing.Any:
+    """Prepare the subsampling mapping and run the repacker"""
+    if csv or json:
+        mapping = parse_direct_mapping_targets(csv, json)
 
-    if args.csv or args.json:
-        mapping = parse_direct_mapping_targets(args.csv, args.json)
-
-    elif args.summary:
+    elif summary:
         mapping = parse_summary_mapping(
-            args.summary,
-            args.template,
-            args.demux_columns,
-            args.read_id_column,
+            summary, template, columns, read_id_column, ignore_incomplete_template
         )
 
     else:
         raise RuntimeError(
-            "Arguments provided could not be used to generate a demux mapping."
+            "Arguments provided could not be used to generate a subset mapping."
         )
 
-    demux_pod5s(
-        inputs=args.inputs,
-        output=args.output,
+    subset_pod5s_with_mapping(
+        inputs=inputs,
+        output=output,
         mapping=mapping,
-        missing_ok=args.missing_ok,
-        duplicate_ok=args.duplicate_ok,
-        force_overwrite=args.force_overwrite,
+        missing_ok=missing_ok,
+        duplicate_ok=duplicate_ok,
+        force_overwrite=force_overwrite,
     )
+
+
+def main():
+    """pod5 subsample main"""
+    run_tool(prepare_pod5_subset_argparser())
 
 
 if __name__ == "__main__":

@@ -6,11 +6,11 @@ import pod5 as p5
 import lib_pod5 as p5b
 
 
-class TestPod5Reader:
-    """Test the Pod5Reader from a pod5 file"""
+class TestPod5Writer:
+    """Test the Pod5Writer from a pod5 file"""
 
     def test_writer_fixture(self, writer: p5.Writer) -> None:
-        """Basic assertions on the reader fixture"""
+        """Basic assertions on the writer fixture"""
         assert isinstance(writer, p5.Writer)
         assert isinstance(writer._writer, p5b.FileWriter)
 

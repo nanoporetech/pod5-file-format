@@ -11,7 +11,7 @@ def iterate_inputs(
 ) -> typing.Generator[Path, None, None]:
     """
     Returns a generator of file Paths which match the given glob-style file_pattern
-    (e.g. *.pod5).
+    (e.g. .pod5).
 
     If an input item is a directory this will be globbed (optionally recursively).
     If the input item is a file then it must also match the given file_pattern.

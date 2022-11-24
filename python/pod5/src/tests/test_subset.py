@@ -5,7 +5,7 @@ import typing
 import jsonschema
 import pytest
 
-from pod5.tools.pod5_demux import (
+from pod5.tools.pod5_subset import (
     assert_no_duplicate_reads,
     assert_no_missing_reads,
     parse_json_mapping,
@@ -55,7 +55,7 @@ class TestJSONMappingParser:
         cls, output: Path, json_mapping: typing.Dict[typing.Any, typing.Any]
     ):
         """
-        Create an example json demux mapping file in output using the supplied json_mapping
+        Create an example json subset mapping file in output using the supplied json_mapping
         """
         with output.open("w") as _fh:
             json.dump(json_mapping, _fh)
@@ -102,8 +102,8 @@ class TestJSONMappingParser:
             parse_json_mapping(example_json)
 
 
-class TestDemuxAssertions:
-    """Test the runtime assertions in the demux application"""
+class TestSubsetAssertions:
+    """Test the runtime assertions in the subset application"""
 
     @pytest.mark.parametrize(
         "selection,transfers",

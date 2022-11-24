@@ -21,7 +21,6 @@ from pod5.tools.pod5_convert_from_fast5 import (
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip.pod5"
 
 SINGLE_READ_FAST5_PATH = (
     TEST_DATA_PATH
