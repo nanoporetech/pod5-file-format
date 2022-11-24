@@ -75,8 +75,8 @@ type = "bool"
 description = "True if this read was ended 'forcibly' (eg: mux_change, unblock), false if it was a data-driven read break (signal_positive, signal_negative). This allows simple categorisation even in the presence of new reasons that reading code is unaware of."
 
 [fields.run_info]
-type = "dictionary(minknow.uuid)"
-description = "A zero-indexed row in the run_info table, containing information about the reads that correspond to a single (part of) an experiment/protocol/acquisition."
+type = "dictionary(utf8)"
+description = "The run (acquisition) this read came from. Must match the acquisition_id field of exactly one entry in the run_info table."
 
 [fields.num_samples]
 type = "uint64"
