@@ -5,11 +5,12 @@ from dataclasses import asdict
 import os
 import sys
 import csv
-import argparse
+from typing import Callable, Dict, List
 from uuid import UUID
 from pathlib import Path
 
 import pod5 as p5
+from pod5.tools.parsers import prepare_pod5_inspect_argparser, run_tool
 
 
 def format_shift_scale_pair(pair):
@@ -20,7 +21,7 @@ def format_shift_scale_pair_num(pair):
     return f"({pair.shift:.1f} {pair.scale:.1f})"
 
 
-def do_reads_command(reader):
+def do_reads_command(reader: p5.Reader):
     keys = [
         "read_id",
         "channel",
@@ -81,11 +82,11 @@ def dump_run_info(run_info: p5.RunInfo):
             print(f"{tab}{name}: {value}")
 
 
-def do_read_command(reader: p5.Reader, read_id_str: str):
+def do_read_command(reader: p5.Reader, read_id: str):
     try:
-        read_id = UUID(read_id_str)
+        read_id = UUID(read_id)
     except ValueError:
-        print(f"Supplied read_id '{read_id_str}' is not a valid UUID")
+        print(f"Supplied read_id '{read_id}' is not a valid UUID", file=sys.stderr)
         return
 
     for read in reader.reads():
@@ -187,45 +188,31 @@ def do_summary_command(reader: p5.Reader):
     print(f"Found {batch_count} batches, {total_read_count} reads")
 
 
-def main():
-    parser = argparse.ArgumentParser("Inspect the contents of an pod5 file")
+def inspect_pod5(command: str, input_files: List[Path], **kwargs):
+    """Determine which inspect command to run from the parsed arguments and run it"""
 
-    subparser = parser.add_subparsers(title="command", dest="command")
-    summary_parser = subparser.add_parser("summary")
-    summary_parser.add_argument("input_files", type=Path, nargs="+")
+    commands: Dict[str, Callable] = {
+        "reads": do_reads_command,
+        "read": do_read_command,
+        "summary": do_summary_command,
+        "debug": do_debug_command,
+    }
 
-    reads_parser = subparser.add_parser("reads")
-    reads_parser.add_argument("input_files", type=Path, nargs="+")
-
-    reads_parser = subparser.add_parser("read")
-    reads_parser.add_argument("input_files", type=Path, nargs="+")
-    reads_parser.add_argument("read_id", type=str)
-
-    debug_parser = subparser.add_parser("debug")
-    debug_parser.add_argument("input_files", type=Path, nargs="+")
-
-    args = parser.parse_args()
-
-    if args.command == None:
-        parser.print_help()
-        return
-
-    for filename in args.input_files:
+    for filename in input_files:
         print(f"File: {filename}")
         try:
             reader = p5.Reader(filename)
         except Exception as exc:
-            print(f"Failed to open pod5 file: {filename}: {exc}")
+            print(f"Failed to open pod5 file: {filename}: {exc}", file=sys.stderr)
             continue
 
-        if args.command == "reads":
-            do_reads_command(reader)
-        if args.command == "read":
-            do_read_command(reader, args.read_id)
-        elif args.command == "debug":
-            do_debug_command(reader)
-        elif args.command == "summary":
-            do_summary_command(reader)
+        kwargs["reader"] = reader
+        commands[command](**kwargs)
+
+
+def main():
+    """Run the pod5 inspect tool"""
+    run_tool(prepare_pod5_inspect_argparser())
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 """ 
 Tool for updating pod5 files to the latest available version
 """
-import argparse
 from pathlib import Path
 
 import sys
@@ -9,9 +8,13 @@ import typing
 
 import pod5 as p5
 import lib_pod5 as p5b
+from pod5.tools.parsers import prepare_pod5_update_argparser, run_tool
 
 
-def update(inputs: typing.List[Path], output: Path, force_overwrite: bool):
+def update_pod5(inputs: typing.List[Path], output: Path, force_overwrite: bool):
+    """
+    Given a list of pod5 files, update their tables to the most recent version
+    """
     print(f"Updating inputs {' '.join(str(i) for i in inputs)} into {output}")
 
     if not output.exists():
@@ -27,22 +30,7 @@ def update(inputs: typing.List[Path], output: Path, force_overwrite: bool):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        "Update a pod5 files to the latest available version"
-    )
-
-    parser.add_argument(
-        "input", type=Path, nargs="+", help="Input pod5 file(s) to update"
-    )
-    parser.add_argument("output", type=Path, help="Output path for pod5 files")
-
-    parser.add_argument(
-        "--overwrite", action="store_true", help="Overwrite destination files"
-    )
-
-    args = parser.parse_args()
-
-    update(args.input, args.output, args.overwrite)
+    run_tool(prepare_pod5_update_argparser())
 
 
 if __name__ == "__main__":

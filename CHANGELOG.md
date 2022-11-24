@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pod5-convert-from-fast5` `--output-one-to-one` reworked so that output files maintain the input structure making this argument more flexible and avoid filename clobbering.
 - `pod5-convert-from-fast5` `output` now takes existing directories and
 writes `output.pod5` (current behaviour) or creates a new file with the given name if it doesn't exist.
+- Added missing `lib_pod5.update_file` function.
+- Added `pod5` tools entry-point
+- Renamed arguments in tools relating to multi-processing / multi-threading from `-p/--processes` to the mode common `-t/--threads`.
+
 
 ## [0.0.41] - 2022-10-27
 ### Changed

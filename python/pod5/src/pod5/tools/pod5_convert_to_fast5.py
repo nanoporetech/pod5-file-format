@@ -1,7 +1,6 @@
 """
 Tool for converting pod5 files to the legacy fast5 format
 """
-import argparse
 from collections import namedtuple
 from pathlib import Path
 import multiprocessing as mp
@@ -10,6 +9,7 @@ from typing import List
 
 import h5py
 import numpy
+from pod5.tools.parsers import pod5_convert_to_fast5_argparser, run_tool
 
 import vbz_h5py_plugin
 
@@ -238,45 +238,19 @@ def make_fast5_filename(output_location, file_index):
     return output_location / f"output_{file_index}.fast5"
 
 
-def pod5_convert_to_fast5_argparser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser("Convert a pod5 file into an fast5 file")
-
-    parser.add_argument("input", type=Path, nargs="+")
-    parser.add_argument("output", type=Path)
-    parser.add_argument(
-        "-r",
-        "--recursive",
-        default=False,
-        action="store_true",
-        help="Search for input files recursively",
-    )
-    parser.add_argument(
-        "--active-writers",
-        default=10,
-        type=int,
-        help="How many file writers to keep active",
-    )
-    parser.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
-    )
-    parser.add_argument(
-        "--file-read-count",
-        default=4000,
-        type=int,
-        help="Number of reads to write per file",
-    )
-
-    return parser
-
-
-def convert_from_fast5(
+def convert_to_fast5(
     inputs: List[Path],
     output: Path,
     recursive: bool = False,
-    active_writers: int = 10,
+    threads: int = 10,
     force_overwrite: bool = False,
     file_read_count: int = 4000,
 ):
+
+    if output.is_file() and not force_overwrite:
+        raise FileExistsError(
+            "Output path points to an existing file and --force_overwrite not set"
+        )
 
     ctx = mp.get_context("spawn")
     write_request_queue = ctx.Queue()
@@ -285,11 +259,11 @@ def convert_from_fast5(
 
     active_processes = []
 
-    for _ in range(2 * active_writers):
+    for _ in range(2 * threads):
         # Preload the write request queue with two requests per writer:
         write_request_queue.put(WriteRequest())
 
-    for _ in range(active_writers):
+    for _ in range(threads):
         # And kick off the writers waiting for data:
         p = ctx.Process(
             target=do_write_fast5_files,
@@ -370,20 +344,7 @@ def convert_from_fast5(
 
 
 def main():
-    parser = pod5_convert_to_fast5_argparser()
-    args = parser.parse_args()
-
-    if args.output.is_file():
-        raise FileExistsError("Output path points to an existing file")
-
-    convert_from_fast5(
-        args.input,
-        args.output,
-        args.recursive,
-        args.active_writers,
-        args.force_overwrite,
-        args.file_read_count,
-    )
+    run_tool(pod5_convert_to_fast5_argparser())
 
 
 if __name__ == "__main__":

@@ -9,9 +9,11 @@ import typing
 
 import pod5 as p5
 import pod5.repack
+from pod5.tools.parsers import prepare_pod5_repack_argparser, run_tool
 
 
-def repack(inputs: typing.List[Path], output: Path, force_overwrite: bool):
+def repack_pod5(inputs: typing.List[Path], output: Path, force_overwrite: bool):
+    """Given a list of pod5 files, repack their contents"""
     print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
 
     if not output.exists():
@@ -54,20 +56,7 @@ def repack(inputs: typing.List[Path], output: Path, force_overwrite: bool):
 
 
 def main():
-    parser = argparse.ArgumentParser("Repack a pod5 files into a single output")
-
-    parser.add_argument(
-        "input", type=Path, nargs="+", help="Input pod5 file(s) to repack"
-    )
-    parser.add_argument("output", type=Path, help="Output path for pod5 files")
-
-    parser.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
-    )
-
-    args = parser.parse_args()
-
-    repack(args.input, args.output, args.force_overwrite)
+    run_tool(prepare_pod5_repack_argparser())
 
 
 if __name__ == "__main__":

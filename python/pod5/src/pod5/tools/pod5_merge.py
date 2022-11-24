@@ -2,46 +2,12 @@
 Tool for merging pod5 files
 """
 
-import argparse
 from pathlib import Path
 import typing
 
 import pod5 as p5
 import pod5.repack as p5_repack
-
-
-def prepare_pod5_merge_argparser() -> argparse.ArgumentParser:
-    """Create an argument parser for the pod5 merge tool"""
-
-    parser = argparse.ArgumentParser(description="Merge multiple pod5 files")
-
-    # Core arguments
-    parser.add_argument(
-        "inputs",
-        type=Path,
-        nargs="+",
-        help="Pod5 filepaths to use as inputs",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        help="Output filepath",
-    )
-    parser.add_argument(
-        "-f",
-        "--force_overwrite",
-        action="store_true",
-        help="Overwrite destination file if it already exists",
-    )
-    parser.add_argument(
-        "-D",
-        "--duplicate_ok",
-        action="store_true",
-        help="Allow duplicate read_ids",
-    )
-
-    return parser
+from pod5.tools.parsers import prepare_pod5_merge_argparser, run_tool
 
 
 def assert_no_duplicate_reads(paths: typing.Iterable[Path]) -> None:
@@ -59,7 +25,7 @@ def assert_no_duplicate_reads(paths: typing.Iterable[Path]) -> None:
                 read_ids.add(read.read_id)
 
 
-def merge_pod5s(
+def merge_pod5(
     inputs: typing.Iterable[Path],
     output: Path,
     duplicate_ok: bool = False,
@@ -114,18 +80,8 @@ def merge_pod5s(
 
 
 def main():
-    """
-    pod5_merge main program
-    """
-    parser = prepare_pod5_merge_argparser()
-    args = parser.parse_args()
-
-    merge_pod5s(
-        inputs=args.inputs,
-        output=args.output,
-        duplicate_ok=args.duplicate_ok,
-        force_overwrite=args.force_overwrite,
-    )
+    """pod5_merge main program"""
+    run_tool(prepare_pod5_merge_argparser())
 
 
 if __name__ == "__main__":
