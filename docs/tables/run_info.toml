@@ -1,13 +1,13 @@
 [fields.acquisition_id]
 type = "utf8"
-description = "A unique identifier for the acquisition - note that readers should not depend on this uniquely determining the other fields in the run_info, or being unique among the dictionary keys."
+description = "A unique identifier for the run (acquisition). This is the same identifier that MinKNOW uses to identify an acquisition within a protocol."
 
 [fields.acquisition_start_time]
 type = "timestamp(milliseconds)"
 description = "This is the clock time for sample 0, and can be used together with sample_rate and the :start read field to calculate a clock time for when a given read was acquired. The timezone should be set. MinKNOW will set this to the local timezone on file creation. When merging files that have different timezones, merging code will have to pick a timezone (possibly defaulting to 'UTC')."
 
 [fields.adc_max]
-type = "int16" 
+type = "int16"
 description = "The maximum ADC value that might be encountered. This is a hardware constraint."
 
 [fields.adc_min]
