@@ -557,12 +557,20 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_run_info(int16_t* run_info_index,
                                                   char const** tracking_id_values);
 
 /// \brief Add a read to the file.
+///
+/// For each read `r`, where `0 <= r < read_count`:
+/// - `((RowInfo_t const*)row_data)[r]` describes the read metadata, where `RowInfo_t` is determined by [struct_version]
+/// - `signal[r]` is the raw signal data for the read
+/// - `signal_size[r]` is the length of `signal[r]` (in samples, not in bytes)
+///
 /// \param      file            The file to add the reads to.
 /// \param      read_count      The number of reads to add with this call.
 /// \param      struct_version  The version of the struct of [row_data] being filled, use READ_BATCH_ROW_INFO_VERSION.
 /// \param      row_data        The array data for injecting into the file, should be ReadBatchRowInfoArray_t.
+///                             This must be an array of length [read_count].
 /// \param      signal          The signal data for the reads.
 /// \param      signal_size     The number of samples in the signal data.
+///                             This must be an array of length [read_count].
 POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_data(Pod5FileWriter_t* file,
                                                     uint32_t read_count,
                                                     uint16_t struct_version,
@@ -571,14 +579,32 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_data(Pod5FileWriter_t* file,
                                                     uint32_t const* signal_size);
 
 /// \brief Add a read to the file, with pre compressed signal chunk sections.
+///
+/// Consider using the simpler [pod5_add_reads_data] unless you have performance requirements that demand
+/// more control over compression and chunking.
+///
+/// Data should be compressed using [pod5_vbz_compress_signal].
+///
+/// For each read `r`, where `0 <= r < read_count`:
+/// - `((RowInfo_t const*)row_data)[r]` describes the read metadata, where `RowInfo_t` is determined by [struct_version]
+/// - `signal_chunk_count[r]` is the number of signal chunks
+/// - for each signal chunk `i` where `0 <= i < signal_chunk_count[r]`:
+///   - `sample_counts[r][i]` is the number of samples in the chunk (ie: the size of the uncompressed data in
+///     samples, not in bytes)
+///   - `compressed_signal[r][i]` is the compressed data
+///   - `compressed_signal_size[r][i]` is the length of the compressed data at `compressed_signal[r][i]`
+///
 /// \param      file                    The file to add the read to.
 /// \param      read_count              The number of reads to add with this call.
 /// \param      struct_version          The version of the struct of [row_data] being filled, use READ_BATCH_ROW_INFO_VERSION.
 /// \param      row_data                The array data for injecting into the file, should be ReadBatchRowInfoArray_t.
+///                                     This must be an array of length [read_count].
 /// \param      compressed_signal       The signal chunks data for the read.
 /// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
-/// \param      sample_counts           The number of samples of each signal chunk.
+/// \param      sample_counts           The number of samples of each signal chunk. In other words, it is the *uncompressed* size of the
+///                                     corresponding [compressed_signal] array, in samples (not bytes!).
 /// \param      signal_chunk_count      The number of sections of compressed signal.
+///                                     This must be an array of length [read_count].
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
                                    uint32_t read_count,
