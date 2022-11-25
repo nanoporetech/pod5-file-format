@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.0.42]
+### Added
+- Added `pod5` tools entry-point
+- Added api to query file version information as written on disk.
+
 ### Changed
 - Fixed signal_chunk_size type error in convert-from-fast5
 - Replaced `ont_fast5_api` dependency with `vbz_h5py_plugin`
@@ -12,13 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pod5_format` and `pod5_format_tools` are now pure python packages which depend on `lib_pod5_format`
 - Python pacakges `pod5_format` and `pod5_format_tools` have been merged into single `pod5` pure-python package.
 - `pod5-convert-from-fast5` `--output-one-to-one` reworked so that output files maintain the input structure making this argument more flexible and avoid filename clobbering.
+- Added missing `lib_pod5.update_file` function to pyi.
 - `pod5-convert-from-fast5` `output` now takes existing directories and
 writes `output.pod5` (current behaviour) or creates a new file with the given name if it doesn't exist.
-- Added missing `lib_pod5.update_file` function.
-- Added `pod5` tools entry-point
 - Renamed arguments in tools relating to multi-processing / multi-threading from `-p/--processes` to the mode common `-t/--threads`.
-- Added api to query file version information as written on disk.
-
 
 ## [0.0.41] - 2022-10-27
 ### Changed
