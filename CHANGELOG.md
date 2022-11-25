@@ -17,6 +17,7 @@ writes `output.pod5` (current behaviour) or creates a new file with the given na
 - Added missing `lib_pod5.update_file` function.
 - Added `pod5` tools entry-point
 - Renamed arguments in tools relating to multi-processing / multi-threading from `-p/--processes` to the mode common `-t/--threads`.
+- Added api to query file version information as written on disk.
 
 
 ## [0.0.41] - 2022-10-27
