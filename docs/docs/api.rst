@@ -14,11 +14,11 @@ Reading POD5 Files
 ========================
 
 
-To use the module to open a POD5 file, create a :class:`~pod5.reader.Reader`. 
-It is strongly recommended that users use python's 
-`with statement <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>`_ 
-to ensure that any opened resources (e.g. file handles) are safely closed when they are 
-no longer needed. 
+To use the module to open a POD5 file, create a :class:`~pod5.reader.Reader`.
+It is strongly recommended that users use python's
+`with statement <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>`_
+to ensure that any opened resources (e.g. file handles) are safely closed when they are
+no longer needed.
 
 .. code-block:: python
 
@@ -32,7 +32,7 @@ no longer needed.
 Iterate Over Reads
 ------------------
 
-With an open :class:`~pod5.reader.Reader` call :func:`~pod5.reader.Reader.reads` 
+With an open :class:`~pod5.reader.Reader` call :func:`~pod5.reader.Reader.reads`
 to generate a :class:`~pod5.reader.ReadRecord` instance for each read in the file:
 
 .. code-block:: python
@@ -64,16 +64,16 @@ with a collection of read_ids which must be ``UUIDs``:
 Reads and ReadRecords
 ---------------------
 
-Nanopore sequencing data comprises Reads which are formed from signal data and other 
-metadata about how and when the sample was sequenced. This data is accessible via the 
+Nanopore sequencing data comprises Reads which are formed from signal data and other
+metadata about how and when the sample was sequenced. This data is accessible via the
 :class:`~pod5.pod5_types.Read` or :class:`~pod5.reader.ReadRecord` classes.
 
-Although these two classes have very similar interfaces, know that the 
+Although these two classes have very similar interfaces, know that the
 :class:`~pod5.reader.ReadRecord` is a `Read`
 formed from a POD5 file record which uses caching to improve read performance.
 
 .. note::
-    
+
     There will likely be revisions to this beta implementation to unify these similar
     classes into a common interface.
 
@@ -134,15 +134,15 @@ Writing POD5 Files
 ===================
 
 The pod5-format package provides the functionality to write POD5 files. Although most
-users will only need to read files produced by `Oxford Nanopore <ont_>`_ sequencers 
-there are certainly use cases where writing ones own POD5 files would be desirable. 
+users will only need to read files produced by `Oxford Nanopore <ont_>`_ sequencers
+there are certainly use cases where writing ones own POD5 files would be desirable.
 
 .. note::
-    It is strongly recommended that users first look at the 
-    :ref:`pod5-format-tools <docs/tools:Tools>` package for tools to manipulate 
+    It is strongly recommended that users first look at the
+    :ref:`pod5-format-tools <docs/tools:Tools>` package for tools to manipulate
     existing datasets.
-    
-    New tools may be added to support our users and if you have a suggestion for a 
+
+    New tools may be added to support our users and if you have a suggestion for a
     new tool please submit a request on the `pod5-file-format GitHub issues page <p5_git_>`_.
 
 
@@ -167,7 +167,7 @@ and it's :py:meth:`~pod5.writer.Writer.add_read_object` method.
         adc_max = ...
         ...
     )
-    signal = ... # some signal data 
+    signal = ... # some signal data
 
     read = p5.Read(
         read_id=UUID("0000173c-bf67-44e7-9a9c-1ad0bc728e74"),

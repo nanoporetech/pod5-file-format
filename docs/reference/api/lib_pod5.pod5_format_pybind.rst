@@ -1,5 +1,5 @@
 
-pod5\_format\_pybind 
+pod5\_format\_pybind
 ========================================
 
 
@@ -138,7 +138,3 @@ pod5\_format\_pybind
 .. py:function:: decompress_signal(compressed_signal: numpy.typing.NDArray[numpy.uint8], signal_out: numpy.typing.NDArray[numpy.int16]) -> None
 
 .. py:function:: vbz_compressed_signal_max_size(sample_count: int) -> int
-
-
-
-

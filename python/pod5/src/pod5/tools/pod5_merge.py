@@ -2,8 +2,8 @@
 Tool for merging pod5 files
 """
 
-from pathlib import Path
 import typing
+from pathlib import Path
 
 import pod5 as p5
 import pod5.repack as p5_repack
@@ -48,9 +48,9 @@ def merge_pod5(
         output.parent.mkdir(parents=True, exist_ok=True)
 
     # Assert inputs exist
-    non_existant_inputs = [path for path in inputs if not path.is_file()]
-    if non_existant_inputs:
-        raise FileExistsError(f"Some input(s) do not exist: {non_existant_inputs}")
+    non_existent_inputs = [path for path in inputs if not path.is_file()]
+    if non_existent_inputs:
+        raise FileExistsError(f"Some input(s) do not exist: {non_existent_inputs}")
 
     if not duplicate_ok:
         assert_no_duplicate_reads(inputs)

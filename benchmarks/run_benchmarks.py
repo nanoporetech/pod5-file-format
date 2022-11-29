@@ -2,18 +2,20 @@
 """
 Example usage:
 ```
-> taskset -c 0-10 ./benchmarks/run_benchmarks.py ./input_files/ ./benchmark-outputs/ --skip-to-benchmark find_all_samples
+> taskset -c 0-10 ./benchmarks/run_benchmarks.py ./input_files/ \
+    ./benchmark-outputs/ --skip-to-benchmark find_all_samples
 ```
 """
 
 import argparse
-from collections import namedtuple
 import json
-from pathlib import Path
 import shutil
 import subprocess
-import tabulate
 import time
+from collections import namedtuple
+from pathlib import Path
+
+import tabulate
 
 Benchmark = namedtuple(
     "Benchmark",
@@ -196,7 +198,7 @@ def run_benchmark(benchmark, input_dir, output_dir, only_format=None):
         benchmark.pre_run(benchmark, input_dir, output_dir)
 
     for file_type in file_types:
-        if only_format != None and only_format != file_type:
+        if only_format is not None and only_format != file_type:
             print(f"## Skipping for file type {file_type}:")
             continue
         print(f"## Running for file type {file_type}:")

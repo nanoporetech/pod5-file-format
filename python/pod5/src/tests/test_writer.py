@@ -1,9 +1,10 @@
 """
 Testing Pod5Writer
 """
-import pytest
-import pod5 as p5
 import lib_pod5 as p5b
+import pytest
+
+import pod5 as p5
 
 
 class TestPod5Writer:

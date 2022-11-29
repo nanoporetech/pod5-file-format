@@ -123,11 +123,11 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(std::string const& pa
     ARROW_ASSIGN_OR_RAISE(auto original_footer_metadata,
                           combined_file_utils::read_footer(path, file));
 
-    ARROW_ASSIGN_OR_RAISE(auto const orignal_writer_version,
+    ARROW_ASSIGN_OR_RAISE(auto const original_writer_version,
                           parse_version_number(original_footer_metadata.writer_pod5_version));
     ARROW_ASSIGN_OR_RAISE(
             auto migration_result,
-            migrate_if_required(orignal_writer_version, original_footer_metadata, file, pool));
+            migrate_if_required(original_writer_version, original_footer_metadata, file, pool));
 
     // Files are written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
 
@@ -154,7 +154,7 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(std::string const& pa
     }
 
     return std::make_shared<FileReaderImpl>(
-            orignal_writer_version, std::move(migration_result), std::move(run_info_table_reader),
+            original_writer_version, std::move(migration_result), std::move(run_info_table_reader),
             std::move(read_table_reader), std::move(signal_table_reader));
 }
 

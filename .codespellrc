@@ -1,0 +1,20 @@
+# Waiting for pyproject.toml support: https://github.com/codespell-project/codespell/issues/2055
+
+[codespell]
+# "write-changes" doesn't work with "ignore-regex"
+# https://github.com/codespell-project/codespell/issues/2056
+# comma-separated list of built-in dictionaries (default is "clear,rare")
+builtin = clear,rare,code
+# show the line in which the error occurred
+context = 0
+# these options are turned on by specifying them here
+check-filenames =
+check-hidden =
+enable-colors =
+# split words on underscores
+# e.g. "foo_bar" is split into two words ("foo", "bar") instead of one word ("foo_bar")
+ignore-regex = _
+# comma-separated list of false positives
+ignore-words-list = iff,inout,befores,deque,stdio
+# comma-separated list of globs of files not to check
+skip = .gitignore

@@ -4,10 +4,10 @@ PYTHON ?= python3.7
 envDir = venv
 envPrompt ?= "lib-pod5"
 
-.PHONY: clean venv update install 
+.PHONY: clean venv update install
 
 # Clean the python virtual environment
-clean: 
+clean:
 	rm -rf ${envDir}
 
 # Create a python virtual environment
@@ -15,10 +15,10 @@ venv:
 	${PYTHON} -m venv ${envDir} --prompt=${envPrompt}
 
 # install the python project in the current venv
-update: 
+update:
 	source ${envDir}/bin/activate \
 	&& pip install --upgrade pip \
-	&& pip install -e .[dev] 
+	&& pip install -e .[dev]
 
 # Completely re-install the python environment for development
 install: clean venv update

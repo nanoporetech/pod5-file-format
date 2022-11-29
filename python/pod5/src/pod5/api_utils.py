@@ -3,17 +3,13 @@ Utility functions for the pod5-format API
 """
 
 
-from typing import Collection, List, Union
 import warnings
+from typing import Collection, List, Union
 
 import numpy as np
 import numpy.typing as npt
 import pyarrow as pa
-
-from lib_pod5 import (
-    load_read_id_iterable,
-    format_read_id_to_str,
-)
+from lib_pod5 import format_read_id_to_str, load_read_id_iterable
 
 
 class Pod5ApiException(Exception):
@@ -30,7 +26,7 @@ def pack_read_ids(
     Parameters
     ----------
     read_ids : Collection[str]
-        Colection of well-formatted read_id strings
+        Collection of well-formatted read_id strings
 
     Returns
     -------

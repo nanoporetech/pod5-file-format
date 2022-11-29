@@ -51,7 +51,7 @@ Result<std::unique_ptr<CachedBatchSignalData>> AsyncSignalLoader::release_next_b
         boost::optional<std::chrono::steady_clock::time_point> timeout) {
     std::shared_ptr<SignalCacheWorkPackage> batch;
 
-    // Return any error, if one has occured:
+    // Return any error, if one has occurred:
     if (m_has_error) {
         return Status(*m_error);
     }
@@ -78,7 +78,7 @@ Result<std::unique_ptr<CachedBatchSignalData>> AsyncSignalLoader::release_next_b
         }
     } while (!m_finished && !m_has_error);
 
-    // Return any error, if one has occured during our wait:
+    // Return any error, if one has occurred during our wait:
     if (m_has_error) {
         return Status(*m_error);
     }
@@ -104,7 +104,7 @@ void AsyncSignalLoader::set_error(pod5::Status status) {
 }
 
 void AsyncSignalLoader::run_worker() {
-    // Continue to work while there is work to do, and no error has occured
+    // Continue to work while there is work to do, and no error has occurred
     while (!m_finished && !m_has_error) {
         std::shared_ptr<SignalCacheWorkPackage> batch;
         std::uint32_t row_start = 0;
@@ -182,7 +182,7 @@ void AsyncSignalLoader::do_work(std::shared_ptr<SignalCacheWorkPackage> const& b
         auto const signal_rows_span =
                 gsl::make_span(signal_rows->raw_values(), signal_rows->length());
 
-        // Find the sample cound for these rows:
+        // Find the sample count for these rows:
         auto sample_count_result = m_reader->extract_sample_count(signal_rows_span);
         if (!sample_count_result.ok()) {
             m_error = sample_count_result.status();

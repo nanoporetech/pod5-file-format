@@ -1,13 +1,14 @@
 """Main entry point for pod5 tools"""
 import argparse
+
 from pod5 import __version__
 from pod5.tools.parsers import (
     SubcommandHelpFormatter,
     prepare_pod5_convert,
     prepare_pod5_inspect_argparser,
     prepare_pod5_merge_argparser,
-    prepare_pod5_subset_argparser,
     prepare_pod5_repack_argparser,
+    prepare_pod5_subset_argparser,
     prepare_pod5_update_argparser,
     run_tool,
 )

@@ -4,12 +4,8 @@ Container class for a pod5 Read object
 import datetime
 import enum
 import os
-from typing import (
-    Dict,
-    List,
-    Union,
-)
 from dataclasses import dataclass, field
+from typing import Dict, List, Union
 from uuid import UUID
 
 import numpy as np

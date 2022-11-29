@@ -1,4 +1,4 @@
-utils 
+utils
 ================================
 
 .. automodule:: pod5.tools.utils

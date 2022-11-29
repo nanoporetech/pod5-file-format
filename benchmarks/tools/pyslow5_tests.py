@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import multiprocessing as mp
 from pathlib import Path
+from queue import Empty
+
 import numpy
 import pandas as pd
 import pyslow5
-import multiprocessing as mp
-from queue import Empty
 
 
 def random_access(s5_file, read_list, col, result_q):

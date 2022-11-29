@@ -15,5 +15,3 @@ Submodules
    pod5_tools.pod5_merge
    pod5_tools.pod5_update
    pod5_tools.utils
-
-

@@ -81,5 +81,3 @@ description = "The run (acquisition) this read came from. Must match the acquisi
 [fields.num_samples]
 type = "uint64"
 description = "The full length of the signal for this read in samples (equal to the sum of all 'samples' fields of signal chunks)"
-
-

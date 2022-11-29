@@ -4,10 +4,9 @@ Tools for handling pod5 signals
 
 from typing import List, Tuple, Union
 
+import lib_pod5 as p5b
 import numpy as np
 import numpy.typing as npt
-import lib_pod5 as p5b
-
 
 DEFAULT_SIGNAL_CHUNK_SIZE = 102400
 

@@ -1,13 +1,13 @@
-""" 
+"""
 Tool for updating pod5 files to the latest available version
 """
-from pathlib import Path
-
 import sys
 import typing
+from pathlib import Path
+
+import lib_pod5 as p5b
 
 import pod5 as p5
-import lib_pod5 as p5b
 from pod5.tools.parsers import prepare_pod5_update_argparser, run_tool
 
 

@@ -585,7 +585,7 @@ private:
         POD5_TRACE_FUNCTION();
         ARROW_ASSIGN_OR_RAISE(auto read_batch, source_file->read_read_record_batch(batch_index));
 
-        // Default to all rows if not specfied
+        // Default to all rows if not specified
         if (selected_rows.empty()) {
             auto const source_batch_row_count = read_batch.num_rows();
             selected_rows.resize(source_batch_row_count);

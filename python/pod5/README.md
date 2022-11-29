@@ -8,7 +8,7 @@ POD5 Format Tools
 -----------------
 
 The ``pod5`` package provides the following tools for inspecting and manipulating
-`.pod5` files as well as converting between `.pod5` and `.fast5` file formats. 
+`.pod5` files as well as converting between `.pod5` and `.fast5` file formats.
 
 1. [pod5 update](#pod5%20update)
 2. [pod5 inspect](#pod5%20inspect)
@@ -39,7 +39,7 @@ The `pod5 inspect` tool can be used to extract details and summaries of the cont
 > pod5 inspect {reads, read, summary} --help
 ```
 
-### pod5 inspect reads 
+### pod5 inspect reads
 
 Inspect all reads and print a csv table of the details of all reads in the given `.pod5` files.
 
@@ -100,12 +100,12 @@ pod5 subset
 ----------
 
 `pod5 subset` is a tool for separating the reads in `.pod5` files into one or more
-output files. This tool can be used to create new `.pod5` files which contain a 
-user-defined subset of reads from the input. 
+output files. This tool can be used to create new `.pod5` files which contain a
+user-defined subset of reads from the input.
 
-The `pod5 subset` tool requires a mapping which defines which read_ids should be 
+The `pod5 subset` tool requires a mapping which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
-defined in either a `.csv` or `.json` file or by using a tab-separated table 
+defined in either a `.csv` or `.json` file or by using a tab-separated table
 (e.g. basecaller sequencing summary) and instructions on how to interpret it.
 
 ```bash
@@ -116,7 +116,7 @@ defined in either a `.csv` or `.json` file or by using a tab-separated table
 > pod5 subset example_1.pod5 --csv mapping.csv
 > pod5 subset examples_*.pod5 --json mapping.json
 
-# Subset input(s) using a dynamic mapping created at runtime 
+# Subset input(s) using a dynamic mapping created at runtime
 > pod5 subset example_1.pod5 --summary summary.txt --columns barcode alignment_genome
 ```
 
@@ -127,7 +127,7 @@ that there are no read_id UUID clashes. If this occurs both reads are written to
 
 ### Creating a Subset mapping
 
-The `.csv` or `.json` inputs should define a mapping of destination filename to an array 
+The `.csv` or `.json` inputs should define a mapping of destination filename to an array
 of read_ids which will be written to the destination.
 
 In the example below of a `.csv` subset mapping, note that the output filename can be specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
@@ -139,9 +139,9 @@ output_2.pod5, 0ff4dc01-5fa4-4260-b54e-1d8716c7f225
 output_2.pod5, 0e359c40-296d-4edc-8f4a-cca135310ab2, 0e9aa0f8-99ad-40b3-828a-45adbb4fd30c
 ```
 
-See below an example of a `.json` subset mapping. This file must of course be well-formatted 
+See below an example of a `.json` subset mapping. This file must of course be well-formatted
 `json` in addition to the formatting standard required by the tool. The formatting requirements
-for the `.json` subset mapping are that keys should be unique filenames mapped to an array 
+for the `.json` subset mapping are that keys should be unique filenames mapped to an array
 of read_id strings.
 
 ```json
@@ -159,17 +159,17 @@ of read_id strings.
 
 ### Subsetting from a summary
 
-`pod5 subset` can dynamically generate output targets and collect associated reads 
+`pod5 subset` can dynamically generate output targets and collect associated reads
 based on a tab-separated file (e.g. sequencing summary) which contains a header row
 and a series of columns on which to group unique collections of values. Internally
-this process uses the [`pandas.Dataframe.groupby`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html) function where the `by` parameter is the sequence of column names 
+this process uses the [`pandas.Dataframe.groupby`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html) function where the `by` parameter is the sequence of column names
 specified using the ``--columns` argument.
 
 The column names specified in `--columns` should be **categorical** in nature.
-There is no restriction in-place however there may be an excessive number of output files 
+There is no restriction in-place however there may be an excessive number of output files
 generated if a continuous variable was used for subsetting.
 
-Given the following example summary file, observe the resultant outputs given various 
+Given the following example summary file, observe the resultant outputs given various
 arguments:
 
 ```text
@@ -202,14 +202,14 @@ barcode-barcode_c_mux-2.pod5 # Contains: read_d
 
 The output filename is generated from a template string. The automatically generated
 template is the sequential concatenation of column_name-column_value followed by the
-`.pod5` file extension. The user can set their own filename template using the ``--template`` 
+`.pod5` file extension. The user can set their own filename template using the ``--template``
 argument. This argument accepts a string in the Python f-string style where the subsetting
 variables are used for keyword placeholder substitution. Keywords should be placed
-withing curly-braces. For example:
+within curly-braces. For example:
 
 From the examples above:
 
-```bash 
+```bash
 > pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
 # default template used = "barcode-{barcode}.pod5"
 
@@ -265,9 +265,9 @@ to one or more `.pod5` files.
 > ls outputs/
 outputs/output.pod5 # default name
 
-# Convert each fast5 to its relative converted output. The output files are written 
-# into the output directory at paths relatve to the path given to the 
-# --output-one-to-one argument. Note: This path must be a relative parent to all 
+# Convert each fast5 to its relative converted output. The output files are written
+# into the output directory at paths relatve to the path given to the
+# --output-one-to-one argument. Note: This path must be a relative parent to all
 # input paths.
 > ls input/*.fast5
 fast5_1.fast5 fast5_2.fast5 ... fast5_N.fast5

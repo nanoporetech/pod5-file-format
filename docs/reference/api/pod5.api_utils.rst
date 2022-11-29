@@ -1,4 +1,4 @@
-api\_utils 
+api\_utils
 ==============================
 
 .. automodule:: pod5.api_utils

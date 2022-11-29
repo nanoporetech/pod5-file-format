@@ -1,4 +1,4 @@
-reader 
+reader
 ==========================
 
 .. automodule:: pod5.reader

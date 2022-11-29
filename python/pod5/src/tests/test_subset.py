@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 import typing
+from pathlib import Path
 
 import jsonschema
 import pytest
@@ -8,10 +8,9 @@ import pytest
 from pod5.tools.pod5_subset import (
     assert_no_duplicate_reads,
     assert_no_missing_reads,
-    parse_json_mapping,
     parse_csv_mapping,
+    parse_json_mapping,
 )
-
 
 CSV_CONTENT_1 = """
 repeated_name, r1

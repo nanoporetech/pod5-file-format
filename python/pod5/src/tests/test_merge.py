@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import pytest
+
 import pod5 as p5
 from pod5.tools.pod5_merge import merge_pod5
 

@@ -2,9 +2,9 @@
 Testing signal_tools
 """
 import random
+
 import numpy as np
 import numpy.typing as npt
-
 import pytest
 
 from pod5.signal_tools import (
@@ -13,7 +13,6 @@ from pod5.signal_tools import (
     vbz_decompress_signal,
     vbz_decompress_signal_chunked,
 )
-
 
 TEST_SEEDS = range(10)
 

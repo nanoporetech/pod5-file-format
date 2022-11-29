@@ -1,4 +1,4 @@
-signal\_tools 
+signal\_tools
 =================================
 
 .. automodule:: pod5.signal_tools

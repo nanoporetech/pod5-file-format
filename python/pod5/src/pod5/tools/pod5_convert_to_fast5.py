@@ -1,19 +1,19 @@
 """
 Tool for converting pod5 files to the legacy fast5 format
 """
-from collections import namedtuple
-from pathlib import Path
 import multiprocessing as mp
 import time
+from collections import namedtuple
+from pathlib import Path
+from queue import Empty
 from typing import List
 
 import h5py
 import numpy
-from pod5.tools.parsers import pod5_convert_to_fast5_argparser, run_tool
-
-import vbz_h5py_plugin
+import vbz_h5py_plugin  # noqa: F401
 
 import pod5 as p5
+from pod5.tools.parsers import pod5_convert_to_fast5_argparser, run_tool
 
 from .utils import iterate_inputs
 
@@ -70,12 +70,12 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
         # Try to get some data to write:
         try:
             file_data = write_data_queue.get(timeout=0.1)
-        except:
+        except Empty:
             # Check if we are requested to exit:
             try:
                 exit_queue.get(timeout=0.1)
                 break
-            except:
+            except Empty:
                 pass
             continue
 
@@ -198,7 +198,7 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
 
 
 def put_write_fast5_file(file_reads, write_request_queue, write_data_queue):
-    item = write_request_queue.get()
+    write_request_queue.get()
 
     write_data_queue.put(file_reads)
 

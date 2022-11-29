@@ -1,15 +1,16 @@
 """
 Testing Pod5Reader
 """
-from uuid import UUID
 from typing import Type
+from uuid import UUID
+
 import numpy
 import numpy.typing
-from pod5.reader import SignalRowInfo
 import pytest
 
 import pod5 as p5
 from pod5.pod5_types import Calibration, EndReason, RunInfo
+from pod5.reader import SignalRowInfo
 
 
 class TestPod5Reader:

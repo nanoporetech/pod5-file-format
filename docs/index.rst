@@ -14,7 +14,7 @@ instrument to directly write the format.
 Data in POD5 is stored using `Apache Arrow <https://github.com/apache/arrow>`_, allowing
 users to consume data in many languages using standard tools.
 
-This project contains a core library for reading and writing POD5 data, and a toolkit 
+This project contains a core library for reading and writing POD5 data, and a toolkit
 for accessing this data in other languages.
 
 Install
@@ -25,7 +25,7 @@ POD5 is also bundled as a python module for easy use in scripts, a user can inst
 To install the latest python release, type:
 
 .. code-block:: console
-   
+
    $ pip install pod5
 
 This python module provides the python library to write custom scripts against.
@@ -38,8 +38,8 @@ See the :ref:`Installation Documentation <docs/install:Install>` for further det
    docs/install.rst
    docs/api.rst
    docs/tools.rst
-   
-   
+
+
 .. toctree::
    :caption: Reference Documentation
    :maxdepth: 1

@@ -7,8 +7,8 @@ of a pod5 tool. These are commonly tool_pod5 (e.g. subset_pod5, merge_pod5)
 
 import argparse
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any, Optional
 
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE
@@ -39,8 +39,8 @@ def run_tool(parser: argparse.ArgumentParser) -> Any:
     except Exception as exc:
         if os.getenv("POD5_DEBUG", 0):
             raise exc
-        print(f"\nPOD5 has encoutered an error: '{exc}'", file=sys.stderr)
-        print(f"\nFor detailed information set POD5_DEBUG=1'", file=sys.stderr)
+        print(f"\nPOD5 has encountered an error: '{exc}'", file=sys.stderr)
+        print("\nFor detailed information set POD5_DEBUG=1'", file=sys.stderr)
         exit(1)
 
 

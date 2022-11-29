@@ -21,11 +21,11 @@ namespace combined_file_utils {
 static constexpr std::array<char, 8> FILE_SIGNATURE{'\213', 'P',  'O',    'D',
                                                     '\r',   '\n', '\032', '\n'};
 
-inline pod5::Status padd_file(std::shared_ptr<arrow::io::OutputStream> const& sink,
-                              std::uint32_t padd_to_size) {
+inline pod5::Status pad_file(std::shared_ptr<arrow::io::OutputStream> const& sink,
+                             std::uint32_t pad_to_size) {
     ARROW_ASSIGN_OR_RAISE(auto const current_byte_location, sink->Tell());
-    auto const bytes_to_write = padd_to_size - (current_byte_location % padd_to_size);
-    if (bytes_to_write == padd_to_size) {
+    auto const bytes_to_write = pad_to_size - (current_byte_location % pad_to_size);
+    if (bytes_to_write == pad_to_size) {
         return pod5::Status::OK();
     }
 
@@ -114,10 +114,10 @@ inline pod5::Status write_footer(std::shared_ptr<arrow::io::OutputStream> const&
     ARROW_ASSIGN_OR_RAISE(std::int64_t length,
                           write_footer_flatbuffer(sink, file_identifier, software_name,
                                                   signal_table, run_info_table, reads_table));
-    ARROW_RETURN_NOT_OK(padd_file(sink, 8));
+    ARROW_RETURN_NOT_OK(pad_file(sink, 8));
 
-    std::int64_t padded_flatbuffer_size = arrow::bit_util::ToLittleEndian(length);
-    ARROW_RETURN_NOT_OK(sink->Write(&padded_flatbuffer_size, sizeof(padded_flatbuffer_size)));
+    std::int64_t paded_flatbuffer_size = arrow::bit_util::ToLittleEndian(length);
+    ARROW_RETURN_NOT_OK(sink->Write(&paded_flatbuffer_size, sizeof(paded_flatbuffer_size)));
 
     ARROW_RETURN_NOT_OK(write_section_marker(sink, section_marker));
     return write_file_signature(sink);
@@ -348,8 +348,8 @@ inline arrow::Result<combined_file_utils::FileInfo> write_file_and_marker(
         SubFileCleanup cleanup_mode,
         boost::uuids::uuid const& section_marker) {
     ARROW_ASSIGN_OR_RAISE(auto file_info, write_file(pool, file, file_location, cleanup_mode));
-    // Padd file to 8 bytes and mark section:
-    ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
+    // Pad file to 8 bytes and mark section:
+    ARROW_RETURN_NOT_OK(combined_file_utils::pad_file(file, 8));
     ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, section_marker));
     return file_info;
 }
