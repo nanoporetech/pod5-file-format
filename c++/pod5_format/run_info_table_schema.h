@@ -30,8 +30,8 @@ class RunInfoTableSchemaDescription : public SchemaDescriptionBase {
 public:
     RunInfoTableSchemaDescription();
 
-    RunInfoTableSchemaDescription(RunInfoTableSchemaDescription const&) = delete;
-    RunInfoTableSchemaDescription& operator=(RunInfoTableSchemaDescription const&) = delete;
+    RunInfoTableSchemaDescription(RunInfoTableSchemaDescription const &) = delete;
+    RunInfoTableSchemaDescription & operator=(RunInfoTableSchemaDescription const &) = delete;
 
     TableSpecVersion table_version_from_file_version(Version file_version) const override;
 
@@ -59,31 +59,32 @@ public:
     // Field Builders only for fields we write in newly generated files.
     // Should not include fields which are removed in the latest version:
     using FieldBuilders = FieldBuilder<
-            // V0 fields
-            decltype(acquisition_id),
-            decltype(acquisition_start_time),
-            decltype(adc_max),
-            decltype(adc_min),
-            decltype(context_tags),
-            decltype(experiment_name),
-            decltype(flow_cell_id),
-            decltype(flow_cell_product_code),
-            decltype(protocol_name),
-            decltype(protocol_run_id),
-            decltype(protocol_start_time),
-            decltype(sample_id),
-            decltype(sample_rate),
-            decltype(sequencing_kit),
-            decltype(sequencer_position),
-            decltype(sequencer_position_type),
-            decltype(software),
-            decltype(system_name),
-            decltype(system_type),
-            decltype(tracking_id)>;
+        // V0 fields
+        decltype(acquisition_id),
+        decltype(acquisition_start_time),
+        decltype(adc_max),
+        decltype(adc_min),
+        decltype(context_tags),
+        decltype(experiment_name),
+        decltype(flow_cell_id),
+        decltype(flow_cell_product_code),
+        decltype(protocol_name),
+        decltype(protocol_run_id),
+        decltype(protocol_start_time),
+        decltype(sample_id),
+        decltype(sample_rate),
+        decltype(sequencing_kit),
+        decltype(sequencer_position),
+        decltype(sequencer_position_type),
+        decltype(software),
+        decltype(system_name),
+        decltype(system_type),
+        decltype(tracking_id)>;
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<RunInfoTableSchemaDescription const>>
-read_run_info_table_schema(SchemaMetadataDescription const& schema_metadata,
-                           std::shared_ptr<arrow::Schema> const&);
+read_run_info_table_schema(
+    SchemaMetadataDescription const & schema_metadata,
+    std::shared_ptr<arrow::Schema> const &);
 
 }  // namespace pod5

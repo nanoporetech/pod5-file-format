@@ -8,12 +8,14 @@
 #include "streamvbytedelta_x64_encode_16.c"
 #endif
 
-static inline uint16_t _zigzag_encode_16(uint16_t val) {
+static inline uint16_t _zigzag_encode_16(uint16_t val)
+{
     return (val + val) ^ ((int16_t)val >> 15);
 }
 
-static uint8_t _encode_data(uint16_t val, uint8_t *__restrict__ *dataPtrPtr) {
-    uint8_t *dataPtr = *dataPtrPtr;
+static uint8_t _encode_data(uint16_t val, uint8_t * __restrict__ * dataPtrPtr)
+{
+    uint8_t * dataPtr = *dataPtrPtr;
     uint8_t code;
 
     if (val < (1 << 8)) {  // 1 byte
@@ -29,11 +31,13 @@ static uint8_t _encode_data(uint16_t val, uint8_t *__restrict__ *dataPtrPtr) {
     return code;
 }
 
-static uint8_t *svb_encode_scalar_d1_init(const uint16_t *in,
-                                          uint8_t *__restrict__ keyPtr,
-                                          uint8_t *__restrict__ dataPtr,
-                                          uint32_t count,
-                                          uint16_t prev) {
+static uint8_t * svb_encode_scalar_d1_init(
+    uint16_t const * in,
+    uint8_t * __restrict__ keyPtr,
+    uint8_t * __restrict__ dataPtr,
+    uint32_t count,
+    uint16_t prev)
+{
     if (count == 0)
         return dataPtr;  // exit immediately if no data
 
@@ -57,18 +61,20 @@ static uint8_t *svb_encode_scalar_d1_init(const uint16_t *in,
     return dataPtr;  // pointer to first unused data byte
 }
 
-size_t streamvbyte_zigzag_delta_encode_16(const uint16_t *in,
-                                          uint32_t count,
-                                          uint8_t *out,
-                                          uint16_t prev) {
+size_t streamvbyte_zigzag_delta_encode_16(
+    uint16_t const * in,
+    uint32_t count,
+    uint8_t * out,
+    uint16_t prev)
+{
 #ifdef STREAMVBYTE_X64
     if (streamvbyte_ssse3()) {
         return streamvbyte_zigzag_delta_encode_SSSE3_d1_init(in, count, out, prev);
     }
 #endif
-    uint8_t *keyPtr = out;  // keys come at start
+    uint8_t * keyPtr = out;  // keys come at start
     // keyLen = ceil(count / 8), without overflowing (1 bit per input value):
     uint32_t keyLen = (count >> 3) + (((count & 7) + 7) >> 3);
-    uint8_t *dataPtr = keyPtr + keyLen;  // variable byte data after all keys
+    uint8_t * dataPtr = keyPtr + keyLen;  // variable byte data after all keys
     return svb_encode_scalar_d1_init(in, keyPtr, dataPtr, count, prev) - out;
 }

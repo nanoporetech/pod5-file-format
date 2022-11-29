@@ -13,18 +13,22 @@
 
 namespace svb16 {
 namespace detail {
-[[gnu::target("ssse3")]] inline __m128i delta(__m128i curr, __m128i prev) {
+[[gnu::target("ssse3")]] inline __m128i delta(__m128i curr, __m128i prev)
+{
     return _mm_sub_epi16(curr, _mm_alignr_epi8(curr, prev, 14));
 }
 
-[[gnu::target("ssse3")]] inline __m128i zigzag_encode(__m128i val) {
+[[gnu::target("ssse3")]] inline __m128i zigzag_encode(__m128i val)
+{
     return _mm_xor_si128(_mm_add_epi16(val, val), _mm_srai_epi16(val, 16));
 }
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("ssse3")]] inline __m128i load_8(Int16T const *from, __m128i *prev) {
+[[gnu::target("ssse3")]] inline __m128i load_8(Int16T const * from, __m128i * prev)
+{
     auto const loaded = _mm_loadu_si128(reinterpret_cast<__m128i const *>(from));
-    SVB16_IF_CONSTEXPR(UseDelta && UseZigzag) {
+    SVB16_IF_CONSTEXPR(UseDelta && UseZigzag)
+    {
         auto const result = delta(loaded, *prev);
         *prev = loaded;
         return zigzag_encode(result);
@@ -44,19 +48,36 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
 }  // namespace detail
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("ssse3")]] uint8_t *encode_sse(Int16T const *in,
-                                             uint8_t *SVB_RESTRICT keys_dest,
-                                             uint8_t *SVB_RESTRICT data_dest,
-                                             uint32_t count,
-                                             Int16T prev = 0) {
+[[gnu::target("ssse3")]] uint8_t * encode_sse(
+    Int16T const * in,
+    uint8_t * SVB_RESTRICT keys_dest,
+    uint8_t * SVB_RESTRICT data_dest,
+    uint32_t count,
+    Int16T prev = 0)
+{
     // this code treats all input as uint16_t (except the zigzag code, which treats it as int16_t)
     // this isn't a problem, as the scalar code does the same
     __m128i prev_reg;
     SVB16_IF_CONSTEXPR(UseDelta) { prev_reg = _mm_set1_epi16(prev); }
     //auto const key_len = svb16_key_length(count);
-    auto const mask_01 = detail::m128i_from_bytes(0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-                                                  0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01);
-    for (const Int16T *end = &in [(count & ~15)]; in != end; in += 16) {
+    auto const mask_01 = detail::m128i_from_bytes(
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01,
+        0x01);
+    for (Int16T const * end = &in [(count & ~15)]; in != end; in += 16) {
         // load up 16 values into r0 and r1
         auto r0 = detail::load_8<Int16T, UseDelta, UseZigzag>(in, &prev_reg);
         auto r1 = detail::load_8<Int16T, UseDelta, UseZigzag>(in + 8, &prev_reg);

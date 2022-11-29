@@ -7,7 +7,8 @@
 #include <fstream>
 #include <iostream>
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
     if (argc != 2) {
         std::cerr << "Expected one argument - an pod5 file to search\n";
     }
@@ -16,7 +17,7 @@ int main(int argc, char** argv) {
     pod5_init();
 
     // Open the file ready for walking:
-    Pod5FileReader_t* file = pod5_open_file(argv[1]);
+    Pod5FileReader_t * file = pod5_open_file(argv[1]);
     if (!file) {
         std::cerr << "Failed to open file " << argv[1] << ": " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
@@ -35,7 +36,7 @@ int main(int argc, char** argv) {
     std::size_t read_count = 0;
 
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
-        Pod5ReadRecordBatch_t* batch = nullptr;
+        Pod5ReadRecordBatch_t * batch = nullptr;
         if (pod5_get_read_batch(&batch, file, batch_index) != POD5_OK) {
             std::cerr << "Failed to get batch: " << pod5_get_error_string() << "\n";
             return EXIT_FAILURE;
@@ -50,8 +51,10 @@ int main(int argc, char** argv) {
         for (std::size_t row = 0; row < batch_row_count; ++row) {
             uint16_t read_table_version = 0;
             ReadBatchRowInfo_t read_data;
-            if (pod5_get_read_batch_row_info_data(batch, row, READ_BATCH_ROW_INFO_VERSION,
-                                                  &read_data, &read_table_version) != POD5_OK) {
+            if (pod5_get_read_batch_row_info_data(
+                    batch, row, READ_BATCH_ROW_INFO_VERSION, &read_data, &read_table_version)
+                != POD5_OK)
+            {
                 std::cerr << "Failed to get read " << row << "\n";
                 return EXIT_FAILURE;
             }

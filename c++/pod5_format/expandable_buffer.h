@@ -11,24 +11,28 @@ class ExpandableBuffer {
 public:
     static constexpr int EXPANSION_FACTOR = 2;
 
-    ExpandableBuffer(arrow::MemoryPool* pool = nullptr) { m_pool = pool; }
+    ExpandableBuffer(arrow::MemoryPool * pool = nullptr) { m_pool = pool; }
 
-    arrow::Status init_buffer(arrow::MemoryPool* pool) {
+    arrow::Status init_buffer(arrow::MemoryPool * pool)
+    {
         m_pool = pool;
         return clear();
     }
 
-    std::size_t size() const {
+    std::size_t size() const
+    {
         if (!m_buffer) {
             return 0;
         }
         return m_buffer->size() / sizeof(T);
     }
-    std::uint8_t* mutable_data() { return m_buffer->mutable_data(); }
+
+    std::uint8_t * mutable_data() { return m_buffer->mutable_data(); }
 
     std::shared_ptr<arrow::Buffer> get_buffer() const { return m_buffer; }
 
-    arrow::Status clear() {
+    arrow::Status clear()
+    {
         if (!m_buffer || m_buffer.use_count() > 1) {
             ARROW_ASSIGN_OR_RAISE(m_buffer, arrow::AllocateResizableBuffer(0, m_pool));
             return arrow::Status::OK();
@@ -37,30 +41,35 @@ public:
         }
     }
 
-    gsl::span<T const> get_data_span() const {
+    gsl::span<T const> get_data_span() const
+    {
         assert(m_buffer);
         return gsl::make_span(m_buffer->data(), m_buffer->size()).template as_span<T const>();
     }
 
-    arrow::Status append(T const& new_value) {
+    arrow::Status append(T const & new_value)
+    {
         auto const bytes_span =
-                gsl::make_span(&new_value, 1).template as_span<std::uint8_t const>();
+            gsl::make_span(&new_value, 1).template as_span<std::uint8_t const>();
 
         return append_bytes(bytes_span);
     }
 
-    arrow::Status append_array(gsl::span<T const> const& new_value_span) {
+    arrow::Status append_array(gsl::span<T const> const & new_value_span)
+    {
         auto const bytes_span = new_value_span.template as_span<std::uint8_t const>();
 
         return append_bytes(bytes_span);
     }
 
-    arrow::Status resize(std::int64_t new_size) {
+    arrow::Status resize(std::int64_t new_size)
+    {
         ARROW_RETURN_NOT_OK(reserve(new_size));
         return m_buffer->Resize(new_size);
     }
 
-    arrow::Status reserve(std::int64_t new_capacity) {
+    arrow::Status reserve(std::int64_t new_capacity)
+    {
         assert(m_buffer);
         auto const old_size = m_buffer->size();
         if (m_buffer.use_count() > 1) {
@@ -78,11 +87,12 @@ public:
     }
 
 private:
-    arrow::Status append_bytes(gsl::span<std::uint8_t const> const& bytes_span) {
+    arrow::Status append_bytes(gsl::span<std::uint8_t const> const & bytes_span)
+    {
         auto old_size = 0;
         if (!m_buffer) {
-            ARROW_ASSIGN_OR_RAISE(m_buffer,
-                                  arrow::AllocateResizableBuffer(bytes_span.size(), m_pool));
+            ARROW_ASSIGN_OR_RAISE(
+                m_buffer, arrow::AllocateResizableBuffer(bytes_span.size(), m_pool));
         } else {
             old_size = m_buffer->size();
         }
@@ -95,7 +105,7 @@ private:
     }
 
     std::shared_ptr<arrow::ResizableBuffer> m_buffer;
-    arrow::MemoryPool* m_pool = nullptr;
+    arrow::MemoryPool * m_pool = nullptr;
 };
 
 }  // namespace pod5

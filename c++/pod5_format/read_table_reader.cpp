@@ -15,36 +15,44 @@
 namespace pod5 {
 
 ReadTableRecordBatch::ReadTableRecordBatch(
-        std::shared_ptr<arrow::RecordBatch>&& batch,
-        std::shared_ptr<ReadTableSchemaDescription const> const& field_locations)
-        : TableRecordBatch(std::move(batch)), m_field_locations(field_locations) {}
+    std::shared_ptr<arrow::RecordBatch> && batch,
+    std::shared_ptr<ReadTableSchemaDescription const> const & field_locations)
+: TableRecordBatch(std::move(batch))
+, m_field_locations(field_locations)
+{
+}
 
-ReadTableRecordBatch::ReadTableRecordBatch(ReadTableRecordBatch&& other)
-        : TableRecordBatch(std::move(other)) {
+ReadTableRecordBatch::ReadTableRecordBatch(ReadTableRecordBatch && other)
+: TableRecordBatch(std::move(other))
+{
     m_field_locations = std::move(other.m_field_locations);
 }
 
-ReadTableRecordBatch& ReadTableRecordBatch::operator=(ReadTableRecordBatch&& other) {
-    TableRecordBatch& base = *this;
+ReadTableRecordBatch & ReadTableRecordBatch::operator=(ReadTableRecordBatch && other)
+{
+    TableRecordBatch & base = *this;
     base = other;
 
     m_field_locations = std::move(other.m_field_locations);
     return *this;
 }
 
-std::shared_ptr<UuidArray> ReadTableRecordBatch::read_id_column() const {
+std::shared_ptr<UuidArray> ReadTableRecordBatch::read_id_column() const
+{
     return find_column(batch(), m_field_locations->read_id);
 }
 
-std::shared_ptr<arrow::ListArray> ReadTableRecordBatch::signal_column() const {
+std::shared_ptr<arrow::ListArray> ReadTableRecordBatch::signal_column() const
+{
     return find_column(batch(), m_field_locations->signal);
 }
 
-Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
+Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
+{
     ReadTableRecordColumns result;
     result.table_version = m_field_locations->table_version();
 
-    auto const& bat = batch();
+    auto const & bat = batch();
 
     // V0 fields:
     result.read_id = find_column(bat, m_field_locations->read_id);
@@ -60,11 +68,11 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
         result.tracked_scaling_scale = find_column(bat, m_field_locations->tracked_scaling_scale);
         result.tracked_scaling_shift = find_column(bat, m_field_locations->tracked_scaling_shift);
         result.predicted_scaling_scale =
-                find_column(bat, m_field_locations->predicted_scaling_scale);
+            find_column(bat, m_field_locations->predicted_scaling_scale);
         result.predicted_scaling_shift =
-                find_column(bat, m_field_locations->predicted_scaling_shift);
+            find_column(bat, m_field_locations->predicted_scaling_shift);
         result.num_reads_since_mux_change =
-                find_column(bat, m_field_locations->num_reads_since_mux_change);
+            find_column(bat, m_field_locations->num_reads_since_mux_change);
         result.time_since_mux_change = find_column(bat, m_field_locations->time_since_mux_change);
     }
 
@@ -88,7 +96,8 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const {
     return result;
 }
 
-Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index) const {
+Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index) const
+{
     std::lock_guard<std::mutex> l(m_dictionary_access_lock);
 
     if (!m_field_locations->pore_type.found_field()) {
@@ -98,15 +107,16 @@ Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index)
     auto pore_column = find_column(batch(), m_field_locations->pore_type);
     auto pore_data = std::static_pointer_cast<arrow::StringArray>(pore_column->dictionary());
     if (pore_index >= pore_data->length()) {
-        return arrow::Status::IndexError("Invalid index ", pore_index, " for pore array of length ",
-                                         pore_data->length());
+        return arrow::Status::IndexError(
+            "Invalid index ", pore_index, " for pore array of length ", pore_data->length());
     }
 
     return pore_data->Value(pore_index).to_string();
 }
 
 Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reason(
-        std::int16_t end_reason_index) const {
+    std::int16_t end_reason_index) const
+{
     std::lock_guard<std::mutex> l(m_dictionary_access_lock);
 
     if (!m_field_locations->end_reason.found_field()) {
@@ -115,11 +125,13 @@ Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reas
 
     auto end_reason_column = find_column(batch(), m_field_locations->end_reason);
     auto end_reason_data =
-            std::static_pointer_cast<arrow::StringArray>(end_reason_column->dictionary());
+        std::static_pointer_cast<arrow::StringArray>(end_reason_column->dictionary());
     if (end_reason_index >= end_reason_data->length()) {
-        return arrow::Status::IndexError("Invalid index ", end_reason_index,
-                                         " for end reason array of length ",
-                                         end_reason_data->length());
+        return arrow::Status::IndexError(
+            "Invalid index ",
+            end_reason_index,
+            " for end reason array of length ",
+            end_reason_data->length());
     }
 
     auto str_value = end_reason_data->Value(end_reason_index).to_string();
@@ -127,7 +139,8 @@ Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reas
     return std::make_pair(end_reason_from_string(str_value), str_value);
 }
 
-Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const {
+Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const
+{
     std::lock_guard<std::mutex> l(m_dictionary_access_lock);
 
     if (!m_field_locations->run_info.found_field()) {
@@ -136,10 +149,13 @@ Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_ind
 
     auto run_info_column = find_column(batch(), m_field_locations->run_info);
     auto run_info_data =
-            std::static_pointer_cast<arrow::StringArray>(run_info_column->dictionary());
+        std::static_pointer_cast<arrow::StringArray>(run_info_column->dictionary());
     if (run_info_index >= run_info_data->length()) {
-        return arrow::Status::IndexError("Invalid index ", run_info_index,
-                                         " for run info array of length ", run_info_data->length());
+        return arrow::Status::IndexError(
+            "Invalid index ",
+            run_info_index,
+            " for run info array of length ",
+            run_info_data->length());
     }
 
     return run_info_data->Value(run_info_index).to_string();
@@ -148,27 +164,33 @@ Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_ind
 //---------------------------------------------------------------------------------------------------------------------
 
 ReadTableReader::ReadTableReader(
-        std::shared_ptr<void>&& input_source,
-        std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-        std::shared_ptr<ReadTableSchemaDescription const> const& field_locations,
-        SchemaMetadataDescription&& schema_metadata,
-        arrow::MemoryPool* pool)
-        : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool),
-          m_field_locations(field_locations) {}
+    std::shared_ptr<void> && input_source,
+    std::shared_ptr<arrow::ipc::RecordBatchFileReader> && reader,
+    std::shared_ptr<ReadTableSchemaDescription const> const & field_locations,
+    SchemaMetadataDescription && schema_metadata,
+    arrow::MemoryPool * pool)
+: TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool)
+, m_field_locations(field_locations)
+{
+}
 
-ReadTableReader::ReadTableReader(ReadTableReader&& other)
-        : TableReader(std::move(other)),
-          m_field_locations(std::move(other.m_field_locations)),
-          m_sorted_file_read_ids(std::move(other.m_sorted_file_read_ids)) {}
+ReadTableReader::ReadTableReader(ReadTableReader && other)
+: TableReader(std::move(other))
+, m_field_locations(std::move(other.m_field_locations))
+, m_sorted_file_read_ids(std::move(other.m_sorted_file_read_ids))
+{
+}
 
-ReadTableReader& ReadTableReader::operator=(ReadTableReader&& other) {
-    static_cast<TableReader&>(*this) = std::move(static_cast<TableReader&>(*this));
+ReadTableReader & ReadTableReader::operator=(ReadTableReader && other)
+{
+    static_cast<TableReader &>(*this) = std::move(static_cast<TableReader &>(*this));
     m_field_locations = std::move(other.m_field_locations);
     m_sorted_file_read_ids = std::move(other.m_sorted_file_read_ids);
     return *this;
 }
 
-Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) const {
+Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) const
+{
     std::lock_guard<std::mutex> l(m_batch_get_mutex);
     auto record_batch = reader()->ReadRecordBatch(i);
     if (!record_batch.ok()) {
@@ -177,7 +199,8 @@ Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) c
     return ReadTableRecordBatch{std::move(*record_batch), m_field_locations};
 }
 
-Status ReadTableReader::build_read_id_lookup() {
+Status ReadTableReader::build_read_id_lookup()
+{
     if (!m_sorted_file_read_ids.empty()) {
         return Status::OK();
     }
@@ -208,8 +231,9 @@ Status ReadTableReader::build_read_id_lookup() {
     }
 
     // Sort by read id for searching later:
-    std::sort(file_read_ids.begin(), file_read_ids.end(),
-              [](auto const& a, auto const& b) { return a.id < b.id; });
+    std::sort(file_read_ids.begin(), file_read_ids.end(), [](auto const & a, auto const & b) {
+        return a.id < b.id;
+    });
 
     // Move data out now we successfully build the index:
     m_sorted_file_read_ids = std::move(file_read_ids);
@@ -217,23 +241,25 @@ Status ReadTableReader::build_read_id_lookup() {
     return Status::OK();
 }
 
-Result<std::size_t> ReadTableReader::search_for_read_ids(ReadIdSearchInput const& search_input,
-                                                         gsl::span<uint32_t> const& batch_counts,
-                                                         gsl::span<uint32_t> const& batch_rows) {
+Result<std::size_t> ReadTableReader::search_for_read_ids(
+    ReadIdSearchInput const & search_input,
+    gsl::span<uint32_t> const & batch_counts,
+    gsl::span<uint32_t> const & batch_rows)
+{
     ARROW_RETURN_NOT_OK(build_read_id_lookup());
 
     std::size_t successes = 0;
 
     std::vector<std::vector<std::uint32_t>> batch_data(batch_counts.size());
     auto const initial_reserve_size = search_input.read_id_count() / batch_counts.size();
-    for (auto& br : batch_data) {
+    for (auto & br : batch_data) {
         br.reserve(initial_reserve_size);
     }
 
     auto file_ids_current_it = m_sorted_file_read_ids.begin();
     auto const file_ids_end = m_sorted_file_read_ids.end();
     for (std::size_t i = 0; i < search_input.read_id_count(); ++i) {
-        auto const& search_item = search_input[i];
+        auto const & search_item = search_input[i];
 
         // Increment file pointer while less than the search term:
         while (file_ids_current_it->id < search_item.id && file_ids_current_it != file_ids_end) {
@@ -249,7 +275,7 @@ Result<std::size_t> ReadTableReader::search_for_read_ids(ReadIdSearchInput const
 
     std::size_t full_size_so_far = 0;
     for (std::size_t i = 0; i < batch_data.size(); ++i) {
-        auto& data = batch_data[i];
+        auto & data = batch_data[i];
         batch_counts[i] = data.size();
 
         // Ensure the batch indices within the batch are sorted:
@@ -267,8 +293,9 @@ Result<std::size_t> ReadTableReader::search_for_read_ids(ReadIdSearchInput const
 //---------------------------------------------------------------------------------------------------------------------
 
 Result<ReadTableReader> make_read_table_reader(
-        std::shared_ptr<arrow::io::RandomAccessFile> const& input,
-        arrow::MemoryPool* pool) {
+    std::shared_ptr<arrow::io::RandomAccessFile> const & input,
+    arrow::MemoryPool * pool)
+{
     arrow::ipc::IpcReadOptions options;
     options.memory_pool = pool;
 
@@ -278,13 +305,13 @@ Result<ReadTableReader> make_read_table_reader(
     if (!read_metadata_key_values) {
         return Status::IOError("Missing metadata on read table schema");
     }
-    ARROW_ASSIGN_OR_RAISE(auto read_metadata,
-                          read_schema_key_value_metadata(read_metadata_key_values));
-    ARROW_ASSIGN_OR_RAISE(auto field_locations,
-                          read_read_table_schema(read_metadata, reader->schema()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto read_metadata, read_schema_key_value_metadata(read_metadata_key_values));
+    ARROW_ASSIGN_OR_RAISE(
+        auto field_locations, read_read_table_schema(read_metadata, reader->schema()));
 
-    return ReadTableReader({input}, std::move(reader), field_locations, std::move(read_metadata),
-                           pool);
+    return ReadTableReader(
+        {input}, std::move(reader), field_locations, std::move(read_metadata), pool);
 }
 
 }  // namespace pod5

@@ -7,8 +7,11 @@ public:
     // Work around AppleClang issue:
     // https://stackoverflow.com/questions/7411515/why-does-c-require-a-user-provided-default-constructor-to-default-construct-a
     ErrorCategory() {}
-    const char *name() const noexcept override { return "usb"; }
-    std::string message(int code) const override {
+
+    char const * name() const noexcept override { return "usb"; }
+
+    std::string message(int code) const override
+    {
         if (code == 0) {
             return "Success";
         }
@@ -26,7 +29,8 @@ public:
         return "unknown error";
     }
 
-    std::error_condition default_error_condition(int code) const noexcept override {
+    std::error_condition default_error_condition(int code) const noexcept override
+    {
         if (code == 0) {
             return std::error_condition(0, std::generic_category());
         }
@@ -45,7 +49,8 @@ public:
     }
 };
 
-const std::error_category &error_category() {
+std::error_category const & error_category()
+{
     static const ErrorCategory category;
     return category;
 }

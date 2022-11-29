@@ -19,9 +19,10 @@ enum class Errors : int {
     failed_to_write_record_batch = 3,
 };
 
-POD5_FORMAT_EXPORT std::error_category const& error_category();
+POD5_FORMAT_EXPORT std::error_category const & error_category();
 
-inline std::error_code make_error_code(Errors result) {
+inline std::error_code make_error_code(Errors result)
+{
     return std::error_code(static_cast<int>(result), error_category());
 }
 

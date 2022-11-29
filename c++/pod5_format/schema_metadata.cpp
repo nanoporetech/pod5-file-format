@@ -8,7 +8,8 @@
 
 namespace pod5 {
 
-Result<Version> parse_version_number(std::string const& ver) {
+Result<Version> parse_version_number(std::string const & ver)
+{
     std::uint16_t components[3];
     std::size_t component_index = 0;
     std::size_t last_char_index = 0;
@@ -16,7 +17,7 @@ Result<Version> parse_version_number(std::string const& ver) {
 
     auto parse_component = [&](std::size_t last_char_index, std::size_t char_index) {
         auto const component_str =
-                std::string(ver.data() + last_char_index, ver.data() + char_index);
+            std::string(ver.data() + last_char_index, ver.data() + char_index);
 
         std::size_t pos = 0;
         int val = std::stoi(component_str, &pos);
@@ -47,18 +48,21 @@ Result<Version> parse_version_number(std::string const& ver) {
             return Status::Invalid("Invalid component count");
         }
         components[2] = parse_component(last_char_index, char_index);
-    } catch (std::exception const& e) {
+    } catch (std::exception const & e) {
         return Status::Invalid(e.what());
     }
 
     return Version{components[0], components[1], components[2]};
 }
-Version current_build_version_number() {
+
+Version current_build_version_number()
+{
     return Version(Pod5MajorVersion, Pod5MinorVersion, Pod5RevVersion);
 }
 
 Result<std::shared_ptr<const arrow::KeyValueMetadata>> make_schema_key_value_metadata(
-        SchemaMetadataDescription const& schema_metadata) {
+    SchemaMetadataDescription const & schema_metadata)
+{
     if (schema_metadata.writing_software.empty()) {
         return Status::Invalid("Expected writing_software to be specified for metadata");
     }
@@ -72,15 +76,17 @@ Result<std::shared_ptr<const arrow::KeyValueMetadata>> make_schema_key_value_met
     }
 
     return arrow::KeyValueMetadata::Make(
-            {"MINKNOW:file_identifier", "MINKNOW:software", "MINKNOW:pod5_version"},
-            {boost::uuids::to_string(schema_metadata.file_identifier),
-             schema_metadata.writing_software, schema_metadata.writing_pod5_version.to_string()});
+        {"MINKNOW:file_identifier", "MINKNOW:software", "MINKNOW:pod5_version"},
+        {boost::uuids::to_string(schema_metadata.file_identifier),
+         schema_metadata.writing_software,
+         schema_metadata.writing_pod5_version.to_string()});
 }
 
 Result<SchemaMetadataDescription> read_schema_key_value_metadata(
-        std::shared_ptr<const arrow::KeyValueMetadata> const& key_value_metadata) {
-    ARROW_ASSIGN_OR_RAISE(auto file_identifier_str,
-                          key_value_metadata->Get("MINKNOW:file_identifier"));
+    std::shared_ptr<const arrow::KeyValueMetadata> const & key_value_metadata)
+{
+    ARROW_ASSIGN_OR_RAISE(
+        auto file_identifier_str, key_value_metadata->Get("MINKNOW:file_identifier"));
     ARROW_ASSIGN_OR_RAISE(auto software_str, key_value_metadata->Get("MINKNOW:software"));
     ARROW_ASSIGN_OR_RAISE(auto pod5_version_str, key_value_metadata->Get("MINKNOW:pod5_version"));
     ARROW_ASSIGN_OR_RAISE(auto pod5_version, parse_version_number(pod5_version_str));
@@ -88,9 +94,9 @@ Result<SchemaMetadataDescription> read_schema_key_value_metadata(
     boost::uuids::uuid file_identifier;
     try {
         file_identifier = boost::lexical_cast<boost::uuids::uuid>(file_identifier_str);
-    } catch (boost::bad_lexical_cast const&) {
-        return Status::IOError("Schema file_identifier metadata not uuid form: '",
-                               file_identifier_str, "'");
+    } catch (boost::bad_lexical_cast const &) {
+        return Status::IOError(
+            "Schema file_identifier metadata not uuid form: '", file_identifier_str, "'");
     }
 
     return SchemaMetadataDescription{file_identifier, software_str, pod5_version};

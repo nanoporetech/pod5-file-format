@@ -19,19 +19,25 @@
 
 //---------------------------------------------------------------------------------------------------------------------
 struct Pod5FileReader {
-    Pod5FileReader(std::shared_ptr<pod5::FileReader>&& reader_) : reader(std::move(reader_)) {}
+    Pod5FileReader(std::shared_ptr<pod5::FileReader> && reader_) : reader(std::move(reader_)) {}
+
     std::shared_ptr<pod5::FileReader> reader;
 };
 
 struct Pod5FileWriter {
-    Pod5FileWriter(std::unique_ptr<pod5::FileWriter>&& writer_) : writer(std::move(writer_)) {}
+    Pod5FileWriter(std::unique_ptr<pod5::FileWriter> && writer_) : writer(std::move(writer_)) {}
+
     std::unique_ptr<pod5::FileWriter> writer;
 };
 
 struct Pod5ReadRecordBatch {
-    Pod5ReadRecordBatch(pod5::ReadTableRecordBatch&& batch_,
-                        std::shared_ptr<pod5::FileReader> const& reader)
-            : batch(std::move(batch_)), reader(reader) {}
+    Pod5ReadRecordBatch(
+        pod5::ReadTableRecordBatch && batch_,
+        std::shared_ptr<pod5::FileReader> const & reader)
+    : batch(std::move(batch_))
+    , reader(reader)
+    {
+    }
 
     pod5::ReadTableRecordBatch batch;
     std::shared_ptr<pod5::FileReader> reader;
@@ -43,14 +49,16 @@ pod5_error_t g_pod5_error_no;
 std::string g_pod5_error_string;
 }  // namespace
 
-extern "C" void pod5_set_error(arrow::Status status) {
+extern "C" void pod5_set_error(arrow::Status status)
+{
     g_pod5_error_no = (pod5_error_t)status.code();
     g_pod5_error_string = status.ToString();
 }
 
 namespace {
 
-void pod5_reset_error() {
+void pod5_reset_error()
+{
     g_pod5_error_no = pod5_error_t::POD5_OK;
     g_pod5_error_string.clear();
 }
@@ -65,19 +73,20 @@ void pod5_reset_error() {
     } while (0)
 
 #define POD5_C_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
-    auto&& result_name = (rexpr);                            \
+    auto && result_name = (rexpr);                           \
     if (!(result_name).ok()) {                               \
         pod5_set_error((result_name).status());              \
         return g_pod5_error_no;                              \
     }                                                        \
     lhs = std::move(result_name).ValueUnsafe();
 
-#define POD5_C_ASSIGN_OR_RAISE(lhs, rexpr)                                                     \
-    POD5_C_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, \
-                                rexpr);
+#define POD5_C_ASSIGN_OR_RAISE(lhs, rexpr) \
+    POD5_C_ASSIGN_OR_RAISE_IMPL(           \
+        ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
 
 //---------------------------------------------------------------------------------------------------------------------
-bool check_string_not_empty(char const* str) {
+bool check_string_not_empty(char const * str)
+{
     if (!str) {
         pod5_set_error(arrow::Status::Invalid("null string passed to C API"));
         return false;
@@ -91,7 +100,8 @@ bool check_string_not_empty(char const* str) {
     return true;
 }
 
-bool check_not_null(void const* ptr) {
+bool check_not_null(void const * ptr)
+{
     if (!ptr) {
         pod5_set_error(arrow::Status::Invalid("null passed to C API"));
         return false;
@@ -99,7 +109,8 @@ bool check_not_null(void const* ptr) {
     return true;
 }
 
-bool check_file_not_null(void const* file) {
+bool check_file_not_null(void const * file)
+{
     if (!file) {
         pod5_set_error(arrow::Status::Invalid("null file passed to C API"));
         return false;
@@ -107,7 +118,8 @@ bool check_file_not_null(void const* file) {
     return true;
 }
 
-bool check_output_pointer_not_null(void const* output) {
+bool check_output_pointer_not_null(void const * output)
+{
     if (!output) {
         pod5_set_error(arrow::Status::Invalid("null output parameter passed to C API"));
         return false;
@@ -116,7 +128,8 @@ bool check_output_pointer_not_null(void const* output) {
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-pod5::FileWriterOptions make_internal_writer_options(Pod5WriterOptions const* options) {
+pod5::FileWriterOptions make_internal_writer_options(Pod5WriterOptions const * options)
+{
     pod5::FileWriterOptions internal_options;
     if (options) {
         if (options->max_signal_chunk_size != 0) {
@@ -142,13 +155,15 @@ pod5::FileWriterOptions make_internal_writer_options(Pod5WriterOptions const* op
 extern "C" {
 
 //---------------------------------------------------------------------------------------------------------------------
-pod5_error_t pod5_init() {
+pod5_error_t pod5_init()
+{
     pod5_reset_error();
     POD5_C_RETURN_NOT_OK(pod5::register_extension_types());
     return POD5_OK;
 }
 
-pod5_error_t pod5_terminate() {
+pod5_error_t pod5_terminate()
+{
     pod5_reset_error();
     POD5_C_RETURN_NOT_OK(pod5::unregister_extension_types());
     return POD5_OK;
@@ -156,10 +171,11 @@ pod5_error_t pod5_terminate() {
 
 pod5_error_t pod5_get_error_no() { return g_pod5_error_no; }
 
-char const* pod5_get_error_string() { return g_pod5_error_string.c_str(); }
+char const * pod5_get_error_string() { return g_pod5_error_string.c_str(); }
 
 //---------------------------------------------------------------------------------------------------------------------
-Pod5FileReader* pod5_open_file(char const* filename) {
+Pod5FileReader * pod5_open_file(char const * filename)
+{
     pod5_reset_error();
 
     if (!check_string_not_empty(filename)) {
@@ -176,7 +192,8 @@ Pod5FileReader* pod5_open_file(char const* filename) {
     return reader.release();
 }
 
-pod5_error_t pod5_close_and_free_reader(Pod5FileReader* file) {
+pod5_error_t pod5_close_and_free_reader(Pod5FileReader * file)
+{
     pod5_reset_error();
 
     std::unique_ptr<Pod5FileReader> ptr{file};
@@ -184,7 +201,8 @@ pod5_error_t pod5_close_and_free_reader(Pod5FileReader* file) {
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo* file_info) {
+pod5_error_t pod5_get_file_info(Pod5FileReader_t * reader, FileInfo * file_info)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_info)) {
@@ -193,8 +211,10 @@ pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo* file_info) {
 
     auto const metadata = reader->reader->schema_metadata();
 
-    std::copy(metadata.file_identifier.begin(), metadata.file_identifier.end(),
-              file_info->file_identifier);
+    std::copy(
+        metadata.file_identifier.begin(),
+        metadata.file_identifier.end(),
+        file_info->file_identifier);
 
     file_info->version.major = metadata.writing_pod5_version.major_version();
     file_info->version.minor = metadata.writing_pod5_version.minor_version();
@@ -203,14 +223,16 @@ pod5_error_t pod5_get_file_info(Pod5FileReader_t* reader, FileInfo* file_info) {
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_file_read_table_location(Pod5FileReader_t* reader,
-                                               EmbeddedFileData_t* file_data) {
+pod5_error_t pod5_get_file_read_table_location(
+    Pod5FileReader_t * reader,
+    EmbeddedFileData_t * file_data)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
         return g_pod5_error_no;
     }
-    auto const& read_table_location = reader->reader->read_table_location();
+    auto const & read_table_location = reader->reader->read_table_location();
 
     file_data->offset = read_table_location.offset;
     file_data->offset = read_table_location.offset;
@@ -218,8 +240,10 @@ pod5_error_t pod5_get_file_read_table_location(Pod5FileReader_t* reader,
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_file_signal_table_location(Pod5FileReader_t* reader,
-                                                 EmbeddedFileData_t* file_data) {
+pod5_error_t pod5_get_file_signal_table_location(
+    Pod5FileReader_t * reader,
+    EmbeddedFileData_t * file_data)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
@@ -232,8 +256,10 @@ pod5_error_t pod5_get_file_signal_table_location(Pod5FileReader_t* reader,
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_file_run_info_table_location(Pod5FileReader_t* reader,
-                                                   EmbeddedFileData_t* file_data) {
+pod5_error_t pod5_get_file_run_info_table_location(
+    Pod5FileReader_t * reader,
+    EmbeddedFileData_t * file_data)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
@@ -246,29 +272,32 @@ pod5_error_t pod5_get_file_run_info_table_location(Pod5FileReader_t* reader,
     return POD5_OK;
 }
 
-pod5_error_t pod5_plan_traversal(Pod5FileReader_t* reader,
-                                 uint8_t const* read_id_array,
-                                 size_t read_id_count,
-                                 uint32_t* batch_counts,
-                                 uint32_t* batch_rows,
-                                 size_t* find_success_count_out) {
+pod5_error_t pod5_plan_traversal(
+    Pod5FileReader_t * reader,
+    uint8_t const * read_id_array,
+    size_t read_id_count,
+    uint32_t * batch_counts,
+    uint32_t * batch_rows,
+    size_t * find_success_count_out)
+{
     pod5_reset_error();
 
-    if (!check_file_not_null(reader) || !check_not_null(read_id_array) ||
-        !check_output_pointer_not_null(batch_counts) ||
-        !check_output_pointer_not_null(batch_rows)) {
+    if (!check_file_not_null(reader) || !check_not_null(read_id_array)
+        || !check_output_pointer_not_null(batch_counts)
+        || !check_output_pointer_not_null(batch_rows))
+    {
         return g_pod5_error_no;
     }
 
-    auto search_input = pod5::ReadIdSearchInput(gsl::make_span(
-            reinterpret_cast<boost::uuids::uuid const*>(read_id_array), read_id_count));
+    auto search_input = pod5::ReadIdSearchInput(
+        gsl::make_span(reinterpret_cast<boost::uuids::uuid const *>(read_id_array), read_id_count));
 
     POD5_C_ASSIGN_OR_RAISE(
-            auto find_success_count,
-            reader->reader->search_for_read_ids(
-                    search_input,
-                    gsl::make_span(batch_counts, reader->reader->num_read_record_batches()),
-                    gsl::make_span(batch_rows, read_id_count)));
+        auto find_success_count,
+        reader->reader->search_for_read_ids(
+            search_input,
+            gsl::make_span(batch_counts, reader->reader->num_read_record_batches()),
+            gsl::make_span(batch_rows, read_id_count)));
 
     if (find_success_count_out) {
         *find_success_count_out = find_success_count;
@@ -277,7 +306,8 @@ pod5_error_t pod5_plan_traversal(Pod5FileReader_t* reader,
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_batch_count(size_t* count, Pod5FileReader* reader) {
+pod5_error_t pod5_get_read_batch_count(size_t * count, Pod5FileReader * reader)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(count)) {
@@ -288,9 +318,9 @@ pod5_error_t pod5_get_read_batch_count(size_t* count, Pod5FileReader* reader) {
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_batch(Pod5ReadRecordBatch** batch,
-                                 Pod5FileReader* reader,
-                                 size_t index) {
+pod5_error_t
+pod5_get_read_batch(Pod5ReadRecordBatch ** batch, Pod5FileReader * reader, size_t index)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(batch)) {
@@ -300,13 +330,14 @@ pod5_error_t pod5_get_read_batch(Pod5ReadRecordBatch** batch,
     POD5_C_ASSIGN_OR_RAISE(auto internal_batch, reader->reader->read_read_record_batch(index));
 
     auto wrapped_batch =
-            std::make_unique<Pod5ReadRecordBatch>(std::move(internal_batch), reader->reader);
+        std::make_unique<Pod5ReadRecordBatch>(std::move(internal_batch), reader->reader);
 
     *batch = wrapped_batch.release();
     return POD5_OK;
 }
 
-pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch* batch) {
+pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch * batch)
+{
     pod5_reset_error();
 
     if (!check_not_null(batch)) {
@@ -318,7 +349,8 @@ pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch* batch) {
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_batch_row_count(size_t* count, Pod5ReadRecordBatch* batch) {
+pod5_error_t pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch * batch)
+{
     pod5_reset_error();
 
     if (!check_not_null(batch) || !check_output_pointer_not_null(count)) {
@@ -329,20 +361,23 @@ pod5_error_t pod5_get_read_batch_row_count(size_t* count, Pod5ReadRecordBatch* b
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
-                                               size_t row,
-                                               uint16_t struct_version,
-                                               void* row_data,
-                                               uint16_t* read_table_version) {
+pod5_error_t pod5_get_read_batch_row_info_data(
+    Pod5ReadRecordBatch_t * batch,
+    size_t row,
+    uint16_t struct_version,
+    void * row_data,
+    uint16_t * read_table_version)
+{
     if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)) {
         return g_pod5_error_no;
     }
 
-    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
-                  "New versions must be explicitly loaded");
+    static_assert(
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
+        "New versions must be explicitly loaded");
 
     if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
-        auto typed_row_data = static_cast<ReadBatchRowInfoV3*>(row_data);
+        auto typed_row_data = static_cast<ReadBatchRowInfoV3 *>(row_data);
 
         POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
 
@@ -362,7 +397,7 @@ pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
         typed_row_data->calibration_offset = cols.calibration_offset->Value(row);
         typed_row_data->calibration_scale = cols.calibration_scale->Value(row);
         auto end_reason_col =
-                std::static_pointer_cast<arrow::Int16Array>(cols.end_reason->indices());
+            std::static_pointer_cast<arrow::Int16Array>(cols.end_reason->indices());
         typed_row_data->end_reason = end_reason_col->Value(row);
         typed_row_data->end_reason_forced = cols.end_reason_forced->Value(row);
         auto run_info_col = std::static_pointer_cast<arrow::Int16Array>(cols.run_info->indices());
@@ -379,17 +414,19 @@ pod5_error_t pod5_get_read_batch_row_info_data(Pod5ReadRecordBatch_t* batch,
         typed_row_data->num_samples = cols.num_samples->Value(row);
     } else {
         pod5_set_error(
-                arrow::Status::Invalid("Invalid struct version '", struct_version, "' passed"));
+            arrow::Status::Invalid("Invalid struct version '", struct_version, "' passed"));
         return g_pod5_error_no;
     }
 
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_signal_row_indices(Pod5ReadRecordBatch* batch,
-                                         size_t row,
-                                         int64_t signal_row_indices_count,
-                                         uint64_t* signal_row_indices) {
+pod5_error_t pod5_get_signal_row_indices(
+    Pod5ReadRecordBatch * batch,
+    size_t row,
+    int64_t signal_row_indices_count,
+    uint64_t * signal_row_indices)
+{
     pod5_reset_error();
 
     if (!check_not_null(batch) || !check_output_pointer_not_null(signal_row_indices)) {
@@ -397,13 +434,15 @@ pod5_error_t pod5_get_signal_row_indices(Pod5ReadRecordBatch* batch,
     }
 
     auto const signal_col = batch->batch.signal_column();
-    auto const& row_data =
-            std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
+    auto const & row_data =
+        std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
 
     if (signal_row_indices_count != row_data->length()) {
-        pod5_set_error(pod5::Status::Invalid("Incorrect number of signal indices, expected ",
-                                             row_data->length(), " received ",
-                                             signal_row_indices_count));
+        pod5_set_error(pod5::Status::Invalid(
+            "Incorrect number of signal indices, expected ",
+            row_data->length(),
+            " received ",
+            signal_row_indices_count));
         return g_pod5_error_no;
     }
 
@@ -414,9 +453,11 @@ pod5_error_t pod5_get_signal_row_indices(Pod5ReadRecordBatch* batch,
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_calibration_extra_info(Pod5ReadRecordBatch_t* batch,
-                                             size_t row,
-                                             CalibrationExtraData_t* calibration_extra_data) {
+pod5_error_t pod5_get_calibration_extra_info(
+    Pod5ReadRecordBatch_t * batch,
+    size_t row,
+    CalibrationExtraData_t * calibration_extra_data)
+{
     pod5_reset_error();
 
     if (!check_not_null(batch) || !check_output_pointer_not_null(calibration_extra_data)) {
@@ -427,10 +468,10 @@ pod5_error_t pod5_get_calibration_extra_info(Pod5ReadRecordBatch_t* batch,
 
     auto scale = cols.calibration_scale->Value(row);
     auto const run_info_dict_index =
-            std::static_pointer_cast<arrow::Int16Array>(cols.run_info->indices())->Value(row);
+        std::static_pointer_cast<arrow::Int16Array>(cols.run_info->indices())->Value(row);
 
-    POD5_C_ASSIGN_OR_RAISE(auto const acquisition_id,
-                           batch->batch.get_run_info(run_info_dict_index));
+    POD5_C_ASSIGN_OR_RAISE(
+        auto const acquisition_id, batch->batch.get_run_info(run_info_dict_index));
     POD5_C_ASSIGN_OR_RAISE(auto run_info_data, batch->reader->find_run_info(acquisition_id));
 
     calibration_extra_data->digitisation = run_info_data->adc_max - run_info_data->adc_min + 1;
@@ -441,12 +482,13 @@ pod5_error_t pod5_get_calibration_extra_info(Pod5ReadRecordBatch_t* batch,
 
 struct RunInfoDataCHelper : public RunInfoDictData {
     struct InternalMapHelper {
-        std::vector<char const*> keys;
-        std::vector<char const*> values;
+        std::vector<char const *> keys;
+        std::vector<char const *> values;
     };
 
-    RunInfoDataCHelper(std::shared_ptr<pod5::RunInfoData const> const& internal_data_)
-            : internal_data(internal_data_) {
+    RunInfoDataCHelper(std::shared_ptr<pod5::RunInfoData const> const & internal_data_)
+    : internal_data(internal_data_)
+    {
         acquisition_id = internal_data->acquisition_id.c_str();
         acquisition_start_time_ms = internal_data->acquisition_start_time;
         adc_max = internal_data->adc_max;
@@ -469,10 +511,11 @@ struct RunInfoDataCHelper : public RunInfoDictData {
         tracking_id = map_to_c(internal_data->tracking_id, tracking_id_helper);
     }
 
-    KeyValueData map_to_c(pod5::RunInfoData::MapType const& map, InternalMapHelper& helper) {
+    KeyValueData map_to_c(pod5::RunInfoData::MapType const & map, InternalMapHelper & helper)
+    {
         helper.keys.reserve(map.size());
         helper.values.reserve(map.size());
-        for (auto const& item : map) {
+        for (auto const & item : map) {
             helper.keys.push_back(item.first.c_str());
             helper.values.push_back(item.second.c_str());
         }
@@ -489,9 +532,9 @@ struct RunInfoDataCHelper : public RunInfoDictData {
     InternalMapHelper tracking_id_helper;
 };
 
-pod5_error_t pod5_get_run_info(Pod5ReadRecordBatch* batch,
-                               int16_t run_info,
-                               RunInfoDictData** run_info_data) {
+pod5_error_t
+pod5_get_run_info(Pod5ReadRecordBatch * batch, int16_t run_info, RunInfoDictData ** run_info_data)
+{
     pod5_reset_error();
 
     if (!check_not_null(batch) || !check_output_pointer_not_null(run_info_data)) {
@@ -506,29 +549,33 @@ pod5_error_t pod5_get_run_info(Pod5ReadRecordBatch* batch,
     return POD5_OK;
 }
 
-POD5_FORMAT_EXPORT pod5_error_t pod5_release_run_info(RunInfoDictData* run_info_data) {
+POD5_FORMAT_EXPORT pod5_error_t pod5_release_run_info(RunInfoDictData * run_info_data)
+{
     pod5_reset_error();
 
     if (!check_not_null(run_info_data)) {
         return g_pod5_error_no;
     }
 
-    std::unique_ptr<RunInfoDataCHelper> helper(static_cast<RunInfoDataCHelper*>(run_info_data));
+    std::unique_ptr<RunInfoDataCHelper> helper(static_cast<RunInfoDataCHelper *>(run_info_data));
     helper.reset();
 
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_end_reason(Pod5ReadRecordBatch_t* batch,
-                                 int16_t end_reason,
-                                 pod5_end_reason* end_reason_value,
-                                 char* end_reason_string_value,
-                                 size_t* end_reason_string_value_size) {
+pod5_error_t pod5_get_end_reason(
+    Pod5ReadRecordBatch_t * batch,
+    int16_t end_reason,
+    pod5_end_reason * end_reason_value,
+    char * end_reason_string_value,
+    size_t * end_reason_string_value_size)
+{
     pod5_reset_error();
 
-    if (!check_output_pointer_not_null(end_reason_value) ||
-        !check_output_pointer_not_null(end_reason_string_value) ||
-        !check_output_pointer_not_null(end_reason_string_value_size)) {
+    if (!check_output_pointer_not_null(end_reason_value)
+        || !check_output_pointer_not_null(end_reason_string_value)
+        || !check_output_pointer_not_null(end_reason_string_value_size))
+    {
         return g_pod5_error_no;
     }
 
@@ -565,14 +612,17 @@ pod5_error_t pod5_get_end_reason(Pod5ReadRecordBatch_t* batch,
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_pore_type(Pod5ReadRecordBatch_t* batch,
-                                int16_t pore_type,
-                                char* pore_type_string_value,
-                                size_t* pore_type_string_value_size) {
+pod5_error_t pod5_get_pore_type(
+    Pod5ReadRecordBatch_t * batch,
+    int16_t pore_type,
+    char * pore_type_string_value,
+    size_t * pore_type_string_value_size)
+{
     pod5_reset_error();
 
-    if (!check_output_pointer_not_null(pore_type_string_value) ||
-        !check_output_pointer_not_null(pore_type_string_value_size)) {
+    if (!check_output_pointer_not_null(pore_type_string_value)
+        || !check_output_pointer_not_null(pore_type_string_value_size))
+    {
         return g_pod5_error_no;
     }
 
@@ -589,15 +639,17 @@ pod5_error_t pod5_get_pore_type(Pod5ReadRecordBatch_t* batch,
 
 class SignalRowInfoCHelper : public SignalRowInfo {
 public:
-    SignalRowInfoCHelper(pod5::SignalTableRecordBatch const& b) : batch(b) {}
+    SignalRowInfoCHelper(pod5::SignalTableRecordBatch const & b) : batch(b) {}
 
     pod5::SignalTableRecordBatch batch;
 };
 
-pod5_error_t pod5_get_signal_row_info(Pod5FileReader* reader,
-                                      size_t signal_rows_count,
-                                      uint64_t* signal_rows,
-                                      SignalRowInfo** signal_row_info) {
+pod5_error_t pod5_get_signal_row_info(
+    Pod5FileReader * reader,
+    size_t signal_rows_count,
+    uint64_t * signal_rows,
+    SignalRowInfo ** signal_row_info)
+{
     pod5_reset_error();
 
     if (!check_not_null(reader) || !check_output_pointer_not_null(signal_row_info)) {
@@ -609,14 +661,14 @@ pod5_error_t pod5_get_signal_row_info(Pod5FileReader* reader,
     std::sort(signal_rows_sorted.begin(), signal_rows_sorted.end());
 
     // Then loop all rows, forward.
-    for (std::size_t completed_rows = 0;
-         completed_rows <
-         signal_rows_sorted.size();) {  // No increment here, we do it below when we succeed.
+    for (std::size_t completed_rows = 0; completed_rows < signal_rows_sorted.size();)
+    {  // No increment here, we do it below when we succeed.
         auto const start_row = signal_rows_sorted[completed_rows];
 
         std::size_t batch_row = 0;
-        POD5_C_ASSIGN_OR_RAISE(std::size_t row_batch,
-                               (reader->reader->signal_batch_for_row_id(start_row, &batch_row)));
+        POD5_C_ASSIGN_OR_RAISE(
+            std::size_t row_batch,
+            (reader->reader->signal_batch_for_row_id(start_row, &batch_row)));
         POD5_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(row_batch));
 
         auto output = std::make_unique<SignalRowInfoCHelper>(batch);
@@ -635,81 +687,89 @@ pod5_error_t pod5_get_signal_row_info(Pod5FileReader* reader,
     return POD5_OK;
 }
 
-pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count,
-                                       SignalRowInfo_t** signal_row_info) {
+pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t ** signal_row_info)
+{
     for (std::size_t i = 0; i < signal_rows_count; ++i) {
         std::unique_ptr<SignalRowInfoCHelper> helper(
-                static_cast<SignalRowInfoCHelper*>(signal_row_info[i]));
+            static_cast<SignalRowInfoCHelper *>(signal_row_info[i]));
         helper.reset();
     }
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_signal(Pod5FileReader* reader,
-                             SignalRowInfo_t* row_info,
-                             std::size_t sample_count,
-                             std::int16_t* sample_data) {
+pod5_error_t pod5_get_signal(
+    Pod5FileReader * reader,
+    SignalRowInfo_t * row_info,
+    std::size_t sample_count,
+    std::int16_t * sample_data)
+{
     pod5_reset_error();
 
-    if (!check_not_null(reader) || !check_not_null(row_info) ||
-        !check_output_pointer_not_null(sample_data)) {
+    if (!check_not_null(reader) || !check_not_null(row_info)
+        || !check_output_pointer_not_null(sample_data))
+    {
         return g_pod5_error_no;
     }
 
-    SignalRowInfoCHelper* row_info_data = static_cast<SignalRowInfoCHelper*>(row_info);
+    SignalRowInfoCHelper * row_info_data = static_cast<SignalRowInfoCHelper *>(row_info);
 
     POD5_C_RETURN_NOT_OK(row_info_data->batch.extract_signal_row(
-            row_info->batch_row_index, gsl::make_span(sample_data, sample_count)));
+        row_info->batch_row_index, gsl::make_span(sample_data, sample_count)));
 
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_complete_sample_count(Pod5FileReader_t* reader,
-                                                 Pod5ReadRecordBatch_t* batch,
-                                                 size_t batch_row,
-                                                 size_t* sample_count) {
+pod5_error_t pod5_get_read_complete_sample_count(
+    Pod5FileReader_t * reader,
+    Pod5ReadRecordBatch_t * batch,
+    size_t batch_row,
+    size_t * sample_count)
+{
     pod5_reset_error();
 
     if (!check_not_null(reader) || !check_output_pointer_not_null(sample_count)) {
         return g_pod5_error_no;
     }
 
-    auto const& signal_col = batch->batch.signal_column();
-    auto const& signal_rows =
-            std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
+    auto const & signal_col = batch->batch.signal_column();
+    auto const & signal_rows =
+        std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
 
     std::vector<std::int16_t> output_samples;
-    POD5_C_ASSIGN_OR_RAISE(*sample_count,
-                           reader->reader->extract_sample_count(gsl::make_span(
-                                   signal_rows->raw_values(), signal_rows->length())));
+    POD5_C_ASSIGN_OR_RAISE(
+        *sample_count,
+        reader->reader->extract_sample_count(
+            gsl::make_span(signal_rows->raw_values(), signal_rows->length())));
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_complete_signal(Pod5FileReader_t* reader,
-                                           Pod5ReadRecordBatch_t* batch,
-                                           size_t batch_row,
-                                           size_t sample_count,
-                                           int16_t* signal) {
+pod5_error_t pod5_get_read_complete_signal(
+    Pod5FileReader_t * reader,
+    Pod5ReadRecordBatch_t * batch,
+    size_t batch_row,
+    size_t sample_count,
+    int16_t * signal)
+{
     pod5_reset_error();
 
     if (!check_not_null(reader) || !check_output_pointer_not_null(signal)) {
         return g_pod5_error_no;
     }
 
-    auto const& signal_col = batch->batch.signal_column();
-    auto const& signal_rows =
-            std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
+    auto const & signal_col = batch->batch.signal_column();
+    auto const & signal_rows =
+        std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
 
     POD5_C_RETURN_NOT_OK(reader->reader->extract_samples(
-            gsl::make_span(signal_rows->raw_values(), signal_rows->length()),
-            gsl::make_span(signal, sample_count)));
+        gsl::make_span(signal_rows->raw_values(), signal_rows->length()),
+        gsl::make_span(signal, sample_count)));
     return POD5_OK;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
-Pod5FileWriter* pod5_create_file(char const* filename,
-                                 char const* writer_name,
-                                 Pod5WriterOptions const* options) {
+Pod5FileWriter *
+pod5_create_file(char const * filename, char const * writer_name, Pod5WriterOptions const * options)
+{
     pod5_reset_error();
 
     if (!check_string_not_empty(filename) || !check_string_not_empty(writer_name)) {
@@ -717,7 +777,7 @@ Pod5FileWriter* pod5_create_file(char const* filename,
     }
 
     auto internal_writer =
-            pod5::create_file_writer(filename, writer_name, make_internal_writer_options(options));
+        pod5::create_file_writer(filename, writer_name, make_internal_writer_options(options));
     if (!internal_writer.ok()) {
         pod5_set_error(internal_writer.status());
         return nullptr;
@@ -727,7 +787,8 @@ Pod5FileWriter* pod5_create_file(char const* filename,
     return writer.release();
 }
 
-pod5_error_t pod5_close_and_free_writer(Pod5FileWriter* file) {
+pod5_error_t pod5_close_and_free_writer(Pod5FileWriter * file)
+{
     pod5_reset_error();
 
     std::unique_ptr<Pod5FileWriter> ptr{file};
@@ -737,11 +798,13 @@ pod5_error_t pod5_close_and_free_writer(Pod5FileWriter* file) {
     return POD5_OK;
 }
 
-pod5_error_t pod5_add_pore(int16_t* pore_index, Pod5FileWriter* file, char const* pore_type) {
+pod5_error_t pod5_add_pore(int16_t * pore_index, Pod5FileWriter * file, char const * pore_type)
+{
     pod5_reset_error();
 
-    if (!check_string_not_empty(pore_type) || !check_file_not_null(file) ||
-        !check_output_pointer_not_null(pore_index)) {
+    if (!check_string_not_empty(pore_type) || !check_file_not_null(file)
+        || !check_output_pointer_not_null(pore_index))
+    {
         return g_pod5_error_no;
     }
 
@@ -749,32 +812,34 @@ pod5_error_t pod5_add_pore(int16_t* pore_index, Pod5FileWriter* file, char const
     return POD5_OK;
 }
 
-pod5_error_t pod5_add_run_info(int16_t* run_info_index,
-                               Pod5FileWriter* file,
-                               char const* acquisition_id,
-                               std::int64_t acquisition_start_time_ms,
-                               std::int16_t adc_max,
-                               std::int16_t adc_min,
-                               std::size_t context_tags_count,
-                               char const** context_tags_keys,
-                               char const** context_tags_values,
-                               char const* experiment_name,
-                               char const* flow_cell_id,
-                               char const* flow_cell_product_code,
-                               char const* protocol_name,
-                               char const* protocol_run_id,
-                               std::int64_t protocol_start_time_ms,
-                               char const* sample_id,
-                               std::uint16_t sample_rate,
-                               char const* sequencing_kit,
-                               char const* sequencer_position,
-                               char const* sequencer_position_type,
-                               char const* software,
-                               char const* system_name,
-                               char const* system_type,
-                               std::size_t tracking_id_count,
-                               char const** tracking_id_keys,
-                               char const** tracking_id_values) {
+pod5_error_t pod5_add_run_info(
+    int16_t * run_info_index,
+    Pod5FileWriter * file,
+    char const * acquisition_id,
+    std::int64_t acquisition_start_time_ms,
+    std::int16_t adc_max,
+    std::int16_t adc_min,
+    std::size_t context_tags_count,
+    char const ** context_tags_keys,
+    char const ** context_tags_values,
+    char const * experiment_name,
+    char const * flow_cell_id,
+    char const * flow_cell_product_code,
+    char const * protocol_name,
+    char const * protocol_run_id,
+    std::int64_t protocol_start_time_ms,
+    char const * sample_id,
+    std::uint16_t sample_rate,
+    char const * sequencing_kit,
+    char const * sequencer_position,
+    char const * sequencer_position_type,
+    char const * software,
+    char const * system_name,
+    char const * system_type,
+    std::size_t tracking_id_count,
+    char const ** tracking_id_keys,
+    char const ** tracking_id_values)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(file)) {
@@ -782,8 +847,9 @@ pod5_error_t pod5_add_run_info(int16_t* run_info_index,
     }
 
     auto const parse_map =
-            [](std::size_t tracking_id_count, char const** tracking_id_keys,
-               char const** tracking_id_values) -> pod5::Result<pod5::RunInfoData::MapType> {
+        [](std::size_t tracking_id_count,
+           char const ** tracking_id_keys,
+           char const ** tracking_id_values) -> pod5::Result<pod5::RunInfoData::MapType> {
         pod5::RunInfoData::MapType result;
         for (std::size_t i = 0; i < tracking_id_count; ++i) {
             auto key = tracking_id_keys[i];
@@ -797,26 +863,44 @@ pod5_error_t pod5_add_run_info(int16_t* run_info_index,
         return result;
     };
 
-    POD5_C_ASSIGN_OR_RAISE(auto const context_tags,
-                           parse_map(context_tags_count, context_tags_keys, context_tags_values));
-    POD5_C_ASSIGN_OR_RAISE(auto const tracking_id,
-                           parse_map(tracking_id_count, tracking_id_keys, tracking_id_values));
+    POD5_C_ASSIGN_OR_RAISE(
+        auto const context_tags,
+        parse_map(context_tags_count, context_tags_keys, context_tags_values));
+    POD5_C_ASSIGN_OR_RAISE(
+        auto const tracking_id, parse_map(tracking_id_count, tracking_id_keys, tracking_id_values));
 
     POD5_C_ASSIGN_OR_RAISE(
-            *run_info_index,
-            file->writer->add_run_info(pod5::RunInfoData(
-                    acquisition_id, acquisition_start_time_ms, adc_max, adc_min, context_tags,
-                    experiment_name, flow_cell_id, flow_cell_product_code, protocol_name,
-                    protocol_run_id, protocol_start_time_ms, sample_id, sample_rate, sequencing_kit,
-                    sequencer_position, sequencer_position_type, software, system_name, system_type,
-                    tracking_id)));
+        *run_info_index,
+        file->writer->add_run_info(pod5::RunInfoData(
+            acquisition_id,
+            acquisition_start_time_ms,
+            adc_max,
+            adc_min,
+            context_tags,
+            experiment_name,
+            flow_cell_id,
+            flow_cell_product_code,
+            protocol_name,
+            protocol_run_id,
+            protocol_start_time_ms,
+            sample_id,
+            sample_rate,
+            sequencing_kit,
+            sequencer_position,
+            sequencer_position_type,
+            software,
+            system_name,
+            system_type,
+            tracking_id)));
 
     return POD5_OK;
 }
 
-inline bool check_read_data_struct(std::uint16_t struct_version, void const* row_data) {
-    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
-                  "New versions must be explicitly loaded");
+inline bool check_read_data_struct(std::uint16_t struct_version, void const * row_data)
+{
+    static_assert(
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
+        "New versions must be explicitly loaded");
 
     if (!check_not_null(row_data)) {
         return false;
@@ -828,25 +912,25 @@ inline bool check_read_data_struct(std::uint16_t struct_version, void const* row
     }
 
     if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
-        auto const* typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const*>(row_data);
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const *>(row_data);
 
-        if (!check_not_null(typed_row_data->read_id) ||
-            !check_not_null(typed_row_data->read_number) ||
-            !check_not_null(typed_row_data->start_sample) ||
-            !check_not_null(typed_row_data->median_before) ||
-            !check_not_null(typed_row_data->channel) || !check_not_null(typed_row_data->well) ||
-            !check_not_null(typed_row_data->calibration_scale) ||
-            !check_not_null(typed_row_data->calibration_offset) ||
-            !check_not_null(typed_row_data->end_reason) ||
-            !check_not_null(typed_row_data->end_reason_forced) ||
-            !check_not_null(typed_row_data->run_info_id) ||
-            !check_not_null(typed_row_data->num_minknow_events) ||
-            !check_not_null(typed_row_data->tracked_scaling_scale) ||
-            !check_not_null(typed_row_data->tracked_scaling_shift) ||
-            !check_not_null(typed_row_data->predicted_scaling_scale) ||
-            !check_not_null(typed_row_data->predicted_scaling_shift) ||
-            !check_not_null(typed_row_data->num_reads_since_mux_change) ||
-            !check_not_null(typed_row_data->time_since_mux_change)) {
+        if (!check_not_null(typed_row_data->read_id) || !check_not_null(typed_row_data->read_number)
+            || !check_not_null(typed_row_data->start_sample)
+            || !check_not_null(typed_row_data->median_before)
+            || !check_not_null(typed_row_data->channel) || !check_not_null(typed_row_data->well)
+            || !check_not_null(typed_row_data->calibration_scale)
+            || !check_not_null(typed_row_data->calibration_offset)
+            || !check_not_null(typed_row_data->end_reason)
+            || !check_not_null(typed_row_data->end_reason_forced)
+            || !check_not_null(typed_row_data->run_info_id)
+            || !check_not_null(typed_row_data->num_minknow_events)
+            || !check_not_null(typed_row_data->tracked_scaling_scale)
+            || !check_not_null(typed_row_data->tracked_scaling_shift)
+            || !check_not_null(typed_row_data->predicted_scaling_scale)
+            || !check_not_null(typed_row_data->predicted_scaling_shift)
+            || !check_not_null(typed_row_data->num_reads_since_mux_change)
+            || !check_not_null(typed_row_data->time_since_mux_change))
+        {
             return false;
         }
     }
@@ -854,21 +938,26 @@ inline bool check_read_data_struct(std::uint16_t struct_version, void const* row
     return true;
 }
 
-inline bool load_struct_row_into_read_data(std::unique_ptr<pod5::FileWriter> const& writer,
-                                           pod5::ReadData& read_data,
-                                           std::uint16_t struct_version,
-                                           void const* row_data,
-                                           std::uint32_t row_id) {
-    static_assert(READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
-                  "New versions must be explicitly loaded");
+inline bool load_struct_row_into_read_data(
+    std::unique_ptr<pod5::FileWriter> const & writer,
+    pod5::ReadData & read_data,
+    std::uint16_t struct_version,
+    void const * row_data,
+    std::uint32_t row_id)
+{
+    static_assert(
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
+        "New versions must be explicitly loaded");
 
     // Version 0-2 are no longer supported for writing.
     if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
-        auto const* typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const*>(row_data);
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const *>(row_data);
 
         boost::uuids::uuid read_id_uuid;
-        std::copy(typed_row_data->read_id[row_id],
-                  typed_row_data->read_id[row_id] + sizeof(read_id_uuid), read_id_uuid.begin());
+        std::copy(
+            typed_row_data->read_id[row_id],
+            typed_row_data->read_id[row_id] + sizeof(read_id_uuid),
+            read_id_uuid.begin());
 
         pod5::ReadEndReason end_reason_internal = pod5::ReadEndReason::unknown;
         switch (typed_row_data->end_reason[row_id]) {
@@ -891,8 +980,8 @@ inline bool load_struct_row_into_read_data(std::unique_ptr<pod5::FileWriter> con
             end_reason_internal = pod5::ReadEndReason::signal_negative;
             break;
         default:
-            pod5_set_error(arrow::Status::Invalid(
-                    "out of range end reason passed to pod5_add_end_reason"));
+            pod5_set_error(
+                arrow::Status::Invalid("out of range end reason passed to pod5_add_end_reason"));
             return false;
         }
 
@@ -903,40 +992,42 @@ inline bool load_struct_row_into_read_data(std::unique_ptr<pod5::FileWriter> con
         }
 
         read_data = pod5::ReadData{
-                read_id_uuid,
-                typed_row_data->read_number[row_id],
-                typed_row_data->start_sample[row_id],
-                typed_row_data->channel[row_id],
-                typed_row_data->well[row_id],
-                typed_row_data->pore_type[row_id],
-                typed_row_data->calibration_offset[row_id],
-                typed_row_data->calibration_scale[row_id],
-                typed_row_data->median_before[row_id],
-                *end_reason_index,
-                typed_row_data->end_reason_forced[row_id] != 0,
-                typed_row_data->run_info_id[row_id],
-                typed_row_data->num_minknow_events[row_id],
-                typed_row_data->tracked_scaling_scale[row_id],
-                typed_row_data->tracked_scaling_shift[row_id],
-                typed_row_data->predicted_scaling_scale[row_id],
-                typed_row_data->predicted_scaling_shift[row_id],
-                typed_row_data->num_reads_since_mux_change[row_id],
-                typed_row_data->time_since_mux_change[row_id],
+            read_id_uuid,
+            typed_row_data->read_number[row_id],
+            typed_row_data->start_sample[row_id],
+            typed_row_data->channel[row_id],
+            typed_row_data->well[row_id],
+            typed_row_data->pore_type[row_id],
+            typed_row_data->calibration_offset[row_id],
+            typed_row_data->calibration_scale[row_id],
+            typed_row_data->median_before[row_id],
+            *end_reason_index,
+            typed_row_data->end_reason_forced[row_id] != 0,
+            typed_row_data->run_info_id[row_id],
+            typed_row_data->num_minknow_events[row_id],
+            typed_row_data->tracked_scaling_scale[row_id],
+            typed_row_data->tracked_scaling_shift[row_id],
+            typed_row_data->predicted_scaling_scale[row_id],
+            typed_row_data->predicted_scaling_shift[row_id],
+            typed_row_data->num_reads_since_mux_change[row_id],
+            typed_row_data->time_since_mux_change[row_id],
         };
     } else {
-        pod5_set_error(arrow::Status::Invalid("Invalid writer struct version '", struct_version,
-                                              "' passed"));
+        pod5_set_error(
+            arrow::Status::Invalid("Invalid writer struct version '", struct_version, "' passed"));
         return false;
     }
     return true;
 };
 
-pod5_error_t pod5_add_reads_data(Pod5FileWriter_t* file,
-                                 uint32_t read_count,
-                                 uint16_t struct_version,
-                                 void const* row_data,
-                                 int16_t const** signal,
-                                 uint32_t const* signal_size) {
+pod5_error_t pod5_add_reads_data(
+    Pod5FileWriter_t * file,
+    uint32_t read_count,
+    uint16_t struct_version,
+    void const * row_data,
+    int16_t const ** signal,
+    uint32_t const * signal_size)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(file) || !check_read_data_struct(struct_version, row_data)) {
@@ -945,26 +1036,28 @@ pod5_error_t pod5_add_reads_data(Pod5FileWriter_t* file,
 
     for (std::uint32_t read = 0; read < read_count; ++read) {
         pod5::ReadData read_data;
-        if (!load_struct_row_into_read_data(file->writer, read_data, struct_version, row_data,
-                                            read)) {
+        if (!load_struct_row_into_read_data(
+                file->writer, read_data, struct_version, row_data, read)) {
             return g_pod5_error_no;
         }
 
         POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(
-                read_data, gsl::make_span(signal[read], signal_size[read])));
+            read_data, gsl::make_span(signal[read], signal_size[read])));
     }
 
     return POD5_OK;
 }
 
-pod5_error_t pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
-                                                uint32_t read_count,
-                                                uint16_t struct_version,
-                                                void const* row_data,
-                                                char const*** compressed_signal,
-                                                size_t const** compressed_signal_size,
-                                                uint32_t const** sample_counts,
-                                                size_t const* signal_chunk_count) {
+pod5_error_t pod5_add_reads_data_pre_compressed(
+    Pod5FileWriter_t * file,
+    uint32_t read_count,
+    uint16_t struct_version,
+    void const * row_data,
+    char const *** compressed_signal,
+    size_t const ** compressed_signal_size,
+    uint32_t const ** sample_counts,
+    size_t const * signal_chunk_count)
+{
     pod5_reset_error();
 
     if (!check_file_not_null(file) || !check_read_data_struct(struct_version, row_data)) {
@@ -973,8 +1066,8 @@ pod5_error_t pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
 
     for (std::uint32_t read = 0; read < read_count; ++read) {
         pod5::ReadData read_data;
-        if (!load_struct_row_into_read_data(file->writer, read_data, struct_version, row_data,
-                                            read)) {
+        if (!load_struct_row_into_read_data(
+                file->writer, read_data, struct_version, row_data, read)) {
             return g_pod5_error_no;
         }
 
@@ -986,43 +1079,51 @@ pod5_error_t pod5_add_reads_data_pre_compressed(Pod5FileWriter_t* file,
             auto sample_count = sample_counts[read][i];
             total_sample_count += sample_count;
             POD5_C_ASSIGN_OR_RAISE(
-                    auto row_id,
-                    file->writer->add_pre_compressed_signal(
-                            read_data.read_id,
-                            gsl::make_span(signal, signal_size).as_span<std::uint8_t const>(),
-                            sample_count));
+                auto row_id,
+                file->writer->add_pre_compressed_signal(
+                    read_data.read_id,
+                    gsl::make_span(signal, signal_size).as_span<std::uint8_t const>(),
+                    sample_count));
             signal_rows.push_back(row_id);
         }
 
-        POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(read_data, gsl::make_span(signal_rows),
-                                                             total_sample_count));
+        POD5_C_RETURN_NOT_OK(file->writer->add_complete_read(
+            read_data, gsl::make_span(signal_rows), total_sample_count));
     }
     return POD5_OK;
 }
 
-size_t pod5_vbz_compressed_signal_max_size(size_t sample_count) {
+size_t pod5_vbz_compressed_signal_max_size(size_t sample_count)
+{
     pod5_reset_error();
     return pod5::compressed_signal_max_size(sample_count);
 }
 
-pod5_error_t pod5_vbz_compress_signal(int16_t const* signal,
-                                      size_t signal_size,
-                                      char* compressed_signal_out,
-                                      size_t* compressed_signal_size) {
+pod5_error_t pod5_vbz_compress_signal(
+    int16_t const * signal,
+    size_t signal_size,
+    char * compressed_signal_out,
+    size_t * compressed_signal_size)
+{
     pod5_reset_error();
 
-    if (!check_not_null(signal) || !check_output_pointer_not_null(compressed_signal_out) ||
-        !check_output_pointer_not_null(compressed_signal_size)) {
+    if (!check_not_null(signal) || !check_output_pointer_not_null(compressed_signal_out)
+        || !check_output_pointer_not_null(compressed_signal_size))
+    {
         return g_pod5_error_no;
     }
 
-    POD5_C_ASSIGN_OR_RAISE(auto buffer, pod5::compress_signal(gsl::make_span(signal, signal_size),
-                                                              arrow::system_memory_pool()));
+    POD5_C_ASSIGN_OR_RAISE(
+        auto buffer,
+        pod5::compress_signal(gsl::make_span(signal, signal_size), arrow::system_memory_pool()));
 
     if ((std::size_t)buffer->size() > *compressed_signal_size) {
-        pod5_set_error(pod5::Status::Invalid("Compressed signal size (", buffer->size(),
-                                             ") is greater than provided buffer size (",
-                                             compressed_signal_size, ")"));
+        pod5_set_error(pod5::Status::Invalid(
+            "Compressed signal size (",
+            buffer->size(),
+            ") is greater than provided buffer size (",
+            compressed_signal_size,
+            ")"));
         return g_pod5_error_no;
     }
 
@@ -1032,10 +1133,12 @@ pod5_error_t pod5_vbz_compress_signal(int16_t const* signal,
     return POD5_OK;
 }
 
-pod5_error_t pod5_vbz_decompress_signal(char const* compressed_signal,
-                                        size_t compressed_signal_size,
-                                        size_t sample_count,
-                                        short* signal_out) {
+pod5_error_t pod5_vbz_decompress_signal(
+    char const * compressed_signal,
+    size_t compressed_signal_size,
+    size_t sample_count,
+    short * signal_out)
+{
     pod5_reset_error();
 
     if (!check_not_null(compressed_signal) || !check_output_pointer_not_null(signal_out)) {
@@ -1043,21 +1146,22 @@ pod5_error_t pod5_vbz_decompress_signal(char const* compressed_signal,
     }
 
     auto const in_span =
-            gsl::make_span(compressed_signal, compressed_signal_size).as_span<std::uint8_t const>();
+        gsl::make_span(compressed_signal, compressed_signal_size).as_span<std::uint8_t const>();
     auto out_span = gsl::make_span(signal_out, sample_count);
     POD5_C_RETURN_NOT_OK(pod5::decompress_signal(in_span, arrow::system_memory_pool(), out_span));
 
     return POD5_OK;
 }
 
-pod5_error_t pod5_format_read_id(read_id_t const read_id, char* read_id_string) {
+pod5_error_t pod5_format_read_id(read_id_t const read_id, char * read_id_string)
+{
     pod5_reset_error();
 
     if (!check_not_null(read_id) || !check_output_pointer_not_null(read_id_string)) {
         return g_pod5_error_no;
     }
 
-    auto uuid_data = reinterpret_cast<boost::uuids::uuid const*>(read_id);
+    auto uuid_data = reinterpret_cast<boost::uuids::uuid const *>(read_id);
     std::string string_data = boost::uuids::to_string(*uuid_data);
     if (string_data.size() != 36) {
         pod5_set_error(pod5::Status::Invalid("Unexpected length of UUID"));

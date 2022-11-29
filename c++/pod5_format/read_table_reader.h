@@ -16,9 +16,11 @@
 
 namespace arrow {
 class Schema;
+
 namespace io {
 class RandomAccessFile;
 }
+
 namespace ipc {
 class RecordBatchFileReader;
 }
@@ -64,17 +66,18 @@ struct ReadTableRecordColumns {
 
 class POD5_FORMAT_EXPORT ReadTableRecordBatch : public TableRecordBatch {
 public:
-    ReadTableRecordBatch(std::shared_ptr<arrow::RecordBatch>&& batch,
-                         std::shared_ptr<ReadTableSchemaDescription const> const& field_locations);
-    ReadTableRecordBatch(ReadTableRecordBatch&&);
-    ReadTableRecordBatch& operator=(ReadTableRecordBatch&&);
+    ReadTableRecordBatch(
+        std::shared_ptr<arrow::RecordBatch> && batch,
+        std::shared_ptr<ReadTableSchemaDescription const> const & field_locations);
+    ReadTableRecordBatch(ReadTableRecordBatch &&);
+    ReadTableRecordBatch & operator=(ReadTableRecordBatch &&);
 
     std::shared_ptr<UuidArray> read_id_column() const;
     std::shared_ptr<arrow::ListArray> signal_column() const;
 
     Result<std::string> get_pore_type(std::int16_t pore_dict_index) const;
     Result<std::pair<ReadEndReason, std::string>> get_end_reason(
-            std::int16_t end_reason_dict_index) const;
+        std::int16_t end_reason_dict_index) const;
     Result<std::string> get_run_info(std::int16_t run_info_dict_index) const;
 
     Result<ReadTableRecordColumns> columns() const;
@@ -86,22 +89,24 @@ private:
 
 class POD5_FORMAT_EXPORT ReadTableReader : public TableReader {
 public:
-    ReadTableReader(std::shared_ptr<void>&& input_source,
-                    std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-                    std::shared_ptr<ReadTableSchemaDescription const> const& field_locations,
-                    SchemaMetadataDescription&& schema_metadata,
-                    arrow::MemoryPool* pool);
+    ReadTableReader(
+        std::shared_ptr<void> && input_source,
+        std::shared_ptr<arrow::ipc::RecordBatchFileReader> && reader,
+        std::shared_ptr<ReadTableSchemaDescription const> const & field_locations,
+        SchemaMetadataDescription && schema_metadata,
+        arrow::MemoryPool * pool);
 
-    ReadTableReader(ReadTableReader&& other);
-    ReadTableReader& operator=(ReadTableReader&& other);
+    ReadTableReader(ReadTableReader && other);
+    ReadTableReader & operator=(ReadTableReader && other);
 
     Result<ReadTableRecordBatch> read_record_batch(std::size_t i) const;
 
     Status build_read_id_lookup();
 
-    Result<std::size_t> search_for_read_ids(ReadIdSearchInput const& search_input,
-                                            gsl::span<uint32_t> const& batch_counts,
-                                            gsl::span<uint32_t> const& batch_rows);
+    Result<std::size_t> search_for_read_ids(
+        ReadIdSearchInput const & search_input,
+        gsl::span<uint32_t> const & batch_counts,
+        gsl::span<uint32_t> const & batch_rows);
 
 private:
     struct IndexData {
@@ -117,7 +122,7 @@ private:
 };
 
 POD5_FORMAT_EXPORT Result<ReadTableReader> make_read_table_reader(
-        std::shared_ptr<arrow::io::RandomAccessFile> const& sink,
-        arrow::MemoryPool* pool);
+    std::shared_ptr<arrow::io::RandomAccessFile> const & sink,
+    arrow::MemoryPool * pool);
 
 }  // namespace pod5

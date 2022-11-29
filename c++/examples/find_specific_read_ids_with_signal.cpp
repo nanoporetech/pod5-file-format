@@ -8,7 +8,8 @@
 #include <iostream>
 #include <vector>
 
-int main(int argc, char** argv) {
+int main(int argc, char ** argv)
+{
     if (argc != 3) {
         std::cerr << "Expected two arguments:\n"
                   << " - an pod5 file to search\n"
@@ -19,7 +20,7 @@ int main(int argc, char** argv) {
     pod5_init();
 
     // Open the file ready for walking:
-    Pod5FileReader_t* file = pod5_open_file(argv[1]);
+    Pod5FileReader_t * file = pod5_open_file(argv[1]);
     if (!file) {
         std::cerr << "Failed to open file " << argv[1] << ": " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
@@ -41,7 +42,7 @@ int main(int argc, char** argv) {
             search_uuids.push_back(boost::lexical_cast<boost::uuids::uuid>(line));
         }
         std::cout << "  Read " << search_uuids.size() << " ids from the text file\n";
-    } catch (std::exception const& e) {
+    } catch (std::exception const & e) {
         std::cerr << "Failed to parse UUID values from " << input_path << ": " << e.what() << "\n";
     }
 
@@ -53,9 +54,15 @@ int main(int argc, char** argv) {
     std::vector<std::uint32_t> traversal_batch_counts(batch_count);
     std::vector<std::uint32_t> traversal_row_indices(search_uuids.size());
     std::size_t find_success_count = 0;
-    if (pod5_plan_traversal(file, (uint8_t*)search_uuids.data(), search_uuids.size(),
-                            traversal_batch_counts.data(), traversal_row_indices.data(),
-                            &find_success_count) != POD5_OK) {
+    if (pod5_plan_traversal(
+            file,
+            (uint8_t *)search_uuids.data(),
+            search_uuids.size(),
+            traversal_batch_counts.data(),
+            traversal_row_indices.data(),
+            &find_success_count)
+        != POD5_OK)
+    {
         std::cerr << "Failed to plan traversal of file: " << pod5_get_error_string() << "\n";
         return EXIT_FAILURE;
     }
@@ -72,7 +79,7 @@ int main(int argc, char** argv) {
     // Walk the suggested traversal route, storing read data.
     std::size_t step_index = 0;
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
-        Pod5ReadRecordBatch_t* batch = nullptr;
+        Pod5ReadRecordBatch_t * batch = nullptr;
         if (pod5_get_read_batch(&batch, file, batch_index) != POD5_OK) {
             std::cerr << "Failed to get batch: " << pod5_get_error_string() << "\n";
             return EXIT_FAILURE;
@@ -85,8 +92,10 @@ int main(int argc, char** argv) {
 
             uint16_t read_table_version = 0;
             ReadBatchRowInfo_t read_data;
-            if (pod5_get_read_batch_row_info_data(batch, batch_row, READ_BATCH_ROW_INFO_VERSION,
-                                                  &read_data, &read_table_version) != POD5_OK) {
+            if (pod5_get_read_batch_row_info_data(
+                    batch, batch_row, READ_BATCH_ROW_INFO_VERSION, &read_data, &read_table_version)
+                != POD5_OK)
+            {
                 std::cerr << "Failed to get read " << batch_row << "\n";
                 return EXIT_FAILURE;
             }

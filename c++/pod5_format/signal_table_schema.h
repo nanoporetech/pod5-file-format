@@ -27,11 +27,11 @@ struct SignalTableSchemaDescription {
 /// \param field_locations [optional] The signal table field locations, for use when writing to the table.
 /// \returns The schema for a signal table.
 POD5_FORMAT_EXPORT std::shared_ptr<arrow::Schema> make_signal_table_schema(
-        SignalType signal_type,
-        std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
-        SignalTableSchemaDescription* field_locations);
+    SignalType signal_type,
+    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    SignalTableSchemaDescription * field_locations);
 
 POD5_FORMAT_EXPORT Result<SignalTableSchemaDescription> read_signal_table_schema(
-        std::shared_ptr<arrow::Schema> const&);
+    std::shared_ptr<arrow::Schema> const &);
 
 }  // namespace pod5

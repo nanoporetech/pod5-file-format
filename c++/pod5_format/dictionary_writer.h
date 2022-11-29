@@ -14,7 +14,7 @@ public:
     virtual ~DictionaryWriter() = default;
 
     pod5::Result<std::shared_ptr<arrow::Array>> build_dictionary_array(
-            std::shared_ptr<arrow::Array> const& indices);
+        std::shared_ptr<arrow::Array> const & indices);
     virtual pod5::Result<std::shared_ptr<arrow::Array>> get_value_array() = 0;
     virtual std::size_t item_count() = 0;
 };

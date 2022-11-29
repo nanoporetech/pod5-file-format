@@ -24,15 +24,16 @@ struct CpuidResult {
     unsigned int edx;
 };
 
-inline CpuidResult cpuid(unsigned int leaf, unsigned int subleaf) {
+inline CpuidResult cpuid(unsigned int leaf, unsigned int subleaf)
+{
 #ifdef _MSC_VER
     int info[4];
     __cpuidex(info, static_cast<int>(leaf), static_cast<int>(subleaf));
     return CpuidResult{
-            static_cast<unsigned int>(info[0]),
-            static_cast<unsigned int>(info[1]),
-            static_cast<unsigned int>(info[2]),
-            static_cast<unsigned int>(info[3]),
+        static_cast<unsigned int>(info[0]),
+        static_cast<unsigned int>(info[1]),
+        static_cast<unsigned int>(info[2]),
+        static_cast<unsigned int>(info[3]),
     };
 #else
     CpuidResult info;
@@ -43,9 +44,10 @@ inline CpuidResult cpuid(unsigned int leaf, unsigned int subleaf) {
 #endif
 }
 
-inline unsigned int cpuid_leaf1_ecx() {
+inline unsigned int cpuid_leaf1_ecx()
+{
     // using C++11 atomic static variables
-    static const unsigned int ecx = cpuid(1, 0).ecx;
+    static unsigned int const ecx = cpuid(1, 0).ecx;
     return ecx;
 }
 

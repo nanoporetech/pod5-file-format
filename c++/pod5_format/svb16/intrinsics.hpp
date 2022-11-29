@@ -12,38 +12,53 @@
 
 #include <cstdint>
 
-namespace svb16 {
-namespace detail {
-[[gnu::target("sse2")]] inline constexpr __m128i m128i_from_bytes(uint8_t a,
-                                                                  uint8_t b,
-                                                                  uint8_t c,
-                                                                  uint8_t d,
-                                                                  uint8_t e,
-                                                                  uint8_t f,
-                                                                  uint8_t g,
-                                                                  uint8_t h,
-                                                                  uint8_t i,
-                                                                  uint8_t j,
-                                                                  uint8_t k,
-                                                                  uint8_t l,
-                                                                  uint8_t m,
-                                                                  uint8_t n,
-                                                                  uint8_t o,
-                                                                  uint8_t p) {
+namespace svb16 { namespace detail {
+[[gnu::target("sse2")]] inline constexpr __m128i m128i_from_bytes(
+    uint8_t a,
+    uint8_t b,
+    uint8_t c,
+    uint8_t d,
+    uint8_t e,
+    uint8_t f,
+    uint8_t g,
+    uint8_t h,
+    uint8_t i,
+    uint8_t j,
+    uint8_t k,
+    uint8_t l,
+    uint8_t m,
+    uint8_t n,
+    uint8_t o,
+    uint8_t p)
+{
 #ifdef _MSC_VER
-    return __m128i{(char)a, (char)b, (char)c, (char)d, (char)e, (char)f, (char)g, (char)h,
-                   (char)i, (char)j, (char)k, (char)l, (char)m, (char)n, (char)o, (char)p};
+    return __m128i{
+        (char)a,
+        (char)b,
+        (char)c,
+        (char)d,
+        (char)e,
+        (char)f,
+        (char)g,
+        (char)h,
+        (char)i,
+        (char)j,
+        (char)k,
+        (char)l,
+        (char)m,
+        (char)n,
+        (char)o,
+        (char)p};
 #else
     return __m128i{
-            static_cast<int64_t>(static_cast<uint64_t>(h) << 56) + (static_cast<int64_t>(g) << 48) +
-                    (static_cast<int64_t>(f) << 40) + (static_cast<int64_t>(e) << 32) +
-                    (static_cast<int64_t>(d) << 24) + (static_cast<int64_t>(c) << 16) +
-                    (static_cast<int64_t>(b) << 8) + static_cast<int64_t>(a),
-            static_cast<int64_t>(static_cast<uint64_t>(h) << 56) + (static_cast<int64_t>(g) << 48) +
-                    (static_cast<int64_t>(f) << 40) + (static_cast<int64_t>(e) << 32) +
-                    (static_cast<int64_t>(d) << 24) + (static_cast<int64_t>(c) << 16) +
-                    (static_cast<int64_t>(b) << 8) + static_cast<int64_t>(a)};
+        static_cast<int64_t>(static_cast<uint64_t>(h) << 56) + (static_cast<int64_t>(g) << 48)
+            + (static_cast<int64_t>(f) << 40) + (static_cast<int64_t>(e) << 32)
+            + (static_cast<int64_t>(d) << 24) + (static_cast<int64_t>(c) << 16)
+            + (static_cast<int64_t>(b) << 8) + static_cast<int64_t>(a),
+        static_cast<int64_t>(static_cast<uint64_t>(h) << 56) + (static_cast<int64_t>(g) << 48)
+            + (static_cast<int64_t>(f) << 40) + (static_cast<int64_t>(e) << 32)
+            + (static_cast<int64_t>(d) << 24) + (static_cast<int64_t>(c) << 16)
+            + (static_cast<int64_t>(b) << 8) + static_cast<int64_t>(a)};
 #endif
 }
-}  // namespace detail
-}  // namespace svb16
+}}  // namespace svb16::detail

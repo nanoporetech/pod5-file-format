@@ -15,8 +15,10 @@
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 
-bool operator==(std::shared_ptr<arrow::UInt64Array> const& array,
-                std::vector<std::uint64_t> const& vec) {
+bool operator==(
+    std::shared_ptr<arrow::UInt64Array> const & array,
+    std::vector<std::uint64_t> const & vec)
+{
     if (array->length() != vec.size()) {
         return false;
     }
@@ -29,7 +31,8 @@ bool operator==(std::shared_ptr<arrow::UInt64Array> const& array,
     return true;
 }
 
-SCENARIO("Read table Tests") {
+SCENARIO("Read table Tests")
+{
     using namespace pod5;
 
     (void)pod5::register_extension_types();
@@ -47,32 +50,33 @@ SCENARIO("Read table Tests") {
         std::copy(uuid_source.begin(), uuid_source.end(), read_id.begin());
 
         return std::make_tuple(
-                pod5::ReadData{
-                        read_id,
-                        std::uint32_t(index * 2),
-                        std::uint64_t(index * 10),
-                        std::uint16_t(index + 1),
-                        std::uint8_t(index + 2),
-                        0,
-                        index * 0.1f,
-                        index * 0.2f,
-                        index * 100.0f,
-                        0,
-                        true,
-                        0,
-                        std::uint64_t(index * 150),
-                        index * 0.4f,
-                        index * 0.3f,
-                        index * 0.6f,
-                        index * 0.5f,
-                        std::uint32_t(index + 10),
-                        index * 50.0f,
+            pod5::ReadData{
+                read_id,
+                std::uint32_t(index * 2),
+                std::uint64_t(index * 10),
+                std::uint16_t(index + 1),
+                std::uint8_t(index + 2),
+                0,
+                index * 0.1f,
+                index * 0.2f,
+                index * 100.0f,
+                0,
+                true,
+                0,
+                std::uint64_t(index * 150),
+                index * 0.4f,
+                index * 0.3f,
+                index * 0.6f,
+                index * 0.5f,
+                std::uint32_t(index + 10),
+                index * 50.0f,
 
-                },
-                std::vector<std::uint64_t>{index + 2, index + 3});
+            },
+            std::vector<std::uint64_t>{index + 2, index + 3});
     };
 
-    GIVEN("A read table writer") {
+    GIVEN("A read table writer")
+    {
         auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
@@ -83,7 +87,7 @@ SCENARIO("Read table Tests") {
 
         {
             auto schema_metadata = make_schema_key_value_metadata(
-                    {file_identifier, "test_software", *parse_version_number(Pod5Version)});
+                {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE_ARROW_STATUS_OK(schema_metadata);
             REQUIRE_ARROW_STATUS_OK(file_out);
 
@@ -94,9 +98,14 @@ SCENARIO("Read table Tests") {
             auto run_info_writer = pod5::make_run_info_writer(pool);
             REQUIRE_ARROW_STATUS_OK(run_info_writer);
 
-            auto writer = pod5::make_read_table_writer(*file_out, *schema_metadata, read_count,
-                                                       *pore_writer, *end_reason_writer,
-                                                       *run_info_writer, pool);
+            auto writer = pod5::make_read_table_writer(
+                *file_out,
+                *schema_metadata,
+                read_count,
+                *pore_writer,
+                *end_reason_writer,
+                *run_info_writer,
+                pool);
             REQUIRE_ARROW_STATUS_OK(writer);
 
             auto const pore_1 = (*pore_writer)->add("Well Type");
@@ -160,11 +169,11 @@ SCENARIO("Read table Tests") {
                 CHECK(columns->run_info->length() == read_count);
 
                 auto pore_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(columns->pore_type->indices());
+                    std::static_pointer_cast<arrow::Int16Array>(columns->pore_type->indices());
                 auto end_reason_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(columns->end_reason->indices());
+                    std::static_pointer_cast<arrow::Int16Array>(columns->end_reason->indices());
                 auto run_info_indices =
-                        std::static_pointer_cast<arrow::Int16Array>(columns->run_info->indices());
+                    std::static_pointer_cast<arrow::Int16Array>(columns->run_info->indices());
                 for (auto j = 0; j < read_count; ++j) {
                     auto idx = j + i * read_count;
 
@@ -175,9 +184,10 @@ SCENARIO("Read table Tests") {
                     CHECK(columns->read_id->Value(j) == read_data.read_id);
 
                     auto signal_data = std::static_pointer_cast<arrow::UInt64Array>(
-                            columns->signal->value_slice(j));
-                    CHECK(gsl::make_span(signal_data->raw_values(), signal_data->length()) ==
-                          gsl::make_span(expected_signal));
+                        columns->signal->value_slice(j));
+                    CHECK(
+                        gsl::make_span(signal_data->raw_values(), signal_data->length())
+                        == gsl::make_span(expected_signal));
 
                     CHECK(columns->read_number->Value(j) == read_data.read_number);
                     CHECK(columns->start_sample->Value(j) == read_data.start_sample);

@@ -8,32 +8,38 @@
 #ifdef STREAMVBYTE_X64
 
 STREAMVBYTE_TARGET_SSSE3
-static __m128i Delta(__m128i curr, __m128i prev) {
+static __m128i Delta(__m128i curr, __m128i prev)
+{
     // _mm_alignr_epi8: SSSE3
     return _mm_sub_epi16(curr, _mm_alignr_epi8(curr, prev, 14));
 }
+
 STREAMVBYTE_UNTARGET_REGION
 
 STREAMVBYTE_TARGET_SSSE3
-static __m128i zigzag_16(__m128i buf) {
+static __m128i zigzag_16(__m128i buf)
+{
     return _mm_xor_si128(_mm_add_epi16(buf, buf), _mm_srai_epi16(buf, 16));
 }
+
 STREAMVBYTE_UNTARGET_REGION
 
 // based on code by aqrit  (streamvbyte_encode_SSSE3)
 STREAMVBYTE_TARGET_SSSE3
-size_t streamvbyte_zigzag_delta_encode_SSSE3_d1_init(const uint16_t *in,
-                                                     uint32_t count,
-                                                     uint8_t *out,
-                                                     uint16_t prev) {
+size_t streamvbyte_zigzag_delta_encode_SSSE3_d1_init(
+    uint16_t const * in,
+    uint32_t count,
+    uint8_t * out,
+    uint16_t prev)
+{
     __m128i Prev = _mm_set1_epi16(prev);
     uint32_t keyLen = (count >> 3) + (((count & 7) + 7) >> 3);  // 1-bit rounded to full byte
-    uint8_t *restrict keyPtr = &out[0];
-    uint8_t *restrict dataPtr = &out[keyLen];  // variable length data after keys
+    uint8_t * restrict keyPtr = &out[0];
+    uint8_t * restrict dataPtr = &out[keyLen];  // variable length data after keys
 
     const __m128i mask_01 = _mm_set1_epi8(0x01);
 
-    for (const uint16_t *end = &in [(count & ~15)]; in != end; in += 16) {
+    for (uint16_t const * end = &in [(count & ~15)]; in != end; in += 16) {
         __m128i rawr0, r0, rawr1, r1, r2, r3;
         size_t keys;
 
@@ -84,5 +90,6 @@ size_t streamvbyte_zigzag_delta_encode_SSSE3_d1_init(const uint16_t *in,
 
     return dataPtr - out;
 }
+
 STREAMVBYTE_UNTARGET_REGION
 #endif

@@ -12,9 +12,11 @@
 
 namespace arrow {
 class Schema;
+
 namespace io {
 class OutputStream;
 }
+
 namespace ipc {
 class RecordBatchWriter;
 }
@@ -24,18 +26,19 @@ namespace pod5 {
 
 class POD5_FORMAT_EXPORT ReadTableWriter {
 public:
-    ReadTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&& writer,
-                    std::shared_ptr<arrow::Schema>&& schema,
-                    std::shared_ptr<ReadTableSchemaDescription> const& field_locations,
-                    std::size_t table_batch_size,
-                    std::shared_ptr<PoreWriter> const& pore_writer,
-                    std::shared_ptr<EndReasonWriter> const& end_reason_writer,
-                    std::shared_ptr<RunInfoWriter> const& run_info_writer,
-                    arrow::MemoryPool* pool);
-    ReadTableWriter(ReadTableWriter&&);
-    ReadTableWriter& operator=(ReadTableWriter&&);
-    ReadTableWriter(ReadTableWriter const&) = delete;
-    ReadTableWriter& operator=(ReadTableWriter const&) = delete;
+    ReadTableWriter(
+        std::shared_ptr<arrow::ipc::RecordBatchWriter> && writer,
+        std::shared_ptr<arrow::Schema> && schema,
+        std::shared_ptr<ReadTableSchemaDescription> const & field_locations,
+        std::size_t table_batch_size,
+        std::shared_ptr<PoreWriter> const & pore_writer,
+        std::shared_ptr<EndReasonWriter> const & end_reason_writer,
+        std::shared_ptr<RunInfoWriter> const & run_info_writer,
+        arrow::MemoryPool * pool);
+    ReadTableWriter(ReadTableWriter &&);
+    ReadTableWriter & operator=(ReadTableWriter &&);
+    ReadTableWriter(ReadTableWriter const &) = delete;
+    ReadTableWriter & operator=(ReadTableWriter const &) = delete;
     ~ReadTableWriter();
 
     /// \brief Add a read to the read table, adding to the current batch.
@@ -43,9 +46,10 @@ public:
     /// \param signal List of signal table row indices that belong to this read.
     /// \param signal_duration The length of the read in samples.
     /// \returns The row index of the inserted read, or a status on failure.
-    Result<std::size_t> add_read(ReadData const& read_data,
-                                 gsl::span<SignalTableRowIndex const> const& signal,
-                                 std::uint64_t signal_duration);
+    Result<std::size_t> add_read(
+        ReadData const & read_data,
+        gsl::span<SignalTableRowIndex const> const & signal,
+        std::uint64_t signal_duration);
 
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();
@@ -76,12 +80,12 @@ private:
 /// \param pool Pool to be used for building table in memory.
 /// \returns The writer for the new table.
 POD5_FORMAT_EXPORT Result<ReadTableWriter> make_read_table_writer(
-        std::shared_ptr<arrow::io::OutputStream> const& sink,
-        std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
-        std::size_t table_batch_size,
-        std::shared_ptr<PoreWriter> const& pore_writer,
-        std::shared_ptr<EndReasonWriter> const& end_reason_writer,
-        std::shared_ptr<RunInfoWriter> const& run_info_writer,
-        arrow::MemoryPool* pool);
+    std::shared_ptr<arrow::io::OutputStream> const & sink,
+    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::size_t table_batch_size,
+    std::shared_ptr<PoreWriter> const & pore_writer,
+    std::shared_ptr<EndReasonWriter> const & end_reason_writer,
+    std::shared_ptr<RunInfoWriter> const & run_info_writer,
+    arrow::MemoryPool * pool);
 
 }  // namespace pod5

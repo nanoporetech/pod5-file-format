@@ -24,15 +24,21 @@ struct SchemaMetadataDescription;
 class ReadTableSpecVersion {
 public:
     static TableSpecVersion v0() { return TableSpecVersion::first_version(); }
-    static TableSpecVersion v1() {
+
+    static TableSpecVersion v1()
+    {
         // Addition of num_minknow_events and scaling parameters
         return TableSpecVersion::at_version(1);
     }
-    static TableSpecVersion v2() {
+
+    static TableSpecVersion v2()
+    {
         // Addition of num_samples parameters
         return TableSpecVersion::at_version(2);
     }
-    static TableSpecVersion v3() {
+
+    static TableSpecVersion v3()
+    {
         // Flattening of dictionaries into separate table.
         return TableSpecVersion::at_version(3);
     }
@@ -44,8 +50,8 @@ class ReadTableSchemaDescription : public SchemaDescriptionBase {
 public:
     ReadTableSchemaDescription();
 
-    ReadTableSchemaDescription(ReadTableSchemaDescription const&) = delete;
-    ReadTableSchemaDescription& operator=(ReadTableSchemaDescription const&) = delete;
+    ReadTableSchemaDescription(ReadTableSchemaDescription const &) = delete;
+    ReadTableSchemaDescription & operator=(ReadTableSchemaDescription const &) = delete;
 
     TableSpecVersion table_version_from_file_version(Version file_version) const override;
 
@@ -81,38 +87,38 @@ public:
     // Field Builders only for fields we write in newly generated files.
     // Should not include fields which are removed in the latest version:
     using FieldBuilders = FieldBuilder<
-            // V0 fields
-            decltype(read_id),
-            decltype(signal),
-            decltype(read_number),
-            decltype(start),
-            decltype(median_before),
+        // V0 fields
+        decltype(read_id),
+        decltype(signal),
+        decltype(read_number),
+        decltype(start),
+        decltype(median_before),
 
-            // V1 fields
-            decltype(num_minknow_events),
-            decltype(tracked_scaling_scale),
-            decltype(tracked_scaling_shift),
-            decltype(predicted_scaling_scale),
-            decltype(predicted_scaling_shift),
-            decltype(num_reads_since_mux_change),
-            decltype(time_since_mux_change),
+        // V1 fields
+        decltype(num_minknow_events),
+        decltype(tracked_scaling_scale),
+        decltype(tracked_scaling_shift),
+        decltype(predicted_scaling_scale),
+        decltype(predicted_scaling_shift),
+        decltype(num_reads_since_mux_change),
+        decltype(time_since_mux_change),
 
-            // V2 fields
-            decltype(num_samples),
+        // V2 fields
+        decltype(num_samples),
 
-            // V3 fields
-            decltype(channel),
-            decltype(well),
-            decltype(pore_type),
-            decltype(calibration_offset),
-            decltype(calibration_scale),
-            decltype(end_reason),
-            decltype(end_reason_forced),
-            decltype(run_info)>;
+        // V3 fields
+        decltype(channel),
+        decltype(well),
+        decltype(pore_type),
+        decltype(calibration_offset),
+        decltype(calibration_scale),
+        decltype(end_reason),
+        decltype(end_reason_forced),
+        decltype(run_info)>;
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(
-        SchemaMetadataDescription const& schema_metadata,
-        std::shared_ptr<arrow::Schema> const&);
+    SchemaMetadataDescription const & schema_metadata,
+    std::shared_ptr<arrow::Schema> const &);
 
 }  // namespace pod5

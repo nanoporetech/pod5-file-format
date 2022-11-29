@@ -25,33 +25,42 @@ public:
 
     FileWriterOptions();
 
-    void set_max_signal_chunk_size(std::uint32_t chunk_size) {
+    void set_max_signal_chunk_size(std::uint32_t chunk_size)
+    {
         m_max_signal_chunk_size = chunk_size;
     }
+
     std::uint32_t max_signal_chunk_size() const { return m_max_signal_chunk_size; }
 
-    void memory_pool(arrow::MemoryPool* memory_pool) { m_memory_pool = memory_pool; }
-    arrow::MemoryPool* memory_pool() const { return m_memory_pool; }
+    void memory_pool(arrow::MemoryPool * memory_pool) { m_memory_pool = memory_pool; }
+
+    arrow::MemoryPool * memory_pool() const { return m_memory_pool; }
 
     void set_signal_type(SignalType signal_type) { m_signal_type = signal_type; }
+
     SignalType signal_type() const { return m_signal_type; }
 
-    void set_signal_table_batch_size(std::size_t batch_size) {
+    void set_signal_table_batch_size(std::size_t batch_size)
+    {
         m_signal_table_batch_size = batch_size;
     }
+
     std::size_t signal_table_batch_size() const { return m_signal_table_batch_size; }
 
     void set_read_table_batch_size(std::size_t batch_size) { m_read_table_batch_size = batch_size; }
+
     std::size_t read_table_batch_size() const { return m_read_table_batch_size; }
 
-    void set_run_info_table_batch_size(std::size_t batch_size) {
+    void set_run_info_table_batch_size(std::size_t batch_size)
+    {
         m_run_info_table_batch_size = batch_size;
     }
+
     std::size_t run_info_table_batch_size() const { return m_run_info_table_batch_size; }
 
 private:
     std::uint32_t m_max_signal_chunk_size;
-    arrow::MemoryPool* m_memory_pool;
+    arrow::MemoryPool * m_memory_pool;
     SignalType m_signal_type;
     std::size_t m_signal_table_batch_size;
     std::size_t m_read_table_batch_size;
@@ -59,34 +68,37 @@ private:
 };
 
 class FileWriterImpl;
+
 class POD5_FORMAT_EXPORT FileWriter {
 public:
-    FileWriter(std::unique_ptr<FileWriterImpl>&& impl);
+    FileWriter(std::unique_ptr<FileWriterImpl> && impl);
     ~FileWriter();
 
     pod5::Status close();
 
-    pod5::Status add_complete_read(ReadData const& read_data,
-                                   gsl::span<std::int16_t const> const& signal);
+    pod5::Status add_complete_read(
+        ReadData const & read_data,
+        gsl::span<std::int16_t const> const & signal);
 
     /// \brief Add a complete with rows already pre appended.
-    pod5::Status add_complete_read(ReadData const& read_data,
-                                   gsl::span<std::uint64_t const> const& signal_rows,
-                                   std::uint64_t signal_duration);
+    pod5::Status add_complete_read(
+        ReadData const & read_data,
+        gsl::span<std::uint64_t const> const & signal_rows,
+        std::uint64_t signal_duration);
 
     pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
-            boost::uuids::uuid const& read_id,
-            gsl::span<std::int16_t const> const& signal);
+        boost::uuids::uuid const & read_id,
+        gsl::span<std::int16_t const> const & signal);
 
     pod5::Result<SignalTableRowIndex> add_pre_compressed_signal(
-            boost::uuids::uuid const& read_id,
-            gsl::span<std::uint8_t const> const& signal_bytes,
-            std::uint32_t sample_count);
+        boost::uuids::uuid const & read_id,
+        gsl::span<std::uint8_t const> const & signal_bytes,
+        std::uint32_t sample_count);
 
     // Find or create an end reason index representing this read end reason.
     pod5::Result<EndReasonDictionaryIndex> lookup_end_reason(ReadEndReason end_reason) const;
-    pod5::Result<PoreDictionaryIndex> add_pore_type(std::string const& pore_type_data);
-    pod5::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const& run_info_data);
+    pod5::Result<PoreDictionaryIndex> add_pore_type(std::string const & pore_type_data);
+    pod5::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const & run_info_data);
 
     SignalType signal_type() const;
 
@@ -95,8 +107,8 @@ private:
 };
 
 POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
-        std::string const& path,
-        std::string const& writing_software_name,
-        FileWriterOptions const& options = {});
+    std::string const & path,
+    std::string const & writing_software_name,
+    FileWriterOptions const & options = {});
 
 }  // namespace pod5

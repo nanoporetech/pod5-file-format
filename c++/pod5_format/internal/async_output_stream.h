@@ -13,29 +13,34 @@
 
 class AsyncOutputStream : public arrow::io::OutputStream {
 public:
-    AsyncOutputStream(std::shared_ptr<OutputStream> const& main_stream)
-            : m_has_error(false),
-              m_submitted_writes(0),
-              m_completed_writes(0),
-              m_submitted_byte_writes(0),
-              m_completed_byte_writes(0),
-              m_exit(false),
-              m_main_stream(main_stream),
-              m_write_thread([&] { run_write_thread(); }) {}
+    AsyncOutputStream(std::shared_ptr<OutputStream> const & main_stream)
+    : m_has_error(false)
+    , m_submitted_writes(0)
+    , m_completed_writes(0)
+    , m_submitted_byte_writes(0)
+    , m_completed_byte_writes(0)
+    , m_exit(false)
+    , m_main_stream(main_stream)
+    , m_write_thread([&] { run_write_thread(); })
+    {
+    }
 
-    ~AsyncOutputStream() {
+    ~AsyncOutputStream()
+    {
         (void)Flush();
         m_exit = true;
         m_write_thread.join();
     }
 
-    virtual arrow::Status Close() override {
+    virtual arrow::Status Close() override
+    {
         ARROW_RETURN_NOT_OK(Flush());
         m_exit = true;
         return m_main_stream->Close();
     }
 
-    arrow::Future<> CloseAsync() override {
+    arrow::Future<> CloseAsync() override
+    {
         ARROW_RETURN_NOT_OK(Flush());
         m_exit = true;
         return m_main_stream->CloseAsync();
@@ -47,14 +52,16 @@ public:
 
     bool closed() const override { return m_main_stream->closed(); }
 
-    arrow::Status Write(const void* data, int64_t nbytes) override {
+    arrow::Status Write(void const * data, int64_t nbytes) override
+    {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> buffer, arrow::AllocateBuffer(nbytes));
-        auto const char_data = static_cast<char const*>(data);
+        auto const char_data = static_cast<char const *>(data);
         std::copy(char_data, char_data + nbytes, buffer->mutable_data());
         return Write(buffer);
     }
 
-    arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
+    arrow::Status Write(std::shared_ptr<arrow::Buffer> const & data) override
+    {
         if (m_has_error) {
             return *m_error;
         }
@@ -75,7 +82,8 @@ public:
         return arrow::Status::OK();
     }
 
-    arrow::Status Flush() override {
+    arrow::Status Flush() override
+    {
         if (m_has_error) {
             return *m_error;
         }
@@ -89,13 +97,15 @@ public:
     }
 
 private:
-    void run_write_thread() {
+    void run_write_thread()
+    {
         while (!m_exit) {
             std::shared_ptr<arrow::Buffer> buffer;
             {
                 std::unique_lock<std::mutex> lock(m_write_mutex);
-                m_work_available.wait_for(lock, std::chrono::milliseconds(100),
-                                          [&] { return !m_write_requests.empty() || m_exit; });
+                m_work_available.wait_for(lock, std::chrono::milliseconds(100), [&] {
+                    return !m_write_requests.empty() || m_exit;
+                });
                 if (!m_write_requests.size()) {
                     continue;
                 }

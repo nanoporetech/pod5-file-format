@@ -1,16 +1,42 @@
 ---
+# See https://releases.llvm.org/14.0.0/tools/clang/docs/ClangFormatStyleOptions.html
 BasedOnStyle: Chromium
 AccessModifierOffset: -4
+AlignAfterOpenBracket: AlwaysBreak
+# AlignArrayOfStructures can cause crashes, see https://github.com/llvm/llvm-project/issues/55269
+#AlignArrayOfStructures: Left
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: All
-BreakConstructorInitializers: BeforeColon
+BinPackArguments: false
+BinPackParameters: false
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BraceWrapping:
+  # NB: due to https://github.com/llvm/llvm-project/issues/55582 the Multiline setting will not
+  # always work (should be fixed in clang-format 15, but that is not available as a python wheel yet
+  # due to https://github.com/ssciwr/clang-format-wheel/issues/49)
+  AfterControlStatement: MultiLine # makes sure multiline ifs don't run into their bodies
+  AfterFunction: true # makes constructors with initialisers much nicer
+BreakBeforeConceptDeclarations: true
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma
+BreakStringLiterals: true
 ColumnLimit: 100
-ConstructorInitializerIndentWidth: 8
-ContinuationIndentWidth: 8
+CompactNamespaces: true
+ConstructorInitializerIndentWidth: 0
+ContinuationIndentWidth: 4
 Cpp11BracedListStyle: true
-DerivePointerAlignment: true
+DerivePointerAlignment: false # force use of the PointerAlignment setting
 FixNamespaceComments: true
 IncludeBlocks : Regroup
 IncludeCategories:
+  # Aim is:
+  # 0. the "main" header file (#include "foo.h" in foo.cpp) automatically gets priority 0
+  # 1. internal headers (#include "util/helpers.h"): quotation marks, with a '/'
+  # 2. third-party headers (#include <boost/string_view.hpp>): angle brackets, '/' or .h/.hpp/.h++
+  #    file ext
+  # 3. standard library headers (#include <vector>): angle brackets, no file ext, no '/'
   - Regex:    '^"'
     Priority: 1
   - Regex:    '^<.*/'
@@ -22,12 +48,22 @@ IncludeCategories:
   - Regex:    '\.h\+\+>'
     Priority: 2
 IncludeIsMainRegex: '(_test|_tests|Tests|Test)?$'
+  # foo.h will be considered the "main" header (and sorted to the top) for all of the following:
+  # - foo.cpp
+  # - foo_test.cpp
+  # - foo_tests.cpp
+  # - fooTests.cpp (although this is intended for Foo.h and FooTests.cpp)
+  # - fooTest.cpp (although this is intended for Foo.h and FooTest.cpp)
 IndentCaseLabels: false
 IndentWidth: 4
+PackConstructorInitializers: CurrentLine
 PointerAlignment: Middle
+QualifierAlignment: Right # const east
+# clang 14 *should* know about QualifierOrder (according to its docs) but claims it doesn't
+#QualifierOrder: ['static', 'constexpr', 'inline', 'type', 'const', 'volatile', 'restrict']
 ReflowComments: false
-SortIncludes: true
+SeparateDefinitionBlocks: Always
+SortIncludes: CaseInsensitive
 SortUsingDeclarations: true
-Standard: Cpp11
-
-...
+SpaceAroundPointerQualifiers: Before
+Standard: c++20
