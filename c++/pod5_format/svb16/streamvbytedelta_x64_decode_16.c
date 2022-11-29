@@ -5,19 +5,22 @@
 #ifdef STREAMVBYTE_X64
 
 STREAMVBYTE_TARGET_SSSE3
-static __m128i undo_zigzag_16(__m128i buf) {
+static __m128i undo_zigzag_16(__m128i buf)
+{
     return _mm_xor_si128(
-            // N >> 1
-            _mm_srli_epi16(buf, 1),
-            // 0xFFFF if N & 1 else 0x0000
-            _mm_srai_epi16(_mm_slli_epi16(buf, 15), 15)
-            // alternative: _mm_sign_epi16(ones, _mm_slli_epi16(buf, 15))
+        // N >> 1
+        _mm_srli_epi16(buf, 1),
+        // 0xFFFF if N & 1 else 0x0000
+        _mm_srai_epi16(_mm_slli_epi16(buf, 15), 15)
+        // alternative: _mm_sign_epi16(ones, _mm_slli_epi16(buf, 15))
     );
 }
+
 STREAMVBYTE_UNTARGET_REGION
 
 STREAMVBYTE_TARGET_SSSE3
-static inline __m128i _decode_avx(uint32_t key, const uint8_t *__restrict__ *dataPtrPtr) {
+static inline __m128i _decode_avx(uint32_t key, uint8_t const * __restrict__ * dataPtrPtr)
+{
     uint8_t len = 8 + popcount(key);
     __m128i Data = _mm_loadu_si128((__m128i *)*dataPtrPtr);
     __m128i Shuf = *(__m128i *)&shuffleTable[key];
@@ -27,14 +30,20 @@ static inline __m128i _decode_avx(uint32_t key, const uint8_t *__restrict__ *dat
 
     return Data;
 }
+
 STREAMVBYTE_UNTARGET_REGION
 
 STREAMVBYTE_TARGET_SSSE3
-static inline void _write_avx(uint16_t *out, __m128i Vec) { _mm_storeu_si128((__m128i *)out, Vec); }
+static inline void _write_avx(uint16_t * out, __m128i Vec)
+{
+    _mm_storeu_si128((__m128i *)out, Vec);
+}
+
 STREAMVBYTE_UNTARGET_REGION
 
 STREAMVBYTE_TARGET_SSSE3
-static inline __m128i _write_16bit_avx_d1(uint16_t *out, __m128i Vec, __m128i Prev) {
+static inline __m128i _write_16bit_avx_d1(uint16_t * out, __m128i Vec, __m128i Prev)
+{
 #ifndef _MSC_VER
     __m128i BroadcastLast16 = {0x0F0E0F0E0F0E0F0E, 0x0F0E0F0E0F0E0F0E};
 #else
@@ -53,14 +62,17 @@ static inline __m128i _write_16bit_avx_d1(uint16_t *out, __m128i Vec, __m128i Pr
     _write_avx(out, Vec);
     return Vec;
 }
+
 STREAMVBYTE_UNTARGET_REGION
 
 STREAMVBYTE_TARGET_SSSE3
-static const uint8_t *svb_decode_avx_d1_init(uint16_t *out,
-                                             const uint8_t *__restrict__ keyPtr,
-                                             const uint8_t *__restrict__ dataPtr,
-                                             uint64_t count,
-                                             uint16_t prev) {
+static uint8_t const * svb_decode_avx_d1_init(
+    uint16_t * out,
+    uint8_t const * __restrict__ keyPtr,
+    uint8_t const * __restrict__ dataPtr,
+    uint64_t count,
+    uint16_t prev)
+{
     uint64_t keybytes = count / 4;  // number of key bytes
     if (keybytes >= 8) {
         __m128i Prev = _mm_set1_epi16(prev);
@@ -68,7 +80,7 @@ static const uint8_t *svb_decode_avx_d1_init(uint16_t *out,
 
         int64_t Offset = -(int64_t)keybytes / 8 + 1;
 
-        const uint64_t *keyPtr64 = (const uint64_t *)keyPtr - Offset;
+        uint64_t const * keyPtr64 = (uint64_t const *)keyPtr - Offset;
         uint64_t nextkeys;
         memcpy(&nextkeys, keyPtr64 + Offset, sizeof(nextkeys));
         for (; Offset != 0; ++Offset) {
@@ -163,5 +175,6 @@ static const uint8_t *svb_decode_avx_d1_init(uint16_t *out,
     uint64_t consumedkeys = keybytes - (keybytes & 7);
     return svb_decode_scalar_d1_init(out, keyPtr + consumedkeys, dataPtr, count & 31, prev);
 }
+
 STREAMVBYTE_UNTARGET_REGION
 #endif

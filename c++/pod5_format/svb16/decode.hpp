@@ -11,7 +11,8 @@
 namespace svb16 {
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-size_t decode(Int16T* out, uint8_t const* SVB_RESTRICT in, uint32_t count, Int16T prev = 0) {
+size_t decode(Int16T * out, uint8_t const * SVB_RESTRICT in, uint32_t count, Int16T prev = 0)
+{
     auto const keys = in;
     auto const data = keys + ::svb16_key_length(count);
 #ifdef SVB16_X64

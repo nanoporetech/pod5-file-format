@@ -10,7 +10,8 @@
 
 #include <numeric>
 
-SCENARIO("Signal compression Tests") {
+SCENARIO("Signal compression Tests")
+{
     auto pool = arrow::system_memory_pool();
 
     std::vector<std::int16_t> signal(100'00);
@@ -23,7 +24,7 @@ SCENARIO("Signal compression Tests") {
     auto decompressed = pod5::decompress_signal(compressed_span, signal.size(), pool);
     REQUIRE_ARROW_STATUS_OK(decompressed);
     auto decompressed_span = gsl::make_span((*decompressed)->data(), (*decompressed)->size())
-                                     .as_span<std::int16_t const>();
+                                 .as_span<std::int16_t const>();
 
     CHECK(gsl::make_span(signal) == decompressed_span);
 }

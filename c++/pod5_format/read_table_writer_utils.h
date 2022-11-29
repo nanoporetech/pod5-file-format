@@ -23,11 +23,12 @@ namespace detail {
 template <typename T>
 class PrimitiveDictionaryKeyBuilder {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) { return m_values.init_buffer(pool); }
+    arrow::Status init_buffer(arrow::MemoryPool * pool) { return m_values.init_buffer(pool); }
 
-    arrow::Status append(T const& value) { return m_values.append(value); }
+    arrow::Status append(T const & value) { return m_values.append(value); }
 
     std::size_t length() const { return m_values.size(); }
+
     std::shared_ptr<arrow::Buffer> get_data() const { return m_values.get_buffer(); }
 
 private:
@@ -38,9 +39,10 @@ private:
 template <>
 class PrimitiveDictionaryKeyBuilder<bool> {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) { return m_values.init_buffer(pool); }
+    arrow::Status init_buffer(arrow::MemoryPool * pool) { return m_values.init_buffer(pool); }
 
-    arrow::Status append(bool value) {
+    arrow::Status append(bool value)
+    {
         ARROW_RETURN_NOT_OK(m_values.resize((m_bit_length / 8) + 1));
         auto mutable_data = m_values.mutable_data();
         arrow::bit_util::SetBitTo(mutable_data, m_bit_length, value);
@@ -50,6 +52,7 @@ public:
     }
 
     std::size_t length() const { return m_bit_length; }
+
     std::shared_ptr<arrow::Buffer> get_data() const { return m_values.get_buffer(); }
 
 private:
@@ -59,24 +62,31 @@ private:
 
 class StringDictionaryKeyBuilder {
 public:
-    StringDictionaryKeyBuilder(arrow::MemoryPool* pool = nullptr)
-            : m_offset_values(pool), m_string_values(pool) {}
+    StringDictionaryKeyBuilder(arrow::MemoryPool * pool = nullptr)
+    : m_offset_values(pool)
+    , m_string_values(pool)
+    {
+    }
 
-    arrow::Status init_buffer(arrow::MemoryPool* pool) {
+    arrow::Status init_buffer(arrow::MemoryPool * pool)
+    {
         ARROW_RETURN_NOT_OK(m_offset_values.init_buffer(pool));
         return m_string_values.init_buffer(pool);
     }
 
-    arrow::Status append(std::string const& value) {
+    arrow::Status append(std::string const & value)
+    {
         ARROW_RETURN_NOT_OK(m_offset_values.append(m_string_values.size()));
         return m_string_values.append_array(
-                gsl::make_span(value.data(), value.size()).as_span<std::uint8_t const>());
+            gsl::make_span(value.data(), value.size()).as_span<std::uint8_t const>());
     }
 
     std::size_t length() const { return m_offset_values.size(); }
 
     std::shared_ptr<arrow::Buffer> get_string_data() const { return m_string_values.get_buffer(); }
-    gsl::span<std::int32_t const> get_typed_offset_data() const {
+
+    gsl::span<std::int32_t const> get_typed_offset_data() const
+    {
         return m_offset_values.get_data_span();
     }
 
@@ -87,15 +97,17 @@ private:
 
 class StringMapDictionaryKeyBuilder {
 public:
-    arrow::Status init_buffer(arrow::MemoryPool* pool) {
+    arrow::Status init_buffer(arrow::MemoryPool * pool)
+    {
         ARROW_RETURN_NOT_OK(m_offset_values.init_buffer(pool));
         ARROW_RETURN_NOT_OK(m_key_builder.init_buffer(pool));
         return m_value_builder.init_buffer(pool);
     }
 
-    arrow::Status append(pod5::RunInfoData::MapType const& value) {
+    arrow::Status append(pod5::RunInfoData::MapType const & value)
+    {
         ARROW_RETURN_NOT_OK(m_offset_values.append(m_key_builder.length()));
-        for (auto const& item : value) {
+        for (auto const & item : value) {
             ARROW_RETURN_NOT_OK(m_key_builder.append(item.first));
             ARROW_RETURN_NOT_OK(m_value_builder.append(item.second));
         }
@@ -104,9 +116,12 @@ public:
 
     std::size_t length() const { return m_offset_values.size(); }
 
-    StringDictionaryKeyBuilder const& key_builder() const { return m_key_builder; }
-    StringDictionaryKeyBuilder const& value_builder() const { return m_value_builder; }
-    gsl::span<std::int32_t const> get_typed_offset_data() const {
+    StringDictionaryKeyBuilder const & key_builder() const { return m_key_builder; }
+
+    StringDictionaryKeyBuilder const & value_builder() const { return m_value_builder; }
+
+    gsl::span<std::int32_t const> get_typed_offset_data() const
+    {
         return m_offset_values.get_data_span();
     }
 
@@ -117,19 +132,20 @@ private:
 };
 
 template <std::size_t CurrentIndex, typename BuilderTuple, typename Arg>
-arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple& builders, Arg&& arg) {
-    auto& builder = std::get<CurrentIndex>(builders);
+arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple & builders, Arg && arg)
+{
+    auto & builder = std::get<CurrentIndex>(builders);
     auto index = builder.length();
     ARROW_RETURN_NOT_OK(builder.append(arg));
     return index;
 }
 
 template <std::size_t CurrentIndex, typename BuilderTuple, typename FirstArg, typename... Args>
-arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple& builder,
-                                                      FirstArg&& first_arg,
-                                                      Args&&... args) {
+arrow::Result<std::size_t>
+unpack_struct_builder_args(BuilderTuple & builder, FirstArg && first_arg, Args &&... args)
+{
     ARROW_RETURN_NOT_OK(unpack_struct_builder_args<CurrentIndex>(builder, first_arg));
-    return unpack_struct_builder_args<CurrentIndex + 1>(builder, std::forward<Args&&>(args)...);
+    return unpack_struct_builder_args<CurrentIndex + 1>(builder, std::forward<Args &&>(args)...);
 }
 
 }  // namespace detail
@@ -137,17 +153,19 @@ arrow::Result<std::size_t> unpack_struct_builder_args(BuilderTuple& builder,
 template <typename... BuilderTypes>
 class StructBuilder {
 public:
-    StructBuilder(arrow::MemoryPool* pool) {
-        detail::for_each_in_tuple(m_builders,
-                                  [&](auto& x, std::size_t _) { (void)x.init_buffer(pool); });
+    StructBuilder(arrow::MemoryPool * pool)
+    {
+        detail::for_each_in_tuple(
+            m_builders, [&](auto & x, std::size_t _) { (void)x.init_buffer(pool); });
     }
 
     template <typename... Args>
-    arrow::Result<std::size_t> append(Args&&... args) {
-        return detail::unpack_struct_builder_args<0>(m_builders, std::forward<Args&&>(args)...);
+    arrow::Result<std::size_t> append(Args &&... args)
+    {
+        return detail::unpack_struct_builder_args<0>(m_builders, std::forward<Args &&>(args)...);
     }
 
-    std::tuple<BuilderTypes...>& builders() { return m_builders; }
+    std::tuple<BuilderTypes...> & builders() { return m_builders; }
 
 private:
     std::tuple<BuilderTypes...> m_builders;
@@ -155,9 +173,10 @@ private:
 
 class POD5_FORMAT_EXPORT PoreWriter : public DictionaryWriter {
 public:
-    PoreWriter(arrow::MemoryPool* pool);
+    PoreWriter(arrow::MemoryPool * pool);
 
-    pod5::Result<PoreDictionaryIndex> add(std::string const& pore_type) {
+    pod5::Result<PoreDictionaryIndex> add(std::string const & pore_type)
+    {
         auto const index = item_count();
         ARROW_RETURN_NOT_OK(m_builder.append(pore_type));
         return index;
@@ -172,9 +191,10 @@ private:
 
 class POD5_FORMAT_EXPORT EndReasonWriter : public DictionaryWriter {
 public:
-    EndReasonWriter(std::shared_ptr<arrow::StringArray> const& end_reasons);
+    EndReasonWriter(std::shared_ptr<arrow::StringArray> const & end_reasons);
 
-    pod5::Result<EndReasonDictionaryIndex> lookup(ReadEndReason end_reason) const {
+    pod5::Result<EndReasonDictionaryIndex> lookup(ReadEndReason end_reason) const
+    {
         if (end_reason > ReadEndReason::last_end_reason) {
             return pod5::Status::Invalid("Invalid read end reason requested");
         }
@@ -190,9 +210,10 @@ private:
 
 class POD5_FORMAT_EXPORT RunInfoWriter : public DictionaryWriter {
 public:
-    RunInfoWriter(arrow::MemoryPool* pool);
+    RunInfoWriter(arrow::MemoryPool * pool);
 
-    pod5::Result<RunInfoDictionaryIndex> add(std::string const& acquisition_id) {
+    pod5::Result<RunInfoDictionaryIndex> add(std::string const & acquisition_id)
+    {
         auto const index = item_count();
         ARROW_RETURN_NOT_OK(m_builder.append(acquisition_id));
         return index;
@@ -206,12 +227,12 @@ private:
 };
 
 POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<PoreWriter>> make_pore_writer(
-        arrow::MemoryPool* pool);
+    arrow::MemoryPool * pool);
 
 POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<EndReasonWriter>> make_end_reason_writer(
-        arrow::MemoryPool* pool);
+    arrow::MemoryPool * pool);
 
 POD5_FORMAT_EXPORT arrow::Result<std::shared_ptr<RunInfoWriter>> make_run_info_writer(
-        arrow::MemoryPool* pool);
+    arrow::MemoryPool * pool);
 
 }  // namespace pod5

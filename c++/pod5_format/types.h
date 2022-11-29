@@ -16,7 +16,7 @@ public:
 
     using ExtensionArray::ExtensionArray;
 
-    const boost::uuids::uuid *raw_values() const;
+    boost::uuids::uuid const * raw_values() const;
 
     boost::uuids::uuid Value(int64_t i) const;
 
@@ -26,11 +26,13 @@ public:
     //     to be configurable via the ValueAccessor template parameter)
     boost::uuids::uuid GetView(int64_t i) const { return Value(i); }
 
-    arrow::util::optional<boost::uuids::uuid> operator[](int64_t i) const {
+    arrow::util::optional<boost::uuids::uuid> operator[](int64_t i) const
+    {
         return *IteratorType(*this, i);
     }
 
     IteratorType begin() const { return IteratorType(*this); }
+
     IteratorType end() const { return IteratorType(*this, length()); }
 };
 
@@ -39,12 +41,13 @@ public:
     UuidType() : ExtensionType(arrow::fixed_size_binary(16)) {}
 
     std::string extension_name() const override { return "minknow.uuid"; }
-    bool ExtensionEquals(const ExtensionType &other) const override;
+
+    bool ExtensionEquals(ExtensionType const & other) const override;
     std::shared_ptr<arrow::Array> MakeArray(std::shared_ptr<arrow::ArrayData> data) const override;
     std::string Serialize() const override;
     arrow::Result<std::shared_ptr<arrow::DataType>> Deserialize(
-            std::shared_ptr<arrow::DataType> storage_type,
-            const std::string &serialized_data) const override;
+        std::shared_ptr<arrow::DataType> storage_type,
+        std::string const & serialized_data) const override;
 };
 
 class POD5_FORMAT_EXPORT VbzSignalArray : public arrow::ExtensionArray {
@@ -62,12 +65,13 @@ public:
     VbzSignalType() : ExtensionType(arrow::large_binary()) {}
 
     std::string extension_name() const override { return "minknow.vbz"; }
-    bool ExtensionEquals(const ExtensionType &other) const override;
+
+    bool ExtensionEquals(ExtensionType const & other) const override;
     std::shared_ptr<arrow::Array> MakeArray(std::shared_ptr<arrow::ArrayData> data) const override;
     std::string Serialize() const override;
     arrow::Result<std::shared_ptr<arrow::DataType>> Deserialize(
-            std::shared_ptr<arrow::DataType> storage_type,
-            const std::string &serialized_data) const override;
+        std::shared_ptr<arrow::DataType> storage_type,
+        std::string const & serialized_data) const override;
 };
 
 std::shared_ptr<VbzSignalType> vbz_signal();

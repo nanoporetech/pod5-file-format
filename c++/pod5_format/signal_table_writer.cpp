@@ -16,19 +16,23 @@
 
 namespace pod5 {
 
-namespace {
-namespace visitors {
+namespace { namespace visitors {
 class reserve_rows : boost::static_visitor<Status> {
 public:
     reserve_rows(std::size_t row_count, std::size_t approx_read_samples)
-            : m_row_count(row_count), m_approx_read_samples(approx_read_samples) {}
+    : m_row_count(row_count)
+    , m_approx_read_samples(approx_read_samples)
+    {
+    }
 
-    Status operator()(UncompressedSignalBuilder& builder) const {
+    Status operator()(UncompressedSignalBuilder & builder) const
+    {
         ARROW_RETURN_NOT_OK(builder.signal_builder->Reserve(m_row_count));
         return builder.signal_data_builder->Reserve(m_row_count * m_approx_read_samples);
     }
 
-    Status operator()(VbzSignalBuilder& builder) const {
+    Status operator()(VbzSignalBuilder & builder) const
+    {
         ARROW_RETURN_NOT_OK(builder.offset_values.reserve(m_row_count + 1));
         return builder.data_values.reserve(m_row_count * m_approx_read_samples);
     }
@@ -39,17 +43,19 @@ public:
 
 class append_pre_compressed_signal : boost::static_visitor<Status> {
 public:
-    append_pre_compressed_signal(gsl::span<std::uint8_t const> const& signal) : m_signal(signal) {}
+    append_pre_compressed_signal(gsl::span<std::uint8_t const> const & signal) : m_signal(signal) {}
 
-    Status operator()(UncompressedSignalBuilder& builder) const {
+    Status operator()(UncompressedSignalBuilder & builder) const
+    {
         ARROW_RETURN_NOT_OK(builder.signal_builder->Append());  // start new slot
 
         auto as_uncompressed = m_signal.as_span<std::int16_t const>();
-        return builder.signal_data_builder->AppendValues(as_uncompressed.data(),
-                                                         as_uncompressed.size());
+        return builder.signal_data_builder->AppendValues(
+            as_uncompressed.data(), as_uncompressed.size());
     }
 
-    Status operator()(VbzSignalBuilder& builder) const {
+    Status operator()(VbzSignalBuilder & builder) const
+    {
         ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
         return builder.data_values.append_array(m_signal);
     }
@@ -59,35 +65,42 @@ public:
 
 class append_signal : boost::static_visitor<Status> {
 public:
-    append_signal(gsl::span<std::int16_t const> const& signal, arrow::MemoryPool* pool)
-            : m_signal(signal), m_pool(pool) {}
+    append_signal(gsl::span<std::int16_t const> const & signal, arrow::MemoryPool * pool)
+    : m_signal(signal)
+    , m_pool(pool)
+    {
+    }
 
-    Status operator()(UncompressedSignalBuilder& builder) const {
+    Status operator()(UncompressedSignalBuilder & builder) const
+    {
         ARROW_RETURN_NOT_OK(builder.signal_builder->Append());  // start new slot
         return builder.signal_data_builder->AppendValues(m_signal.data(), m_signal.size());
     }
 
-    Status operator()(VbzSignalBuilder& builder) const {
+    Status operator()(VbzSignalBuilder & builder) const
+    {
         ARROW_ASSIGN_OR_RAISE(auto compressed_signal, compress_signal(m_signal, m_pool));
 
         ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
         return builder.data_values.append_array(
-                gsl::make_span(compressed_signal->data(), compressed_signal->size()));
+            gsl::make_span(compressed_signal->data(), compressed_signal->size()));
     }
 
     gsl::span<std::int16_t const> m_signal;
-    arrow::MemoryPool* m_pool;
+    arrow::MemoryPool * m_pool;
 };
 
 class finish_column : boost::static_visitor<Status> {
 public:
-    finish_column(std::shared_ptr<arrow::Array>* dest) : m_dest(dest) {}
+    finish_column(std::shared_ptr<arrow::Array> * dest) : m_dest(dest) {}
 
-    Status operator()(UncompressedSignalBuilder& builder) const {
+    Status operator()(UncompressedSignalBuilder & builder) const
+    {
         return builder.signal_builder->Finish(m_dest);
     }
 
-    Status operator()(VbzSignalBuilder& builder) const {
+    Status operator()(VbzSignalBuilder & builder) const
+    {
         auto offsets_copy = builder.offset_values;
         ARROW_RETURN_NOT_OK(builder.offset_values.clear());
 
@@ -102,50 +115,55 @@ public:
 
         std::shared_ptr<arrow::Buffer> null_bitmap;
 
-        *m_dest = arrow::MakeArray(arrow::ArrayData::Make(
-                vbz_signal(), length, {null_bitmap, offsets, value_data}, 0, 0));
+        *m_dest = arrow::MakeArray(
+            arrow::ArrayData::Make(vbz_signal(), length, {null_bitmap, offsets, value_data}, 0, 0));
 
         return arrow::Status::OK();
     }
 
-    std::shared_ptr<arrow::Array>* m_dest;
+    std::shared_ptr<arrow::Array> * m_dest;
 };
 
-}  // namespace visitors
-}  // namespace
+}}  // namespace ::visitors
 
-SignalTableWriter::SignalTableWriter(std::shared_ptr<arrow::ipc::RecordBatchWriter>&& writer,
-                                     std::shared_ptr<arrow::Schema>&& schema,
-                                     SignalBuilderVariant&& signal_builder,
-                                     SignalTableSchemaDescription const& field_locations,
-                                     std::size_t table_batch_size,
-                                     arrow::MemoryPool* pool)
-        : m_pool(pool),
-          m_schema(schema),
-          m_field_locations(field_locations),
-          m_table_batch_size(table_batch_size),
-          m_writer(std::move(writer)),
-          m_signal_builder(std::move(signal_builder)) {
+SignalTableWriter::SignalTableWriter(
+    std::shared_ptr<arrow::ipc::RecordBatchWriter> && writer,
+    std::shared_ptr<arrow::Schema> && schema,
+    SignalBuilderVariant && signal_builder,
+    SignalTableSchemaDescription const & field_locations,
+    std::size_t table_batch_size,
+    arrow::MemoryPool * pool)
+: m_pool(pool)
+, m_schema(schema)
+, m_field_locations(field_locations)
+, m_table_batch_size(table_batch_size)
+, m_writer(std::move(writer))
+, m_signal_builder(std::move(signal_builder))
+{
     auto uuid_type = m_schema->field(m_field_locations.read_id)->type();
     assert(uuid_type->id() == arrow::Type::EXTENSION);
     auto uuid_extension = std::static_pointer_cast<arrow::ExtensionType>(uuid_type);
     m_read_id_builder =
-            std::make_unique<arrow::FixedSizeBinaryBuilder>(uuid_extension->storage_type(), m_pool);
+        std::make_unique<arrow::FixedSizeBinaryBuilder>(uuid_extension->storage_type(), m_pool);
     assert(m_read_id_builder->byte_width() == 16);
 
     m_samples_builder = std::make_unique<arrow::UInt32Builder>(m_pool);
 }
 
-SignalTableWriter::SignalTableWriter(SignalTableWriter&& other) = default;
-SignalTableWriter& SignalTableWriter::operator=(SignalTableWriter&&) = default;
-SignalTableWriter::~SignalTableWriter() {
+SignalTableWriter::SignalTableWriter(SignalTableWriter && other) = default;
+SignalTableWriter & SignalTableWriter::operator=(SignalTableWriter &&) = default;
+
+SignalTableWriter::~SignalTableWriter()
+{
     if (m_writer) {
         (void)close();
     }
 }
 
-Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read_id,
-                                                  gsl::span<std::int16_t const> const& signal) {
+Result<std::size_t> SignalTableWriter::add_signal(
+    boost::uuids::uuid const & read_id,
+    gsl::span<std::int16_t const> const & signal)
+{
     POD5_TRACE_FUNCTION();
     if (!m_writer) {
         return Status::IOError("Writer terminated");
@@ -155,7 +173,7 @@ Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
 
     ARROW_RETURN_NOT_OK(
-            boost::apply_visitor(visitors::append_signal{signal, m_pool}, m_signal_builder));
+        boost::apply_visitor(visitors::append_signal{signal, m_pool}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(signal.size()));
     ++m_current_batch_row_count;
@@ -168,9 +186,10 @@ Result<std::size_t> SignalTableWriter::add_signal(boost::uuids::uuid const& read
 }
 
 Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
-        boost::uuids::uuid const& read_id,
-        gsl::span<std::uint8_t const> const& signal,
-        std::uint32_t sample_count) {
+    boost::uuids::uuid const & read_id,
+    gsl::span<std::uint8_t const> const & signal,
+    std::uint32_t sample_count)
+{
     POD5_TRACE_FUNCTION();
     if (!m_writer) {
         return Status::IOError("Writer terminated");
@@ -180,7 +199,7 @@ Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
 
     ARROW_RETURN_NOT_OK(
-            boost::apply_visitor(visitors::append_pre_compressed_signal{signal}, m_signal_builder));
+        boost::apply_visitor(visitors::append_pre_compressed_signal{signal}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(sample_count));
     ++m_current_batch_row_count;
@@ -192,7 +211,8 @@ Result<std::size_t> SignalTableWriter::add_pre_compressed_signal(
     return row_id;
 }
 
-Status SignalTableWriter::close() {
+Status SignalTableWriter::close()
+{
     // Check for already closed
     if (!m_writer) {
         return Status::OK();
@@ -207,7 +227,8 @@ Status SignalTableWriter::close() {
 
 SignalType SignalTableWriter::signal_type() const { return m_field_locations.signal_type; }
 
-Status SignalTableWriter::write_batch() {
+Status SignalTableWriter::write_batch()
+{
     POD5_TRACE_FUNCTION();
     if (m_current_batch_row_count == 0) {
         return Status::OK();
@@ -221,12 +242,12 @@ Status SignalTableWriter::write_batch() {
     ARROW_RETURN_NOT_OK(m_read_id_builder->Finish(&columns[m_field_locations.read_id]));
 
     ARROW_RETURN_NOT_OK(boost::apply_visitor(
-            visitors::finish_column{&columns[m_field_locations.signal]}, m_signal_builder));
+        visitors::finish_column{&columns[m_field_locations.signal]}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Finish(&columns[m_field_locations.samples]));
 
     auto const record_batch =
-            arrow::RecordBatch::Make(m_schema, m_current_batch_row_count, std::move(columns));
+        arrow::RecordBatch::Make(m_schema, m_current_batch_row_count, std::move(columns));
     m_written_batched_row_count += m_current_batch_row_count;
     m_current_batch_row_count = 0;
 
@@ -236,22 +257,24 @@ Status SignalTableWriter::write_batch() {
     return reserve_rows();
 }
 
-Status SignalTableWriter::reserve_rows() {
+Status SignalTableWriter::reserve_rows()
+{
     ARROW_RETURN_NOT_OK(m_read_id_builder->Reserve(m_table_batch_size));
     ARROW_RETURN_NOT_OK(m_samples_builder->Reserve(m_table_batch_size));
 
     static constexpr std::uint32_t APPROX_READ_SIZE = 102'400;
 
-    return boost::apply_visitor(visitors::reserve_rows{m_table_batch_size, APPROX_READ_SIZE},
-                                m_signal_builder);
+    return boost::apply_visitor(
+        visitors::reserve_rows{m_table_batch_size, APPROX_READ_SIZE}, m_signal_builder);
 }
 
 Result<SignalTableWriter> make_signal_table_writer(
-        std::shared_ptr<arrow::io::OutputStream> const& sink,
-        std::shared_ptr<const arrow::KeyValueMetadata> const& metadata,
-        std::size_t table_batch_size,
-        SignalType compression_type,
-        arrow::MemoryPool* pool) {
+    std::shared_ptr<arrow::io::OutputStream> const & sink,
+    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::size_t table_batch_size,
+    SignalType compression_type,
+    arrow::MemoryPool * pool)
+{
     SignalTableSchemaDescription field_locations;
     auto schema = make_signal_table_schema(compression_type, metadata, &field_locations);
 
@@ -264,8 +287,8 @@ Result<SignalTableWriter> make_signal_table_writer(
     if (compression_type == SignalType::UncompressedSignal) {
         auto signal_array_builder = std::make_shared<arrow::Int16Builder>(pool);
         signal_builder = UncompressedSignalBuilder{
-                signal_array_builder,
-                std::make_unique<arrow::LargeListBuilder>(pool, signal_array_builder),
+            signal_array_builder,
+            std::make_unique<arrow::LargeListBuilder>(pool, signal_array_builder),
         };
     } else {
         VbzSignalBuilder vbz_builder;
@@ -274,9 +297,13 @@ Result<SignalTableWriter> make_signal_table_writer(
         signal_builder = vbz_builder;
     }
 
-    auto signal_table_writer =
-            SignalTableWriter(std::move(writer), std::move(schema), std::move(signal_builder),
-                              field_locations, table_batch_size, pool);
+    auto signal_table_writer = SignalTableWriter(
+        std::move(writer),
+        std::move(schema),
+        std::move(signal_builder),
+        field_locations,
+        table_batch_size,
+        pool);
 
     ARROW_RETURN_NOT_OK(signal_table_writer.reserve_rows());
     return signal_table_writer;

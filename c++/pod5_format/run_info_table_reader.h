@@ -17,9 +17,11 @@
 
 namespace arrow {
 class Schema;
+
 namespace io {
 class RandomAccessFile;
 }
+
 namespace ipc {
 class RecordBatchFileReader;
 }
@@ -56,10 +58,10 @@ struct RunInfoTableRecordColumns {
 class POD5_FORMAT_EXPORT RunInfoTableRecordBatch : public TableRecordBatch {
 public:
     RunInfoTableRecordBatch(
-            std::shared_ptr<arrow::RecordBatch>&& batch,
-            std::shared_ptr<RunInfoTableSchemaDescription const> const& field_locations);
-    RunInfoTableRecordBatch(RunInfoTableRecordBatch&&);
-    RunInfoTableRecordBatch& operator=(RunInfoTableRecordBatch&&);
+        std::shared_ptr<arrow::RecordBatch> && batch,
+        std::shared_ptr<RunInfoTableSchemaDescription const> const & field_locations);
+    RunInfoTableRecordBatch(RunInfoTableRecordBatch &&);
+    RunInfoTableRecordBatch & operator=(RunInfoTableRecordBatch &&);
 
     Result<RunInfoTableRecordColumns> columns() const;
 
@@ -69,19 +71,20 @@ private:
 
 class POD5_FORMAT_EXPORT RunInfoTableReader : public TableReader {
 public:
-    RunInfoTableReader(std::shared_ptr<void>&& input_source,
-                       std::shared_ptr<arrow::ipc::RecordBatchFileReader>&& reader,
-                       std::shared_ptr<RunInfoTableSchemaDescription const> const& field_locations,
-                       SchemaMetadataDescription&& schema_metadata,
-                       arrow::MemoryPool* pool);
+    RunInfoTableReader(
+        std::shared_ptr<void> && input_source,
+        std::shared_ptr<arrow::ipc::RecordBatchFileReader> && reader,
+        std::shared_ptr<RunInfoTableSchemaDescription const> const & field_locations,
+        SchemaMetadataDescription && schema_metadata,
+        arrow::MemoryPool * pool);
 
-    RunInfoTableReader(RunInfoTableReader&& other);
-    RunInfoTableReader& operator=(RunInfoTableReader&& other);
+    RunInfoTableReader(RunInfoTableReader && other);
+    RunInfoTableReader & operator=(RunInfoTableReader && other);
 
     Result<RunInfoTableRecordBatch> read_record_batch(std::size_t i) const;
 
     Result<std::shared_ptr<RunInfoData const>> find_run_info(
-            std::string const& acquisition_id) const;
+        std::string const & acquisition_id) const;
 
 private:
     std::shared_ptr<RunInfoTableSchemaDescription const> m_field_locations;
@@ -91,7 +94,7 @@ private:
 };
 
 POD5_FORMAT_EXPORT Result<RunInfoTableReader> make_run_info_table_reader(
-        std::shared_ptr<arrow::io::RandomAccessFile> const& sink,
-        arrow::MemoryPool* pool);
+    std::shared_ptr<arrow::io::RandomAccessFile> const & sink,
+    arrow::MemoryPool * pool);
 
 }  // namespace pod5

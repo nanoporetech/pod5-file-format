@@ -13,11 +13,9 @@ namespace arrow {
 class KeyValueMetadata;
 }
 
-namespace boost {
-namespace uuids {
+namespace boost { namespace uuids {
 struct uuid;
-}
-}  // namespace boost
+}}  // namespace boost::uuids
 
 namespace pod5 {
 
@@ -26,31 +24,38 @@ public:
     Version() : m_version(0, 0, 0) {}
 
     Version(std::uint16_t major, std::uint16_t minor, std::uint16_t revision)
-            : m_version(major, minor, revision) {}
+    : m_version(major, minor, revision)
+    {
+    }
 
-    bool operator<(Version const& in) const { return m_version < in.m_version; }
-    bool operator>(Version const& in) const { return m_version > in.m_version; }
-    bool operator==(Version const& in) const { return m_version == in.m_version; }
-    bool operator!=(Version const& in) const { return m_version != in.m_version; }
+    bool operator<(Version const & in) const { return m_version < in.m_version; }
 
-    std::string to_string() const {
-        return std::to_string(std::get<0>(m_version)) + "." +
-               std::to_string(std::get<1>(m_version)) + "." +
-               std::to_string(std::get<2>(m_version));
+    bool operator>(Version const & in) const { return m_version > in.m_version; }
+
+    bool operator==(Version const & in) const { return m_version == in.m_version; }
+
+    bool operator!=(Version const & in) const { return m_version != in.m_version; }
+
+    std::string to_string() const
+    {
+        return std::to_string(std::get<0>(m_version)) + "." + std::to_string(std::get<1>(m_version))
+               + "." + std::to_string(std::get<2>(m_version));
     }
 
     std::uint16_t major_version() const { return std::get<0>(m_version); }
+
     std::uint16_t minor_version() const { return std::get<1>(m_version); }
+
     std::uint16_t revision_version() const { return std::get<2>(m_version); }
 
 private:
     std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> parse_version_number(
-            std::string const& ver);
+        std::string const & ver);
 
     std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> m_version;
 };
 
-Result<Version> parse_version_number(std::string const& ver);
+Result<Version> parse_version_number(std::string const & ver);
 Version current_build_version_number();
 
 struct SchemaMetadataDescription {
@@ -60,9 +65,9 @@ struct SchemaMetadataDescription {
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<const arrow::KeyValueMetadata>>
-make_schema_key_value_metadata(SchemaMetadataDescription const& schema_metadata);
+make_schema_key_value_metadata(SchemaMetadataDescription const & schema_metadata);
 
 POD5_FORMAT_EXPORT Result<SchemaMetadataDescription> read_schema_key_value_metadata(
-        std::shared_ptr<const arrow::KeyValueMetadata> const& key_value_metadata);
+    std::shared_ptr<const arrow::KeyValueMetadata> const & key_value_metadata);
 
 }  // namespace pod5

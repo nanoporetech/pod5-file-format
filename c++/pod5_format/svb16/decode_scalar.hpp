@@ -8,11 +8,14 @@
 
 namespace svb16 {
 namespace detail {
-inline uint16_t zigzag_decode(uint16_t val) {
+inline uint16_t zigzag_decode(uint16_t val)
+{
     return (val >> 1) ^ static_cast<uint16_t>(0 - (val & 1));
 }
-inline uint16_t decode_data(uint8_t const *SVB_RESTRICT *dataPtrPtr, uint8_t code) {
-    const uint8_t *dataPtr = *dataPtrPtr;
+
+inline uint16_t decode_data(uint8_t const * SVB_RESTRICT * dataPtrPtr, uint8_t code)
+{
+    uint8_t const * dataPtr = *dataPtrPtr;
     uint16_t val;
 
     if (code == 0) {  // 1 byte
@@ -30,11 +33,13 @@ inline uint16_t decode_data(uint8_t const *SVB_RESTRICT *dataPtrPtr, uint8_t cod
 }  // namespace detail
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-uint8_t const *decode_scalar(Int16T *out,
-                             uint8_t const *SVB_RESTRICT keys,
-                             uint8_t const *SVB_RESTRICT data,
-                             uint32_t count,
-                             Int16T prev = 0) {
+uint8_t const * decode_scalar(
+    Int16T * out,
+    uint8_t const * SVB_RESTRICT keys,
+    uint8_t const * SVB_RESTRICT data,
+    uint32_t count,
+    Int16T prev = 0)
+{
     if (count == 0) {
         return data;
     }
@@ -50,7 +55,8 @@ uint8_t const *decode_scalar(Int16T *out,
         }
         uint16_t value = detail::decode_data(&data, (key_byte >> shift) & 0x01);
         SVB16_IF_CONSTEXPR(UseZigzag) { value = detail::zigzag_decode(value); }
-        SVB16_IF_CONSTEXPR(UseDelta) {
+        SVB16_IF_CONSTEXPR(UseDelta)
+        {
             value += u_prev;
             u_prev = value;
         }

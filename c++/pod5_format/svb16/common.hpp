@@ -27,7 +27,8 @@
 #define svb16_popcount __builtin_popcount
 #else
 // optimising compilers can often convert this pattern to POPCNT on x86_64
-inline int svb16_popcount(unsigned int i) {
+inline int svb16_popcount(unsigned int i)
+{
     i = i - ((i >> 1) & 0x55555555);                 // add pairs of bits
     i = (i & 0x33333333) + ((i >> 2) & 0x33333333);  // quads
     i = (i + (i >> 4)) & 0x0F0F0F0F;                 // groups of 8

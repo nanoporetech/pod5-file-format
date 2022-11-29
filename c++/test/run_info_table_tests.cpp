@@ -15,7 +15,8 @@
 #include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 
-SCENARIO("Run Info table Tests") {
+SCENARIO("Run Info table Tests")
+{
     using namespace pod5;
 
     (void)pod5::register_extension_types();
@@ -25,7 +26,8 @@ SCENARIO("Run Info table Tests") {
 
     auto file_identifier = uuid_gen();
 
-    GIVEN("A read table writer") {
+    GIVEN("A read table writer")
+    {
         auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
@@ -36,14 +38,14 @@ SCENARIO("Run Info table Tests") {
 
         {
             auto schema_metadata = make_schema_key_value_metadata(
-                    {file_identifier, "test_software", *parse_version_number(Pod5Version)});
+                {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE_ARROW_STATUS_OK(schema_metadata);
             REQUIRE_ARROW_STATUS_OK(file_out);
 
             std::size_t run_info_per_batch = 2;
 
-            auto writer = pod5::make_run_info_table_writer(*file_out, *schema_metadata,
-                                                           run_info_per_batch, pool);
+            auto writer = pod5::make_run_info_table_writer(
+                *file_out, *schema_metadata, run_info_per_batch, pool);
             REQUIRE_ARROW_STATUS_OK(writer);
 
             REQUIRE_ARROW_STATUS_OK(writer->add_run_info(run_info_data_0));
@@ -70,28 +72,32 @@ SCENARIO("Run Info table Tests") {
             auto columns = record_batch->columns();
             REQUIRE_ARROW_STATUS_OK(columns);
 
-            auto check_run_info = [](auto& columns, std::size_t index,
-                                     pod5::RunInfoData const& run_info_data) {
+            auto check_run_info = [](auto & columns,
+                                     std::size_t index,
+                                     pod5::RunInfoData const & run_info_data) {
                 CHECK(columns.acquisition_id->Value(index) == run_info_data.acquisition_id);
 
-                CHECK(columns.acquisition_start_time->Value(index) ==
-                      run_info_data.acquisition_start_time);
+                CHECK(
+                    columns.acquisition_start_time->Value(index)
+                    == run_info_data.acquisition_start_time);
                 CHECK(columns.adc_max->Value(index) == run_info_data.adc_max);
                 CHECK(columns.adc_min->Value(index) == run_info_data.adc_min);
                 CHECK(columns.experiment_name->Value(index) == run_info_data.experiment_name);
                 CHECK(columns.flow_cell_id->Value(index) == run_info_data.flow_cell_id);
-                CHECK(columns.flow_cell_product_code->Value(index) ==
-                      run_info_data.flow_cell_product_code);
+                CHECK(
+                    columns.flow_cell_product_code->Value(index)
+                    == run_info_data.flow_cell_product_code);
                 CHECK(columns.protocol_name->Value(index) == run_info_data.protocol_name);
                 CHECK(columns.protocol_run_id->Value(index) == run_info_data.protocol_run_id);
-                CHECK(columns.protocol_start_time->Value(index) ==
-                      run_info_data.protocol_start_time);
+                CHECK(
+                    columns.protocol_start_time->Value(index) == run_info_data.protocol_start_time);
                 CHECK(columns.sample_id->Value(index) == run_info_data.sample_id);
                 CHECK(columns.sample_rate->Value(index) == run_info_data.sample_rate);
                 CHECK(columns.sequencing_kit->Value(index) == run_info_data.sequencing_kit);
                 CHECK(columns.sequencer_position->Value(index) == run_info_data.sequencer_position);
-                CHECK(columns.sequencer_position_type->Value(index) ==
-                      run_info_data.sequencer_position_type);
+                CHECK(
+                    columns.sequencer_position_type->Value(index)
+                    == run_info_data.sequencer_position_type);
                 CHECK(columns.software->Value(index) == run_info_data.software);
                 CHECK(columns.system_name->Value(index) == run_info_data.system_name);
                 CHECK(columns.system_type->Value(index) == run_info_data.system_type);

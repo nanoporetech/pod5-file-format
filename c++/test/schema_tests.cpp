@@ -3,7 +3,8 @@
 
 #include <catch2/catch.hpp>
 
-SCENARIO("Version Tests") {
+SCENARIO("Version Tests")
+{
     using namespace pod5;
 
     CHECK(Version(1, 2, 3) < Version(3, 2, 1));

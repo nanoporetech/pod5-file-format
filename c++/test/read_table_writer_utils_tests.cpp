@@ -10,7 +10,8 @@
 #include <catch2/catch.hpp>
 
 template <typename T>
-std::shared_ptr<T> get_field(arrow::StructArray& struct_array, char const* name) {
+std::shared_ptr<T> get_field(arrow::StructArray & struct_array, char const * name)
+{
     CAPTURE(name);
     auto field = struct_array.GetFieldByName(name);
     REQUIRE(field);
@@ -19,70 +20,85 @@ std::shared_ptr<T> get_field(arrow::StructArray& struct_array, char const* name)
     return typed_field;
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 std::uint16_t data) {
+void check_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    std::uint16_t data)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::UInt16Array>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 std::int16_t data) {
+void check_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    std::int16_t data)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::Int16Array>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 std::uint8_t data) {
+void check_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    std::uint8_t data)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::UInt8Array>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 float data) {
+void check_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    float data)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::FloatArray>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
-void check_field(std::size_t index, arrow::StructArray& struct_array, char const* name, bool data) {
+void check_field(std::size_t index, arrow::StructArray & struct_array, char const * name, bool data)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::BooleanArray>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 std::string const& data) {
+void check_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    std::string const & data)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::StringArray>(struct_array, name);
     CHECK((*field)[index] == data);
 }
 
-void check_timestamp_field(std::size_t index,
-                           arrow::StructArray& struct_array,
-                           char const* name,
-                           std::int64_t milliseconds_since_epoch) {
+void check_timestamp_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    std::int64_t milliseconds_since_epoch)
+{
     INFO("name " << name << ", index " << index);
     auto field = get_field<arrow::TimestampArray>(struct_array, name);
     CHECK((*field)[index] == milliseconds_since_epoch);
 }
 
-void check_field(std::size_t index,
-                 arrow::StructArray& struct_array,
-                 char const* name,
-                 pod5::RunInfoData::MapType const& data) {
+void check_field(
+    std::size_t index,
+    arrow::StructArray & struct_array,
+    char const * name,
+    pod5::RunInfoData::MapType const & data)
+{
     auto field = get_field<arrow::MapArray>(struct_array, name);
 
     auto offsets = std::dynamic_pointer_cast<arrow::Int32Array>(field->offsets());
@@ -102,7 +118,8 @@ void check_field(std::size_t index,
     CHECK(extracted_data == data);
 }
 
-TEST_CASE("Run Info Writer Tests") {
+TEST_CASE("Run Info Writer Tests")
+{
     auto pool = arrow::system_memory_pool();
     auto run_info_writer = pod5::make_run_info_writer(pool);
     REQUIRE_ARROW_STATUS_OK(run_info_writer);
@@ -114,7 +131,8 @@ TEST_CASE("Run Info Writer Tests") {
     // Important to always call this so we test calling it twice
     auto const value_array = (*run_info_writer)->get_value_array();
 
-    WHEN("Checking the first row") {
+    WHEN("Checking the first row")
+    {
         REQUIRE_ARROW_STATUS_OK(value_array);
 
         auto string_value_array = std::dynamic_pointer_cast<arrow::StringArray>(*value_array);
@@ -128,7 +146,8 @@ TEST_CASE("Run Info Writer Tests") {
     CHECK(*index == 1);
     CHECK((*run_info_writer)->item_count() == 2);
 
-    WHEN("Checking the rows after a second append") {
+    WHEN("Checking the rows after a second append")
+    {
         auto value_array = (*run_info_writer)->get_value_array();
         REQUIRE_ARROW_STATUS_OK(value_array);
 

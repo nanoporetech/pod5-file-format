@@ -16,7 +16,8 @@ class Pod5Repacker;
 
 struct pair_hasher {
     template <class T1, class T2>
-    std::size_t operator()(const std::pair<T1, T2>& pair) const {
+    std::size_t operator()(std::pair<T1, T2> const & pair) const
+    {
         return std::hash<T1>{}(pair.first) ^ std::hash<T2>{}(pair.second);
     }
 };
@@ -37,21 +38,26 @@ using WriteIndex = std::uint64_t;
 class Pod5RepackerOutput;
 
 struct AddReadBatchToOutput {
-    AddReadBatchToOutput(std::shared_ptr<Pod5RepackerOutput> output_,
-                         WriteIndex write_index_,
-                         Pod5FileReaderPtr input_,
-                         std::size_t read_batch_index_)
-            : output(output_),
-              write_index(write_index_),
-              input(input_),
-              read_batch_index(read_batch_index_) {}
+    AddReadBatchToOutput(
+        std::shared_ptr<Pod5RepackerOutput> output_,
+        WriteIndex write_index_,
+        Pod5FileReaderPtr input_,
+        std::size_t read_batch_index_)
+    : output(output_)
+    , write_index(write_index_)
+    , input(input_)
+    , read_batch_index(read_batch_index_)
+    {
+    }
 
-    AddReadBatchToOutput(std::shared_ptr<Pod5RepackerOutput> output_,
-                         WriteIndex write_index_,
-                         Pod5FileReaderPtr input_,
-                         std::size_t read_batch_index_,
-                         std::vector<std::uint32_t>&& selected_rows_)
-            : AddReadBatchToOutput(output_, write_index_, input_, read_batch_index_) {
+    AddReadBatchToOutput(
+        std::shared_ptr<Pod5RepackerOutput> output_,
+        WriteIndex write_index_,
+        Pod5FileReaderPtr input_,
+        std::size_t read_batch_index_,
+        std::vector<std::uint32_t> && selected_rows_)
+    : AddReadBatchToOutput(output_, write_index_, input_, read_batch_index_)
+    {
         selected_rows = std::move(selected_rows_);
     }
 
@@ -64,14 +70,21 @@ struct AddReadBatchToOutput {
 
 class Pod5ReadBatch {
 public:
-    Pod5ReadBatch(pod5::ReadTableRecordBatch&& batch,
-                  std::shared_ptr<pod5::FileReader> const& file,
-                  ReadSignalBatch&& read_signal)
-            : m_batch(std::move(batch)), m_file(file), m_read_signal(std::move(read_signal)) {}
+    Pod5ReadBatch(
+        pod5::ReadTableRecordBatch && batch,
+        std::shared_ptr<pod5::FileReader> const & file,
+        ReadSignalBatch && read_signal)
+    : m_batch(std::move(batch))
+    , m_file(file)
+    , m_read_signal(std::move(read_signal))
+    {
+    }
 
-    pod5::ReadTableRecordBatch& batch() { return m_batch; }
-    std::shared_ptr<pod5::FileReader>& file() { return m_file; }
-    ReadSignalBatch const& read_signal() const { return m_read_signal; }
+    pod5::ReadTableRecordBatch & batch() { return m_batch; }
+
+    std::shared_ptr<pod5::FileReader> & file() { return m_file; }
+
+    ReadSignalBatch const & read_signal() const { return m_read_signal; }
 
 private:
     pod5::ReadTableRecordBatch m_batch;
@@ -88,45 +101,55 @@ public:
         std::function<void()> complete;
     };
 
-    Pod5RepackerOutput(std::shared_ptr<Pod5Repacker> const& repacker,
-                       boost::asio::io_context& context,
-                       std::shared_ptr<pod5::FileWriter> const& output_file)
-            : m_strand(context),
-              m_repacker(repacker),
-              m_output_file(output_file),
-              m_signal_type(output_file->signal_type()),
-              m_queued_reads(0),
-              m_pending_write_count(0),
-              m_reads_completed(0),
-              m_reads_sample_bytes_completed(0),
-              m_has_error(false) {}
+    Pod5RepackerOutput(
+        std::shared_ptr<Pod5Repacker> const & repacker,
+        boost::asio::io_context & context,
+        std::shared_ptr<pod5::FileWriter> const & output_file)
+    : m_strand(context)
+    , m_repacker(repacker)
+    , m_output_file(output_file)
+    , m_signal_type(output_file->signal_type())
+    , m_queued_reads(0)
+    , m_pending_write_count(0)
+    , m_reads_completed(0)
+    , m_reads_sample_bytes_completed(0)
+    , m_has_error(false)
+    {
+    }
 
     std::shared_ptr<Pod5Repacker> repacker() const { return m_repacker; }
+
     std::shared_ptr<pod5::FileWriter> output_file() const { return m_output_file; }
+
     pod5::SignalType signal_type() const { return m_signal_type; }
 
     template <typename CompletionHandler>
-    void batch_write(WriteIndex index,
-                     std::vector<std::uint32_t>&& batch_rows,
-                     std::shared_ptr<Pod5ReadBatch> const& batch,
-                     CompletionHandler complete) {
+    void batch_write(
+        WriteIndex index,
+        std::vector<std::uint32_t> && batch_rows,
+        std::shared_ptr<Pod5ReadBatch> const & batch,
+        CompletionHandler complete)
+    {
         m_pending_write_count += 1;
         m_strand.post([this, index, batch, complete, batch_rows = std::move(batch_rows)] {
             m_pending_writes.push_back({index, batch, std::move(batch_rows), complete});
 
-            std::sort(m_pending_writes.begin(), m_pending_writes.end(),
-                      [](auto const& a, auto const& b) { return a.index < b.index; });
+            std::sort(
+                m_pending_writes.begin(),
+                m_pending_writes.end(),
+                [](auto const & a, auto const & b) { return a.index < b.index; });
 
             try_write_next_batch();
         });
     }
 
-    void try_write_next_batch() {
+    void try_write_next_batch()
+    {
         if (m_pending_writes.empty()) {
             return;
         }
 
-        auto& next_batch = m_pending_writes.front();
+        auto & next_batch = m_pending_writes.front();
         if (next_batch.index == m_next_write_write_index) {
             auto result = write_next_batch(next_batch.batch, next_batch.selected_rows);
             next_batch.complete();
@@ -145,76 +168,82 @@ public:
         }
     }
 
-    arrow::Status write_next_batch(std::shared_ptr<Pod5ReadBatch> const& batch,
-                                   std::vector<std::uint32_t> const& selected_row_indices) {
+    arrow::Status write_next_batch(
+        std::shared_ptr<Pod5ReadBatch> const & batch,
+        std::vector<std::uint32_t> const & selected_row_indices)
+    {
         POD5_TRACE_FUNCTION();
         // Move signal between the two locations:
-        auto const& source_read_table_batch = batch->batch();
-        auto const& source_file = batch->file();
+        auto const & source_read_table_batch = batch->batch();
+        auto const & source_file = batch->file();
 
         m_reads_completed += source_read_table_batch.num_rows();
 
         ARROW_ASSIGN_OR_RAISE(auto columns, source_read_table_batch.columns());
 
         auto source_reads_pore_type_column =
-                std::static_pointer_cast<arrow::Int16Array>(columns.pore_type->indices());
+            std::static_pointer_cast<arrow::Int16Array>(columns.pore_type->indices());
         auto source_reads_end_reason_column =
-                std::static_pointer_cast<arrow::Int16Array>(columns.end_reason->indices());
+            std::static_pointer_cast<arrow::Int16Array>(columns.end_reason->indices());
         auto source_reads_run_info_column =
-                std::static_pointer_cast<arrow::Int16Array>(columns.run_info->indices());
+            std::static_pointer_cast<arrow::Int16Array>(columns.run_info->indices());
 
-        auto const& loaded_signal = batch->read_signal();
+        auto const & loaded_signal = batch->read_signal();
         assert(loaded_signal.data.size() == selected_row_indices.size());
 
         for (std::size_t batch_row_index = 0; batch_row_index < selected_row_indices.size();
-             ++batch_row_index) {
+             ++batch_row_index)
+        {
             auto batch_row = selected_row_indices[batch_row_index];
             // Find the read params
-            auto const& read_id = columns.read_id->Value(batch_row);
-            auto const& read_number = columns.read_number->Value(batch_row);
-            auto const& start_sample = columns.start_sample->Value(batch_row);
-            auto const& channel = columns.channel->Value(batch_row);
-            auto const& well = columns.well->Value(batch_row);
-            auto const& calibration_offset = columns.calibration_offset->Value(batch_row);
-            auto const& calibration_scale = columns.calibration_scale->Value(batch_row);
-            auto const& median_before = columns.median_before->Value(batch_row);
-            auto const& end_reason_forced = columns.end_reason_forced->Value(batch_row);
-            auto const& num_minknow_events = columns.num_minknow_events->Value(batch_row);
-            auto const& tracked_scaling_scale = columns.tracked_scaling_scale->Value(batch_row);
-            auto const& tracked_scaling_shift = columns.tracked_scaling_shift->Value(batch_row);
-            auto const& predicted_scaling_scale = columns.predicted_scaling_scale->Value(batch_row);
-            auto const& predicted_scaling_shift = columns.predicted_scaling_shift->Value(batch_row);
-            auto const& num_reads_since_mux_change =
-                    columns.num_reads_since_mux_change->Value(batch_row);
-            auto const& time_since_mux_change = columns.time_since_mux_change->Value(batch_row);
+            auto const & read_id = columns.read_id->Value(batch_row);
+            auto const & read_number = columns.read_number->Value(batch_row);
+            auto const & start_sample = columns.start_sample->Value(batch_row);
+            auto const & channel = columns.channel->Value(batch_row);
+            auto const & well = columns.well->Value(batch_row);
+            auto const & calibration_offset = columns.calibration_offset->Value(batch_row);
+            auto const & calibration_scale = columns.calibration_scale->Value(batch_row);
+            auto const & median_before = columns.median_before->Value(batch_row);
+            auto const & end_reason_forced = columns.end_reason_forced->Value(batch_row);
+            auto const & num_minknow_events = columns.num_minknow_events->Value(batch_row);
+            auto const & tracked_scaling_scale = columns.tracked_scaling_scale->Value(batch_row);
+            auto const & tracked_scaling_shift = columns.tracked_scaling_shift->Value(batch_row);
+            auto const & predicted_scaling_scale =
+                columns.predicted_scaling_scale->Value(batch_row);
+            auto const & predicted_scaling_shift =
+                columns.predicted_scaling_shift->Value(batch_row);
+            auto const & num_reads_since_mux_change =
+                columns.num_reads_since_mux_change->Value(batch_row);
+            auto const & time_since_mux_change = columns.time_since_mux_change->Value(batch_row);
 
-            auto const& pore_type_index = source_reads_pore_type_column->Value(batch_row);
-            auto const& end_reason_index = source_reads_end_reason_column->Value(batch_row);
-            auto const& run_info_index = source_reads_run_info_column->Value(batch_row);
+            auto const & pore_type_index = source_reads_pore_type_column->Value(batch_row);
+            auto const & end_reason_index = source_reads_end_reason_column->Value(batch_row);
+            auto const & run_info_index = source_reads_run_info_column->Value(batch_row);
 
             std::vector<std::uint64_t> signal_rows;
-            auto const& read_signal = loaded_signal.data[batch_row_index];
+            auto const & read_signal = loaded_signal.data[batch_row_index];
             std::uint64_t total_sample_count = 0;
 
             // Write each compressed row to the dest file, and store its rows:
             for (std::size_t i = 0; i < read_signal.signal_data.size(); ++i) {
-                auto const& sample_count = read_signal.sample_counts[i];
-                auto const& signal_buffer = read_signal.signal_data[i];
+                auto const & sample_count = read_signal.sample_counts[i];
+                auto const & signal_buffer = read_signal.signal_data[i];
                 auto const signal_span =
-                        gsl::make_span(signal_buffer->data(), signal_buffer->size());
+                    gsl::make_span(signal_buffer->data(), signal_buffer->size());
 
                 if (loaded_signal.signal_type == m_output_file->signal_type()) {
-                    ARROW_ASSIGN_OR_RAISE(auto signal_row,
-                                          m_output_file->add_pre_compressed_signal(
-                                                  read_id, signal_span, sample_count));
+                    ARROW_ASSIGN_OR_RAISE(
+                        auto signal_row,
+                        m_output_file->add_pre_compressed_signal(
+                            read_id, signal_span, sample_count));
                     signal_rows.push_back(signal_row);
                 } else {
                     ARROW_ASSIGN_OR_RAISE(
-                            auto new_signal_rows,
-                            m_output_file->add_signal(read_id,
-                                                      signal_span.as_span<std::int16_t const>()));
-                    signal_rows.insert(signal_rows.end(), new_signal_rows.begin(),
-                                       new_signal_rows.end());
+                        auto new_signal_rows,
+                        m_output_file->add_signal(
+                            read_id, signal_span.as_span<std::int16_t const>()));
+                    signal_rows.insert(
+                        signal_rows.end(), new_signal_rows.begin(), new_signal_rows.end());
                 }
                 total_sample_count += sample_count;
 
@@ -222,24 +251,38 @@ public:
             }
 
             ARROW_ASSIGN_OR_RAISE(
-                    auto dest_pore_index,
-                    find_pore_index(source_file, source_read_table_batch, pore_type_index));
+                auto dest_pore_index,
+                find_pore_index(source_file, source_read_table_batch, pore_type_index));
             ARROW_ASSIGN_OR_RAISE(
-                    auto dest_end_reason_index,
-                    find_end_reason_index(source_file, source_read_table_batch, end_reason_index));
+                auto dest_end_reason_index,
+                find_end_reason_index(source_file, source_read_table_batch, end_reason_index));
             ARROW_ASSIGN_OR_RAISE(
-                    auto dest_run_info_index,
-                    find_run_info_index(source_file, source_read_table_batch, run_info_index));
+                auto dest_run_info_index,
+                find_run_info_index(source_file, source_read_table_batch, run_info_index));
 
             ARROW_RETURN_NOT_OK(m_output_file->add_complete_read(
-                    pod5::ReadData(read_id, read_number, start_sample, channel, well,
-                                   dest_pore_index, calibration_offset, calibration_scale,
-                                   median_before, dest_end_reason_index, end_reason_forced,
-                                   dest_run_info_index, num_minknow_events, tracked_scaling_scale,
-                                   tracked_scaling_shift, predicted_scaling_scale,
-                                   predicted_scaling_shift, num_reads_since_mux_change,
-                                   time_since_mux_change),
-                    signal_rows, total_sample_count));
+                pod5::ReadData(
+                    read_id,
+                    read_number,
+                    start_sample,
+                    channel,
+                    well,
+                    dest_pore_index,
+                    calibration_offset,
+                    calibration_scale,
+                    median_before,
+                    dest_end_reason_index,
+                    end_reason_forced,
+                    dest_run_info_index,
+                    num_minknow_events,
+                    tracked_scaling_scale,
+                    tracked_scaling_shift,
+                    predicted_scaling_scale,
+                    predicted_scaling_shift,
+                    num_reads_since_mux_change,
+                    time_since_mux_change),
+                signal_rows,
+                total_sample_count));
         }
 
         return arrow::Status::OK();
@@ -247,9 +290,10 @@ public:
 
     // Find or create a pore index in the output file - expects to run on strand.
     arrow::Result<pod5::PoreDictionaryIndex> find_pore_index(
-            std::shared_ptr<pod5::FileReader> const& source_file,
-            pod5::ReadTableRecordBatch const& source_batch,
-            pod5::PoreDictionaryIndex source_index) {
+        std::shared_ptr<pod5::FileReader> const & source_file,
+        pod5::ReadTableRecordBatch const & source_batch,
+        pod5::PoreDictionaryIndex source_index)
+    {
         auto const key = std::make_pair(source_file, source_index);
         auto const it = m_pore_indexes.find(key);
         if (it != m_pore_indexes.end()) {
@@ -264,9 +308,10 @@ public:
 
     // Find or create a end reason index in the output file - expects to run on strand.
     arrow::Result<pod5::EndReasonDictionaryIndex> find_end_reason_index(
-            std::shared_ptr<pod5::FileReader> const& source_file,
-            pod5::ReadTableRecordBatch const& source_batch,
-            pod5::EndReasonDictionaryIndex source_index) {
+        std::shared_ptr<pod5::FileReader> const & source_file,
+        pod5::ReadTableRecordBatch const & source_batch,
+        pod5::EndReasonDictionaryIndex source_index)
+    {
         auto const key = std::make_pair(source_file, source_index);
         auto const it = m_end_reason_indexes.find(key);
         if (it != m_end_reason_indexes.end()) {
@@ -274,17 +319,18 @@ public:
         }
 
         ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_end_reason(source_index));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index,
-                              m_output_file->lookup_end_reason(source_data.first));
+        ARROW_ASSIGN_OR_RAISE(
+            auto const new_index, m_output_file->lookup_end_reason(source_data.first));
         m_end_reason_indexes[key] = new_index;
         return new_index;
     }
 
     // Find or create a run_info index in the output file - expects to run on strand.
     arrow::Result<pod5::RunInfoDictionaryIndex> find_run_info_index(
-            std::shared_ptr<pod5::FileReader> const& source_file,
-            pod5::ReadTableRecordBatch const& source_batch,
-            pod5::RunInfoDictionaryIndex source_index) {
+        std::shared_ptr<pod5::FileReader> const & source_file,
+        pod5::ReadTableRecordBatch const & source_batch,
+        pod5::RunInfoDictionaryIndex source_index)
+    {
         auto const key = std::make_pair(source_file, source_index);
         auto const it = m_run_info_indexes.find(key);
         if (it != m_run_info_indexes.end()) {
@@ -305,16 +351,18 @@ public:
     // Add reads which have been pushed onto a thread for execution
     void add_queued_reads(std::size_t additional_reads) { m_queued_reads += additional_reads; }
 
-    void add_pending_reads(std::vector<AddReadBatchToOutput>&& reads) {
+    void add_pending_reads(std::vector<AddReadBatchToOutput> && reads)
+    {
         auto pending_batch_reads = m_pending_batch_reads.synchronize();
 
-        for (auto& read : reads) {
+        for (auto & read : reads) {
             pending_batch_reads->emplace_back(std::move(read));
         }
     }
 
     // Pop a read from the pending reads, and remove one queued read.
-    boost::optional<AddReadBatchToOutput> pop_pending_read() {
+    boost::optional<AddReadBatchToOutput> pop_pending_read()
+    {
         assert(m_queued_reads > 0);
         boost::optional<AddReadBatchToOutput> task;
         auto pending_batch_reads = m_pending_batch_reads.synchronize();
@@ -329,19 +377,26 @@ public:
     }
 
     std::size_t pending_unqueued_reads() { return m_pending_batch_reads->size(); }
+
     std::size_t queued_reads() { return m_queued_reads.load(); }
+
     std::size_t pending_writes() { return m_pending_write_count.load(); }
+
     std::size_t pending_actions() { return queued_reads() + pending_writes(); }
+
     std::size_t reads_completed() { return m_reads_completed.load(); }
+
     std::size_t reads_sample_bytes_completed() { return m_reads_sample_bytes_completed.load(); }
 
-    boost::asio::io_context::strand& strand() { return m_strand; }
+    boost::asio::io_context::strand & strand() { return m_strand; }
 
-    arrow::Status const& error() { return *m_error; }
+    arrow::Status const & error() { return *m_error; }
+
     bool has_error() const { return m_has_error.load(); }
 
 private:
-    void set_error(arrow::Status const& error) {
+    void set_error(arrow::Status const & error)
+    {
         m_error = error;
         m_has_error = true;
     }
@@ -372,10 +427,10 @@ private:
     WriteIndex m_next_write_write_index = 0;
 
     template <typename IndexType>
-    using DictionaryLookup =
-            std::unordered_map<std::pair<std::shared_ptr<pod5::FileReader>, IndexType>,
-                               IndexType,
-                               pair_hasher>;
+    using DictionaryLookup = std::unordered_map<
+        std::pair<std::shared_ptr<pod5::FileReader>, IndexType>,
+        IndexType,
+        pair_hasher>;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_pore_indexes;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_calibration_indexes;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_end_reason_indexes;
@@ -384,13 +439,15 @@ private:
 
 class Pod5Repacker : public std::enable_shared_from_this<Pod5Repacker> {
 public:
-    Pod5Repacker(std::size_t target_pending_writes = 20,
-                 std::size_t worker_count = std::thread::hardware_concurrency())
-            : m_target_pending_writes(target_pending_writes),
-              m_has_error(false),
-              m_batches_requested(0),
-              m_batches_completed(0),
-              m_work(boost::asio::make_work_guard(m_context)) {
+    Pod5Repacker(
+        std::size_t target_pending_writes = 20,
+        std::size_t worker_count = std::thread::hardware_concurrency())
+    : m_target_pending_writes(target_pending_writes)
+    , m_has_error(false)
+    , m_batches_requested(0)
+    , m_batches_completed(0)
+    , m_work(boost::asio::make_work_guard(m_context))
+    {
         m_workers.reserve(worker_count);
         for (std::size_t i = 0; i < worker_count; ++i) {
             m_workers.emplace_back([&] { m_context.run(); });
@@ -399,25 +456,28 @@ public:
 
     ~Pod5Repacker() { finish(); }
 
-    boost::asio::io_context& io_context() { return m_context; }
+    boost::asio::io_context & io_context() { return m_context; }
 
-    void finish() {
+    void finish()
+    {
         m_work.reset();
-        for (auto& worker : m_workers) {
+        for (auto & worker : m_workers) {
             worker.join();
         }
     }
 
-    std::shared_ptr<Pod5RepackerOutput> add_output(
-            std::shared_ptr<pod5::FileWriter> const& output) {
+    std::shared_ptr<Pod5RepackerOutput> add_output(std::shared_ptr<pod5::FileWriter> const & output)
+    {
         auto repacker_output =
-                std::make_shared<Pod5RepackerOutput>(shared_from_this(), m_context, output);
+            std::make_shared<Pod5RepackerOutput>(shared_from_this(), m_context, output);
         m_outputs.push_back(repacker_output);
         return repacker_output;
     }
 
-    void add_all_reads_to_output(std::shared_ptr<Pod5RepackerOutput> const& output,
-                                 Pod5FileReaderPtr const& input) {
+    void add_all_reads_to_output(
+        std::shared_ptr<Pod5RepackerOutput> const & output,
+        Pod5FileReaderPtr const & input)
+    {
         if (output->repacker() != shared_from_this()) {
             throw std::runtime_error("Invalid repacker output passed, created by another repacker");
         }
@@ -437,11 +497,11 @@ public:
     }
 
     void add_selected_reads_to_output(
-            std::shared_ptr<Pod5RepackerOutput> const& output,
-            Pod5FileReaderPtr const& input,
-            py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&& batch_counts,
-            py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast>&&
-                    all_batch_rows) {
+        std::shared_ptr<Pod5RepackerOutput> const & output,
+        Pod5FileReaderPtr const & input,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && all_batch_rows)
+    {
         if (output->repacker() != shared_from_this()) {
             throw std::runtime_error("Invalid repacker output passed, created by another repacker");
         }
@@ -460,7 +520,7 @@ public:
         for (std::size_t i = 0; i < batch_counts_span.size(); ++i) {
             std::vector<std::uint32_t> batch_rows;
             auto const batch_rows_span =
-                    all_batch_rows_span.subspan(current_start_point, batch_counts_span[i]);
+                all_batch_rows_span.subspan(current_start_point, batch_counts_span[i]);
 
             // If this batch has no selected
             if (batch_rows_span.empty()) {
@@ -470,8 +530,8 @@ public:
             batch_rows.insert(batch_rows.end(), batch_rows_span.begin(), batch_rows_span.end());
             current_start_point += batch_counts_span[i];
 
-            new_reads.emplace_back(output, output->get_next_write_index(), input, i,
-                                   std::move(batch_rows));
+            new_reads.emplace_back(
+                output, output->get_next_write_index(), input, i, std::move(batch_rows));
             added_reads += 1;
         }
         output->add_pending_reads(std::move(new_reads));
@@ -480,12 +540,13 @@ public:
         post_do_batch_reads(output, m_target_pending_writes);
     }
 
-    bool is_complete() const {
+    bool is_complete() const
+    {
         if (m_has_error) {
             throw std::runtime_error(m_error->ToString());
         }
 
-        for (auto const& output : m_outputs) {
+        for (auto const & output : m_outputs) {
             if (output->has_error()) {
                 throw std::runtime_error(output->error().ToString());
             }
@@ -494,7 +555,7 @@ public:
             }
         }
 
-        for (auto const& output : m_outputs) {
+        for (auto const & output : m_outputs) {
             if (output->pending_unqueued_reads() > 0) {
                 return false;
             }
@@ -502,34 +563,42 @@ public:
         return true;
     }
 
-    std::size_t reads_sample_bytes_completed() const {
+    std::size_t reads_sample_bytes_completed() const
+    {
         std::size_t reads_sample_bytes_completed = 0;
-        for (auto const& output : m_outputs) {
+        for (auto const & output : m_outputs) {
             reads_sample_bytes_completed += output->reads_sample_bytes_completed();
         }
         return reads_sample_bytes_completed;
     }
-    std::size_t reads_completed() const {
+
+    std::size_t reads_completed() const
+    {
         std::size_t reads_completed = 0;
-        for (auto const& output : m_outputs) {
+        for (auto const & output : m_outputs) {
             reads_completed += output->reads_completed();
         }
         return reads_completed;
     }
-    std::size_t pending_batch_writes() const {
+
+    std::size_t pending_batch_writes() const
+    {
         std::size_t pending_batch_writes = 0;
-        for (auto const& output : m_outputs) {
+        for (auto const & output : m_outputs) {
             pending_batch_writes += output->pending_writes();
         }
         return pending_batch_writes;
     }
 
     std::size_t batches_requested() const { return m_batches_requested.load(); }
+
     std::size_t batches_completed() const { return m_batches_completed.load(); }
 
 private:
-    void post_do_batch_reads(std::shared_ptr<Pod5RepackerOutput> const& output,
-                             std::size_t force_count = 0) {
+    void post_do_batch_reads(
+        std::shared_ptr<Pod5RepackerOutput> const & output,
+        std::size_t force_count = 0)
+    {
         assert(output);
         auto pending_actions = output->pending_actions();
 
@@ -538,7 +607,7 @@ private:
         auto pending_write_target = force_count;
         if (pending_actions < output_target) {
             pending_write_target =
-                    std::max(pending_write_target, m_target_pending_writes - pending_actions);
+                std::max(pending_write_target, m_target_pending_writes - pending_actions);
         }
 
         if (pending_write_target == 0) {
@@ -559,29 +628,36 @@ private:
 
                 // Do the task:
                 auto selected_rows = std::move(task->selected_rows);
-                auto batch = read_batch(task->input.reader, task->output->signal_type(),
-                                        selected_rows, task->read_batch_index);
+                auto batch = read_batch(
+                    task->input.reader,
+                    task->output->signal_type(),
+                    selected_rows,
+                    task->read_batch_index);
                 if (!batch.ok()) {
                     set_error(batch.status());
                     return;
                 }
 
-                task->output->batch_write(task->write_index, std::move(selected_rows), *batch,
-                                          [this, output = task->output] {
-                                              m_batches_completed += 1;
+                task->output->batch_write(
+                    task->write_index,
+                    std::move(selected_rows),
+                    *batch,
+                    [this, output = task->output] {
+                        m_batches_completed += 1;
 
-                                              // And post the next batch read now we are complete:
-                                              post_do_batch_reads(output);
-                                          });
+                        // And post the next batch read now we are complete:
+                        post_do_batch_reads(output);
+                    });
             });
         }
     }
 
     pod5::Result<std::shared_ptr<Pod5ReadBatch>> read_batch(
-            std::shared_ptr<pod5::FileReader> const& source_file,
-            pod5::SignalType dest_signal_type,
-            std::vector<std::uint32_t>& selected_rows,
-            std::size_t batch_index) {
+        std::shared_ptr<pod5::FileReader> const & source_file,
+        pod5::SignalType dest_signal_type,
+        std::vector<std::uint32_t> & selected_rows,
+        std::size_t batch_index)
+    {
         POD5_TRACE_FUNCTION();
         ARROW_ASSIGN_OR_RAISE(auto read_batch, source_file->read_read_record_batch(batch_index));
 
@@ -604,47 +680,50 @@ private:
         for (auto const batch_row : selected_rows) {
             // Get the signal row data for the read:
             auto const signal_rows = std::static_pointer_cast<arrow::UInt64Array>(
-                    source_reads_signal_column->value_slice(batch_row));
+                source_reads_signal_column->value_slice(batch_row));
             auto const signal_rows_span =
-                    gsl::make_span(signal_rows->raw_values(), signal_rows->length());
+                gsl::make_span(signal_rows->raw_values(), signal_rows->length());
 
             ReadSignalBatch::ReadSignal row_signal;
 
             // If were using the same compression type in both files, just copy compressed:
             if (input_signal_type == dest_signal_type) {
-                ARROW_ASSIGN_OR_RAISE(row_signal.signal_data,
-                                      source_file->extract_samples_inplace(
-                                              signal_rows_span, row_signal.sample_counts));
+                ARROW_ASSIGN_OR_RAISE(
+                    row_signal.signal_data,
+                    source_file->extract_samples_inplace(
+                        signal_rows_span, row_signal.sample_counts));
             } else {
                 // Find the sample count of the complete read:
-                ARROW_ASSIGN_OR_RAISE(auto sample_count,
-                                      source_file->extract_sample_count(signal_rows_span));
+                ARROW_ASSIGN_OR_RAISE(
+                    auto sample_count, source_file->extract_sample_count(signal_rows_span));
                 row_signal.sample_counts.push_back(sample_count);
 
                 // Read the samples:
-                ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> buffer,
-                                      arrow::AllocateBuffer(sample_count * sizeof(std::int16_t)));
+                ARROW_ASSIGN_OR_RAISE(
+                    std::shared_ptr<arrow::Buffer> buffer,
+                    arrow::AllocateBuffer(sample_count * sizeof(std::int16_t)));
                 row_signal.signal_data.push_back(buffer);
 
-                auto signal_buffer_span = gsl::make_span(buffer->mutable_data(), buffer->size())
-                                                  .as_span<std::int16_t>();
+                auto signal_buffer_span =
+                    gsl::make_span(buffer->mutable_data(), buffer->size()).as_span<std::int16_t>();
                 ARROW_RETURN_NOT_OK(
-                        source_file->extract_samples(signal_rows_span, signal_buffer_span));
+                    source_file->extract_samples(signal_rows_span, signal_buffer_span));
             }
 
             read_signal.preload_sum += cache_signal(row_signal.signal_data);
             read_signal.data.emplace_back(std::move(row_signal));
         }
 
-        return std::make_shared<Pod5ReadBatch>(std::move(read_batch), source_file,
-                                               std::move(read_signal));
+        return std::make_shared<Pod5ReadBatch>(
+            std::move(read_batch), source_file, std::move(read_signal));
     }
 
-    std::int64_t cache_signal(std::vector<std::shared_ptr<arrow::Buffer>> const& row) {
+    std::int64_t cache_signal(std::vector<std::shared_ptr<arrow::Buffer>> const & row)
+    {
         POD5_TRACE_FUNCTION();
         std::size_t step_size = 512;
         std::int64_t sum = 0;
-        for (auto const& section : row) {
+        for (auto const & section : row) {
             for (std::size_t i = 0; i < section->size(); i += step_size) {
                 sum += section->data()[i];
             }
@@ -652,7 +731,8 @@ private:
         return sum;
     }
 
-    void set_error(arrow::Status const& error) {
+    void set_error(arrow::Status const & error)
+    {
         m_error = error;
         m_has_error = true;
     }

@@ -10,30 +10,33 @@ namespace pod5 {
 
 class TemporaryDir {
 public:
-    TemporaryDir(arrow::internal::PlatformFilename&& path) : m_path(path) {}
+    TemporaryDir(arrow::internal::PlatformFilename && path) : m_path(path) {}
 
     ~TemporaryDir() { (void)::arrow::internal::DeleteDirTree(m_path); }
 
-    arrow::internal::PlatformFilename const& path() { return m_path; };
+    arrow::internal::PlatformFilename const & path() { return m_path; };
 
 private:
     arrow::internal::PlatformFilename m_path;
 };
 
-Result<std::unique_ptr<TemporaryDir>> MakeTmpDir(char const* suffix);
+Result<std::unique_ptr<TemporaryDir>> MakeTmpDir(char const * suffix);
 
 class MigrationResult {
 public:
-    MigrationResult(combined_file_utils::ParsedFooter const& footer) : m_footer(footer) {}
-    MigrationResult(MigrationResult&&) = default;
-    MigrationResult& operator=(MigrationResult&&) = default;
-    MigrationResult(MigrationResult const&) = delete;
-    MigrationResult& operator=(MigrationResult const&) = delete;
+    MigrationResult(combined_file_utils::ParsedFooter const & footer) : m_footer(footer) {}
 
-    combined_file_utils::ParsedFooter& footer() { return m_footer; }
-    combined_file_utils::ParsedFooter const& footer() const { return m_footer; }
+    MigrationResult(MigrationResult &&) = default;
+    MigrationResult & operator=(MigrationResult &&) = default;
+    MigrationResult(MigrationResult const &) = delete;
+    MigrationResult & operator=(MigrationResult const &) = delete;
 
-    void add_temp_dir(std::unique_ptr<TemporaryDir>&& temp_dir) {
+    combined_file_utils::ParsedFooter & footer() { return m_footer; }
+
+    combined_file_utils::ParsedFooter const & footer() const { return m_footer; }
+
+    void add_temp_dir(std::unique_ptr<TemporaryDir> && temp_dir)
+    {
         m_temp_dirs.emplace_back(std::move(temp_dir));
     }
 
@@ -42,18 +45,22 @@ private:
     std::vector<std::unique_ptr<TemporaryDir>> m_temp_dirs;
 };
 
-arrow::Result<MigrationResult> migrate_v0_to_v1(MigrationResult&& v0_input,
-                                                arrow::MemoryPool* pool);
-arrow::Result<MigrationResult> migrate_v1_to_v2(MigrationResult&& v1_input,
-                                                arrow::MemoryPool* pool);
-arrow::Result<MigrationResult> migrate_v2_to_v3(MigrationResult&& v2_input,
-                                                arrow::MemoryPool* pool);
+arrow::Result<MigrationResult> migrate_v0_to_v1(
+    MigrationResult && v0_input,
+    arrow::MemoryPool * pool);
+arrow::Result<MigrationResult> migrate_v1_to_v2(
+    MigrationResult && v1_input,
+    arrow::MemoryPool * pool);
+arrow::Result<MigrationResult> migrate_v2_to_v3(
+    MigrationResult && v2_input,
+    arrow::MemoryPool * pool);
 
 inline arrow::Result<MigrationResult> migrate_if_required(
-        Version writer_version,
-        const combined_file_utils::ParsedFooter& read_footer,
-        std::shared_ptr<arrow::io::MemoryMappedFile> const& source,
-        arrow::MemoryPool* pool) {
+    Version writer_version,
+    combined_file_utils::ParsedFooter const & read_footer,
+    std::shared_ptr<arrow::io::MemoryMappedFile> const & source,
+    arrow::MemoryPool * pool)
+{
     MigrationResult result{read_footer};
 
     if (writer_version < Version(0, 0, 24)) {
