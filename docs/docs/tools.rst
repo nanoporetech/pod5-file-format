@@ -4,7 +4,7 @@ Tools
 
 
 The ``pod5`` package provides the following tools for inspecting and manipulating
-POD5 files as well as converting between `.pod5` and `.fast5` file formats. 
+POD5 files as well as converting between `.pod5` and `.fast5` file formats.
 
 .. contents:: Entry-Points
     :local:
@@ -14,8 +14,8 @@ POD5 files as well as converting between `.pod5` and `.fast5` file formats.
 Pod5 inspect
 ============
 
-The `pod5 inspect` tool can be used to extract details and summaries of 
-the contents of `.pod5` files. There are two programs for users within `pod5 inspect` 
+The `pod5 inspect` tool can be used to extract details and summaries of
+the contents of `.pod5` files. There are two programs for users within `pod5 inspect`
 and these are read and reads
 
 .. code-block:: console
@@ -24,13 +24,13 @@ and these are read and reads
     $ pod5 inspect {reads, read, summary} --help
 
 
-pod5 inspect reads 
+pod5 inspect reads
 ------------------
 
 Inspect all reads and print a csv table of the details of all reads in the given `.pod5` files.
 
 .. code-block:: console
-    
+
     $ pod5 inspect reads pod5_file.pod5
 
     read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before,calibration_offset,calibration_scale,sample_count,byte_count,signal_compression_ratio
@@ -82,11 +82,11 @@ Inspect the pod5 file, find a specific read and print its details.
 pod5 merge
 ==========
 
-`pod5 merge` is a tool for merging multiple  `.pod5` files into one monolithic pod5 file. 
+`pod5 merge` is a tool for merging multiple  `.pod5` files into one monolithic pod5 file.
 
-The contents of the input files are checked for duplicate read_ids to avoid 
-accidentally merging identical reads. To override this check set the argument 
-``-D / --duplicate_ok`` 
+The contents of the input files are checked for duplicate read_ids to avoid
+accidentally merging identical reads. To override this check set the argument
+``-D / --duplicate_ok``
 
 .. code-block:: console
 
@@ -107,12 +107,12 @@ pod5 subset
 ===========
 
 `pod5 subset` is a tool for separating the reads in `.pod5` files into one or more
-output files. This tool can be used to create new `.pod5` files which contain a 
-user-defined subset of reads from the input. 
+output files. This tool can be used to create new `.pod5` files which contain a
+user-defined subset of reads from the input.
 
-The `pod5 subset` tool requires a mapping which defines which read_ids should be 
+The `pod5 subset` tool requires a mapping which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
-defined in either a `.csv` or `.json` file or by using a tab-separated table 
+defined in either a `.csv` or `.json` file or by using a tab-separated table
 (e.g. basecaller sequencing summary) and instructions on how to interpret it.
 
 .. code-block:: console
@@ -124,18 +124,18 @@ defined in either a `.csv` or `.json` file or by using a tab-separated table
     $ pod5 subset example_1.pod5 --csv mapping.csv
     $ pod5 subset examples_*.pod5 --json mapping.json
 
-    # Subset input(s) using a dynamic mapping created at runtime 
+    # Subset input(s) using a dynamic mapping created at runtime
     $ pod5 subset example_1.pod5 --summary summary.txt --subset_columns barcode alignment_genome
 
 .. important::
-    
+
     Care should be taken to ensure that when providing multiple input `.pod5` files to `pod5 subset`
     that there are no read_id UUID clashes. If this occurs both reads are written to the output.
 
 Creating a Subset Mapping
 ------------------------------
 
-The `.csv` or `.json` inputs should define a mapping of destination filename to an array 
+The `.csv` or `.json` inputs should define a mapping of destination filename to an array
 of read_ids which will be written to the destination.
 
 Subset Mapping (.csv)
@@ -153,9 +153,9 @@ In the example below of a `.csv` subset mapping, note that the output filename c
 Subset Mapping (.json)
 +++++++++++++++++++++++++++
 
-See below an example of a `.json` subset mapping. This file must of course be well-formatted 
+See below an example of a `.json` subset mapping. This file must of course be well-formatted
 `json` in addition to the formatting standard required by the tool. The formatting requirements
-for the `.json` mapping are that keys should be unique filenames mapped to an array 
+for the `.json` mapping are that keys should be unique filenames mapped to an array
 of read_id strings.
 
 .. code-block:: json
@@ -174,20 +174,20 @@ of read_id strings.
 Subset Mapping from Summary
 ++++++++++++++++++++++++++++++++
 
-`pod5 subset` can dynamically generate output targets and collect associated reads 
+`pod5 subset` can dynamically generate output targets and collect associated reads
 based on a tab-separated file (e.g. sequencing summary) which contains a header row
 and a series of columns on which to group unique collections of values. Internally
-this process uses the `pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_ 
-function where the `by` parameter is the sequence of column names specified with 
+this process uses the `pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_
+function where the `by` parameter is the sequence of column names specified with
 the `--columns` argument.
 
-.. warning:: 
+.. warning::
 
     The column names specified in `--columns` should be **categorical** in nature.
-    There may be an excessive number of output files if a continuous variable 
+    There may be an excessive number of output files if a continuous variable
     is used for subsetting.
 
-Given the following example summary file, observe the resultant outputs given various 
+Given the following example summary file, observe the resultant outputs given various
 arguments:
 
 .. code-block:: text
@@ -221,17 +221,17 @@ arguments:
 Output Filename Templating
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When subsetting using a summary the output filename is generated from a template 
-string. The automatically generated template is the sequential concatenation of 
-`column_name-column_value` followed by the `.pod5` file extension. 
+When subsetting using a summary the output filename is generated from a template
+string. The automatically generated template is the sequential concatenation of
+`column_name-column_value` followed by the `.pod5` file extension.
 
-The user can set their own filename template using the `--template` argument. 
+The user can set their own filename template using the `--template` argument.
 This argument accepts a string in the `Python f-string style <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`_
-where the subsetting variables are used for keyword placeholder substitution. 
-Keywords should be placed withing curly-braces. For example:
+where the subsetting variables are used for keyword placeholder substitution.
+Keywords should be placed within curly-braces. For example:
 
 .. code-block:: console
-    
+
     # default template used = "barcode-{barcode}.pod5"
     $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
 
@@ -263,18 +263,18 @@ to one or more `.pod5` files.
 
 .. warning::
 
-    Some content previously stored in `.fast5` files is **not** compatible with the POD5 
-    format and will not be converted. This includes all analyses stored in the 
+    Some content previously stored in `.fast5` files is **not** compatible with the POD5
+    format and will not be converted. This includes all analyses stored in the
     `.fast5` file.
 
 .. important::
 
     The conversion of single-read fast5 files is not supported by this tool. Please
-    first convert single-read fast5 files to multi-read fast5 files using the 
-    ont_fast5_api tools. 
+    first convert single-read fast5 files to multi-read fast5 files using the
+    ont_fast5_api tools.
 
 .. code-block:: console
-    
+
     # View help
     $ pod5 convert fast5 --help
 
@@ -286,9 +286,9 @@ to one or more `.pod5` files.
     $ ls outputs/
     outputs/output.pod5 # default name
 
-    # Convert each fast5 to its relative converted output. The output files are written 
-    # into the output directory at paths relatve to the path given to the 
-    # --output-one-to-one argument. Note: This path must be a relative parent to all 
+    # Convert each fast5 to its relative converted output. The output files are written
+    # into the output directory at paths relatve to the path given to the
+    # --output-one-to-one argument. Note: This path must be a relative parent to all
     # input paths.
     $ ls input/*.fast5
     file_1.fast5 file_2.fast5 ... file_N.fast5
@@ -324,5 +324,3 @@ but this can be controlled with the `--file-read-count` argument.
     $ pod5 convert to_fast5 example.pod5 pod5_to_fast5
     $ ls pod5_to_fast5/
     output_1.fast5 output_2.fast5 ... output_N.fast5
-
-

@@ -1,4 +1,4 @@
-from conans import ConanFile, CMake, tools
+from conans import CMake, ConanFile, tools
 
 
 class Pod5Conan(ConanFile):
@@ -35,8 +35,8 @@ class Pod5Conan(ConanFile):
             self.requires(f"arrow/8.0.0.1{package_suffix}")
             self.requires(f"boost/1.78.0.1{package_suffix}")
         else:
-            self.requires(f"arrow/8.0.0")
-            self.requires(f"boost/1.78.0")
+            self.requires("arrow/8.0.0")
+            self.requires("boost/1.78.0")
 
         self.requires(f"flatbuffers/2.0.0{package_suffix}")
         self.requires(f"zstd/1.4.8{package_suffix}")
@@ -58,7 +58,9 @@ class Pod5Conan(ConanFile):
         cmake = CMake(self)
         shared = "ON" if self.options.shared else "OFF"
         self.run(
-            f"cmake . -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF -DINSTALL_THIRD_PARTY=OFF {cmake.command_line} -DBUILD_SHARED_LIB={shared}"
+            "cmake . -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF "
+            f"-DINSTALL_THIRD_PARTY=OFF {cmake.command_line} "
+            f"-DBUILD_SHARED_LIB={shared}"
         )
         self.run(f"cmake --build . {cmake.build_config}")
 

@@ -222,7 +222,7 @@ function(flatbuffers_generate_headers)
   set(generated_include_dir "${generated_target_dir}")
   if (NOT ${FLATBUFFERS_GENERATE_HEADERS_INCLUDE_PREFIX} STREQUAL "")
     set(generated_include_dir "${generated_include_dir}/${FLATBUFFERS_GENERATE_HEADERS_INCLUDE_PREFIX}")
-    list(APPEND FLATBUFFERS_GENERATE_HEADERS_FLAGS 
+    list(APPEND FLATBUFFERS_GENERATE_HEADERS_FLAGS
          "--include-prefix" ${FLATBUFFERS_GENERATE_HEADERS_INCLUDE_PREFIX})
   endif()
 
@@ -255,7 +255,7 @@ function(flatbuffers_generate_headers)
     list(APPEND all_generated_header_files ${generated_include})
     list(APPEND all_generated_source_files ${generated_source_file})
 
-    # Geneate the binary flatbuffers schemas if instructed to.
+    # Generate the binary flatbuffers schemas if instructed to.
     if (NOT ${FLATBUFFERS_GENERATE_HEADERS_BINARY_SCHEMAS_DIR} STREQUAL "")
       set(binary_schema
           "${FLATBUFFERS_GENERATE_HEADERS_BINARY_SCHEMAS_DIR}/${filename}.bfbs")
@@ -323,8 +323,8 @@ endfunction()
 #   TARGET: The name of the target to generate.
 #   JSON_FILES: The list of json files to compile to flatbuffers binaries.
 #   SCHEMA: The flatbuffers schema of the Json files to be compiled.
-#   INCLUDE: Optional. Search for includes in the specified paths. (Use this 
-#       instead of "-I <path>" and the FLAGS option so that CMake is aware of 
+#   INCLUDE: Optional. Search for includes in the specified paths. (Use this
+#       instead of "-I <path>" and the FLAGS option so that CMake is aware of
 #       the directories that need to be searched).
 #   OUTPUT_DIR: The directly where the generated flatbuffers binaries should be
 #       placed.

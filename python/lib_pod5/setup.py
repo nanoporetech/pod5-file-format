@@ -12,6 +12,7 @@ not actually installed there. See INSTALL.md for further details.
 
 """
 import sys
+
 import setuptools
 
 extra_setup_args = {}

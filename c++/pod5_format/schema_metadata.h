@@ -60,7 +60,7 @@ struct SchemaMetadataDescription {
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<const arrow::KeyValueMetadata>>
-make_schema_key_value_metadata(SchemaMetadataDescription const& schema_metdata);
+make_schema_key_value_metadata(SchemaMetadataDescription const& schema_metadata);
 
 POD5_FORMAT_EXPORT Result<SchemaMetadataDescription> read_schema_key_value_metadata(
         std::shared_ptr<const arrow::KeyValueMetadata> const& key_value_metadata);

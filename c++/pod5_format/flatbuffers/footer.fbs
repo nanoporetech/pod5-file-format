@@ -1,5 +1,5 @@
 namespace Minknow.ReadsFormat;
- 
+
 enum ContentType:short {
     // The Reads table (an Arrow table)
     ReadsTable,
@@ -12,12 +12,12 @@ enum ContentType:short {
     // The Run Info table (an Arrow table)
     RunInfoTable,
 }
- 
+
 enum Format:short {
     // The Apache Feather V2 format, also known as the Apache Arrow IPC File format.
     FeatherV2,
 }
- 
+
 // Describes an embedded file.
 table EmbeddedFile {
     // The start of the embedded file
@@ -29,7 +29,7 @@ table EmbeddedFile {
     // What contents should be expected in the file
     content_type: ContentType;
 }
- 
+
 table Footer {
     // Must match the "MINKNOW:file_identifier" custom metadata entry in the schemas of the bundled tables.
     file_identifier: string;

@@ -2,8 +2,8 @@
 Utility functions for pod5 tools
 """
 
-from pathlib import Path
 import typing
+from pathlib import Path
 
 
 def iterate_inputs(

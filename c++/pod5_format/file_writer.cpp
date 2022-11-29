@@ -221,8 +221,8 @@ public:
         ARROW_ASSIGN_OR_RAISE(signal_table.file_length, file->Tell());
         signal_table.file_length -= signal_table.file_start_offset;
 
-        // Padd file to 8 bytes and mark section:
-        ARROW_RETURN_NOT_OK(combined_file_utils::padd_file(file, 8));
+        // pad file to 8 bytes and mark section:
+        ARROW_RETURN_NOT_OK(combined_file_utils::pad_file(file, 8));
         ARROW_RETURN_NOT_OK(combined_file_utils::write_section_marker(file, m_section_marker));
 
         auto file_location_for_full_file =

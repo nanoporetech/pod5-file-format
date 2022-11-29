@@ -1,0 +1,6 @@
+# Waiting for pyproject.toml support: https://gitlab.com/pycqa/flake8/-/issues/428
+
+[flake8]
+extend-ignore = E203, W503
+max-line-length = 120
+per-file-ignores = __init__.py:F401, __init__.py:F403

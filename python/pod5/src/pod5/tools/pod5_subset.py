@@ -2,17 +2,17 @@
 Tool for subsetting pod5 files into one or more outputs
 """
 
-from collections import defaultdict, Counter
-from string import Formatter
+import typing
+from collections import Counter, defaultdict
 from json import load as json_load
 from pathlib import Path
-import typing
+from string import Formatter
 
 import jsonschema
+import lib_pod5 as p5b
 import pandas as pd
 
 import pod5 as p5
-import lib_pod5 as p5b
 import pod5.repack as p5_repack
 from pod5.tools.parsers import prepare_pod5_subset_argparser, run_tool
 

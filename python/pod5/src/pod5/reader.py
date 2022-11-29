@@ -2,11 +2,11 @@
 Tools for accessing POD5 data from PyArrow files
 """
 
+import enum
+import mmap
 from collections import namedtuple
 from dataclasses import fields
-import enum
 from functools import total_ordering
-import mmap
 from pathlib import Path
 from typing import (
     Collection,
@@ -21,13 +21,12 @@ from typing import (
 )
 from uuid import UUID
 
-import packaging.version
-
+import lib_pod5 as p5b
 import numpy as np
 import numpy.typing as npt
+import packaging.version
 import pyarrow as pa
 
-import lib_pod5 as p5b
 from pod5.pod5_types import (
     Calibration,
     EndReason,
@@ -38,9 +37,8 @@ from pod5.pod5_types import (
     ShiftScalePair,
 )
 
-from .api_utils import pack_read_ids, Pod5ApiException
-from .signal_tools import vbz_decompress_signal_into, vbz_decompress_signal
-
+from .api_utils import Pod5ApiException, pack_read_ids
+from .signal_tools import vbz_decompress_signal, vbz_decompress_signal_into
 
 ReadRecordV3Columns = namedtuple(
     "ReadRecordV3Columns",

@@ -23,13 +23,13 @@ Conan version 1.48.0
 > mkdir build
 > cd build
 # Install libs for a Release build using the system default compiler + settings:
-# Note the build=missing, will build any libs not available on your current platfrom as binaries:
+# Note the build=missing, will build any libs not available on your current platform as binaries:
 > conan install --build=missing -s build_type=Release .. && cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release .. && make -j
 
 ```
 
 ### Arm 64 MacOS Builds:
-Note on osx arm builds: An extra argument may be needed to make cmake build an arm64 build on all osx platforms: 
+Note on osx arm builds: An extra argument may be needed to make cmake build an arm64 build on all osx platforms:
 
 ```
 cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 ..

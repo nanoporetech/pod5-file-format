@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import h5py
 from pathlib import Path
-from uuid import UUID
 
+import h5py
 import numpy
 import pandas as pd
 
@@ -42,7 +41,7 @@ def run(input_dir, output, select_read_ids=None, get_columns=[]):
             read_ids.append(read_id)
 
             for c in get_columns:
-                if not c in extracted_columns:
+                if c not in extracted_columns:
                     extracted_columns[c] = []
                 col = extracted_columns[c]
 

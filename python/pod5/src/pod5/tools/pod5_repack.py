@@ -1,11 +1,9 @@
-""" 
+"""
 Tool for repacking pod5 files into a single output
 """
-import argparse
-from pathlib import Path
-
 import sys
 import typing
+from pathlib import Path
 
 import pod5 as p5
 import pod5.repack

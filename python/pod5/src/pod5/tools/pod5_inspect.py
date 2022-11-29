@@ -1,13 +1,13 @@
 """
 Tool for inspecting the contents of pod5 files
 """
-from dataclasses import asdict
+import csv
 import os
 import sys
-import csv
+from dataclasses import asdict
+from pathlib import Path
 from typing import Callable, Dict, List
 from uuid import UUID
-from pathlib import Path
 
 import pod5 as p5
 from pod5.tools.parsers import prepare_pod5_inspect_argparser, run_tool
@@ -159,7 +159,8 @@ def do_debug_command(reader: p5.Reader):
     print(f"Contains {read_count} reads, in {batch_count} batches: {batch_sizes}")
     print(f"Reads span from sample {min_sample} to {max_sample}")
     print(
-        f"{sample_count} samples, {byte_count} bytes: {100*byte_count/float(sample_count*2):.1f} % signal compression ratio"
+        f"{sample_count} samples, {byte_count}"
+        f" bytes: {100*byte_count/float(sample_count*2):.1f} % signal compression ratio"
     )
 
     for idx, run_info in run_infos.items():

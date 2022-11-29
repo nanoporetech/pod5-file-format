@@ -1,7 +1,7 @@
 import argparse
 import itertools
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pod5 as p5
 
@@ -58,7 +58,8 @@ def main():
 
         if (a.signal != b.signal).any():
             print(
-                f"Read {read_count} {read_id} signal not equal: {len(a.signal)} elements: {a.signal} vs {len(b.signal)} elements: {b.signal}"
+                f"Read {read_count} {read_id} signal not equal: {len(a.signal)} elements:"
+                f" {a.signal} vs {len(b.signal)} elements: {b.signal}"
             )
             errors += 1
 

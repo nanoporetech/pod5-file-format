@@ -1,10 +1,9 @@
 """
 Test for the convert_from_fast5 tool
 """
-from pathlib import Path
-import tempfile
-from typing import Dict
 import datetime
+from pathlib import Path
+from typing import Dict
 from uuid import UUID
 
 import h5py
@@ -13,11 +12,10 @@ import pytest
 
 import pod5 as p5
 from pod5.tools.pod5_convert_from_fast5 import (
-    convert_fast5_read,
     assert_multi_read_fast5,
+    convert_fast5_read,
     convert_from_fast5,
 )
-
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"

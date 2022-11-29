@@ -3,28 +3,23 @@ Tool for converting fast5 files to the pod5 format
 """
 
 import datetime
-from pathlib import Path
+import multiprocessing as mp
 import sys
 import time
-from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 import uuid
-import multiprocessing as mp
+from pathlib import Path
 from queue import Empty
+from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 
 import h5py
-from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
-import vbz_h5py_plugin
 import iso8601
-
 import more_itertools
+import vbz_h5py_plugin  # noqa: F401
 
 import pod5 as p5
-from pod5.signal_tools import (
-    DEFAULT_SIGNAL_CHUNK_SIZE,
-    vbz_compress_signal_chunked,
-)
+from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chunked
+from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
 from pod5.tools.utils import iterate_inputs
-
 
 READ_CHUNK_SIZE = 100
 
@@ -547,7 +542,7 @@ def convert_from_fast5(
         process.start()
         active_processes.append(process)
 
-    # start requests for reads, we probably dont need more reads in memory at a time
+    # start requests for reads, we probably don't need more reads in memory at a time
     for _ in range(threads * 3):
         request_queue.put(RequestQItem())
 
@@ -563,7 +558,7 @@ def convert_from_fast5(
                 continue
 
             if isinstance(item, ReadListQItem):
-                # Write the incomming list of converted reads
+                # Write the incoming list of converted reads
                 writer = output_handler.get_writer(item.file)
                 writer.add_read_objects_pre_compressed(item.reads)
 

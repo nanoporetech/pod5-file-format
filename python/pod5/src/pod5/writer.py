@@ -1,24 +1,15 @@
 """
-Tools for writing POD5 data 
+Tools for writing POD5 data
 """
 import datetime
 import itertools
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
-import pytz
-import numpy as np
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Type, TypeVar, Union
 
 import lib_pod5 as p5b
+import numpy as np
+import pytz
+
 from pod5.api_utils import Pod5ApiException
 from pod5.pod5_types import (
     BaseRead,

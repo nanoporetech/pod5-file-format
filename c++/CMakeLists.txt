@@ -80,7 +80,7 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/signal_table_writer.cpp
     pod5_format/signal_table_writer.h
     pod5_format/signal_table_utils.h
-    
+
     pod5_format/c_api.cpp
     pod5_format/c_api.h
 
@@ -156,7 +156,7 @@ list(APPEND public_headers
     ${CMAKE_CURRENT_BINARY_DIR}/pod5_format/pod5_format_export.h
 )
 
-set_target_properties(pod5_format 
+set_target_properties(pod5_format
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
         CXX_STANDARD 14
@@ -177,7 +177,7 @@ target_link_libraries(pod5_format
 if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
     set(pod5_libs arrow zstd jemalloc)
     foreach (lib ${pod5_libs})
-            
+
         install(
             FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
             TYPE LIB

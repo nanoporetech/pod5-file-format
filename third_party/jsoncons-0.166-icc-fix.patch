@@ -3,12 +3,12 @@ Author: Alex Merry <alex.merry@nanoporetech.com>
 Date:   Wed Aug 4 15:40:53 2021 +0100
 
     Make implementation_type public in container types
-    
+
     This is used by jsoncons::type_traits::detail::basic_json_t in certain
     circumstances, and ICC does not like that it is not publicly accessible.
-    
+
     Fixes compilation errors like:
-    
+
     jsoncons/basic_json.hpp(49):
     error #525: type "jsoncons::json_object<KeyT, Json,
     std::enable_if<std::is_same<Json::implementation_policy::key_order,
@@ -40,7 +40,7 @@ index afe10d4..ced66e6 100644
 -    private:
          using implementation_policy = typename Json::implementation_policy;
 +    private:
-         using value_allocator_type = typename std::allocator_traits<allocator_type>:: template rebind_alloc<value_type>;                   
+         using value_allocator_type = typename std::allocator_traits<allocator_type>:: template rebind_alloc<value_type>;
          using value_container_type = typename implementation_policy::template sequence_container_type<value_type,value_allocator_type>;
          value_container_type elements_;
 @@ -537,8 +537,8 @@ namespace jsoncons {
@@ -50,9 +50,9 @@ index afe10d4..ced66e6 100644
 -    private:
          using implementation_policy = typename Json::implementation_policy;
 +    private:
-         using key_value_allocator_type = typename std::allocator_traits<allocator_type>:: template rebind_alloc<key_value_type>;                       
+         using key_value_allocator_type = typename std::allocator_traits<allocator_type>:: template rebind_alloc<key_value_type>;
          using key_value_container_type = typename implementation_policy::template sequence_container_type<key_value_type,key_value_allocator_type>;
- 
+
 @@ -1235,8 +1235,8 @@ namespace jsoncons {
          //using mapped_type = Json;
          using string_view_type = typename Json::string_view_type;
@@ -60,6 +60,6 @@ index afe10d4..ced66e6 100644
 -    private:
          using implementation_policy = typename Json::implementation_policy;
 +    private:
-         using key_value_allocator_type = typename std::allocator_traits<allocator_type>:: template rebind_alloc<key_value_type>;                       
+         using key_value_allocator_type = typename std::allocator_traits<allocator_type>:: template rebind_alloc<key_value_type>;
          using key_value_container_type = typename implementation_policy::template sequence_container_type<key_value_type,key_value_allocator_type>;
          typedef typename std::allocator_traits<allocator_type>:: template rebind_alloc<std::size_t> index_allocator_type;

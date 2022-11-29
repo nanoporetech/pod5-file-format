@@ -5,6 +5,7 @@ import time
 from typing import Collection
 
 import lib_pod5 as p5b
+
 import pod5 as p5
 
 # The default interval in seconds to check for completion

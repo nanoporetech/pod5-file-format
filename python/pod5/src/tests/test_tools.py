@@ -1,14 +1,15 @@
 """
-Testing Pod5 Tools 
+Testing Pod5 Tools
 """
 import argparse
 from pathlib import Path
-from typing import Callable, Dict, List
-import pytest
-from unittest.mock import patch, Mock
-import pod5
-from pod5.tools import parsers, main
+from typing import Callable, Dict
+from unittest.mock import Mock, patch
 
+import pytest
+
+import pod5
+from pod5.tools import main, parsers
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"

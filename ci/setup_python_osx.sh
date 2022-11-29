@@ -1,5 +1,10 @@
 #! /bin/bash
 
+set -o errexit
+set -o pipefail
+set -o nounset
+# set -o xtrace
+
 #set -e
 
 version=$1
@@ -14,6 +19,6 @@ if [[ "${version}" == "3.10.5" ]]; then
     os_version="11"
 fi
 
-relocatable-python/make_relocatable_python_framework.py --python-version ${version} --destination ${destination} --upgrade-pip --os-version ${os_version}
+relocatable-python/make_relocatable_python_framework.py --python-version "${version}" --destination "${destination}" --upgrade-pip --os-version "${os_version}"
 
 rm -rf relocatable-python

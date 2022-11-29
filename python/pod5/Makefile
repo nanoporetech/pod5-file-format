@@ -7,7 +7,7 @@ envPrompt ?= "pod5"
 .PHONY: clean install update docs
 
 # Clean the python virtual environment
-clean: 
+clean:
 	rm -rf ${envDir}
 
 # Completely install the python environment for development
@@ -21,7 +21,7 @@ install: clean
 	@echo "To activate your new environment:  source ${envDir}/bin/activate"
 
 # Re-install the pod5 environments to refresh / update the environment with changes
-update: 
+update:
 	source ${envDir}/bin/activate \
 	&& pip install -e .[dev]
 

@@ -63,7 +63,7 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
         return Status::Invalid("Unexpected type for map");
     }
 
-    // Extract map keys + values into their own array datas:
+    // Extract map keys + values into their own array data:
     auto const& map_type = std::static_pointer_cast<arrow::MapType>(type);
     auto const& key_type = map_type->key_type();
     auto const& item_type = map_type->item_type();

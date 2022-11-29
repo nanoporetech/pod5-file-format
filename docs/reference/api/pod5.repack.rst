@@ -1,4 +1,4 @@
-repack 
+repack
 ==========================
 
 .. automodule:: pod5.repack

@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
-import packaging
-from pathlib import Path
 import tempfile
-from uuid import uuid4, uuid5, UUID
+from datetime import datetime, timezone
+from pathlib import Path
+from uuid import UUID, uuid4, uuid5
 
 import numpy
+import packaging
 import pytest
 
 import pod5 as p5

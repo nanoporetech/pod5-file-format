@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-from collections import namedtuple
 import multiprocessing as mp
+import tempfile
+from collections import namedtuple
 from pathlib import Path
 from queue import Empty
-import tempfile
 
 import numpy
 import pandas as pd
@@ -153,8 +153,6 @@ def run_get_read_ids(files):
     Load all read ids from the file.
     """
     read_ids = []
-    extracted_columns = {"read_id": read_ids}
-
     for filename in files:
         file = p5.Reader(filename)
         for batch in file.read_batches():

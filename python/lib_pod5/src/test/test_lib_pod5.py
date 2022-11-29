@@ -3,7 +3,8 @@ Basic lib pod5 tets
 """
 
 from pathlib import Path
-from lib_pod5 import create_file, open_file, Pod5FileReader
+
+from lib_pod5 import Pod5FileReader, create_file, open_file
 
 
 def test_create_file(tmp_path: Path) -> None:

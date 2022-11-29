@@ -1,16 +1,16 @@
 """
 Pod5 test fixtures
 """
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 from uuid import UUID, uuid4, uuid5
 
-import os
-import pytest
-
 import numpy
 import numpy.typing
+import pytest
+
 import pod5 as p5
 
 TEST_UUID = uuid4()
