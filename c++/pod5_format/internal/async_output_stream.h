@@ -106,7 +106,7 @@ private:
                 m_work_available.wait_for(lock, std::chrono::milliseconds(100), [&] {
                     return !m_write_requests.empty() || m_exit;
                 });
-                if (!m_write_requests.size()) {
+                if (m_write_requests.empty()) {
                     continue;
                 }
 

@@ -462,8 +462,12 @@ public:
     {
         m_work.reset();
         for (auto & worker : m_workers) {
-            worker.join();
+            if (worker.joinable()) {
+                worker.join();
+            }
         }
+
+        m_outputs.clear();
     }
 
     std::shared_ptr<Pod5RepackerOutput> add_output(std::shared_ptr<pod5::FileWriter> const & output)
