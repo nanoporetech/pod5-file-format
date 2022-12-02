@@ -22,9 +22,9 @@ no longer needed.
 
 .. code-block:: python
 
-    from pod5 import Reader
+    import pod5 as p5
 
-    with Reader("example.pod5") as reader:
+    with p5.Reader("example.pod5") as reader:
         # Use reader within this context manager
         ...
     # Resources are safely closed
@@ -43,14 +43,14 @@ to generate a :class:`~pod5.reader.ReadRecord` instance for each read in the fil
         for read_record in reader.reads():
             print(read_record.read_id)
 
-To iterate over a `filtered` selection of read_ids, provide :func:`~pod5.reader.Reader.reads`
-with a collection of read_ids which must be ``UUIDs``:
+To iterate over a selection of read_ids, provide :func:`~pod5.reader.Reader.reads`
+with a collection of read_ids which must be string ``UUID``'s' :
 
 .. code-block:: python
 
     import pod5 as p5
 
-    # Create a collection of read_id UUIDs
+    # Create a collection of read_id UUIDs as string
     read_ids = {
         "00445e58-3c58-4050-bacf-3411bb716cc3",
         "00520473-4d3d-486b-86b5-f031c59f6591",
@@ -139,7 +139,7 @@ there are certainly use cases where writing ones own POD5 files would be desirab
 
 .. note::
     It is strongly recommended that users first look at the
-    :ref:`pod5-format-tools <docs/tools:Tools>` package for tools to manipulate
+    :ref:`tools <docs/tools:Tools>` package for tools to manipulate
     existing datasets.
 
     New tools may be added to support our users and if you have a suggestion for a
@@ -151,7 +151,7 @@ Adding Reads Example
 ---------------------
 
 Below is an example of how one may add reads to a new POD5 file using the :py:class:`~pod5.writer.Writer`
-and it's :py:meth:`~pod5.writer.Writer.add_read_object` method.
+and its :py:meth:`~pod5.writer.Writer.add_read` method.
 
 .. code-block:: python
 
@@ -182,5 +182,5 @@ and it's :py:meth:`~pod5.writer.Writer.add_read_object` method.
     )
 
     with p5.Writer("example.pod5") as writer:
-        # Write the read object and all of its members
-        writer.add_read_object(read)
+        # Write the read and all of its metadata
+        writer.add_read(read)

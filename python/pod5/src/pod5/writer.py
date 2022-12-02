@@ -4,13 +4,13 @@ Tools for writing POD5 data
 import datetime
 import itertools
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Sequence, Tuple, Type, TypeVar, Union
 
 import lib_pod5 as p5b
 import numpy as np
 import pytz
 
-from pod5.api_utils import Pod5ApiException
+from pod5.api_utils import Pod5ApiException, deprecation_warning
 from pod5.pod5_types import (
     BaseRead,
     Calibration,
@@ -226,6 +226,18 @@ class Writer:
                 f"Could not find index of {obj} in Pod5 file writer: {self}"
             ) from exc
 
+    def add_read(self, read: Union[Read, CompressedRead]) -> None:
+        """
+        Add a record to the open POD5 file with either compressed or uncompressed
+        signal data depending on the given type of Read.
+
+        Parameters
+        ----------
+        read : :py:class:`Read`, :py:class:`CompressedRead`
+            POD5 Read or CompressedRead object to add as a record to the POD5 file.
+        """
+        self.add_reads([read])
+
     def add_read_object(self, read: Union[Read, CompressedRead]) -> None:
         """
         Add a record to the open POD5 file with either compressed or uncompressed
@@ -236,68 +248,81 @@ class Writer:
         read : :py:class:`Read`, :py:class:`CompressedRead`
             POD5 Read or CompressedRead object to add as a record to the POD5 file.
         """
-        if isinstance(read, CompressedRead):
-            # Add a pre-compressed read
-            self.add_read_objects_pre_compressed([read])
-        else:
-            # Add an uncompressed read
-            self.add_read_objects([read])
+        deprecation_warning("Writer.add_read_object", "Writer.add_read")
+        self.add_read(read=read)
 
-    def add_read_objects(self, reads: Iterable[Read]) -> None:
+    def add_reads(self, reads: Sequence[Union[Read, CompressedRead]]) -> None:
         """
         Add Read objects (with uncompressed signal data) as records in the open POD5
         file.
 
         Parameters
         ----------
-        reads : Iterable[Read]
-            Iterable of Read object to be added to this POD5 file
+        reads : Sequence of :py:class:`Read` or :py:class:`CompressedRead` exclusively
+            List of Read object to be added to this POD5 file
         """
 
         # Nothing to do
         if not reads:
             return
 
-        self._writer.add_reads(
-            *self._prepare_add_reads_args(
-                reads,
-            ),
-            [r.signal for r in reads],
-        )
+        if isinstance(reads[0], Read):
+            return self._writer.add_reads(
+                *self._prepare_add_reads_args(reads),
+                [r.signal for r in reads],
+            )
+        elif isinstance(reads[0], CompressedRead):
+            signal_chunks = [r.signal_chunks for r in reads]
+            signal_chunk_lengths = [r.signal_chunk_lengths for r in reads]
 
-    def add_read_objects_pre_compressed(self, reads: Iterable[CompressedRead]) -> None:
+            # Array containing the number of chunks for each signal
+            signal_chunk_counts = np.array(
+                [len(samples_per_chunk) for samples_per_chunk in signal_chunk_lengths],
+                dtype=np.uint32,
+            )
+
+            return self._writer.add_reads_pre_compressed(
+                *self._prepare_add_reads_args(reads),
+                # Join all signal data into one list
+                list(itertools.chain(*signal_chunks)),
+                # Join all read sample counts into one array
+                np.concatenate(signal_chunk_lengths).astype(np.uint32),
+                signal_chunk_counts,
+            )
+
+    def add_read_objects(self, reads: Sequence[Read]) -> None:
+        """
+        Add Read objects (with uncompressed signal data) as records in the open POD5
+        file.
+
+        Parameters
+        ----------
+        reads : List[Read]
+            List of Read object to be added to this POD5 file
+        """
+        deprecation_warning("Writer.add_read_objects", "Writer.add_reads")
+        return self.add_reads(reads=reads)
+
+    def add_read_objects_pre_compressed(self, reads: Sequence[CompressedRead]) -> None:
         """
         Add Read objects (with compressed signal data) as records in the open POD5
         file.
 
         Parameters
         ----------
-        reads : Iterable[CompressedRead]
-            Iterable of CompressedRead objects to be added to this POD5 file
+        reads : List[CompressedRead]
+            List of CompressedRead objects to be added to this POD5 file
         """
-        # Nothing to do
-        if not reads:
-            return
-
-        signal_chunks = [r.signal_chunks for r in reads]
-        signal_chunk_lengths = [r.signal_chunk_lengths for r in reads]
-
-        # Array containing the number of chunks for each signal
-        signal_chunk_counts = np.array(
-            [len(samples_per_chunk) for samples_per_chunk in signal_chunk_lengths],
-            dtype=np.uint32,
+        deprecation_warning(
+            "Writer.add_read_objects_pre_compressed", "Writer.add_reads"
         )
+        return self.add_reads(reads=reads)
 
-        self._writer.add_reads_pre_compressed(
-            *self._prepare_add_reads_args(reads),
-            # Join all signal data into one list
-            list(itertools.chain(*signal_chunks)),
-            # Join all read sample counts into one array
-            np.concatenate(signal_chunk_lengths).astype(np.uint32),
-            signal_chunk_counts,
-        )
-
-    def _prepare_add_reads_args(self, reads: List[BaseRead]):
+    def _prepare_add_reads_args(self, reads: Sequence[BaseRead]):
+        """
+        Converts the List of reads into the list of ctypes arrays of data to be supplied
+        to the c api.
+        """
         read_id = np.array(
             [np.frombuffer(read.read_id.bytes, dtype=np.uint8) for read in reads]
         )

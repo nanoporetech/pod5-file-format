@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Fixed name of internal utils - "pad_file".
 - Fixed spelling of various internal variables.
+- Documentation edits
+- Deprecated `Writer` methods `add_read_object` and `add_read_objects` for `add_read` and `add_reads` respectively.
+- `Writer.add_reads` now handles both `Read` and `CompressedRead`.
 - Removed direct pod5 tool scripts.
 - Fixed `pod5 convert to_fast5`
 

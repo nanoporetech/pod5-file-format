@@ -4,6 +4,124 @@ POD5 Python Package
 The `pod5` Python package contains the tools and python API wrapping the compiled bindings
 for the POD5 file format from `lib_pod5`.
 
+Installation
+------------
+
+The `pod5` package is available on [pypi](https://pypi.org/project/pod5/) and is
+installed using `pip`:
+
+``` console
+pip install pod5
+```
+
+Reading a POD5 File
+-------------------
+
+To read a `pod5` file provide the the `Reader` class with the input `pod5` file path
+and call `Reader.reads()` to iterate over read records in the file. The example below
+prints the read_id of every record in the input `pod5` file.
+
+``` python
+import pod5 as p5
+
+with p5.Reader("example.pod5") as reader:
+    for read_record in reader.reads():
+        print(read_record.read_id)
+```
+
+To iterate over a selection of read_ids supply `Reader.reads()` with a collection
+of read_ids which must be `UUID` compatible:
+
+``` python
+import pod5 as p5
+
+# Create a collection of read_id UUIDs
+read_ids: List[str] = [
+  "00445e58-3c58-4050-bacf-3411bb716cc3",
+  "00520473-4d3d-486b-86b5-f031c59f6591",
+]
+
+with p5.Reader("example.pod5") as reader:
+    for read_record in reader.reads(selection=read_ids):
+        assert str(read_record.read_id) in read_ids
+```
+
+Plotting Signal Data Example
+----------------------------
+
+Here is an example of how a user may plot a read’s signal data against time.
+
+``` python
+import matplotlib.pyplot as plt
+import numpy as np
+
+import pod5 as p5
+
+# Using the example pod5 file provided
+example_pod5 = "test_data/multi_fast5_zip.pod5"
+selected_read_id = '0000173c-bf67-44e7-9a9c-1ad0bc728e74'
+
+with p5.Reader(example_pod5) as reader:
+
+    # Read the selected read from the pod5 file
+    # next() is required here as Reader.reads() returns a Generator
+    read = next(reader.reads(selection=[selected_read_id]))
+
+    # Get the signal data and sample rate
+    sample_rate = read.run_info.sample_rate
+    signal = read.signal
+
+    # Compute the time steps over the sampling period
+    time = np.arange(len(signal)) / sample_rate
+
+    # Plot using matplotlib
+    plt.plot(time, signal)
+```
+
+Writing a POD5 File
+-------------------
+
+The `pod5` package provides the functionality to write POD5 files.
+
+It is strongly recommended that users first look at the available tools when
+manipulating existing datasets, as there may already be a tool to meet your needs.
+New tools may be added to support our users and if you have a suggestion for a
+new tool or feature please submit a request on the
+[pod5-file-format GitHub issues page](https://github.com/nanoporetech/pod5-file-format/issues).
+
+Below is an example of how one may add reads to a new POD5 file using the `Writer`
+and its `add_read()` method.
+
+```python
+import pod5 as p5
+
+# Populate container classes for read metadata
+pore = p5.Pore(channel=123, well=3, pore_type="pore_type")
+calibration = p5.Calibration(offset=0.1, scale=1.1)
+end_reason = p5.EndReason(name=p5.EndReasonEnum.SIGNAL_POSITIVE, forced=False)
+run_info = p5.RunInfo(
+    acquisition_id = ...
+    acquisition_start_time = ...
+    adc_max = ...
+    ...
+)
+signal = ... # some signal data as numpy np.int16 array
+
+read = p5.Read(
+    read_id=UUID("0000173c-bf67-44e7-9a9c-1ad0bc728e74"),
+    end_reason=end_reason,
+    calibration=calibration,
+    pore=pore,
+    run_info=run_info,
+    ...
+    signal=signal,
+)
+
+with p5.Writer("example.pod5") as writer:
+    # Write the read object
+    writer.add_read(read)
+```
+
 POD5 Format Tools
 -----------------
 

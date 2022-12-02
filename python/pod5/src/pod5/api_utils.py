@@ -76,6 +76,6 @@ def deprecation_warning(deprecated: str, alternate: str) -> None:
     """
     warnings.warn(
         f"{deprecated} is deprecated. Please use {alternate}",
-        FutureWarning,
+        DeprecationWarning,
         stacklevel=2,
     )

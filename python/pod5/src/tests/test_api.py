@@ -89,11 +89,11 @@ def gen_test_read(seed, compressed=False) -> p5.Read:
 def run_writer_test(f: Writer):
     test_read = gen_test_read(0, compressed=False)
     print("read", test_read.read_id, test_read.run_info.adc_max)
-    f.add_read_object(test_read)
+    f.add_read(test_read)
 
     test_read = gen_test_read(1, compressed=True)
     print("read", test_read.read_id, test_read.run_info.adc_max)
-    f.add_read_object(test_read)
+    f.add_read(test_read)
 
     test_reads = [
         gen_test_read(2),
@@ -102,7 +102,7 @@ def run_writer_test(f: Writer):
         gen_test_read(5),
     ]
     print("read", test_reads[0].read_id, test_reads[0].run_info.adc_max)
-    f.add_read_objects(test_reads)
+    f.add_reads(test_reads)
 
     test_reads = [
         gen_test_read(6, compressed=True),
@@ -110,7 +110,7 @@ def run_writer_test(f: Writer):
         gen_test_read(8, compressed=True),
         gen_test_read(9, compressed=True),
     ]
-    f.add_read_objects_pre_compressed(test_reads)
+    f.add_reads(test_reads)
 
 
 def run_reader_test(reader: p5.Reader):
