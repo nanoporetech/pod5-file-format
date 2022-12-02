@@ -560,7 +560,7 @@ def convert_from_fast5(
             if isinstance(item, ReadListQItem):
                 # Write the incoming list of converted reads
                 writer = output_handler.get_writer(item.file)
-                writer.add_read_objects_pre_compressed(item.reads)
+                writer.add_reads(item.reads)
 
                 sample_count = sum(r.sample_count for r in item.reads)
                 status.increment(
