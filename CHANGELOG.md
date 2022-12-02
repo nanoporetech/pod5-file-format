@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Fixed name of internal utils - "pad_file".
 - Fixed spelling of various internal variables.
+- Removed direct pod5 tool scripts.
+- Fixed `pod5 convert to_fast5`
 
 ## [0.0.43]
 ### Changed
