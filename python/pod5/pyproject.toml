@@ -50,15 +50,6 @@ dev = [
 
 [project.scripts]
 pod5 = "pod5.tools.main:main"
-pod5-convert-from-fast5 = "pod5.tools.pod5_convert_from_fast5:main"
-pod5-convert-fast5 = "pod5.tools.pod5_convert_from_fast5:main"
-pod5-convert-to-fast5 = "pod5.tools.pod5_convert_to_fast5:main"
-pod5-subset = "pod5.tools.pod5_subset:main"
-pod5-demux = "pod5.tools.pod5_subset:main"
-pod5-inspect = "pod5.tools.pod5_inspect:main"
-pod5-merge = "pod5.tools.pod5_merge:main"
-pod5-repack = "pod5.tools.pod5_repack:main"
-pod5-update = "pod5.tools.pod5_update:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -108,7 +108,7 @@ dependencies such as `pre-commit` and `black`.
    $ make install
 
 Note this will completely `clean` the existing python virtual environment. If one only
-requires an update to the python environment entry-points (e.g. `pod5-inspect`) simply
+requires an update to the python environment entry-points (e.g. `pod5 inspect`) simply
 run:
 
 .. code-block:: console

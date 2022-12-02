@@ -5,8 +5,12 @@ import argparse
 from pathlib import Path
 from typing import Callable, Dict
 from unittest.mock import Mock, patch
+from uuid import UUID
 
+import h5py
+import numpy as np
 import pytest
+import vbz_h5py_plugin  # noqa: F401
 
 import pod5
 from pod5.tools import main, parsers
@@ -101,15 +105,27 @@ class TestPod5Tools:
     def test_convert_to_fast5_runs(self, tmp_path: Path) -> None:
         """Assert that typical commands are valid"""
 
+        outdir = tmp_path / "outdir"
         args = [
             "pod5",
             "convert",
             "to_fast5",
             str(POD5_PATH),
-            str(tmp_path / "new.fast5"),
+            str(outdir),
         ]
         with patch("argparse._sys.argv", args):
             main.main()
+
+        assert outdir.exists()
+        fast5s = list(outdir.glob("*.fast5"))
+        assert len(fast5s) > 0
+
+        with h5py.File(fast5s[0]) as f5:
+            read_id = str(list(f5.keys())[0])
+            assert read_id.startswith("read_")
+            assert UUID(read_id[len("read_") :])
+            signal = np.array(f5[read_id]["Raw/Signal"])
+            assert len(signal) > 0
 
     @pytest.mark.parametrize("subcommand", ["summary", "reads"])
     def test_inspect_command_runs(self, tmp_path: Path, subcommand: str) -> None:

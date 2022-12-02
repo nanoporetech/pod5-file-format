@@ -69,11 +69,11 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
     while True:
         # Try to get some data to write:
         try:
-            file_data = write_data_queue.get(timeout=0.1)
+            file_data = write_data_queue.get(timeout=5)
         except Empty:
             # Check if we are requested to exit:
             try:
-                exit_queue.get(timeout=0.1)
+                exit_queue.get(timeout=0.001)
                 break
             except Empty:
                 pass
@@ -197,9 +197,11 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
         write_request_queue.put(WriteRequest())
 
 
-def put_write_fast5_file(file_reads, write_request_queue, write_data_queue):
-    write_request_queue.get()
+def put_write_fast5_file(
+    file_reads: Fast5FileData, write_request_queue, write_data_queue
+):
 
+    write_request_queue.get()
     write_data_queue.put(file_reads)
 
 
@@ -278,11 +280,12 @@ def convert_to_fast5(
 
     print("Converting reads...")
     t_start = t_last_update = time.time()
-    update_interval = 15  # seconds
+    update_interval = 5  # seconds
 
     file_count = 0
     read_count = 0
     sample_count = 0
+    mb_total = (sample_count) / (1000 * 1000)
 
     # Divide up files between readers:
     current_reads_batch = []
@@ -298,11 +301,13 @@ def convert_to_fast5(
             now = time.time()
             if t_last_update + update_interval < now:
                 t_last_update = now
-                mb_total = (sample_count * 2) / (1000 * 1000)
+                mb_total = (sample_count) / (1000 * 1000)
                 time_total = t_last_update - t_start
                 print(
-                    f"{file_count} files\t"
-                    f"{read_count} reads, {format_sample_count(sample_count)}, {mb_total/time_total:.1f} MB/s"
+                    f"{file_count} fast5s\t"
+                    f"{read_count} reads\t"
+                    f"{format_sample_count(sample_count)}\t"
+                    f"{mb_total/time_total:.1f} MB/s"
                 )
 
             extracted_read = extract_read(reader.reads_table_version, read)
@@ -310,6 +315,7 @@ def convert_to_fast5(
             read_count += 1
             sample_count += len(extracted_read.signal)
 
+            # Write a batch of reads to a fast5 file
             if len(current_reads_batch) >= file_read_count:
                 put_write_fast5_file(
                     Fast5FileData(
@@ -330,13 +336,21 @@ def convert_to_fast5(
         write_data_queue,
     )
 
-    print(f"Conversion complete: {sample_count} samples")
-
     for p in active_processes:
         write_exit_queue.put(None)
 
     for p in active_processes:
         p.join()
+
+    time_total = now - t_start
+    print(
+        f"{file_count+1} fast5s\t"
+        f"{read_count} reads\t"
+        f"{format_sample_count(sample_count)}\t"
+        f"{mb_total/time_total:.1f} MB/s"
+    )
+
+    print(f"Conversion complete: {sample_count} samples")
 
     for q in [write_request_queue, write_data_queue, write_exit_queue]:
         q.close()
