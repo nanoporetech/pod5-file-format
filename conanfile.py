@@ -73,3 +73,11 @@ class Pod5Conan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
+        self.cpp_info.requires = [
+            "arrow::arrow",
+            "boost::headers",
+            "flatbuffers::flatbuffers",
+            "zstd::zstd",
+        ]
+        if not (self.settings.os == "Windows" or self.settings.os == "Macos"):
+            self.cpp_info.requires.append("jemalloc::jemalloc")
