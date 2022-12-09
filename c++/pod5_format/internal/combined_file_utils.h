@@ -5,6 +5,7 @@
 #include "pod5_format/result.h"
 #include "pod5_format/version.h"
 
+#include <arrow/buffer.h>
 #include <arrow/io/file.h>
 #include <arrow/util/endian.h>
 #include <arrow/util/io_util.h>
@@ -358,14 +359,12 @@ inline arrow::Result<combined_file_utils::FileInfo> write_file(
         ARROW_RETURN_NOT_OK(reads_table_file_in->Seek(file_location.offset));
         std::int64_t copied_bytes = 0;
         std::int64_t target_chunk_size = 10 * 1024 * 1024;  // Read in 10MB of data at a time
-        std::vector<char> read_data(target_chunk_size);
         while (copied_bytes < std::int64_t(file_location.size)) {
             std::size_t const to_read =
                 std::min<std::int64_t>(file_location.size - copied_bytes, target_chunk_size);
-            ARROW_ASSIGN_OR_RAISE(
-                auto const read_bytes, reads_table_file_in->Read(to_read, read_data.data()));
-            copied_bytes += read_bytes;
-            ARROW_RETURN_NOT_OK(file->Write(read_data.data(), read_bytes));
+            ARROW_ASSIGN_OR_RAISE(auto const read_buffer, reads_table_file_in->Read(to_read));
+            copied_bytes += read_buffer->size();
+            ARROW_RETURN_NOT_OK(file->Write(read_buffer));
         }
 
         // Store the reads file length for later reading:
