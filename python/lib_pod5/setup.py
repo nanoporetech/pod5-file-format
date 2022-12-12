@@ -11,6 +11,7 @@ the pod5_file_format repository, because the libraries are
 not actually installed there. See INSTALL.md for further details.
 
 """
+import os
 import sys
 
 import setuptools
@@ -25,6 +26,8 @@ if "bdist_wheel" in sys.argv:
     import platform
     from distutils.command.install import install
 
+    from wheel.bdist_wheel import bdist_wheel
+
     class BinaryInstall(install):
         def __init__(self, dist):
             super().__init__(dist)
@@ -35,7 +38,18 @@ if "bdist_wheel" in sys.argv:
             else:
                 self.install_lib = self.install_platlib
 
-    extra_setup_args["cmdclass"] = {"install": BinaryInstall}
+    class BdistWheel(bdist_wheel):
+        def finalize_options(self):
+            bdist_wheel.finalize_options(self)
+            self.root_is_pure = False
+
+        def get_tag(self):
+            python, abi, plat = bdist_wheel.get_tag(self)
+            if "FORCE_PYTHON_PLATFORM" in os.environ:
+                plat = os.environ["FORCE_PYTHON_PLATFORM"]
+            return python, abi, plat
+
+    extra_setup_args["cmdclass"] = {"install": BinaryInstall, "bdist_wheel": BdistWheel}
 
 
 if __name__ == "__main__":
