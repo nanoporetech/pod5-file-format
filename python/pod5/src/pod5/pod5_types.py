@@ -27,6 +27,16 @@ class EndReasonEnum(enum.Enum):
     SIGNAL_NEGATIVE = 5
 
 
+_END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
+    EndReasonEnum.UNKNOWN: False,
+    EndReasonEnum.MUX_CHANGE: True,
+    EndReasonEnum.UNBLOCK_MUX_CHANGE: True,
+    EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE: True,
+    EndReasonEnum.SIGNAL_POSITIVE: False,
+    EndReasonEnum.SIGNAL_NEGATIVE: False,
+}
+
+
 @dataclass(frozen=True)
 class EndReason:
     """
@@ -35,19 +45,32 @@ class EndReason:
     Parameters
     ----------
 
-    name: EndReasonEnum
+    reason: EndReasonEnum
         The end reason enumeration.
     forced: bool
         True if it is a 'forced' read break.
     """
 
     #: The end reason enumeration
-    name: EndReasonEnum
+    reason: EndReasonEnum
     #: True if it is a 'forced' read break (e.g. mux_change, unblock), False otherwise.
     forced: bool
 
+    @property
+    def name(self) -> str:
+        """Return the reason name as a lower string"""
+        return self.reason.name.lower()
 
-@dataclass(frozen=True)
+    @classmethod
+    def from_reason_with_default_forced(cls, reason: EndReasonEnum) -> "EndReason":
+        """
+        Return a new EndReason instance with the 'forced' flag set to the expected
+        default for the given reason
+        """
+        return cls(reason=reason, forced=_END_REASON_FORCED_DEFAULTS[reason])
+
+
+@dataclass()
 class Calibration:
     """
     Parameters to convert the signal data to picoamps.
@@ -72,7 +95,7 @@ class Calibration:
         return cls(offset, adc_range / digitisation)
 
 
-@dataclass(frozen=True)
+@dataclass()
 class Pore:
     """
     Data for the pore that the Read was acquired on
@@ -201,7 +224,7 @@ class RunInfo:
     tracking_id: Dict[str, str] = field(hash=False, compare=True)
 
 
-@dataclass(frozen=True)
+@dataclass()
 class ShiftScalePair:
     """A pair of floating point shift and scale values."""
 
@@ -209,7 +232,7 @@ class ShiftScalePair:
     scale: float = field(default=float("nan"))
 
 
-@dataclass(frozen=True)
+@dataclass()
 class BaseRead:
     """
     Base class for POD5 Read Data
@@ -234,6 +257,16 @@ class BaseRead:
         EndReason data.
     run_info : RunInfo
         RunInfo data.
+    num_minknow_events: int
+        Number of minknow events that the read contains
+    tracked_scaling: ShiftScalePair
+        Shift and Scale for tracked read scaling values (based on previous reads shift)
+    predicted_scaling: ShiftScalePair
+        Shift and Scale for predicted read scaling values (based on this read's raw signal)
+    num_reads_since_mux_change: int
+        Number of selected reads since the last mux change on this reads channel
+    time_since_mux_change: float
+        Time in seconds since the last mux change on this reads channel
     """
 
     #: The read_id of this read as UUID
@@ -253,15 +286,23 @@ class BaseRead:
     end_reason: EndReason
     #: RunInfo data.
     run_info: RunInfo
-
+    #: Number of minknow events that the read contains
     num_minknow_events: int = field(default=0)
-    tracked_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
-    predicted_scaling: ShiftScalePair = field(default=ShiftScalePair("nan", "nan"))
+    #: Shift and Scale for tracked read scaling values (based on previous reads shift)
+    tracked_scaling: ShiftScalePair = field(
+        default=ShiftScalePair(float("nan"), float("nan"))
+    )
+    #: Shift and Scale for predicted read scaling values (based on this read's raw signal)
+    predicted_scaling: ShiftScalePair = field(
+        default=ShiftScalePair(float("nan"), float("nan"))
+    )
+    #: Number of selected reads since the last mux change on this reads channel
     num_reads_since_mux_change: int = field(default=0)
+    #: Time in seconds since the last mux change on this reads channel
     time_since_mux_change: float = field(default=0.0)
 
 
-@dataclass(frozen=True)
+@dataclass()
 class Read(BaseRead):
     """
     POD5 Read Data with an uncompressed signal
@@ -299,7 +340,7 @@ class Read(BaseRead):
         return len(self.signal)
 
 
-@dataclass(frozen=True)
+@dataclass()
 class CompressedRead(BaseRead):
     """
     POD5 Read Data with a compressed signal.

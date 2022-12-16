@@ -59,22 +59,32 @@ def decode_str(value: Union[str, bytes]) -> str:
     return value.decode("utf-8")
 
 
-def find_end_reason(end_reason: int) -> p5.EndReason:
-    """Return a Pod5EndReason instance from the given end_reason integer"""
-    if end_reason is not None:
-        if end_reason == 2:
-            return p5.EndReason(name=p5.EndReasonEnum.MUX_CHANGE, forced=True)
-        if end_reason == 3:
-            return p5.EndReason(name=p5.EndReasonEnum.UNBLOCK_MUX_CHANGE, forced=True)
-        if end_reason == 4:
-            return p5.EndReason(
-                name=p5.EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE, forced=True
-            )
-        if end_reason == 5:
-            return p5.EndReason(name=p5.EndReasonEnum.SIGNAL_POSITIVE, forced=False)
-        if end_reason == 6:
-            return p5.EndReason(name=p5.EndReasonEnum.SIGNAL_NEGATIVE, forced=False)
-    return p5.EndReason(name=p5.EndReasonEnum.UNKNOWN, forced=False)
+def convert_fast5_end_reason(fast5_end_reason: int) -> p5.EndReason:
+    """
+    Return an EndReason instance from the given end_reason integer from a fast5 file.
+    This will handle the difference between fast5 and pod5 values for this enumeration
+    and set the default "forced" value for each fast5 enumeration value.
+    """
+    # Expected fast5 enumeration:
+    # end_reason_dict = {
+    #     "unknown": 0,
+    #     "partial": 1, <-- Not used in pod5
+    #     "mux_change": 2,  <-- Remaining values are offset by +1
+    #     "unblock_mux_change": 3,
+    #     "data_service_unblock_mux_change": 4,
+    #     "signal_positive": 5,
+    #     "signal_negative": 6,
+    # }
+
+    # (0:unknown | 1:partial) => pod5 (0:unknown)
+    if fast5_end_reason < 2:
+        return p5.EndReason.from_reason_with_default_forced(p5.EndReasonEnum.UNKNOWN)
+
+    # Resolve the offset in enumeration values between both files
+    p5_scaled_end_reason = fast5_end_reason - 1
+    return p5.EndReason.from_reason_with_default_forced(
+        p5.EndReasonEnum(p5_scaled_end_reason)
+    )
 
 
 def get_datetime_as_epoch_ms(time_str: Optional[str]) -> datetime.datetime:
@@ -223,9 +233,8 @@ def convert_fast5_read(
         adc_range=channel_id.attrs["range"],
         digitisation=channel_id.attrs["digitisation"],
     )
-    end_reason = find_end_reason(
-        raw.attrs["end_reason"] if "end_reason" in raw.attrs else None
-    )
+
+    end_reason = convert_fast5_end_reason(raw.attrs.get("end_reason", 0))
 
     # Signal conversion process
     signal = raw["Signal"][()]

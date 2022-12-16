@@ -84,7 +84,7 @@ def dump_run_info(run_info: p5.RunInfo):
 
 def do_read_command(reader: p5.Reader, read_id: str):
     try:
-        read_id = UUID(read_id)
+        _ = UUID(read_id)
     except ValueError:
         print(f"Supplied read_id '{read_id}' is not a valid UUID", file=sys.stderr)
         return
@@ -93,30 +93,23 @@ def do_read_command(reader: p5.Reader, read_id: str):
         if read.read_id != read_id:
             continue
 
-        sample_count = read.sample_count
-        byte_count = read.byte_count
-
-        pore_data = read.pore
-        calibration_data = read.calibration
-        end_reason_data = read.end_reason
-
         print(f"read_id: {read.read_id}")
         print(f"read_number:\t{read.read_number}")
         print(f"start_sample:\t{read.start_sample}")
         print(f"median_before:\t{read.median_before}")
         print("channel data:")
-        print(f"\tchannel: {pore_data.channel}")
-        print(f"\twell: {pore_data.well}")
-        print(f"\tpore_type: {pore_data.pore_type}")
+        print(f"\tchannel: {read.pore.channel}")
+        print(f"\twell: {read.pore.well}")
+        print(f"\tpore_type: {read.pore.pore_type}")
         print("end reason:")
-        print(f"\tname: {end_reason_data.name}")
-        print(f"\tforced: {end_reason_data.forced}")
+        print(f"\tname: {read.end_reason.name}")
+        print(f"\tforced: {read.end_reason.forced}")
         print("calibration:")
-        print(f"\toffset: {calibration_data.offset}")
-        print(f"\tscale: {calibration_data.scale}")
+        print(f"\toffset: {read.calibration.offset}")
+        print(f"\tscale: {read.calibration.scale}")
         print("samples:")
-        print(f"\tsample_count: {sample_count}")
-        print(f"\tbyte_count: {byte_count}")
+        print(f"\tsample_count: {read.sample_count}")
+        print(f"\tbyte_count: {read.byte_count}")
         print(
             f"\tcompression ratio: {read.byte_count / float(read.sample_count*2):.3f}"
         )

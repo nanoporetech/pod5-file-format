@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Changed
 - Fixed osx arm64 wheel compatibility for older python versions.
+- Fixed EndReason type errors.
+- Renamed `EndReason.name` to `EndReason.reason` to access the inner enum and added
+`EndReason.name` as a property to return the string representation of this enum value.
+- Fixed EndReason in pod5 to fast5 conversion.
+- Removed deprecated `Writer` functions.
+- `BaseRead`, `Read`, `CompressedRead`, `Calibration` and `Pore` dataclasses are now mutable.
+- Added `Reader.__iter__` method.
 
 ## [0.1.2] - 2022-12-06
 ### Changed

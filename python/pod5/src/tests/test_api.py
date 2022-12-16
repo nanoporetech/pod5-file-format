@@ -142,7 +142,7 @@ def run_reader_test(reader: p5.Reader):
             )
             == read.calibration_range
         )
-        assert str(data.end_reason.name).split(".")[1].lower() == read.end_reason.name
+        assert data.end_reason.name == read.end_reason.name
         assert data.end_reason.forced == read.end_reason.forced
 
         assert data.num_minknow_events == read.num_minknow_events

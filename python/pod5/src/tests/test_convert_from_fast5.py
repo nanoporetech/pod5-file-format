@@ -122,7 +122,7 @@ EXPECTED_POD5_RESULTS = {
         read_number=411,
         start_sample=2510647,
         median_before=219.04641723632812,
-        end_reason=p5.EndReason(name=p5.EndReasonEnum.UNKNOWN, forced=False),
+        end_reason=p5.EndReason(reason=p5.EndReasonEnum.UNKNOWN, forced=False),
         run_info=p5.RunInfo(
             acquisition_id="a08e850aaa44c8b56765eee10b386fc3e516a62b",
             acquisition_start_time=datetime.datetime(

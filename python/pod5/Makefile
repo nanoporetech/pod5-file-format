@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-PYTHON ?= python3.9
+PYTHON ?= python3.7
 
 envDir = venv
 envPrompt ?= "pod5"
