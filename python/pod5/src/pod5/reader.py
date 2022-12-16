@@ -30,6 +30,7 @@ import pyarrow as pa
 from pod5.pod5_types import (
     Calibration,
     EndReason,
+    EndReasonEnum,
     PathOrStr,
     Pore,
     Read,
@@ -196,7 +197,7 @@ class ReadRecord:
         return Pore(
             self._batch.columns.channel[self._row].as_py(),
             self._batch.columns.well[self._row].as_py(),
-            self._reader._lookup_pore_type(self._batch, self._row),
+            self._batch.columns.pore_type[self._row].as_py(),
         )
 
     @property
@@ -233,7 +234,9 @@ class ReadRecord:
         Get the end reason data associated with the read.
         """
         return EndReason(
-            name=self._reader._lookup_end_reason(self._batch, self._row),
+            reason=EndReasonEnum[
+                self._batch.columns.end_reason[self._row].as_py().upper()
+            ],
             forced=self._batch.columns.end_reason_forced[self._row].as_py(),
         )
 
@@ -245,25 +248,12 @@ class ReadRecord:
         return self._reader._lookup_run_info(self._batch, self._row)
 
     @property
-    def calibration_index(self) -> int:
-        """
-        Get the dictionary index of the calibration data associated with the read.
-        """
-        return self._batch.columns.calibration[self._row].index.as_py()
-
-    @property
     def end_reason_index(self) -> int:
         """
         Get the dictionary index of the end reason data associated with the read.
+        This property is the same as the EndReason enumeration value.
         """
         return self._batch.columns.end_reason[self._row].index.as_py()
-
-    @property
-    def pore_index(self) -> int:
-        """
-        Get the dictionary index of the pore data associated with the read.
-        """
-        return self._batch.columns.pore[self._row].index.as_py()
 
     @property
     def run_info_index(self) -> int:
@@ -431,12 +421,12 @@ class ReadRecord:
 
     def to_read(self) -> Read:
         """
-        Create a :py:class:`pod5.pod5_types.Read` from
-        this :py:class:`ReadRecord` instance.
+        Create a mutable :py:class:`pod5.pod5_types.Read` from this
+        :py:class:`ReadRecord` instance.
 
         Returns
         -------
-        :py:class:`pod5.pod5_types.Read`
+            :py:class:`pod5.pod5_types.Read`
         """
         return Read(
             read_id=self.read_id,
@@ -637,12 +627,12 @@ class Reader:
 
         self._path = Path(path).absolute()
 
-        self._file_reader: Optional[p5b.Pod5FileReader] = None
-        self._read_handle: Optional[ArrowTableHandle] = None
-        self._run_info_handle: Optional[ArrowTableHandle] = None
-        self._signal_handle: Optional[ArrowTableHandle] = None
-
-        self._open_arrow_table_handles()
+        (
+            self._file_reader,
+            self._read_handle,
+            self._run_info_handle,
+            self._signal_handle,
+        ) = self._open_arrow_table_handles(self._path)
 
         schema_metadata = self.read_table.schema.metadata
         self._file_identifier = UUID(
@@ -663,36 +653,34 @@ class Reader:
         # Warning: The cached signal maintains an open file handle. So ensure that
         # this dictionary is cleared before closing.
         self._cached_signal_batches: Dict[int, Signal] = {}
-
-        self._cached_run_info_ids: Dict[int, str] = {}
         self._cached_run_infos: Dict[str, RunInfo] = {}
-        self._cached_end_reasons: Dict[int, str] = {}
-        self._cached_calibrations: Dict[int, str] = {}
-        self._cached_pores: Dict[int, Pore] = {}
 
         self._is_vbz_compressed: Optional[bool] = None
         self._signal_batch_row_count: Optional[int] = None
 
-    def _open_arrow_table_handles(self) -> None:
+    @staticmethod
+    def _open_arrow_table_handles(
+        path: Path,
+    ) -> Tuple[
+        p5b.Pod5FileReader, ArrowTableHandle, ArrowTableHandle, ArrowTableHandle
+    ]:
         """Open handles to the underlying arrow tables within this pod5 file"""
-        if not self._path.is_file():
-            raise FileNotFoundError(f"Failed to open pod5 file at: {self._path}")
+        if not path.is_file():
+            raise FileNotFoundError(f"Failed to open pod5 file at: {path}")
 
-        self._file_reader = p5b.open_file(str(self._path))
-        if not self._file_reader:
+        file_reader = p5b.open_file(str(path))
+        if not file_reader:
             raise Pod5ApiException(
-                f"Failed to open reader for {self._path} Reason: {p5b.get_error_string()}"
+                f"Failed to open reader for {path} Reason: {p5b.get_error_string()}"
             )
 
-        self._read_handle = ArrowTableHandle(
-            self._file_reader.get_file_read_table_location()
+        read_handle = ArrowTableHandle(file_reader.get_file_read_table_location())
+        run_info_handle = ArrowTableHandle(
+            file_reader.get_file_run_info_table_location()
         )
-        self._run_info_handle = ArrowTableHandle(
-            self._file_reader.get_file_run_info_table_location()
-        )
-        self._signal_handle = ArrowTableHandle(
-            self._file_reader.get_file_signal_table_location()
-        )
+        signal_handle = ArrowTableHandle(file_reader.get_file_signal_table_location())
+
+        return file_reader, read_handle, run_info_handle, signal_handle
 
     def __del__(self) -> None:
         self.close()
@@ -702,6 +690,10 @@ class Reader:
 
     def __exit__(self, *exc_details) -> None:
         self.close()
+
+    def __iter__(self) -> Generator[ReadRecord, None, None]:
+        """Iterate over all reads"""
+        yield from self.reads()
 
     def close(self) -> None:
         """Close files handles"""
@@ -1028,9 +1020,8 @@ class Reader:
 
     def _lookup_run_info(self, batch: ReadRecordBatch, batch_row_id: int) -> RunInfo:
         """Get the :py:class:`RunInfo` from the batch at batch_row_id"""
-        acquisition_id = self._lookup_dict_value(
-            self._cached_run_info_ids, "run_info", batch, batch_row_id
-        )
+
+        acquisition_id = batch.columns.run_info[batch_row_id].as_py()
 
         if acquisition_id in self._cached_run_infos:
             return self._cached_run_infos[acquisition_id]
@@ -1046,6 +1037,7 @@ class Reader:
                         col = run_info_batch.column(field.name)
                         values[field.name] = col[row].as_py()
                     run_info = RunInfo(**values)
+                    break
 
         if not run_info:
             raise Exception(
@@ -1054,51 +1046,3 @@ class Reader:
 
         self._cached_run_infos[acquisition_id] = run_info
         return run_info
-
-    def _lookup_pore_type(self, batch: ReadRecordBatch, batch_row_id: int) -> str:
-        """Get the pore_type string from the batch at batch_row_id"""
-        return self._lookup_dict_value(
-            self._cached_pores, "pore_type", batch, batch_row_id
-        )
-
-    def _lookup_end_reason(self, batch: ReadRecordBatch, batch_row_id: int) -> str:
-        """Get the :py:class:`types.EndReason` from the batch at batch_row_id"""
-        return self._lookup_dict_value(
-            self._cached_end_reasons, "end_reason", batch, batch_row_id
-        )
-
-    @staticmethod
-    def _lookup_dict_value(
-        storage: Dict[int, str],
-        field_name: str,
-        batch: ReadRecordBatch,
-        batch_row_id: int,
-    ) -> str:
-        """
-        Static method for getting cached str data from "storage" or
-        loading it from the file if it hasn't already been cached.
-
-        Parameters
-        ----------
-        storage : Dict[int, str]
-            A Dict containing cached strings from this file
-        field_name: str
-            The field name in the pod5 columns which contains the data
-        batch: ReadRecordBatch
-            The ReadRecordBatch instance to get data from
-        batch_row_id: int
-            The row id of the data to source
-
-        Returns
-        -------
-        object: Type[EndReason, Pore, RunInfo]
-            The recovered cached instance or newly created instance of "cls_type"
-        """
-        field_data = getattr(batch.columns, field_name)
-        row_id = field_data.indices[batch_row_id].as_py()
-        if row_id in storage:
-            return storage[row_id]
-
-        value = field_data[batch_row_id].as_py()
-        storage[row_id] = value  # type: ignore
-        return value

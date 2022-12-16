@@ -66,6 +66,18 @@ Fast5FileData = namedtuple("Fast5FileData", ["filename", "reads"])
 
 
 def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
+
+    # Pod5 does not have 'partial' so need to add that back in here.
+    fast5_end_reasons = {
+        "unknown": 0,
+        "partial": 1,  # Do not remove, required by fast5.
+        "mux_change": 2,
+        "unblock_mux_change": 3,
+        "data_service_unblock_mux_change": 4,
+        "signal_positive": 5,
+        "signal_negative": 6,
+    }
+
     while True:
         # Try to get some data to write:
         try:
@@ -79,15 +91,7 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                 pass
             continue
 
-        end_reason_dict = {
-            "unknown": 0,
-            "mux_change": 1,
-            "unblock_mux_change": 2,
-            "data_service_unblock_mux_change": 3,
-            "signal_positive": 4,
-            "signal_negative": 5,
-        }
-        end_reason_type = h5py.enum_dtype(end_reason_dict)
+        end_reason_type = h5py.enum_dtype(fast5_end_reasons)
 
         ascii_string_type = h5py.string_dtype("ascii")
 
@@ -152,9 +156,12 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                 raw_group.attrs.create(
                     "median_before", read.median_before, dtype=numpy.float64
                 )
+
+                # Lookup the fast5 enumeration values, which should include "partial: 1"
+                # This will ensure that the enumeration is valid on a round-trip
                 raw_group.attrs.create(
                     "end_reason",
-                    end_reason_dict[read.end_reason],
+                    fast5_end_reasons[read.end_reason.name],
                     dtype=end_reason_type,
                 )
 
@@ -222,7 +229,7 @@ def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRe
         read.sample_count,
         read.read_number,
         read.median_before,
-        read.end_reason.name,
+        read.end_reason,
         run_info.tracking_id,
         run_info.context_tags,
         read.num_minknow_events,

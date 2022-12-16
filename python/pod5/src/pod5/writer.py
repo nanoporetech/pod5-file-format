@@ -10,14 +10,12 @@ import lib_pod5 as p5b
 import numpy as np
 import pytz
 
-from pod5.api_utils import Pod5ApiException, deprecation_warning
+from pod5.api_utils import Pod5ApiException
 from pod5.pod5_types import (
     BaseRead,
-    Calibration,
     CompressedRead,
     EndReason,
     PathOrStr,
-    Pore,
     Read,
     RunInfo,
 )
@@ -25,7 +23,7 @@ from pod5.pod5_types import (
 DEFAULT_SOFTWARE_NAME = "Python API"
 
 PoreType = str
-T = TypeVar("T", bound=Union[Calibration, EndReason, Pore, RunInfo])
+T = TypeVar("T", bound=Union[EndReason, PoreType, RunInfo])
 
 
 def force_type_and_default(value, dtype, count, default_value=None):
@@ -80,21 +78,19 @@ class Writer:
                 f"Failed to open writer at {self._path} : {p5b.get_error_string()}"
             )
 
-        self._calibrations: Dict[Calibration, int] = {}
         self._end_reasons: Dict[EndReason, int] = {}
         self._pores: Dict[PoreType, int] = {}
         self._run_infos: Dict[RunInfo, int] = {}
 
         # Internal lookup of object cache based on their respective type
-        self._index_caches: Dict[Type[T], Dict[T, int]] = {
-            Calibration: self._calibrations,
+        self._index_caches: Dict[Type, Dict[Any, int]] = {
             EndReason: self._end_reasons,
             PoreType: self._pores,
             RunInfo: self._run_infos,
         }
 
         # Internal lookup of _add functions based on their respective type
-        self._adder_funcs: Dict[Type[T], Callable[[Any], int]] = {
+        self._adder_funcs: Dict[Type, Callable[[Any], int]] = {
             EndReason: self._add_end_reason,
             PoreType: self._add_pore_type,
             RunInfo: self._add_run_info,
@@ -122,15 +118,15 @@ class Writer:
         """Return the software name used to open this file"""
         return self._software_name
 
-    def add(self, obj: Union[Calibration, EndReason, PoreType, RunInfo]) -> int:
+    def add(self, obj: Union[EndReason, PoreType, RunInfo]) -> int:
         """
-        Add a :py:class:`Calibration`, :py:class:`EndReason`, :py:class:`PoreType`, or
+        Add a :py:class:`EndReason`, :py:class:`PoreType`, or
         :py:class:`RunInfo` object to the Pod5 file (if it doesn't already
         exist) and return the index of this object in the Pod5 file.
 
         Parameters
         ----------
-        obj : :py:class:`Calibration`, :py:class:`EndReason`, :py:class:`PoreType`, :py:class:`RunInfo`
+        obj : :py:class:`EndReason`, :py:class:`PoreType`, :py:class:`RunInfo`
             Object to find in this Pod5 file, adding it if it doesn't exist already
 
         Returns
@@ -155,7 +151,7 @@ class Writer:
 
     def _add_end_reason(self, end_reason: EndReason) -> int:
         """Add the given EndReason instance to the pod5 file returning its index"""
-        return self._writer.add_end_reason(end_reason.name.value)
+        return self._writer.add_end_reason(end_reason.reason.value)
 
     def _add_pore_type(self, pore_type: PoreType) -> int:
         """Add the given PoreType instance to the pod5 file returning its index"""
@@ -186,13 +182,13 @@ class Writer:
             map_to_tuples(run_info.tracking_id),
         )
 
-    def contains(self, obj: Union[Calibration, EndReason, Pore, RunInfo]) -> bool:
+    def contains(self, obj: Union[EndReason, RunInfo]) -> bool:
         """
         Test if this Pod5 file contains the given object.
 
         Parameters
         ----------
-        obj: :py:class:`Calibration`, :py:class:`EndReason`, :py:class:`Pore`, :py:class:`RunInfo`
+        obj: :py:class:`EndReason`, :py:class:`RunInfo`
             Object to find in this Pod5 file
 
         Returns
@@ -201,13 +197,13 @@ class Writer:
         """
         return obj in self._index_caches[type(obj)]
 
-    def find(self, obj: Union[Calibration, EndReason, Pore, RunInfo]) -> int:
+    def find(self, obj: Union[EndReason, RunInfo]) -> int:
         """
         Returns the index of obj in this Pod5 file raising a KeyError if it is missing.
 
         Parameters
         ----------
-        obj: :py:class:`Calibration`, :py:class:`EndReason`, :py:class:`Pore`, :py:class:`RunInfo`
+        obj: :py:class:`EndReason`, :py:class:`RunInfo`
             Obj instance to find in this Pod5 file
 
         Returns
@@ -237,19 +233,6 @@ class Writer:
             POD5 Read or CompressedRead object to add as a record to the POD5 file.
         """
         self.add_reads([read])
-
-    def add_read_object(self, read: Union[Read, CompressedRead]) -> None:
-        """
-        Add a record to the open POD5 file with either compressed or uncompressed
-        signal data depending on the given type of Read.
-
-        Parameters
-        ----------
-        read : :py:class:`Read`, :py:class:`CompressedRead`
-            POD5 Read or CompressedRead object to add as a record to the POD5 file.
-        """
-        deprecation_warning("Writer.add_read_object", "Writer.add_read")
-        self.add_read(read=read)
 
     def add_reads(self, reads: Sequence[Union[Read, CompressedRead]]) -> None:
         """
@@ -289,34 +272,6 @@ class Writer:
                 np.concatenate(signal_chunk_lengths).astype(np.uint32),
                 signal_chunk_counts,
             )
-
-    def add_read_objects(self, reads: Sequence[Read]) -> None:
-        """
-        Add Read objects (with uncompressed signal data) as records in the open POD5
-        file.
-
-        Parameters
-        ----------
-        reads : List[Read]
-            List of Read object to be added to this POD5 file
-        """
-        deprecation_warning("Writer.add_read_objects", "Writer.add_reads")
-        return self.add_reads(reads=reads)
-
-    def add_read_objects_pre_compressed(self, reads: Sequence[CompressedRead]) -> None:
-        """
-        Add Read objects (with compressed signal data) as records in the open POD5
-        file.
-
-        Parameters
-        ----------
-        reads : List[CompressedRead]
-            List of CompressedRead objects to be added to this POD5 file
-        """
-        deprecation_warning(
-            "Writer.add_read_objects_pre_compressed", "Writer.add_reads"
-        )
-        return self.add_reads(reads=reads)
 
     def _prepare_add_reads_args(self, reads: Sequence[BaseRead]):
         """
