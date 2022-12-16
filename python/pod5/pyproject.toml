@@ -8,7 +8,7 @@ name = "pod5"
 authors = [{author="Oxford Nanopore Technologies, Limited", email="support@nanoporetech.com"}]
 readme = "README.md"
 requires-python = "~= 3.7"
-version="0.1.2"
+version="0.1.3"
 description="Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
 
 keywords = ['nanopore']
