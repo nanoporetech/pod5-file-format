@@ -1,5 +1,3 @@
-import sphinx_rtd_theme
-
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -16,6 +14,15 @@ import sphinx_rtd_theme
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import os
+import sys
+from pathlib import Path
+
+import sphinx_rtd_theme
+
+# Add paths to source code
+repo_root = Path(__file__).parent.parent
+sys.path.insert(0, str((repo_root / "python/pod5/src/").absolute()))
 
 # -- Project information -----------------------------------------------------
 
@@ -23,13 +30,10 @@ project = "Pod5 File Format"
 copyright = "2022 Oxford Nanopore Technologies Ltd."
 author = "Oxford Nanopore Technologies Ltd."
 
+import pod5
 
-# Set up the version
-from pod5 import __version__ as p5_version
-
-version = p5_version
-release = p5_version
-
+version = pod5.__version__
+release = pod5.__version__
 
 # -- General configuration ---------------------------------------------------
 
@@ -53,7 +57,7 @@ templates_path = ["_templates"]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "venv"]
 master_doc = "index"
 
 # -- Options for HTML output -------------------------------------------------

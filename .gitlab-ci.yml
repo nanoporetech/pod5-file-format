@@ -602,27 +602,13 @@ external_wheel_upload:
 # Build documentation pages which are hosted only on the gitlab ci pages for now
 pages:
   stage: pages
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.7
   tags:
     - linux
-  before_script:
-    - python3 -m venv .venv/
-    - source .venv/bin/activate
   script:
-    - ls *.whl
-    - pip install --upgrade pip
-    - pip install ./${LIB_WHEEL_GLOB} ./${POD5_WHEEL_GLOB}
-    - pip install sphinx==v5.1.1 sphinx-rtd-theme myst-parser
-    - mkdir ./public
-    - sphinx-build -b html ./docs ./public
-  needs:
-    - linux-x64-gcc9-release-build
-    - build-python-api
-  variables:
-    LIB_WHEEL_GLOB: "lib_pod5-*cp39*.whl"
-    POD5_WHEEL_GLOB: "pod5*.whl"
+    - make -f docs/Makefile all
+    - mv _build/html public
   artifacts:
     paths:
       - public
-  only:
-  - master
+  when: manual

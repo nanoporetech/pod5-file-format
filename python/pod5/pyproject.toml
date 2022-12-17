@@ -26,7 +26,7 @@ classifiers=[
 dependencies = [
     "iso8601",
     "jsonschema",
-    "lib_pod5 ~= 0.1.2",
+    "lib_pod5 ~= 0.1.3",
     "more_itertools",
     "numpy >= 1.20.0",
     "pyarrow ~= 8.0.0",
@@ -40,12 +40,9 @@ dependencies = [
 dev = [
   "black == 22.3.0",
   "mypy",
-  "myst-parser",
   "pre-commit",
   "pytest ~= 6.2",
   "pytest-cov ~= 3.0",
-  "sphinx==v5.1.1",
-  "sphinx-rtd-theme",
 ]
 
 [project.scripts]
