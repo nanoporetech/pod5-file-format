@@ -26,9 +26,3 @@ update:
 	&& pip install -e .[dev]
 
 	@echo "Updated python environment"
-
-docs:
-	rm -rf ../../docs/public
-	source  ${envDir}/bin/activate \
-	&& sphinx-build -b html ../../docs ../../docs/public
-	@echo "Finished building documentation"

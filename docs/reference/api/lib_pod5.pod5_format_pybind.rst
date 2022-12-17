@@ -11,15 +11,11 @@ pod5\_format\_pybind
 
 .. py:class:: EmbeddedFileData(*args, **kwargs)
 
-   .. py:method:: length() -> int
-      :property:
+   .. py:property:: length() -> int
 
-   .. py:method:: offset() -> int
-      :property:
+   .. py:property:: offset() -> int
 
-   .. py:method:: file_path() -> str
-      :property:
-
+   .. py:property:: file_path() -> str
 
 
 .. py:class:: FileWriter(*args, **kwargs)
@@ -83,14 +79,11 @@ pod5\_format\_pybind
 
 .. py:class:: Pod5SignalCacheBatch(*args, **kwargs)
 
-   .. py:method:: batch_index() -> int
-      :property:
+   .. py:property:: batch_index() -> int
 
-   .. py:method:: sample_count() -> numpy.typing.NDArray[numpy.uint64]
-      :property:
+   .. py:property:: sample_count() -> numpy.typing.NDArray[numpy.uint64]
 
-   .. py:method:: samples() -> List[numpy.typing.NDArray[numpy.int16]]
-      :property:
+   .. py:property:: samples() -> List[numpy.typing.NDArray[numpy.int16]]
 
 
 
@@ -104,23 +97,17 @@ pod5\_format\_pybind
 
    .. py:method:: finish() -> None
 
-   .. py:method:: batches_completed() -> int
-      :property:
+   .. py:property:: batches_completed() -> int
 
-   .. py:method:: batches_requested() -> int
-      :property:
+   .. py:property:: batches_requested() -> int
 
-   .. py:method:: is_complete() -> bool
-      :property:
+   .. py:property:: is_complete() -> bool
 
-   .. py:method:: pending_batch_writes() -> int
-      :property:
+   .. py:property:: pending_batch_writes() -> int
 
-   .. py:method:: reads_completed() -> int
-      :property:
+   .. py:property:: reads_completed() -> int
 
-   .. py:method:: reads_sample_bytes_completed() -> int
-      :property:
+   .. py:property:: reads_sample_bytes_completed() -> int
 
 
 .. py:function:: create_file(filename: str, writer_name: str, options: FileWriterOptions = ...) -> FileWriter
