@@ -8,17 +8,12 @@ set(output_dir "./dist")
 
 set(ENV{POD5_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
 
-set(EXTRA_ARGS)
-if (NOT $ENV{POD5_OVERRIDE_WHEEL_PLAT_NAME} STREQUAL "")
-    set(EXTRA_ARGS ${EXTRA_ARGS} --config-setting=--plat-name=$ENV{POD5_OVERRIDE_WHEEL_PLAT_NAME})
-endif()
-
 file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5")
 
-message("  using: ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR} ${EXTRA_ARGS}")
+message("  using: ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR}")
 
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR} ${EXTRA_ARGS}
+    COMMAND ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR}
     WORKING_DIRECTORY "${PYTHON_PROJECT_DIR}/"
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE output
