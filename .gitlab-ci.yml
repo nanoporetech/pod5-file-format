@@ -155,7 +155,7 @@ linux-x64-gcc9-release-build:
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
 linux-aarch64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_aarch64
@@ -169,7 +169,7 @@ linux-aarch64-gcc9-release-build:
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+      - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
 .build-osx-common:
   stage: build-lib

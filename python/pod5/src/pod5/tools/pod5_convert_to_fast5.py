@@ -197,7 +197,7 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                 raw_group.attrs.create(
                     "time_since_mux_change",
                     read.time_since_mux_change,
-                    dtype=numpy.float,
+                    dtype=numpy.float32,
                 )
 
         # Request more writes
