@@ -36,3 +36,12 @@ GSL Lite:
     files:
         - include/gsl.h
         - include/gsl
+pybind11:
+    description: >
+        pybind11 is a lightweight header-only library that exposes C++ types in Python
+        and vice versa, mainly to create Python bindings of existing C++ code.
+    version: "2.10.1"
+    url: https://github.com/pybind/pybind11
+    license: licenses/pybind11.txt
+    files:
+        - include/pybind11/*
