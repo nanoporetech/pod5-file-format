@@ -15,7 +15,7 @@ git clone https://github.com/gregneagle/relocatable-python.git
 echo "Generating python ${version} into ${destination}"
 
 os_version="10.9"
-if [[ "${version}" == "3.10.5" ]]; then
+if [[ "${version}" == "3.10.5" || "${version}" == "3.11.1" ]]; then
     os_version="11"
 fi
 
