@@ -437,68 +437,20 @@ benchmark-linux-aarch64:
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
-.capture-version-for-conan:
+.conan-build-common:
+  stage: build-conan
+  dependencies: [] # don't need all the previous build artifacts: we're doing a fresh build
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install conan
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
-
-# Conan build packages:
-build-conan:windows-x86_64-vs2017:
-    stage: build-conan
-    extends:
-        - .profile-windows-x86_64-vs2017
-        - .build-package-win
-        - .capture-version-for-conan
-build-conan:windows-x86_64-vs2019:
-    stage: build-conan
-    extends:
-        - .profile-windows-x86_64-vs2019
-        - .build-package-win
-        - .capture-version-for-conan
-build-conan:macos-x86_64-appleclang-12.0:
-    stage: build-conan
-    extends:
-        - .profile-macos-x86_64-appleclang-12.0
-        - .build-package
-        - .capture-version-for-conan
-build-conan:macos-aarch64-appleclang-13.1:
-    stage: build-conan
-    extends:
-        - .profile-macos-aarch64-appleclang-13.1
-        - .build-package
-        - .capture-version-for-conan
-build-conan:linux-x86_64-gcc9:
-    stage: build-conan
-    extends:
-        - .profile-linux-x86_64-gcc9
-        - .build-package
-        - .capture-version-for-conan
-
-build-conan:linux-aarch64-gcc9:
-    stage: build-conan
-    extends:
-        - .profile-linux-aarch64-gcc9
-        - .build-package
-        - .capture-version-for-conan
-build-conan:linux-aarch64-gcc7:
-    stage: build-conan
-    extends:
-        - .build-package
-        - .profile-linux-aarch64-gcc7
-        - .capture-version-for-conan
-
-build-conan:macos-x86_64-appleclang10.0:
-    stage: build-conan
-    extends:
-        - .build-package
-        - .profile-macos-x86_64-appleclang-10.0
-        - .capture-version-for-conan
-
-
-.capture-version-for-conan-upload:
+.conan-upload:
+  extends: .upload-package # from informatics/conan-config
+  stage: deploy
+  only:
+    - tags
   before_script:
     - apt update
     - apt install -y cmake
@@ -506,68 +458,96 @@ build-conan:macos-x86_64-appleclang10.0:
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
-.only-tags:
-  only:
-    - tags
-
-
-# Conan upload packages:
+# Conan: build and upload packages:
+build-conan:windows-x86_64-vs2017:
+    extends:
+        - .profile-windows-x86_64-vs2017
+        - .build-package-win
+        - .conan-build-common
 upload-conan:windows-x86_64-vs2017:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
+    extends: .conan-upload
     dependencies: [ "build-conan:windows-x86_64-vs2017" ]
+
+build-conan:windows-x86_64-vs2019:
+    extends:
+        - .profile-windows-x86_64-vs2019
+        - .build-package-win
+        - .conan-build-common
 upload-conan:windows-x86_64-vs2019:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
+    extends: .conan-upload
     dependencies: [ "build-conan:windows-x86_64-vs2019" ]
-upload-conan:macos-x86_64-appleclang12.0:
-    stage: deploy
+
+build-conan:macos-x86_64-appleclang10.0:
     extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
-    dependencies: [ "build-conan:macos-x86_64-appleclang-12.0" ]
-upload-conan:macos-aarch64-appleclang13.1:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
-    dependencies: [ "build-conan:macos-aarch64-appleclang-13.1" ]
-upload-conan:linux-x86_64-gcc9:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
-    dependencies: [ "build-conan:linux-x86_64-gcc9" ]
-upload-conan:linux-aarch64-gcc9:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
-    dependencies: [ "build-conan:linux-aarch64-gcc9" ]
-upload-conan:linux-aarch64-gcc7:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
-    dependencies: [ "build-conan:linux-aarch64-gcc7" ]
+        - .profile-macos-x86_64-appleclang-10.0
+        - .build-package
+        - .conan-build-common
 upload-conan:macos-x86_64-appleclang10.0:
-    stage: deploy
-    extends:
-        - .upload-package
-        - .capture-version-for-conan-upload
-        - .only-tags
+    extends: .conan-upload
     dependencies: [ "build-conan:macos-x86_64-appleclang10.0" ]
+
+build-conan:macos-x86_64-appleclang-12.0:
+    extends:
+        - .profile-macos-x86_64-appleclang-12.0
+        - .build-package
+        - .conan-build-common
+upload-conan:macos-x86_64-appleclang12.0:
+    extends: .conan-upload
+    dependencies: [ "build-conan:macos-x86_64-appleclang-12.0" ]
+
+build-conan:macos-aarch64-appleclang-13.1:
+    extends:
+        - .profile-macos-aarch64-appleclang-13.1
+        - .build-package
+        - .conan-build-common
+upload-conan:macos-aarch64-appleclang13.1:
+    extends: .conan-upload
+    dependencies: [ "build-conan:macos-aarch64-appleclang-13.1" ]
+
+build-conan:linux-x86_64-gcc9:
+    extends:
+        - .profile-linux-x86_64-gcc9
+        - .build-package
+        - .conan-build-common
+upload-conan:linux-x86_64-gcc9:
+    extends: .conan-upload
+    dependencies: [ "build-conan:linux-x86_64-gcc9" ]
+
+build-conan:linux-x86_64-gcc11:
+    extends:
+        - .profile-linux-x86_64-gcc11
+        - .build-package
+        - .conan-build-common
+upload-conan:linux-x86_64-gcc11:
+    extends: .conan-upload
+    dependencies: [ "build-conan:linux-x86_64-gcc11" ]
+
+build-conan:linux-aarch64-gcc7:
+    extends:
+        - .build-package
+        - .profile-linux-aarch64-gcc7
+        - .conan-build-common
+upload-conan:linux-aarch64-gcc7:
+    extends: .conan-upload
+    dependencies: [ "build-conan:linux-aarch64-gcc7" ]
+
+build-conan:linux-aarch64-gcc9:
+    extends:
+        - .profile-linux-aarch64-gcc9
+        - .build-package
+        - .conan-build-common
+upload-conan:linux-aarch64-gcc9:
+    extends: .conan-upload
+    dependencies: [ "build-conan:linux-aarch64-gcc9" ]
+
+build-conan:linux-aarch64-gcc11:
+    extends:
+        - .profile-linux-aarch64-gcc11
+        - .build-package
+        - .conan-build-common
+upload-conan:linux-aarch64-gcc11:
+    extends: .conan-upload
+    dependencies: [ "build-conan:linux-aarch64-gcc11" ]
 
 
 internal_wheel_upload:
