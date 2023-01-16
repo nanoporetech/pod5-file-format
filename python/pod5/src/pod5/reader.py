@@ -73,14 +73,14 @@ ReadRecordV3Columns = namedtuple(
 class ReadTableVersion(enum.Enum):
     """Version of read table"""
 
-    V3 = 3
+    V3: int = 3
 
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         if self.__class__ is other.__class__:
             return self.value < other.value
         return NotImplemented
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if self.__class__ is other.__class__:
             return self.value == other.value
         return NotImplemented
@@ -103,8 +103,8 @@ class ReadRecord:
         reader: "Reader",
         batch: "ReadRecordBatch",
         row: int,
-        batch_signal_cache=None,
-        selected_batch_index=None,
+        batch_signal_cache: Optional[List[npt.NDArray[np.int16]]] = None,
+        selected_batch_index: Optional[int] = None,
     ):
         """ """
         self._reader = reader
@@ -125,35 +125,35 @@ class ReadRecord:
         """
         Get the integer read number of the read.
         """
-        return self._batch.columns.read_number[self._row].as_py()
+        return self._batch.columns.read_number[self._row].as_py()  # type: ignore
 
     @property
     def start_sample(self) -> int:
         """
         Get the absolute sample which the read started.
         """
-        return self._batch.columns.start[self._row].as_py()
+        return self._batch.columns.start[self._row].as_py()  # type: ignore
 
     @property
     def num_samples(self) -> int:
         """
         Get the number of samples in the reads signal data.
         """
-        return self._batch.columns.num_samples[self._row].as_py()
+        return self._batch.columns.num_samples[self._row].as_py()  # type: ignore
 
     @property
     def median_before(self) -> float:
         """
         Get the median before level (in pico amps) for the read.
         """
-        return self._batch.columns.median_before[self._row].as_py()
+        return self._batch.columns.median_before[self._row].as_py()  # type: ignore
 
     @property
     def num_minknow_events(self) -> float:
         """
         Find the number of minknow events in the read.
         """
-        return self._batch.columns.num_minknow_events[self._row].as_py()
+        return self._batch.columns.num_minknow_events[self._row].as_py()  # type: ignore
 
     @property
     def tracked_scaling(self) -> ShiftScalePair:
@@ -180,14 +180,14 @@ class ReadRecord:
         """
         Number of selected reads since the last mux change on this reads channel.
         """
-        return self._batch.columns.num_reads_since_mux_change[self._row].as_py()
+        return self._batch.columns.num_reads_since_mux_change[self._row].as_py()  # type: ignore
 
     @property
     def time_since_mux_change(self) -> int:
         """
         Time in seconds since the last mux change on this reads channel.
         """
-        return self._batch.columns.time_since_mux_change[self._row].as_py()
+        return self._batch.columns.time_since_mux_change[self._row].as_py()  # type: ignore
 
     @property
     def pore(self) -> Pore:
@@ -253,14 +253,14 @@ class ReadRecord:
         Get the dictionary index of the end reason data associated with the read.
         This property is the same as the EndReason enumeration value.
         """
-        return self._batch.columns.end_reason[self._row].index.as_py()
+        return self._batch.columns.end_reason[self._row].index.as_py()  # type: ignore
 
     @property
     def run_info_index(self) -> int:
         """
         Get the dictionary index of the run info data associated with the read.
         """
-        return self._batch.columns.run_info[self._row].index.as_py()
+        return self._batch.columns.run_info[self._row].index.as_py()  # type: ignore
 
     @property
     def sample_count(self) -> int:
@@ -281,7 +281,7 @@ class ReadRecord:
         """
         Get if cached signal is available for this read.
         """
-        return self._batch_signal_cache
+        return self._batch_signal_cache is not None
 
     @property
     def signal(self) -> npt.NDArray[np.int16]:
@@ -293,7 +293,7 @@ class ReadRecord:
         numpy.ndarray[int16]
             A numpy array of signal data with int16 type.
         """
-        if self.has_cached_signal:
+        if self._batch_signal_cache is not None:
             if self._selected_batch_index is not None:
                 return self._batch_signal_cache[self._selected_batch_index]
             return self._batch_signal_cache[self._row]
@@ -358,7 +358,7 @@ class ReadRecord:
             A list of signal row data (as SignalRowInfo) in the read.
         """
 
-        def map_signal_row(sig_row):
+        def map_signal_row(sig_row) -> SignalRowInfo:
             sig_row = sig_row.as_py()
 
             batch, batch_index, batch_row_index = self._find_signal_row_index(sig_row)
@@ -510,7 +510,7 @@ class ReadRecordBatch:
     @property
     def num_reads(self) -> int:
         """Return the number of rows in this RecordBatch"""
-        return self._batch.num_rows
+        return int(self._batch.num_rows)
 
     @property
     def read_id_column(self):
@@ -627,6 +627,11 @@ class Reader:
 
         self._path = Path(path).absolute()
 
+        self._file_reader: Optional[p5b.Pod5FileReader] = None
+        self._read_handle: Optional[ArrowTableHandle] = None
+        self._run_info_handle: Optional[ArrowTableHandle] = None
+        self._signal_handle: Optional[ArrowTableHandle] = None
+
         (
             self._file_reader,
             self._read_handle,
@@ -646,7 +651,7 @@ class Reader:
         self._reads_table_version = ReadTableVersion.V3
 
         self._file_version = writing_version
-        self._file_version_pre_migration = (
+        self._file_version_pre_migration = packaging.version.Version(
             self._file_reader.get_file_version_pre_migration()
         )
 
@@ -1036,6 +1041,10 @@ class Reader:
                     for field in fields(RunInfo):
                         col = run_info_batch.column(field.name)
                         values[field.name] = col[row].as_py()
+
+                        if field.name in ("tracking_id", "context_tags"):
+                            values[field.name] = {k: v for k, v in values[field.name]}
+
                     run_info = RunInfo(**values)
                     break
 

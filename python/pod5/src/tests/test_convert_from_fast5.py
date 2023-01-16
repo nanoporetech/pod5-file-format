@@ -195,7 +195,7 @@ EXPECTED_POD5_RESULTS = {
 class TestFast5Conversion:
     """Test the fast5 to pod5 conversion"""
 
-    def test_convert_fast5_read(self):
+    def test_convert_fast5_read(self) -> None:
         """
         Test known good fast5 reads
         """
@@ -240,7 +240,7 @@ class TestFast5Conversion:
         with h5py.File(str(SINGLE_READ_FAST5_PATH), "r") as _f5:
             with pytest.raises(TypeError, match=".*supported fast5 file.*"):
                 for expected_read_id in _f5:
-                    cache = {}
+                    cache: Dict[str, p5.RunInfo] = {}
                     convert_fast5_read(_f5[expected_read_id], cache)
 
 

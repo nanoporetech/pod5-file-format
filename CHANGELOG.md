@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+- Fixed incorrect python types and adopted python type-checking.
+- Explicitly re-exported `lib-pod5` public symbols and added `py.typed` marker file to support type-checking.
 
 ## [0.1.4] - 2022-12-22
 - Linux python 3.11 wheels

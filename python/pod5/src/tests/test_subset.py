@@ -131,9 +131,9 @@ class TestSubsetAssertions:
             {"a": {"r1", "r2"}, "b": {"r3"}},
         ],
     )
-    def test_passing_no_duplicate_reads(self, mapping):
+    def test_passing_no_duplicate_reads(self, mapping) -> None:
         """Test that assert_no_duplicate_reads correctly detect no duplicates"""
-        assert assert_no_duplicate_reads(mapping) is None
+        assert assert_no_duplicate_reads(mapping) is None  # type: ignore [func-returns-value]
 
     @pytest.mark.parametrize(
         "mapping",

@@ -67,6 +67,7 @@ class Repacker:
             Use this as "output_ref" in calls to :py:meth:`add_selected_reads_to_output`
             or :py:meth:`add_reads_to_output`
         """
+        assert output_file._writer is not None
         return self._repacker.add_output(output_file._writer)
 
     def add_selected_reads_to_output(

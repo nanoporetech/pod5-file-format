@@ -90,7 +90,9 @@ class Calibration:
     scale: float
 
     @classmethod
-    def from_range(cls, offset: float, adc_range: float, digitisation: float):
+    def from_range(
+        cls, offset: float, adc_range: float, digitisation: float
+    ) -> "Calibration":
         """Create a Calibration instance from offset, adc_range and digitisation"""
         return cls(offset, adc_range / digitisation)
 

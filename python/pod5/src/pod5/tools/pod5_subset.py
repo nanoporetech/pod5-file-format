@@ -184,7 +184,7 @@ def parse_json_mapping(json_path: Path) -> typing.Dict[str, typing.Set[str]]:
 
 
 def get_total_selection(
-    mapping: typing.Dict[str, typing.Iterable[str]], duplicate_ok: bool
+    mapping: typing.Mapping[str, typing.Iterable[str]], duplicate_ok: bool
 ) -> typing.Set[str]:
     """
     Create a set of all read_ids from the mapping checking for duplicates if necessary
@@ -203,7 +203,9 @@ def get_total_selection(
     return total_selection
 
 
-def assert_no_duplicate_reads(mapping: typing.Dict[str, typing.Iterable[str]]) -> None:
+def assert_no_duplicate_reads(
+    mapping: typing.Mapping[str, typing.Iterable[str]]
+) -> None:
     """
     Raise AssertionError if we detect any duplicate read_ids in the outputs
     """
@@ -215,11 +217,13 @@ def assert_no_duplicate_reads(mapping: typing.Dict[str, typing.Iterable[str]]) -
     if any(count > 1 for count in counter.values()):
         raise AssertionError("Duplicate outputs detected but --duplicate_ok not set")
 
+    return None
+
 
 def prepare_repacker_outputs(
     repacker: p5_repack.Repacker,
     output: Path,
-    mapping: typing.Dict[str, typing.Iterable[str]],
+    mapping: typing.Mapping[str, typing.Iterable[str]],
 ) -> OutputMap:
     """
     Create a dictionary of the output filepath and their and associated
@@ -286,7 +290,7 @@ def calculate_transfers(
         p5_reader = p5.Reader(input_path)
 
         # Iterate over batches of read_ids
-        for batch in p5_reader.read_batches(selection=selection, missing_ok=True):
+        for batch in p5_reader.read_batches(selection=list(selection), missing_ok=True):
             for read_id in p5.format_read_ids(batch.read_id_column):
 
                 # Get the repacker output destination
@@ -328,7 +332,7 @@ def launch_repacker(
 def subset_pod5s_with_mapping(
     inputs: typing.Iterable[Path],
     output: Path,
-    mapping: typing.Dict[str, typing.Iterable[str]],
+    mapping: typing.Mapping[str, typing.Iterable[str]],
     missing_ok: bool = False,
     duplicate_ok: bool = False,
     force_overwrite: bool = False,

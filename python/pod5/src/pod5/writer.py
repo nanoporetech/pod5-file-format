@@ -4,7 +4,18 @@ Tools for writing POD5 data
 import datetime
 import itertools
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import lib_pod5 as p5b
 import numpy as np
@@ -33,7 +44,7 @@ def force_type_and_default(value, dtype, count, default_value=None):
     return value.astype(type, copy=False)
 
 
-def map_to_tuples(info_map) -> List[Tuple[str, str]]:
+def map_to_tuples(info_map: Any) -> List[Tuple[str, str]]:
     """
     Convert a fast5 property map (e.g. context_tags and tracking_id) to a
     tuple or string pairs to pass to pod5 C API
@@ -72,7 +83,9 @@ class Writer:
         if self._path.is_file():
             raise FileExistsError("Input path already exists. Refusing to overwrite.")
 
-        self._writer = p5b.create_file(str(self._path), software_name, None)
+        self._writer: Optional[p5b.FileWriter] = p5b.create_file(
+            str(self._path), software_name, None
+        )
         if not self._writer:
             raise Pod5ApiException(
                 f"Failed to open writer at {self._path} : {p5b.get_error_string()}"
@@ -96,10 +109,10 @@ class Writer:
             RunInfo: self._add_run_info,
         }
 
-    def __enter__(self):
+    def __enter__(self) -> "Writer":
         return self
 
-    def __exit__(self, *exc_details):
+    def __exit__(self, *exc_details) -> None:
         self.close()
 
     def close(self) -> None:
@@ -151,14 +164,21 @@ class Writer:
 
     def _add_end_reason(self, end_reason: EndReason) -> int:
         """Add the given EndReason instance to the pod5 file returning its index"""
+        if self._writer is None:
+            raise Pod5ApiException("Writer handle has been closed")
         return self._writer.add_end_reason(end_reason.reason.value)
 
     def _add_pore_type(self, pore_type: PoreType) -> int:
         """Add the given PoreType instance to the pod5 file returning its index"""
+        if self._writer is None:
+            raise Pod5ApiException("Writer handle has been closed")
         return self._writer.add_pore(pore_type)
 
     def _add_run_info(self, run_info: RunInfo) -> int:
         """Add the given RunInfo instance to the pod5 file returning its index"""
+        if self._writer is None:
+            raise Pod5ApiException("Writer handle has been closed")
+
         return self._writer.add_run_info(
             run_info.acquisition_id,
             timestamp_to_int(run_info.acquisition_start_time),
@@ -249,14 +269,17 @@ class Writer:
         if not reads:
             return
 
+        if self._writer is None:
+            raise Pod5ApiException("Writer handle has been closed")
+
         if isinstance(reads[0], Read):
-            return self._writer.add_reads(
+            return self._writer.add_reads(  # type: ignore [call-arg]
                 *self._prepare_add_reads_args(reads),
-                [r.signal for r in reads],
+                [r.signal for r in reads],  # type: ignore
             )
         elif isinstance(reads[0], CompressedRead):
-            signal_chunks = [r.signal_chunks for r in reads]
-            signal_chunk_lengths = [r.signal_chunk_lengths for r in reads]
+            signal_chunks = [r.signal_chunks for r in reads]  # type: ignore
+            signal_chunk_lengths = [r.signal_chunk_lengths for r in reads]  # type: ignore
 
             # Array containing the number of chunks for each signal
             signal_chunk_counts = np.array(
@@ -264,16 +287,16 @@ class Writer:
                 dtype=np.uint32,
             )
 
-            return self._writer.add_reads_pre_compressed(
+            return self._writer.add_reads_pre_compressed(  # type: ignore [call-arg]
                 *self._prepare_add_reads_args(reads),
                 # Join all signal data into one list
                 list(itertools.chain(*signal_chunks)),
                 # Join all read sample counts into one array
-                np.concatenate(signal_chunk_lengths).astype(np.uint32),
+                np.concatenate(signal_chunk_lengths).astype(np.uint32),  # type: ignore [no-untyped-call]
                 signal_chunk_counts,
             )
 
-    def _prepare_add_reads_args(self, reads: Sequence[BaseRead]):
+    def _prepare_add_reads_args(self, reads: Sequence[BaseRead]) -> List[Any]:
         """
         Converts the List of reads into the list of ctypes arrays of data to be supplied
         to the c api.

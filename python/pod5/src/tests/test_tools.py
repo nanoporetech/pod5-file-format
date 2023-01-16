@@ -45,7 +45,7 @@ class TestPod5Tools:
 
         dummy_error_string = "Dummy Error String"
 
-        def _func():
+        def _func() -> None:
             raise Exception(dummy_error_string)
 
         parser = argparse.ArgumentParser()
