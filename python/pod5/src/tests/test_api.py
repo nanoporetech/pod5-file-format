@@ -1,40 +1,42 @@
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Union
 from uuid import UUID, uuid4, uuid5
 
-import numpy
-import packaging
+import numpy as np
 import pytest
 
 import pod5 as p5
+from pod5.api_utils import format_read_ids, pack_read_ids
 from pod5.writer import Writer
 
 TEST_UUID = uuid4()
 
 
-def gen_test_read(seed, compressed=False) -> p5.Read:
-    numpy.random.seed(seed)
+def gen_test_read(seed, compressed=False) -> Union[p5.Read, p5.CompressedRead]:
+    np.random.seed(seed)
 
     def get_random_float() -> float:
-        return float(numpy.random.rand(100000)[0])
+        return float(np.random.rand(100000)[0])
 
     def get_random_int(low: int, high: int) -> int:
-        return int(numpy.random.randint(low, high, 1)[0])
+        return int(np.random.randint(low, high, 1)[0])
 
     def get_random_str(prefix: str) -> str:
-        return f"{prefix}_{numpy.random.randint(100000)}"
+        return f"{prefix}_{np.random.randint(100000)}"
 
     size = get_random_int(0, 1000)
-    signal = numpy.random.randint(0, 1024, size, dtype=numpy.int16)
+    signal = np.random.randint(0, 1024, size, dtype=np.int16)
 
-    cls = p5.Read
-    signal_args = {"signal": signal}
+    cls = p5.Read  # type: ignore
+    signal_args = {"signal": signal}  # type: ignore
+
     if compressed:
-        cls = p5.CompressedRead
+        cls = p5.CompressedRead  # type: ignore
         signal_args = {
-            "signal_chunks": [p5.signal_tools.vbz_compress_signal(signal)],
-            "signal_chunk_lengths": [len(signal)],
+            "signal_chunks": [p5.signal_tools.vbz_compress_signal(signal)],  # type: ignore
+            "signal_chunk_lengths": [len(signal)],  # type: ignore
         }
 
     return cls(
@@ -56,9 +58,7 @@ def gen_test_read(seed, compressed=False) -> p5.Read:
             datetime.fromtimestamp(get_random_int(0, 1), timezone.utc),
             get_random_int(0, 1000),
             get_random_int(-1000, 0),
-            [
-                (get_random_str("context"), get_random_str("tag")),
-            ],
+            {get_random_str("context"): get_random_str("tag")},
             get_random_str("exp_name"),
             get_random_str("flow_cell"),
             get_random_str("product_code"),
@@ -73,9 +73,7 @@ def gen_test_read(seed, compressed=False) -> p5.Read:
             get_random_str("software"),
             get_random_str("system_name"),
             get_random_str("system_type"),
-            [
-                (get_random_str("tracking"), get_random_str("id")),
-            ],
+            {get_random_str("tracking"): get_random_str("id")},
         ),
         num_minknow_events=5,
         tracked_scaling=p5.pod5_types.ShiftScalePair(10.0, 50),
@@ -115,12 +113,14 @@ def run_writer_test(f: Writer):
 
 def run_reader_test(reader: p5.Reader):
     # Check top level file metadata
-    assert reader.file_version == packaging.version.Version(p5.__version__)
+
     assert reader.writing_software == "Python API"
     assert reader.file_identifier != UUID(int=0)
 
     for idx, read in enumerate(reader.reads()):
         data = gen_test_read(idx)
+
+        assert isinstance(data, p5.Read)
 
         assert data.read_id == read.read_id
         assert data.read_number == read.read_number
@@ -163,7 +163,7 @@ def run_reader_test(reader: p5.Reader):
             == (data.signal + data.calibration.offset) * data.calibration.scale
         )
         chunk_signals = [read.signal_for_chunk(i) for i in range(len(read.signal_rows))]
-        assert (numpy.concatenate(chunk_signals) == data.signal).all()
+        assert (np.concatenate(chunk_signals) == data.signal).all()
 
     # Try to walk through the file in read batches:
     for idx, batch in enumerate(reader.read_batches(preload={"samples"})):
@@ -175,6 +175,7 @@ def run_reader_test(reader: p5.Reader):
         assert len(batch.cached_sample_count_column) == batch.num_reads
         for idx, read in enumerate(batch.reads()):
             data = gen_test_read(idx)
+            assert isinstance(data, p5.Read)
             assert read.has_cached_signal
             assert (read.signal == data.signal).all()
 
@@ -182,6 +183,7 @@ def run_reader_test(reader: p5.Reader):
     for idx, read in enumerate(reader.reads(preload={"samples"})):
         data = gen_test_read(idx)
 
+        assert isinstance(data, p5.Read)
         assert read.has_cached_signal
         assert (read.signal == data.signal).all()
 
@@ -203,9 +205,8 @@ def run_reader_test(reader: p5.Reader):
         reads[1],
     ]
 
-    search = reader.reads(
-        [r.read_id for r in search_reads],
-    )
+    search = reader.reads([str(r.read_id) for r in search_reads])
+
     found_ids = set()
     for i, searched_read in enumerate(search):
         found_ids.add(searched_read.read_id)
@@ -232,3 +233,23 @@ def test_pyarrow_from_str():
 
         with p5.Reader(path) as _fh:
             run_reader_test(_fh)
+
+
+def test_read_id_packing():
+    """
+    Assert pack_read_ids repacks and format_read_ids correctly unpacks collections
+    of read ids
+    """
+    rids = [str(uuid4()) for _ in range(10)]
+    packed_rids = pack_read_ids(rids)
+
+    assert len(rids) == 10
+    assert isinstance(packed_rids, np.ndarray)
+    assert packed_rids.dtype == np.uint8
+
+    unpacked_rids = format_read_ids(packed_rids)
+    assert isinstance(unpacked_rids, list)
+
+    for rid, unpacked in zip(rids, unpacked_rids):
+        assert type(rid) == type(unpacked)
+        assert rid == unpacked

@@ -6,7 +6,7 @@ import time
 from collections import namedtuple
 from pathlib import Path
 from queue import Empty
-from typing import List
+from typing import List, Sequence
 
 import h5py
 import numpy
@@ -34,38 +34,12 @@ def format_sample_count(count):
 
 
 WriteRequest = namedtuple("WriteRequest", [])
-Read = namedtuple(
-    "Read",
-    [
-        "read_id",
-        "signal",
-        "pore_type",
-        "digitisation",
-        "offset",
-        "range",
-        "sampling_rate",
-        "channel_number",
-        "channel_mux",
-        "start_time",
-        "duration",
-        "read_number",
-        "median_before",
-        "end_reason",
-        "tracking_id",
-        "context_tags",
-        "num_minknow_events",
-        "tracked_scaling_scale",
-        "tracked_scaling_shift",
-        "predicted_scaling_scale",
-        "predicted_scaling_shift",
-        "num_reads_since_mux_change",
-        "time_since_mux_change",
-    ],
-)
 Fast5FileData = namedtuple("Fast5FileData", ["filename", "reads"])
 
 
-def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
+def do_write_fast5_files(
+    write_request_queue: mp.Queue, write_data_queue: mp.Queue, exit_queue: mp.Queue
+):
 
     # Pod5 does not have 'partial' so need to add that back in here.
     fast5_end_reasons = {
@@ -103,8 +77,9 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                 "file_type", "multi-read".encode("ascii"), dtype=ascii_string_type
             )
 
-            for read in file_data.reads:
-                tracking_id = dict(read.tracking_id)
+            reads: Sequence[p5.Read] = file_data.reads
+            for read in reads:
+                tracking_id = dict(read.run_info.tracking_id)
                 read_group = file.create_group(f"read_{read.read_id}")
                 read_group.attrs.create(
                     "run_id",
@@ -112,7 +87,9 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                     dtype=ascii_string_type,
                 )
                 read_group.attrs.create(
-                    "pore_type", read.pore_type.encode("ascii"), dtype=ascii_string_type
+                    "pore_type",
+                    read.pore.pore_type.encode("ascii"),
+                    dtype=ascii_string_type,
                 )
 
                 tracking_id_group = read_group.create_group("tracking_id")
@@ -120,21 +97,25 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                     tracking_id_group.attrs[k] = v
 
                 context_tags_group = read_group.create_group("context_tags")
-                for k, v in read.context_tags:
+                for k, v in read.run_info.context_tags.items():
                     context_tags_group.attrs[k] = v
 
                 channel_id_group = read_group.create_group("channel_id")
+                digitisation = read.run_info.adc_max - read.run_info.adc_min + 1
                 channel_id_group.attrs.create(
-                    "digitisation", read.digitisation, dtype=numpy.float64
+                    "digitisation", digitisation, dtype=numpy.float64
                 )
                 channel_id_group.attrs.create(
-                    "offset", read.offset, dtype=numpy.float64
+                    "offset", read.calibration.offset, dtype=numpy.float64
                 )
-                channel_id_group.attrs.create("range", read.range, dtype=numpy.float64)
+
                 channel_id_group.attrs.create(
-                    "sampling_rate", read.sampling_rate, dtype=numpy.float64
+                    "range", digitisation * read.calibration.scale, dtype=numpy.float64
                 )
-                channel_id_group.attrs["channel_number"] = str(read.channel_number)
+                channel_id_group.attrs.create(
+                    "sampling_rate", read.run_info.sample_rate, dtype=numpy.float64
+                )
+                channel_id_group.attrs["channel_number"] = str(read.pore.channel)
 
                 raw_group = read_group.create_group("Raw")
                 raw_group.create_dataset(
@@ -145,13 +126,15 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
                     compression_opts=(0, 2, 1, 1),
                 )
                 raw_group.attrs.create(
-                    "start_time", read.start_time, dtype=numpy.uint64
+                    "start_time", read.start_sample, dtype=numpy.uint64
                 )
-                raw_group.attrs.create("duration", read.duration, dtype=numpy.uint32)
+                raw_group.attrs.create(
+                    "duration", read.sample_count, dtype=numpy.uint32
+                )
                 raw_group.attrs.create(
                     "read_number", read.read_number, dtype=numpy.int32
                 )
-                raw_group.attrs.create("start_mux", read.channel_mux, dtype=numpy.uint8)
+                raw_group.attrs.create("start_mux", read.pore.well, dtype=numpy.uint8)
                 raw_group.attrs["read_id"] = str(read.read_id)
                 raw_group.attrs.create(
                     "median_before", read.median_before, dtype=numpy.float64
@@ -171,22 +154,22 @@ def do_write_fast5_files(write_request_queue, write_data_queue, exit_queue):
 
                 raw_group.attrs.create(
                     "tracked_scaling_scale",
-                    read.tracked_scaling_scale,
+                    read.tracked_scaling.scale,
                     dtype=numpy.float32,
                 )
                 raw_group.attrs.create(
                     "tracked_scaling_shift",
-                    read.tracked_scaling_shift,
+                    read.tracked_scaling.shift,
                     dtype=numpy.float32,
                 )
                 raw_group.attrs.create(
                     "predicted_scaling_scale",
-                    read.predicted_scaling_scale,
+                    read.predicted_scaling.scale,
                     dtype=numpy.float32,
                 )
                 raw_group.attrs.create(
                     "predicted_scaling_shift",
-                    read.predicted_scaling_shift,
+                    read.predicted_scaling.shift,
                     dtype=numpy.float32,
                 )
                 raw_group.attrs.create(
@@ -210,36 +193,6 @@ def put_write_fast5_file(
 
     write_request_queue.get()
     write_data_queue.put(file_reads)
-
-
-def extract_read(read_table_version: p5.reader.ReadTableVersion, read: p5.ReadRecord):
-    run_info = read.run_info
-
-    return Read(
-        read.read_id,
-        read.signal,
-        read.pore.pore_type,
-        read.calibration_digitisation,
-        read.calibration.offset,
-        read.calibration_range,
-        run_info.sample_rate,
-        read.pore.channel,
-        read.pore.well,
-        read.start_sample,
-        read.sample_count,
-        read.read_number,
-        read.median_before,
-        read.end_reason,
-        run_info.tracking_id,
-        run_info.context_tags,
-        read.num_minknow_events,
-        read.tracked_scaling.scale,
-        read.tracked_scaling.shift,
-        read.predicted_scaling.scale,
-        read.predicted_scaling.shift,
-        read.num_reads_since_mux_change,
-        read.time_since_mux_change,
-    )
 
 
 def make_fast5_filename(output_location, file_index):
@@ -317,10 +270,9 @@ def convert_to_fast5(
                     f"{mb_total/time_total:.1f} MB/s"
                 )
 
-            extracted_read = extract_read(reader.reads_table_version, read)
-            current_reads_batch.append(extracted_read)
+            current_reads_batch.append(read.to_read())
             read_count += 1
-            sample_count += len(extracted_read.signal)
+            sample_count += read.num_samples
 
             # Write a batch of reads to a fast5 file
             if len(current_reads_batch) >= file_read_count:

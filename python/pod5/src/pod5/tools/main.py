@@ -1,5 +1,6 @@
 """Main entry point for pod5 tools"""
 import argparse
+from typing import Any
 
 from pod5 import __version__
 from pod5.tools.parsers import (
@@ -14,7 +15,7 @@ from pod5.tools.parsers import (
 )
 
 
-def main():
+def main() -> Any:
     """
     The core pod5 tools function which assembles the argparser and executes the required
     pod5 tool.

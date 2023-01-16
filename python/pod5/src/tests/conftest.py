@@ -100,7 +100,7 @@ def random_calibration(request) -> p5.Calibration:
 def _random_end_reason(seed: int = 1) -> p5.EndReason:
     """Create a random EndReason object"""
     numpy.random.seed(seed)
-    return p5.EndReason(p5.EndReasonEnum(rand_int(0, 5)), rand_int(0, 1))
+    return p5.EndReason(p5.EndReasonEnum(rand_int(0, 5)), bool(rand_int(0, 1)))
 
 
 @pytest.fixture(scope="function")
@@ -117,7 +117,7 @@ def _random_run_info(seed: int = 1) -> p5.RunInfo:
         acquisition_start_time=datetime.fromtimestamp(rand_int(0, 1), timezone.utc),
         adc_max=rand_int(0, 1000),
         adc_min=rand_int(-1000, 0),
-        context_tags=[(rand_str("context"), rand_str("tag"))],
+        context_tags={rand_str("context"): rand_str("tag")},
         experiment_name=rand_str("exp_name"),
         flow_cell_id=rand_str("flow_cell"),
         flow_cell_product_code=rand_str("product_code"),
@@ -132,7 +132,7 @@ def _random_run_info(seed: int = 1) -> p5.RunInfo:
         software=rand_str("software"),
         system_name=rand_str("system_name"),
         system_type=rand_str("system_type"),
-        tracking_id=[(rand_str("tracking"), rand_str("id"))],
+        tracking_id={rand_str("tracking"): rand_str("id")},
     )
 
 

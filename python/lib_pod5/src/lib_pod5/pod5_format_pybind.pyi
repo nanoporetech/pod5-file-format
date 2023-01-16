@@ -8,7 +8,7 @@ c++ bindings for pod5_format
 # > pip install mypy
 # > stubgen -m lib_pod5.pod5_format_pybind
 
-from typing import Any, Iterable, List, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -29,49 +29,49 @@ class FileWriter:
     def add_reads(
         self,
         count: int,
-        read_ids: np.ndarray[np.uint8],
-        read_numbers: np.ndarray[np.uint32],
-        start_samples: np.ndarray[np.uint64],
-        channels: np.ndarray[np.uint16],
-        wells: np.ndarray[np.uint8],
-        pore_types: np.ndarray[np.int16],
-        calibration_offsets: np.ndarray[np.float32],
-        calibration_scales: np.ndarray[np.float32],
-        median_befores: np.ndarray[np.float32],
-        end_reasons: np.ndarray[np.int16],
-        end_reason_forceds: np.ndarray[bool],
-        run_infos: np.ndarray[np.int16],
-        num_minknow_events: np.ndarray[np.uint64],
-        tracked_scaling_scales: np.ndarray[np.float32],
-        tracked_scaling_shifts: np.ndarray[np.float32],
-        predicted_scaling_scales: np.ndarray[np.float32],
-        predicted_scaling_shifts: np.ndarray[np.float32],
-        num_reads_since_mux_changes: np.ndarray[np.uint32],
-        time_since_mux_changes: np.ndarray[np.float32],
+        read_ids: npt.NDArray[np.uint8],
+        read_numbers: npt.NDArray[np.uint32],
+        start_samples: npt.NDArray[np.uint64],
+        channels: npt.NDArray[np.uint16],
+        wells: npt.NDArray[np.uint8],
+        pore_types: npt.NDArray[np.int16],
+        calibration_offsets: npt.NDArray[np.float32],
+        calibration_scales: npt.NDArray[np.float32],
+        median_befores: npt.NDArray[np.float32],
+        end_reasons: npt.NDArray[np.int16],
+        end_reason_forceds: npt.NDArray[np.bool_],
+        run_infos: npt.NDArray[np.int16],
+        num_minknow_events: npt.NDArray[np.uint64],
+        tracked_scaling_scales: npt.NDArray[np.float32],
+        tracked_scaling_shifts: npt.NDArray[np.float32],
+        predicted_scaling_scales: npt.NDArray[np.float32],
+        predicted_scaling_shifts: npt.NDArray[np.float32],
+        num_reads_since_mux_changes: npt.NDArray[np.uint32],
+        time_since_mux_changes: npt.NDArray[np.float32],
         signals: List[npt.NDArray[np.int16]],
     ) -> None: ...
     def add_reads_pre_compressed(
         self,
         count: int,
-        read_ids: np.ndarray[np.uint8],
-        read_numbers: np.ndarray[np.uint32],
-        start_samples: np.ndarray[np.uint64],
-        channels: np.ndarray[np.uint16],
-        wells: np.ndarray[np.uint8],
-        pore_types: np.ndarray[np.int16],
-        calibration_offsets: np.ndarray[np.float32],
-        calibration_scales: np.ndarray[np.float32],
-        median_befores: np.ndarray[np.float32],
-        end_reasons: np.ndarray[np.int16],
-        end_reason_forceds: np.ndarray[bool],
-        run_infos: np.ndarray[np.int16],
-        num_minknow_events: np.ndarray[np.uint64],
-        tracked_scaling_scales: np.ndarray[np.float32],
-        tracked_scaling_shifts: np.ndarray[np.float32],
-        predicted_scaling_scales: np.ndarray[np.float32],
-        predicted_scaling_shifts: np.ndarray[np.float32],
-        num_reads_since_mux_changes: np.ndarray[np.uint32],
-        time_since_mux_changes: np.ndarray[np.float32],
+        read_ids: npt.NDArray[np.uint8],
+        read_numbers: npt.NDArray[np.uint32],
+        start_samples: npt.NDArray[np.uint64],
+        channels: npt.NDArray[np.uint16],
+        wells: npt.NDArray[np.uint8],
+        pore_types: npt.NDArray[np.int16],
+        calibration_offsets: npt.NDArray[np.float32],
+        calibration_scales: npt.NDArray[np.float32],
+        median_befores: npt.NDArray[np.float32],
+        end_reasons: npt.NDArray[np.int16],
+        end_reason_forceds: npt.NDArray[np.bool_],
+        run_infos: npt.NDArray[np.int16],
+        num_minknow_events: npt.NDArray[np.uint64],
+        tracked_scaling_scales: npt.NDArray[np.float32],
+        tracked_scaling_shifts: npt.NDArray[np.float32],
+        predicted_scaling_scales: npt.NDArray[np.float32],
+        predicted_scaling_shifts: npt.NDArray[np.float32],
+        num_reads_since_mux_changes: npt.NDArray[np.uint32],
+        time_since_mux_changes: npt.NDArray[np.float32],
         signal_chunks: List[npt.NDArray[np.uint8]],
         signal_chunk_lengths: npt.NDArray[np.uint32],
         signal_chunk_counts: npt.NDArray[np.uint32],
@@ -185,7 +185,7 @@ def compress_signal(
     signal: npt.NDArray[np.int16], compressed_signal_out: npt.NDArray[np.uint8]
 ) -> int: ...
 def create_file(
-    filename: str, writer_name: str, options: FileWriterOptions = ...
+    filename: str, writer_name: str, options: Optional[FileWriterOptions]
 ) -> FileWriter: ...
 def decompress_signal(
     compressed_signal: Union[npt.NDArray[np.uint8], memoryview],
@@ -193,11 +193,11 @@ def decompress_signal(
 ) -> None: ...
 def format_read_id_to_str(
     read_id_data_out: npt.NDArray[np.uint8],
-) -> List[npt.NDArray[np.uint8]]: ...
+) -> List[str]: ...
 def get_error_string() -> str: ...
 def load_read_id_iterable(
     read_ids_str: Iterable, read_id_data_out: npt.NDArray[np.uint8]
-) -> None: ...
+) -> int: ...
 def open_file(filename: str) -> Pod5FileReader: ...
 def update_file(reader: Pod5FileReader, output: str): ...
 def vbz_compressed_signal_max_size(sample_count: int) -> int: ...
