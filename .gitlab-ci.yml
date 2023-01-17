@@ -458,30 +458,6 @@ benchmark-linux-aarch64:
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
-.tarball-package-without-macos: &tarball-package-without-macos
-    # This is a copy of tarball-package in conan-config, except it removes macos packages first.
-    # This is used because the iOS builds all copy a MacOS package into their uploads which is
-    # pointless and just wastes space. Normally tarball-package is called from within build-package.
-    # To change this, a caller still extends .build-package, but adds their own after_script
-    # (cannot just modify the one in build-package, it must be completely replaced), and calls
-    # tarball-package-without-macos instead of tarball-package. We can't call the original
-    # tarball-package because it is private to conan-config.
-    #
-    # This also allows us to only archive the package we just built, and not any of its dependencies
-    # (because we can use `conan inspect` to find the name of the right packages).
-    #
-    # Avoid storing things on the CI node unnecessarily
-    - echo "Remove unneeded files"
-    - conan remove "*" --builds --src --force
-    # Remove unneeded MacOS packages
-    - echo "Remove MacOS packages"
-    - conan remove flatbuffers/2.0.0@nanopore/stable -q "os=Macos" --force
-    # Move required packages to a tarball
-    - PACKAGE_DIR="${CONAN_USER_HOME#${PWD}/}/.conan/data/$(conan inspect --raw name ${CONAN_REFERENCE})"
-    - echo "Packing from $PACKAGE_DIR"
-    - tar -czvf "conan-${CI_JOB_ID}.tar.gz" "$PACKAGE_DIR"/*/${CONAN_USER}/${CONAN_CHANNEL}/{package,metadata.json}
-    - rm -rf "${CONAN_USER_HOME}/.conan"
-
 # Conan: build and upload packages:
 build-conan:windows-x86_64-vs2017:
     extends:
@@ -501,21 +477,21 @@ upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "build-conan:windows-x86_64-vs2019" ]
 
-build-conan:macos-x86_64-appleclang-10.0:
+build-conan:macos-x86_64-appleclang10.0:
     extends:
         - .profile-macos-x86_64-appleclang-10.0
         - .build-package
         - .conan-build-common
-upload-conan:macos-x86_64-appleclang-10.0:
+upload-conan:macos-x86_64-appleclang10.0:
     extends: .conan-upload
-    dependencies: [ "build-conan:macos-x86_64-appleclang-10.0" ]
+    dependencies: [ "build-conan:macos-x86_64-appleclang10.0" ]
 
 build-conan:macos-x86_64-appleclang-12.0:
     extends:
         - .profile-macos-x86_64-appleclang-12.0
         - .build-package
         - .conan-build-common
-upload-conan:macos-x86_64-appleclang-12.0:
+upload-conan:macos-x86_64-appleclang12.0:
     extends: .conan-upload
     dependencies: [ "build-conan:macos-x86_64-appleclang-12.0" ]
 
@@ -524,48 +500,9 @@ build-conan:macos-aarch64-appleclang-13.1:
         - .profile-macos-aarch64-appleclang-13.1
         - .build-package
         - .conan-build-common
-upload-conan:macos-aarch64-appleclang-13.1:
+upload-conan:macos-aarch64-appleclang13.1:
     extends: .conan-upload
     dependencies: [ "build-conan:macos-aarch64-appleclang-13.1" ]
-
-build-conan:ios-aarch64-appleclang-13.1:
-    extends:
-        - .profile-iOS-aarch64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-    variables:
-        EXTRA_CREATE_ARGS: -o:b pod5_file_format:nanopore_internal_build=True -o:h pod5_file_format:nanopore_internal_build=True
-    after_script:
-        - *tarball-package-without-macos
-upload-conan:ios-aarch64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "build-conan:ios-aarch64-appleclang-13.1" ]
-
-build-conan:iOSSimulator-aarch64-appleclang-13.1:
-    extends:
-        - .profile-iOSSimulator-aarch64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-    variables:
-        EXTRA_CREATE_ARGS: -o:b pod5_file_format:nanopore_internal_build=True -o:h pod5_file_format:nanopore_internal_build=True
-    after_script:
-        - *tarball-package-without-macos
-upload-conan:iOSSimulator-aarch64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "build-conan:iOSSimulator-aarch64-appleclang-13.1" ]
-
-build-conan:iOSSimulator-x86_64-appleclang-13.1:
-    extends:
-        - .profile-iOSSimulator-x86_64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-    variables:
-        EXTRA_CREATE_ARGS: -o:b pod5_file_format:nanopore_internal_build=True -o:h pod5_file_format:nanopore_internal_build=True
-    after_script:
-        - *tarball-package-without-macos
-upload-conan:iOSSimulator-x86_64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "build-conan:iOSSimulator-x86_64-appleclang-13.1" ]
 
 build-conan:linux-x86_64-gcc9:
     extends:
