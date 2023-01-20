@@ -92,6 +92,8 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/schema_utils.h
     pod5_format/table_reader.cpp
     pod5_format/table_reader.h
+    pod5_format/thread_pool.cpp
+    pod5_format/thread_pool.h
     pod5_format/tuple_utils.h
     pod5_format/types.cpp
     pod5_format/types.h

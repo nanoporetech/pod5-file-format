@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pod5_format/thread_pool.h"
+
 #include <arrow/buffer.h>
 #include <arrow/io/file.h>
 #include <arrow/util/future.h>
@@ -8,41 +10,40 @@
 #include <condition_variable>
 #include <deque>
 #include <iostream>
-#include <mutex>
 #include <thread>
+
+namespace pod5 {
 
 class AsyncOutputStream : public arrow::io::OutputStream {
 public:
-    AsyncOutputStream(std::shared_ptr<OutputStream> const & main_stream)
+    AsyncOutputStream(
+        std::shared_ptr<OutputStream> const & main_stream,
+        std::shared_ptr<ThreadPool> const & thread_pool)
     : m_has_error(false)
     , m_submitted_writes(0)
     , m_completed_writes(0)
     , m_submitted_byte_writes(0)
     , m_completed_byte_writes(0)
-    , m_exit(false)
     , m_main_stream(main_stream)
-    , m_write_thread([&] { run_write_thread(); })
+    , m_strand(thread_pool->create_strand())
     {
     }
 
     ~AsyncOutputStream()
     {
+        // Flush ensures all in flight async writes are completed.
         (void)Flush();
-        m_exit = true;
-        m_write_thread.join();
     }
 
     virtual arrow::Status Close() override
     {
         ARROW_RETURN_NOT_OK(Flush());
-        m_exit = true;
         return m_main_stream->Close();
     }
 
     arrow::Future<> CloseAsync() override
     {
         ARROW_RETURN_NOT_OK(Flush());
-        m_exit = true;
         return m_main_stream->CloseAsync();
     }
 
@@ -73,67 +74,43 @@ public:
 
         m_submitted_byte_writes += data->size();
 
-        std::lock_guard<std::mutex> lock(m_write_mutex);
-
         m_submitted_writes += 1;
-        m_write_requests.push_back(data);
-        m_work_available.notify_all();
+        m_strand->post([&, data] {
+            if (m_has_error) {
+                return;
+            }
+            auto result = m_main_stream->Write(data);
+            m_completed_byte_writes += data->size();
+            if (!result.ok()) {
+                m_error = result;
+                m_has_error = true;
+            }
+
+            // Ensure we do this after editing all the other members, in order to prevent `Flush`
+            // returning until we are done.
+            m_completed_writes += 1;
+        });
 
         return arrow::Status::OK();
     }
 
     arrow::Status Flush() override
     {
-        if (m_has_error) {
-            return *m_error;
+        // Wait for our completed writes to match our submitted writes,
+        // this guarantees our async operations are finished.
+        auto wait_for_write_count = m_submitted_writes.load();
+        while (m_completed_writes.load() < wait_for_write_count && !m_has_error) {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
 
-        auto wait_for_write_count = m_submitted_writes.load();
-        while (m_completed_writes.load() < wait_for_write_count) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (m_has_error) {
+            return *m_error;
         }
 
         return m_main_stream->Flush();
     }
 
 private:
-    void run_write_thread()
-    {
-        while (!m_exit) {
-            std::shared_ptr<arrow::Buffer> buffer;
-            {
-                std::unique_lock<std::mutex> lock(m_write_mutex);
-                m_work_available.wait_for(lock, std::chrono::milliseconds(100), [&] {
-                    return !m_write_requests.empty() || m_exit;
-                });
-                if (m_write_requests.empty()) {
-                    continue;
-                }
-
-                buffer = std::move(m_write_requests.front());
-                m_write_requests.pop_front();
-            }
-
-            assert(buffer);
-
-            auto result = m_main_stream->Write(buffer);
-            m_completed_byte_writes += buffer->size();
-            m_completed_writes += 1;
-            if (!result.ok()) {
-                m_error = result;
-                m_has_error = true;
-                break;
-            }
-        }
-
-        std::unique_lock<std::mutex> lock(m_write_mutex);
-        assert(m_write_requests.size() == 0);
-    }
-
-    std::mutex m_write_mutex;
-    std::condition_variable m_work_available;
-    std::deque<std::shared_ptr<arrow::Buffer>> m_write_requests;
-
     boost::synchronized_value<arrow::Status> m_error;
     std::atomic<bool> m_has_error;
 
@@ -141,9 +118,9 @@ private:
     std::atomic<std::size_t> m_completed_writes;
     std::atomic<std::size_t> m_submitted_byte_writes;
     std::atomic<std::size_t> m_completed_byte_writes;
-    std::atomic<bool> m_exit;
 
     std::shared_ptr<OutputStream> m_main_stream;
-
-    std::thread m_write_thread;
+    std::shared_ptr<ThreadPoolStrand> m_strand;
 };
+
+}  // namespace pod5
