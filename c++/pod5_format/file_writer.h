@@ -14,6 +14,8 @@ class MemoryPool;
 
 namespace pod5 {
 
+class ThreadPool;
+
 class POD5_FORMAT_EXPORT FileWriterOptions {
 public:
     /// \brief Default chunk size for signal table entries
@@ -58,7 +60,15 @@ public:
 
     std::size_t run_info_table_batch_size() const { return m_run_info_table_batch_size; }
 
+    void set_thread_pool(std::shared_ptr<ThreadPool> const & writer_thread_pool)
+    {
+        m_writer_thread_pool = writer_thread_pool;
+    }
+
+    std::shared_ptr<ThreadPool> thread_pool() const { return m_writer_thread_pool; }
+
 private:
+    std::shared_ptr<ThreadPool> m_writer_thread_pool;
     std::uint32_t m_max_signal_chunk_size;
     arrow::MemoryPool * m_memory_pool;
     SignalType m_signal_type;

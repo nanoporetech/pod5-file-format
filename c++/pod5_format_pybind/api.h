@@ -8,6 +8,7 @@
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_reader.h"
+#include "pod5_format/thread_pool.h"
 #include "utils.h"
 
 #include <arrow/memory_pool.h>

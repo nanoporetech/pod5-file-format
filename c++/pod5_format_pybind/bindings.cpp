@@ -9,7 +9,14 @@ PYBIND11_MODULE(pod5_format_pybind, m)
 
     m.doc() = "POD5 Format Raw Bindings";
 
+    auto thread_pool = pod5::make_thread_pool(std::thread::hardware_concurrency());
+
     py::class_<FileWriterOptions>(m, "FileWriterOptions")
+        .def(py::init([thread_pool]() {
+            FileWriterOptions options;
+            options.set_thread_pool(thread_pool);
+            return options;
+        }))
         .def_property(
             "max_signal_chunk_size",
             &FileWriterOptions::max_signal_chunk_size,

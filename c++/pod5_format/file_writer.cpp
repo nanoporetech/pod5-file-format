@@ -7,6 +7,7 @@
 #include "pod5_format/run_info_table_writer.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_table_writer.h"
+#include "pod5_format/thread_pool.h"
 #include "pod5_format/version.h"
 
 #include <arrow/io/file.h>
@@ -378,6 +379,11 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
+    auto thread_pool = options.thread_pool();
+    if (!thread_pool) {
+        thread_pool = make_thread_pool(1);
+    }
+
     ARROW_ASSIGN_OR_RAISE(auto arrow_path, ::arrow::internal::PlatformFilename::FromString(path));
     ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_path));
     if (file_exists) {
@@ -405,7 +411,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_file, arrow::io::FileOutputStream::Open(reads_tmp_path, false));
-    auto read_table_file_async = std::make_shared<AsyncOutputStream>(read_table_file);
+    auto read_table_file_async = std::make_shared<AsyncOutputStream>(read_table_file, thread_pool);
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_tmp_writer,
         make_read_table_writer(
@@ -420,7 +426,8 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     // Prepare the temporary run_info file:
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_file, arrow::io::FileOutputStream::Open(run_info_tmp_path, false));
-    auto run_info_table_file_async = std::make_shared<AsyncOutputStream>(run_info_table_file);
+    auto run_info_table_file_async =
+        std::make_shared<AsyncOutputStream>(run_info_table_file, thread_pool);
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_tmp_writer,
         make_run_info_table_writer(
@@ -437,7 +444,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
 
     // Then place the signal file directly after that:
     ARROW_ASSIGN_OR_RAISE(auto const signal_table_start, main_file->Tell());
-    auto signal_file = std::make_shared<AsyncOutputStream>(main_file);
+    auto signal_file = std::make_shared<AsyncOutputStream>(main_file, thread_pool);
     ARROW_ASSIGN_OR_RAISE(
         auto signal_table_writer,
         make_signal_table_writer(
