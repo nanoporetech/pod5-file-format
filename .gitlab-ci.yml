@@ -313,9 +313,6 @@ build-archive:
 
 .pytest:
   stage: test-python
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.6
-  tags:
-    - linux
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
@@ -372,6 +369,15 @@ pytest-linux-aarch64:
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
+.pyenv-and-venv: &setup-pyenv-and-venv
+  # needs PYENV_VERSION set, and optionally VENV_BIN_DIR
+  - pyenv versions
+  - pyenv install --skip-existing "${PYENV_VERSION}"
+    # with pyenv, we don't have to use `python3` (and `python` also works on Windows)
+  - python -m venv .venv/
+  - source .venv/${VENV_BIN_DIR:-bin}/activate
+  - python -m pip install --upgrade pip
+
 pytest-osx-x64:
   extends: [".pytest"]
   tags:
@@ -382,25 +388,31 @@ pytest-osx-x64:
   needs:
     - osx-x64-clang12-release-build
     - build-python-api
+  before_script:
+      # make sure pyenv's shims are on the path
+    - eval "$(pyenv init -)"
+    - *setup-pyenv-and-venv
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+    # this version is known to be available on macos runners
+    PYENV_VERSION: "3.9.11"
 
 pytest-win-x64:
   extends: [".pytest"]
   tags:
     - windows
-    - cmake
-    - VS2017
-    - conan
   needs:
     - win-x64-msvc2017-release-build
     - build-python-api
   before_script:
-    - python -m venv .venv/
-    - source .venv/Scripts/activate
-    - python -m pip install --upgrade pip
+      # pyenv doesn't live on the PATH by default (and pyenv-win doesn't have `pyenv init`)
+    - export PYENV=~/.pyenv/pyenv-win
+    - export PATH=${PYENV}/bin:${PYENV}/shims:${PATH}
+    - *setup-pyenv-and-venv
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp37*.whl"
+    PYENV_VERSION: "3.7.5"
+    VENV_BIN_DIR: "Scripts"
 
 .benchmark:
   stage: test-python
