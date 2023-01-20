@@ -76,7 +76,7 @@ class Pod5Conan(ConanFile):
                 "Pod5Conan: setVersionsAndSuffixes for internal build, add .1"
             )
             self.package_suffix = "@nanopore/stable"
-            self.arrow_version = f"{self.arrow_version}.1"
+            self.arrow_version = f"{self.arrow_version}.2"
             self.boost_version = f"{self.boost_version}.1"
         else:
             self.output.warn(
@@ -183,6 +183,8 @@ class Pod5Conan(ConanFile):
         self.output.warn("Pod5Conan: Calling self.configure.")
         if self.options.nanopore_internal_build:
             self.options["boost"].header_only = False
+            # ensure that linking against pod5 doesn't override the global allocator
+            self.options["jemalloc"].prefix = "je_"
 
     def build(self):
         self.output.warn("Pod5Conan: Calling self.build, required.")
