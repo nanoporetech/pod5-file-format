@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [0.1.5] - 2023-01-20
+- Fixed issue where closing many pod5 files in sequence is slow.
 - Fixed incorrect python types and adopted python type-checking.
 - Explicitly re-exported `lib-pod5` public symbols and added `py.typed` marker file to support type-checking.
 
