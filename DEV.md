@@ -68,7 +68,7 @@ Building the project requires several tools and libraries are available:
 The project uses pre-commit to ensure code is consistently formatted, you can set this up using pip:
 
 ```bash
-> pip install pre-commit
+> pip install pre-commit==v2.21.0
 # Install pre-commit hooks in your pod5-file-format repo:
 > cd pod5-file-format
 > pre-commit install

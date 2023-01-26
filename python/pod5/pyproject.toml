@@ -33,6 +33,7 @@ dependencies = [
     "pytz",
     "packaging",
     "pandas",
+    "h5py==v3.7.0",
     "vbz_h5py_plugin",
 ]
 
@@ -40,7 +41,7 @@ dependencies = [
 dev = [
   "black == 22.3.0",
   "mypy == 0.991",
-  "pre-commit",
+  "pre-commit==v2.21.0",
   "pytest ~= 6.2",
   "pytest-cov ~= 3.0",
   "types-jsonschema",

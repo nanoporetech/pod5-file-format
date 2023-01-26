@@ -38,7 +38,7 @@ from pod5.pod5_types import (
     ShiftScalePair,
 )
 
-from .api_utils import Pod5ApiException, pack_read_ids
+from .api_utils import Pod5ApiException, format_read_ids, pack_read_ids
 from .signal_tools import vbz_decompress_signal, vbz_decompress_signal_into
 
 ReadRecordV3Columns = namedtuple(
@@ -799,6 +799,43 @@ class Reader:
         Find the number of read batches available in the file.
         """
         return self.read_table.num_record_batches
+
+    @property
+    def num_reads(self) -> int:
+        """
+        Find the number of reads in the file.
+        """
+        return sum(batch.num_reads for batch in self.read_batches())
+
+    @property
+    def read_ids_raw(self) -> pa.ChunkedArray:
+        """
+        Return chunked arrow array of read ids.
+
+        To get read ids as string use `Reader.read_ids`
+        """
+
+        return pa.chunked_array([batch.read_id_column for batch in self.read_batches()])
+
+    @property
+    def read_ids(self) -> List[str]:
+        """
+        Return all read_ids as a list of strings.
+
+        For the most performant implementation consider `Reader.read_ids_raw`
+        """
+
+        def arrow_to_numpy(batch):
+            # Get the arrow data as a buffer
+            id_buffer = batch.read_id_column.buffers()[1]
+
+            # Pack the arrow buffer into a numpy array of the the right shape
+            array = np.frombuffer(id_buffer, dtype=np.uint8)
+            return array.reshape((16, batch.num_reads))
+
+        return format_read_ids(
+            np.concatenate([arrow_to_numpy(batch) for batch in self.read_batches()])
+        )
 
     def get_batch(self, index: int) -> ReadRecordBatch:
         """

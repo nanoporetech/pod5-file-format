@@ -128,7 +128,7 @@ automatically as :ref:`detailed above <docs/install:Python Development Setup>`
    $ cd pod5-file-format
 
    # Install pre-commit hooks in your pod5-file-format repo:
-   $ pip install pre-commit
+   $ pip install pre-commit==v2.21.0
    $ pre-commit install
 
    # Run hooks on all files:

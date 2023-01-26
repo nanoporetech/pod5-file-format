@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+- Pinned `pre-commit=v2.21.0` while supporting `python3.7`
+- Added more `read_id` getter methods to `Reader`
+- Fixed `pod5 inspect read`
+- Reworked `pod5 convert to_fast5` output filenames to allow for `1-1` mapping
+- Fixed `pod5 convert to_fast5` creating an empty fast5 output
+- Fixed `pod5 convert to_fast5` ignoring the `--force_overwrite` argument
 
 ## [0.1.5] - 2023-01-20
 - Fixed issue where closing many pod5 files in sequence is slow.
