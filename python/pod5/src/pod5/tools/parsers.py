@@ -165,7 +165,7 @@ def pod5_convert_to_fast5_argparser(
         "--file-read-count",
         default=4000,
         type=int,
-        help="Number of reads to write per file",
+        help="Number of reads to write per file.",
     )
 
     def run(**kwargs):

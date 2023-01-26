@@ -88,12 +88,13 @@ pre-commit checks:
     tags:
         - linux
     script:
-        - pip install pre-commit
+          # Need v2.21.0 until we drop python3.7 support
+        - pip install pre-commit==v2.21.0
           # if any of the hooks wanted to modify files, this will have a non-zero exit
-        - if ! pre-commit run --all-files; then
+        - if ! pre-commit run --all-files --verbose --color always ; then
         - rm -rf .cache
         - git checkout -f
-        - pre-commit run --all-files
+        - pre-commit run --all-files --verbose --color always
         - fi
     variables:
         PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit

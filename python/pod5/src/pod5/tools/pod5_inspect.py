@@ -84,13 +84,14 @@ def dump_run_info(run_info: p5.RunInfo):
 
 def do_read_command(reader: p5.Reader, read_id: str):
     try:
-        _ = UUID(read_id)
+        uuid_read_id = UUID(read_id)
+
     except ValueError:
         print(f"Supplied read_id '{read_id}' is not a valid UUID", file=sys.stderr)
         return
 
     for read in reader.reads():
-        if read.read_id != read_id:
+        if read.read_id != uuid_read_id:
             continue
 
         print(f"read_id: {read.read_id}")

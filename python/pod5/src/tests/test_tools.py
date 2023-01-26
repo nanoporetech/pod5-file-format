@@ -140,6 +140,27 @@ class TestPod5Tools:
         with patch("argparse._sys.argv", args):
             main.main()
 
+    def test_inspect_read_finds_read(self, capsys: pytest.CaptureFixture) -> None:
+        """Assert that inspect read finds a known read"""
+
+        args = [
+            "pod5",
+            "inspect",
+            "read",
+            str(POD5_PATH),
+            "0000173c-bf67-44e7-9a9c-1ad0bc728e74",
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+        stdout_lines = str(capsys.readouterr().out).splitlines()
+
+        # A few expected lines from the tool
+        assert "read_id: 0000173c-bf67-44e7-9a9c-1ad0bc728e74" in stdout_lines
+        assert "read_number:\t1093" in stdout_lines
+        assert "start_sample:\t4534321" in stdout_lines
+        assert "median_before:\t183.1077423095703" in stdout_lines
+
     def test_merge_command_runs(self, tmp_path: Path) -> None:
         """Assert that typical commands are valid"""
 

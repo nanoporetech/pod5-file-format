@@ -117,8 +117,13 @@ def run_reader_test(reader: p5.Reader):
     assert reader.writing_software == "Python API"
     assert reader.file_identifier != UUID(int=0)
 
+    read_count = 0
+    read_id_strs = set()
     for idx, read in enumerate(reader.reads()):
+        read_count += 1
         data = gen_test_read(idx)
+
+        read_id_strs.add(str(read.read_id))
 
         assert isinstance(data, p5.Read)
 
@@ -164,6 +169,9 @@ def run_reader_test(reader: p5.Reader):
         )
         chunk_signals = [read.signal_for_chunk(i) for i in range(len(read.signal_rows))]
         assert (np.concatenate(chunk_signals) == data.signal).all()
+
+    assert reader.num_reads == read_count
+    assert set(reader.read_ids) == read_id_strs
 
     # Try to walk through the file in read batches:
     for idx, batch in enumerate(reader.read_batches(preload={"samples"})):
