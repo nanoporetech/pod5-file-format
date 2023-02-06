@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reworked `pod5 convert to_fast5` output filenames to allow for `1-1` mapping
 - Fixed `pod5 convert to_fast5` creating an empty fast5 output
 - Fixed `pod5 convert to_fast5` ignoring the `--force_overwrite` argument
+- Fixed issue where thread_pool.h wasn't shipped.
+- Added support for python 3.8 + 3.10 on windows
 
 ## [0.1.5] - 2023-01-20
 - Fixed issue where closing many pod5 files in sequence is slow.
