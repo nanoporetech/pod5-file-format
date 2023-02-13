@@ -5,12 +5,7 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-from pod5.tools.pod5_subset import (
-    assert_no_duplicate_reads,
-    assert_no_missing_reads,
-    parse_csv_mapping,
-    parse_json_mapping,
-)
+from pod5.tools.pod5_subset import parse_csv_mapping, parse_json_mapping
 
 CSV_CONTENT_1 = """
 repeated_name, r1
@@ -99,53 +94,3 @@ class TestJSONMappingParser:
         with pytest.raises(jsonschema.exceptions.ValidationError):
             self._write_example_json_mapping(example_json, {"target": bad_mapping})
             parse_json_mapping(example_json)
-
-
-class TestSubsetAssertions:
-    """Test the runtime assertions in the subset application"""
-
-    @pytest.mark.parametrize(
-        "selection,transfers",
-        [({"r1", "r2"}, {"": {"r1", "r2"}})],
-    )
-    def test_passing_no_missing_reads(self, selection, transfers):
-        """Test that assert_no_missing_reads correctly detects all reads"""
-        assert_no_missing_reads(selection, transfers)
-
-    @pytest.mark.parametrize(
-        "selection,transfers,missing",
-        [({"r1", "r2"}, {"": {"r1"}}, 1), ({"r1", "r2", "r3"}, {"": {}}, 3)],
-    )
-    def test_failing_no_missing_reads(self, selection, transfers, missing):
-        """Test that assert_no_missing_reads correctly detects missing reads"""
-        with pytest.raises(AssertionError) as exc:
-            assert_no_missing_reads(selection, transfers)
-
-        expected_err = f"Missing {missing} read_ids from input but --missing_ok not set"
-        assert str(exc.value) == expected_err
-
-    @pytest.mark.parametrize(
-        "mapping",
-        [
-            {"a": {"r1", "r2"}},
-            {"a": {"r1", "r2"}, "b": {"r3"}},
-        ],
-    )
-    def test_passing_no_duplicate_reads(self, mapping) -> None:
-        """Test that assert_no_duplicate_reads correctly detect no duplicates"""
-        assert assert_no_duplicate_reads(mapping) is None  # type: ignore [func-returns-value]
-
-    @pytest.mark.parametrize(
-        "mapping",
-        [
-            {"a": {"r1", "r2"}, "b": {"r1"}},
-            {"a": {"r1", "r2"}, "b": {"r3", "r2"}},
-        ],
-    )
-    def test_failing_no_duplicate_reads(self, mapping):
-        """Test that assert_no_duplicate_reads correctly detect duplicates"""
-        with pytest.raises(AssertionError) as exc:
-            assert_no_duplicate_reads(mapping)
-
-        expected_err = "Duplicate outputs detected but --duplicate_ok not set"
-        assert str(exc.value) == expected_err
