@@ -9,7 +9,7 @@ import lib_pod5 as p5b
 import pod5 as p5
 
 # The default interval in seconds to check for completion
-DEFAULT_INTERVAL = 15
+DEFAULT_INTERVAL = 1
 
 
 class Repacker:

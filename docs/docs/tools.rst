@@ -106,14 +106,13 @@ accidentally merging identical reads. To override this check set the argument
 pod5 subset
 ===========
 
-`pod5 subset` is a tool for separating the reads in `.pod5` files into one or more
-output files. This tool can be used to create new `.pod5` files which contain a
-user-defined subset of reads from the input.
+`pod5 subset` is a tool for subsetting reads in `.pod5` files into one or more
+output `.pod5` files.
 
-The `pod5 subset` tool requires a mapping which defines which read_ids should be
+The `pod5 subset` tool requires a *mapping* which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
 defined in either a `.csv` or `.json` file or by using a tab-separated table
-(e.g. basecaller sequencing summary) and instructions on how to interpret it.
+and instructions on how to interpret it.
 
 .. code-block:: console
 

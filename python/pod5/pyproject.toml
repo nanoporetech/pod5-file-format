@@ -35,6 +35,7 @@ dependencies = [
     "pandas",
     "h5py==v3.7.0",
     "vbz_h5py_plugin",
+    "tqdm"
 ]
 
 [project.optional-dependencies]

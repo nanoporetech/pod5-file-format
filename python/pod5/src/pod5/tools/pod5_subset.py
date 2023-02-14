@@ -2,11 +2,14 @@
 Tool for subsetting pod5 files into one or more outputs
 """
 
+import os
+import time
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from json import load as json_load
 from pathlib import Path
 from string import Formatter
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
 
 import jsonschema
 import pandas as pd
@@ -41,7 +44,7 @@ JSON_SCHEMA = {
 DEFAULT_READ_ID_COLUMN = "read_id"
 
 
-def parse_summary_mapping(
+def parse_table_mapping(
     summary_path: Path,
     filename_template: Optional[str],
     subset_columns: List[str],
@@ -49,8 +52,7 @@ def parse_summary_mapping(
     ignore_incomplete_template: bool = False,
 ) -> Dict[str, Set[str]]:
     """
-    Parse a summary file (tab-separated table) using pandas to create a mapping of
-    output targets to read ids
+    Parse a table using pandas to create a mapping of output targets to read ids
     """
     if not filename_template:
         filename_template = create_default_filename_template(subset_columns)
@@ -60,7 +62,13 @@ def parse_summary_mapping(
     )
 
     # Parse the summary using pandas asserting that usecols exists
-    summary = pd.read_table(summary_path, usecols=subset_columns + [read_id_column])
+    # Use python engine to dynamically detect separator
+    summary = pd.read_table(
+        summary_path,
+        sep=None,
+        engine="python",
+        usecols=subset_columns + [read_id_column],
+    )
 
     def group_name_to_dict(group_name: Any, columns: List[str]) -> Dict[str, str]:
         """Split group_name tuple/str into a dict by column name key"""
@@ -197,15 +205,16 @@ def assert_overwrite_ok(
 
 def calculate_transfers(
     inputs: List[Path],
-    selection: Set[str],
     read_targets: Dict[str, Path],
     missing_ok: bool,
+    duplicate_ok: bool,
 ) -> Dict[Path, Dict[Path, Set[str]]]:
     """
     Calculate the transfers which stores the collection of read_ids their source and
     destination.
     """
-    selection_list = list(selection)
+
+    selection = list(read_targets.keys())
     found = set([])
 
     transfers: Dict[Path, Dict[Path, Set[str]]] = defaultdict(dict)
@@ -216,8 +225,13 @@ def calculate_transfers(
 
             # Iterate over batches of read_ids. Missing_ok here as selection could
             # be in another file
-            for batch in rdr.read_batches(selection=selection_list, missing_ok=True):
+            for batch in rdr.read_batches(selection=selection, missing_ok=True):
                 for read_id in p5.format_read_ids(batch.read_id_column):
+
+                    if read_id in found and not duplicate_ok:
+                        raise AssertionError(
+                            f"read_id {read_id} was found in multiple inputs and --duplicate_ok not set"
+                        )
 
                     found.add(read_id)
 
@@ -235,50 +249,54 @@ def calculate_transfers(
             f"No transfers prepared for supplied mapping and inputs: {inputs}"
         )
 
-    if not missing_ok and found != selection:
+    if not missing_ok and found != set(selection):
         raise AssertionError("Missing read_ids from inputs but --missing_ok not set")
 
     return transfers
 
 
-def launch_repacker(
+def launch_subsetting(
     transfers: Dict[Path, Dict[Path, Set[str]]],
+    level: int = 0,
 ) -> None:
     """
-    Iterate over the transfers one target at a time, opening souces and copying
+    Iterate over the transfers one target at a time, opening sources and copying
     the required read_ids. Wait for the repacker to finish before moving on
     to ensure we don't have too many open file handles.
     """
 
-    for idx, (dest, sources) in enumerate(tqdm(transfers.items())):
+    def add_reads(repacker, writer, sources) -> List[p5.Reader]:
+        """Add reads to the repacker"""
+        readers = []
+        output = repacker.add_output(writer)
+        for source, read_ids in sources.items():
+            reader = p5.Reader(source)
+            readers.append(reader)
+            repacker.add_selected_reads_to_output(output, reader, read_ids)
 
+        # Sleep to ensure async repacker has started
+        time.sleep(0.5)
+        return readers
+
+    for (dest, sources) in sorted(transfers.items()):
         repacker = p5_repack.Repacker()
-        active_readers = []
         with p5.Writer(dest) as wrtr:
-            output = repacker.add_output(wrtr)
+            readers = add_reads(repacker, wrtr, sources)
 
-            for source, read_ids in sources.items():
-                reader = p5.Reader(source)
-                active_readers.append(reader)
-                repacker.add_selected_reads_to_output(output, reader, read_ids)
+            while not repacker.is_complete:
+                time.sleep(0.25)
 
-            # Wait for repacking to complete:
-            repacker.wait(interval=2)
-            repacker.finish()
-
-            # close any active readers
-            for reader in active_readers:
+            for reader in readers:
                 reader.close()
 
-        print(f"Finished writing: {dest} - {idx+1}/{len(transfers)}")
-
-    print("Done")
+            repacker.finish()
 
 
 def subset_pod5s_with_mapping(
     inputs: Iterable[Path],
     output: Path,
-    mapping: Mapping[str, Iterable[str]],
+    mapping: Mapping[str, Set[str]],
+    threads: int = 1,
     missing_ok: bool = False,
     duplicate_ok: bool = False,
     force_overwrite: bool = False,
@@ -286,45 +304,61 @@ def subset_pod5s_with_mapping(
     """
     Given an iterable of input pod5 paths and an output directory, create output pod5
     files containing the read_ids specified in the given mapping of output filename to
-    iterable of read_id.
+    set of read_id.
     """
+    disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
 
     if not output.exists():
         output.mkdir(parents=True, exist_ok=True)
 
     assert_overwrite_ok(output, mapping.keys(), force_overwrite)
 
-    selected_read_ids: Set[str] = set()
     requested_count = 0
     for requested_read_ids in mapping.values():
-        selected_read_ids.update(requested_read_ids)
-        requested_count += len(list(requested_read_ids))
+        requested_count += len(requested_read_ids)
 
-    if len(selected_read_ids) == 0:
+    if requested_count == 0:
         raise AssertionError("Selected 0 read_ids. Nothing to do")
-
-    if not duplicate_ok and len(selected_read_ids) != requested_count:
-        raise AssertionError("Duplicate outputs detected but --duplicate_ok not set")
 
     # Invert the mapping to have constant time lookup of read_id to target
     read_targets: Dict[str, Path] = {
         _id: output / target for target, read_ids in mapping.items() for _id in read_ids
     }
 
-    print(f"Parsed {len(read_targets)} read_ids from given mapping")
-    print(f"Parsed {len(set(read_targets.values()))} output targets from given mapping")
-
-    # Create sets of read_ids for each destination
-    transfers = calculate_transfers(
-        inputs=list(inputs),
-        selection=selected_read_ids,
-        read_targets=read_targets,
-        missing_ok=missing_ok,
+    n_reads = len(read_targets)
+    n_targets = len(set(read_targets.values()))
+    n_workers = min(n_targets, threads)
+    print(
+        f"Subsetting {n_reads} read_ids into {n_targets} outputs using {n_workers} workers"
     )
 
-    print(f"Mapped: {sum(len(rs) for rs in transfers.values())} reads to outputs")
+    # Map the target outputs to which source read ids they're comprised of
+    transfers = calculate_transfers(
+        inputs=list(inputs),
+        read_targets=read_targets,
+        missing_ok=missing_ok,
+        duplicate_ok=duplicate_ok,
+    )
 
-    launch_repacker(transfers=transfers)
+    futures = {}
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+
+        pbar = tqdm(
+            total=len(transfers),
+            ascii=True,
+            disable=disable_pbar,
+        )
+
+        for target in transfers:
+            transfer = {target: transfers[target]}
+            futures[executor.submit(launch_subsetting, transfers=transfer)] = target
+
+        for future in as_completed(futures):
+            tqdm.write(f"Finished {futures[future]}")
+            pbar.update(1)
+
+    pbar.close()
+    print("Done")
 
     return list(transfers.keys())
 
@@ -334,8 +368,9 @@ def subset_pod5(
     output: Path,
     csv: Optional[Path],
     json: Optional[Path],
-    summary: Optional[Path],
+    table: Optional[Path],
     columns: List[str],
+    threads: int,
     template: str,
     read_id_column: str,
     missing_ok: bool,
@@ -344,12 +379,13 @@ def subset_pod5(
     force_overwrite: bool,
 ) -> Any:
     """Prepare the subsampling mapping and run the repacker"""
+
     if csv or json:
         mapping = parse_direct_mapping_targets(csv, json)
 
-    elif summary:
-        mapping = parse_summary_mapping(
-            summary, template, columns, read_id_column, ignore_incomplete_template
+    elif table:
+        mapping = parse_table_mapping(
+            table, template, columns, read_id_column, ignore_incomplete_template
         )
 
     else:
@@ -361,6 +397,7 @@ def subset_pod5(
         inputs=inputs,
         output=output,
         mapping=mapping,
+        threads=threads,
         missing_ok=missing_ok,
         duplicate_ok=duplicate_ok,
         force_overwrite=force_overwrite,
