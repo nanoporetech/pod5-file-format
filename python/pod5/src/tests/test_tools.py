@@ -19,6 +19,7 @@ TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
 POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
 SUBSET_CSV_PATH = TEST_DATA_PATH / "demux_mapping_examples/demux.csv"
+READ_IDS_PATH = TEST_DATA_PATH / "demux_mapping_examples/read_ids.txt"
 
 
 def assert_exit_code(func: Callable, func_kwargs: Dict, exit_code: int = 0) -> None:
@@ -196,6 +197,21 @@ class TestPod5Tools:
             str(tmp_path / "test_dir"),
             "--csv",
             str(SUBSET_CSV_PATH),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_take_command_runs(self, tmp_path: Path) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "take",
+            str(POD5_PATH),
+            "--output",
+            str(tmp_path / "take.pod5"),
+            "--ids",
+            str(READ_IDS_PATH),
         ]
         with patch("argparse._sys.argv", args):
             main.main()

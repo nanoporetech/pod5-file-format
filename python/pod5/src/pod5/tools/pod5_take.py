@@ -57,12 +57,12 @@ def take_pod5(
     if len(read_ids) == 0:
         raise AssertionError("Selected 0 read_ids. Nothing to do")
 
-    read_targets = {_id: output for _id in read_ids}
+    resolved_targets = {_id: set([output]) for _id in read_ids}
 
     # Map the target outputs to which source read ids they're comprised of
     transfers = calculate_transfers(
         inputs=list(inputs),
-        read_targets=read_targets,
+        read_targets=resolved_targets,
         missing_ok=missing_ok,
         duplicate_ok=duplicate_ok,
     )

@@ -203,9 +203,19 @@ def assert_overwrite_ok(
             (output / name).unlink()
 
 
+def resolve_targets(output: Path, mapping) -> Dict[str, Set[Path]]:
+    """Resolve the targets from the mapping"""
+    # Invert the mapping to have constant time lookup of read_id to targets
+    resolved_targets: Dict[str, Set[Path]] = defaultdict(set)
+    for target, read_ids in mapping.items():
+        for read_id in read_ids:
+            resolved_targets[read_id].add(output / target)
+    return resolved_targets
+
+
 def calculate_transfers(
     inputs: List[Path],
-    read_targets: Dict[str, Path],
+    read_targets: Dict[str, Set[Path]],
     missing_ok: bool,
     duplicate_ok: bool,
 ) -> Dict[Path, Dict[Path, Set[str]]]:
@@ -214,7 +224,7 @@ def calculate_transfers(
     destination.
     """
 
-    selection = list(read_targets.keys())
+    read_id_selection = list(read_targets.keys())
     found = set([])
 
     transfers: Dict[Path, Dict[Path, Set[str]]] = defaultdict(dict)
@@ -225,7 +235,7 @@ def calculate_transfers(
 
             # Iterate over batches of read_ids. Missing_ok here as selection could
             # be in another file
-            for batch in rdr.read_batches(selection=selection, missing_ok=True):
+            for batch in rdr.read_batches(selection=read_id_selection, missing_ok=True):
                 for read_id in p5.format_read_ids(batch.read_id_column):
 
                     if read_id in found and not duplicate_ok:
@@ -237,19 +247,18 @@ def calculate_transfers(
 
                     # Add this read_id to the target_mapping.
                     # transfers = {destination: { source: set(read_id) } }
-                    if input_path in transfers[read_targets[read_id]]:
-                        transfers[read_targets[read_id]][input_path].add(str(read_id))
-                    else:
-                        transfers[read_targets[read_id]][input_path] = set(
-                            [str(read_id)]
-                        )
+                    for target in read_targets[read_id]:
+                        if input_path in transfers[target]:
+                            transfers[target][input_path].add(str(read_id))
+                        else:
+                            transfers[target][input_path] = set([str(read_id)])
 
     if not transfers:
         raise RuntimeError(
             f"No transfers prepared for supplied mapping and inputs: {inputs}"
         )
 
-    if not missing_ok and found != set(selection):
+    if not missing_ok and found != set(read_id_selection):
         raise AssertionError("Missing read_ids from inputs but --missing_ok not set")
 
     return transfers
@@ -257,7 +266,6 @@ def calculate_transfers(
 
 def launch_subsetting(
     transfers: Dict[Path, Dict[Path, Set[str]]],
-    level: int = 0,
 ) -> None:
     """
     Iterate over the transfers one target at a time, opening sources and copying
@@ -321,12 +329,13 @@ def subset_pod5s_with_mapping(
         raise AssertionError("Selected 0 read_ids. Nothing to do")
 
     # Invert the mapping to have constant time lookup of read_id to target
-    read_targets: Dict[str, Path] = {
-        _id: output / target for target, read_ids in mapping.items() for _id in read_ids
-    }
+    resolved_targets = resolve_targets(output, mapping)
 
-    n_reads = len(read_targets)
-    n_targets = len(set(read_targets.values()))
+    all_targets = set([])
+    for targets in resolved_targets.values():
+        all_targets.update(targets)
+    n_targets = len(all_targets)
+    n_reads = len(resolved_targets)
     n_workers = min(n_targets, threads)
     print(
         f"Subsetting {n_reads} read_ids into {n_targets} outputs using {n_workers} workers"
@@ -335,7 +344,7 @@ def subset_pod5s_with_mapping(
     # Map the target outputs to which source read ids they're comprised of
     transfers = calculate_transfers(
         inputs=list(inputs),
-        read_targets=read_targets,
+        read_targets=resolved_targets,
         missing_ok=missing_ok,
         duplicate_ok=duplicate_ok,
     )
