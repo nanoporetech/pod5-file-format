@@ -146,7 +146,7 @@ The `pod5 update` tool can be used to update a file in an older pod5 format to t
 > pod5 update my-old-pod5-file.pod5 ./migrated_files/
 ```
 
-pod5inspect
+pod5 inspect
 ------------
 
 The `pod5 inspect` tool can be used to extract details and summaries of the contents of `.pod5` files. There are three programs for users within `pod5 inspect` and these are [`reads`](#pod5%20inspect%20reads), [`read`](#pod5%20inspect%20read), and [`summary`](#pod5%20inspect%20summary),
@@ -336,6 +336,7 @@ From the examples above:
 ```
 
 Custom template example:
+
 ```bash
 > pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode --template "{barcode}.subset.pod5"
 > ls barcode_subset
@@ -361,7 +362,6 @@ pod5 merge
 ``` bash
 > pod5 merge pod5s/*.pod5 merged.pod5
 ```
-
 
 pod5 convert fast5
 -----------------------
