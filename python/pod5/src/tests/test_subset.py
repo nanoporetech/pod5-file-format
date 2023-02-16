@@ -54,13 +54,13 @@ class TestSubset:
         transfers = calculate_transfers([POD5_PATH], resolved_targets, False, False)
         launch_subsetting(transfers)
 
-        outnames = ["well-2.pod5", "well-4.pod5"]
-
         # Assert only the expected files are output
-        assert outnames == list(path.name for path in tmp_path.glob("*.pod5"))
+        expected_outnames = list(mapping.keys())
+        actual_outnames = list(path.name for path in tmp_path.glob("*.pod5"))
+        assert sorted(expected_outnames) == sorted(actual_outnames)
 
         # Check all read_ids are present in their respective files
-        for outname in outnames:
+        for outname in expected_outnames:
             with p5.Reader(tmp_path / outname) as reader:
                 assert sorted(reader.read_ids) == sorted(list(mapping[outname]))
 
@@ -83,13 +83,13 @@ class TestSubset:
         transfers = calculate_transfers([POD5_PATH], resolved_targets, False, False)
         launch_subsetting(transfers)
 
-        outnames = list(mapping.keys())
-
         # Assert only the expected files are output
-        assert outnames == list(path.name for path in tmp_path.glob("*.pod5"))
+        expected_outnames = list(mapping.keys())
+        actual_outnames = list(path.name for path in tmp_path.glob("*.pod5"))
+        assert sorted(expected_outnames) == sorted(actual_outnames)
 
         # Check all read_ids are present in their respective files
-        for outname in outnames:
+        for outname in expected_outnames:
             with p5.Reader(tmp_path / outname) as reader:
                 assert sorted(reader.read_ids) == sorted(list(mapping[outname]))
 
