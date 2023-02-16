@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `pod5 convert to_fast5` ignoring the `--force_overwrite` argument
 - Fixed issue where thread_pool.h wasn't shipped.
 - Added support for python 3.8 + 3.10 on windows
+- Added `pod5 take` tool to subset pod5 files with simple list of read ids
+- Reworked `pod5 subset` to give better control over resources used
+- Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
+- `pod5 subset` can now parse csv and tsv tables / summaries
+- Removed filepath header line from `pod5 inspect reads`
+- Removed `byte_count` and `signal_compression_ratio` from `pod5 inspect reads` table
 
 ## [0.1.5] - 2023-01-20
 - Fixed issue where closing many pod5 files in sequence is slow.
