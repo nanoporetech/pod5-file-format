@@ -134,7 +134,7 @@ build-standalone-ubu20:
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${PYTHON_ENABLED} -DPYTHON_VERSION=${PYTHON_VERSION} ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
@@ -145,6 +145,19 @@ build-standalone-ubu20:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
+linux-aarch64-gcc7-release-build:
+  image: git.oxfordnanolabs.local:4567/ofan/ofan-docker-base/arm64v8/conan:18.04
+  extends: [".build-linux"]
+  before_script:
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc7-release"
+    OUTPUT_SKU: "linux-gcc7-arm64"
+    PYTHON_ENABLED: "OFF"
+
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
   extends: [".build-linux"]
@@ -154,6 +167,7 @@ linux-x64-gcc9-release-build:
     CONAN_PROFILE: "linux-x86_64-gcc9-release"
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
+    PYTHON_ENABLED: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -168,6 +182,7 @@ linux-aarch64-gcc9-release-build:
     CONAN_PROFILE: "linux-aarch64-gcc9-release"
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
+    PYTHON_ENABLED: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -316,6 +331,7 @@ build-archive:
   needs:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
+    - linux-aarch64-gcc7-release-build
     - osx-x64-clang12-release-build
     - osx-arm64-clang13-release-build
     - win-x64-msvc2017-release-build
