@@ -94,7 +94,7 @@ class Pod5Conan(ConanFile):
         self.requires(f"arrow/{self.arrow_version}{self.package_suffix}")
         self.requires(f"boost/{self.boost_version}{self.package_suffix}")
         self.requires(f"flatbuffers/2.0.0{self.package_suffix}")
-        self.requires(f"zstd/1.4.8{self.package_suffix}")
+        self.requires(f"zstd/1.5.4{self.package_suffix}")
         self.requires(f"zlib/1.2.11{self.package_suffix}")
 
         if not (

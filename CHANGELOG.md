@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+- Update to zstd 1.5.4
 - Pinned `pre-commit=v2.21.0` while supporting `python3.7`
 - Added more `read_id` getter methods to `Reader`
 - Fixed `pod5 inspect read`
