@@ -121,7 +121,7 @@ build-standalone-ubu20:
 .build-linux:
   stage: build-lib
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install conan auditwheel build
+    - /opt/python/cp310-cp310/bin/pip install 'conan<2' auditwheel build
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
@@ -487,7 +487,7 @@ benchmark-linux-aarch64:
   dependencies: [] # don't need all the previous build artifacts: we're doing a fresh build
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - pip3 install conan
+    - pip3 install 'conan<2'
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
@@ -499,7 +499,7 @@ benchmark-linux-aarch64:
   before_script:
     - apt update
     - apt install -y cmake
-    - pip3 install conan
+    - pip3 install 'conan<2'
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
