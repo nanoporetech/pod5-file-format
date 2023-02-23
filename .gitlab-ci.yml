@@ -104,7 +104,7 @@ pre-commit checks:
 
 build-standalone-ubu20:
   stage: build-lib
-  image: ubuntu:20.04
+  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:20.04
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt update
