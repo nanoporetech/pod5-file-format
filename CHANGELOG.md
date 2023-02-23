@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [0.1.8] 2023-02-23
 - Update to zlib 1.2.13
 - Update to zstd 1.5.4
 - Pinned `pre-commit=v2.21.0` while supporting `python3.7`
@@ -15,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `pod5 convert to_fast5` ignoring the `--force_overwrite` argument
 - Fixed issue where thread_pool.h wasn't shipped.
 - Added support for python 3.8 + 3.10 on windows
+- Added gcc7 linux build of pod5
 
 ## [0.1.5] - 2023-01-20
 - Fixed issue where closing many pod5 files in sequence is slow.
