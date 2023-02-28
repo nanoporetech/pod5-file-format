@@ -560,7 +560,7 @@ public:
         }
 
         for (auto const & output : m_outputs) {
-            if (output->pending_unqueued_reads() > 0) {
+            if (output->pending_unqueued_reads() > 0 || output->queued_reads() > 0) {
                 return false;
             }
         }
