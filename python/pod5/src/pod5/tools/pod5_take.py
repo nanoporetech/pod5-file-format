@@ -42,12 +42,13 @@ def take_pod5(
     """Prepare the pod5 take mapping and run the repacker"""
 
     # Remove output file
-    if output.exists() and not force_overwrite:
-        raise FileExistsError(
-            f"Output file already exists and --force_overwrite not set - {output}"
-        )
-    else:
-        output.unlink(missing_ok=True)
+    if output.exists():
+        if not force_overwrite:
+            raise FileExistsError(
+                f"Output file already exists and --force_overwrite not set - {output}"
+            )
+        else:
+            output.unlink()
 
     # Create parent directories if they do not exist
     if not output.parent.exists():

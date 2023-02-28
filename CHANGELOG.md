@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
 - `pod5 subset` can now parse csv and tsv tables / summaries
 - Removed filepath header line from `pod5 inspect reads`
-- Removed `byte_count` and `signal_compression_ratio` from `pod5 inspect reads` table
+
 
 ## [0.1.8] 2023-02-23
 - Update to zlib 1.2.13
