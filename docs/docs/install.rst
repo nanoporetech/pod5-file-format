@@ -27,27 +27,37 @@ Developing with Conan
 ---------------------
 
 For this development process you will need `conan <https://conan.io/>`_ installed.
-You can install `conan` using `pip` or your platforms' package manager (e.g. `brew`):
+You can install `conan` using `pip` or your platforms' package manager (e.g. `brew`)
+You will also need the python `setuptools_scm` package to manage pod5 versioning:
 
 .. code-block:: console
 
-   $ pip install conan
+   # Conan and python build dependencies
+   $ pip install conan build
    $ conan --version
    Conan version 1.48.0
 
 .. code-block:: console
 
+   # Get the repo and submodules
    $ git clone https://github.com/nanoporetech/pod5-file-format.git
    $ cd pod5-file-format
    $ git submodule update --init --recursive
-   $ mkdir build
-   $ cd build
+
+.. code-block:: console
+
+   # Creates _version.py and cmake/POD5Version.cmake which are ignored by git
+   $ pip install setuptools_scm
+   $ python -m setuptools_scm
+   $ python -m pod5_make_version.py
+
+.. code-block:: console
 
    # Install libs for a Release build using the system default compiler + settings:
    # Note the build=missing, will build any libs not available on your current platform as binaries:
-   $ conan install --build=missing -s build_type=Release ..
-   $ cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release ..
-   $ make -j
+   $ mkdir build
+   $ cd build
+   $ conan install --build=missing -s build_type=Release .. && cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release .. && make -j
 
 Arm 64 MacOS Builds
 +++++++++++++++++++

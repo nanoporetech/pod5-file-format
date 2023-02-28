@@ -1,0 +1,20 @@
+# This project file is used to generate the version information written to _version.py
+# To create this file, simply pip install the root pod-file-format directory
+
+[build-system]
+requires = ["setuptools >= 61.0", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pod5version"
+requires-python = "~= 3.7"
+dynamic = ["version"]
+description="Oxford Nanopore Technologies Pod5 File Format VCS Versioning"
+
+[tool.setuptools.packages.find]
+# Ignore all files
+exclude = ["*"]
+
+[tool.setuptools_scm]
+root = "."
+write_to = "_version.py"
