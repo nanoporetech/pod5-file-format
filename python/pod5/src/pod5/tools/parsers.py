@@ -338,6 +338,9 @@ def prepare_pod5_repack_argparser(
         "inputs", type=Path, nargs="+", help="Input pod5 file(s) to repack"
     )
     parser.add_argument("output", type=Path, help="Output path for pod5 files")
+    parser.add_argument(
+        "-t", "--threads", type=int, default=1, help="Number of repacking workers [1]"
+    )
 
     parser.add_argument(
         "--force-overwrite", action="store_true", help="Overwrite destination files"

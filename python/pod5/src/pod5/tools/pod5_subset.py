@@ -314,7 +314,6 @@ def subset_pod5s_with_mapping(
     files containing the read_ids specified in the given mapping of output filename to
     set of read_id.
     """
-    disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
 
     if not output.exists():
         output.mkdir(parents=True, exist_ok=True)
@@ -349,6 +348,7 @@ def subset_pod5s_with_mapping(
         duplicate_ok=duplicate_ok,
     )
 
+    disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
     futures = {}
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
 

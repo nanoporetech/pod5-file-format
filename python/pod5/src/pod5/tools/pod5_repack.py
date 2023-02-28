@@ -1,56 +1,76 @@
 """
 Tool for repacking pod5 files into a single output
 """
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
 import sys
+import time
 import typing
 from pathlib import Path
+from tqdm import tqdm
 
 import pod5 as p5
 import pod5.repack
 from pod5.tools.parsers import prepare_pod5_repack_argparser, run_tool
 
 
-def repack_pod5(inputs: typing.List[Path], output: Path, force_overwrite: bool):
-    """Given a list of pod5 files, repack their contents"""
-    print(f"Repacking inputs {' '.join(str(i) for i in inputs)} into {output}")
+def repack_pod5_file(src: Path, dest: Path):
+    """Repack the source pod5 file into dest"""
+    repacker = pod5.repack.Repacker()
+    with p5.Reader(src) as reader:
+        with p5.Writer(dest) as writer:
+            repacker_output = repacker.add_output(writer)
 
-    if not output.exists():
+            # Add all reads to the repacker
+            repacker.add_all_reads_to_output(repacker_output, reader)
+
+    while not repacker.is_complete:
+        time.sleep(0.5)
+
+
+def repack_pod5(
+    inputs: typing.List[Path], output: Path, threads: int, force_overwrite: bool
+):
+    """Given a list of pod5 files, repack their contents and write files 1-1"""
+
+    # Create output directory if required
+    if not output.is_dir():
         output.mkdir(parents=True, exist_ok=True)
 
-    repacker = pod5.repack.Repacker()
-
-    writers: typing.List[p5.Writer] = []
+    # Remove existing files if required
     for input_filename in inputs:
-        reader = p5.Reader(input_filename)
-
         output_filename = output / input_filename.name
-        output_filename.parent.mkdir(parents=True, exist_ok=True)
 
         if output_filename.exists():
+            if output_filename == input_filename:
+                print(f"Refusing to overwrite {input_filename} inplace")
+                sys.exit(1)
             if force_overwrite:
-                if output_filename == input_filename:
-                    print(
-                        f"Refusing to overwrite {input_filename} - output directory is the same as input directory"
-                    )
-                    sys.exit(1)
-                # Otherwise remove the output path
                 output_filename.unlink()
-
             else:
                 print("Refusing to overwrite output  without --force-overwrite")
                 sys.exit(1)
 
-        writer = p5.Writer(output_filename)
-        writers.append(writer)
-        output_ref = repacker.add_output(writer)
+    disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
+    futures = {}
+    with ProcessPoolExecutor(max_workers=threads) as executor:
 
-        # Add all reads to the repacker
-        repacker.add_all_reads_to_output(output_ref, reader)
+        pbar = tqdm(
+            total=len(inputs),
+            ascii=True,
+            disable=disable_pbar,
+        )
 
-    repacker.wait()
+        for src in inputs:
+            dest = output / src.name
+            futures[executor.submit(repack_pod5_file, src=src, dest=dest)] = dest
 
-    for writer in writers:
-        writer.close()
+        for future in as_completed(futures):
+            tqdm.write(f"Finished {futures[future]}")
+            pbar.update(1)
+
+    pbar.close()
+    print("Done")
 
 
 def main():
