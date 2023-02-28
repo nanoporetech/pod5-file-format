@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+- Added `pod5 take` tool to subset pod5 files with simple list of read ids
+- Reworked `pod5 subset` to give better control over resources used
+- Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
+- `pod5 subset` can now parse csv and tsv tables / summaries
+- Removed filepath header line from `pod5 inspect reads`
+- Removed `byte_count` and `signal_compression_ratio` from `pod5 inspect reads` table
+
+## [0.1.8] 2023-02-23
+- Update to zlib 1.2.13
+- Update to zstd 1.5.4
 - Pinned `pre-commit=v2.21.0` while supporting `python3.7`
 - Added more `read_id` getter methods to `Reader`
 - Fixed `pod5 inspect read`
@@ -13,12 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `pod5 convert to_fast5` ignoring the `--force_overwrite` argument
 - Fixed issue where thread_pool.h wasn't shipped.
 - Added support for python 3.8 + 3.10 on windows
-- Added `pod5 take` tool to subset pod5 files with simple list of read ids
-- Reworked `pod5 subset` to give better control over resources used
-- Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
-- `pod5 subset` can now parse csv and tsv tables / summaries
-- Removed filepath header line from `pod5 inspect reads`
-- Removed `byte_count` and `signal_compression_ratio` from `pod5 inspect reads` table
+- Added gcc7 linux build of pod5
 
 ## [0.1.5] - 2023-01-20
 - Fixed issue where closing many pod5 files in sequence is slow.

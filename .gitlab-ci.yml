@@ -104,7 +104,7 @@ pre-commit checks:
 
 build-standalone-ubu20:
   stage: build-lib
-  image: ubuntu:20.04
+  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:20.04
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt update
@@ -121,7 +121,7 @@ build-standalone-ubu20:
 .build-linux:
   stage: build-lib
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install conan auditwheel build
+    - /opt/python/cp310-cp310/bin/pip install 'conan<2' auditwheel build
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
@@ -134,7 +134,7 @@ build-standalone-ubu20:
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DPYTHON_VERSION=${PYTHON_VERSION} ..
+    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${PYTHON_ENABLED} -DPYTHON_VERSION=${PYTHON_VERSION} ..
     - cmake --build . --config Release
     - ctest -C Release -VV
     - ../ci/install.sh
@@ -145,6 +145,19 @@ build-standalone-ubu20:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
+linux-aarch64-gcc7-release-build:
+  image: git.oxfordnanolabs.local:4567/ofan/ofan-docker-base/arm64v8/conan:18.04
+  extends: [".build-linux"]
+  before_script:
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc7-release"
+    OUTPUT_SKU: "linux-gcc7-arm64"
+    PYTHON_ENABLED: "OFF"
+
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
   extends: [".build-linux"]
@@ -154,6 +167,7 @@ linux-x64-gcc9-release-build:
     CONAN_PROFILE: "linux-x86_64-gcc9-release"
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
+    PYTHON_ENABLED: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -168,6 +182,7 @@ linux-aarch64-gcc9-release-build:
     CONAN_PROFILE: "linux-aarch64-gcc9-release"
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
+    PYTHON_ENABLED: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -316,6 +331,7 @@ build-archive:
   needs:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
+    - linux-aarch64-gcc7-release-build
     - osx-x64-clang12-release-build
     - osx-arm64-clang13-release-build
     - win-x64-msvc2017-release-build
@@ -471,7 +487,7 @@ benchmark-linux-aarch64:
   dependencies: [] # don't need all the previous build artifacts: we're doing a fresh build
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - pip3 install conan
+    - pip3 install 'conan<2'
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
@@ -483,7 +499,7 @@ benchmark-linux-aarch64:
   before_script:
     - apt update
     - apt install -y cmake
-    - pip3 install conan
+    - pip3 install 'conan<2'
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 

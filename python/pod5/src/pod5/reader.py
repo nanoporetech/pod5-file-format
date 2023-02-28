@@ -831,11 +831,12 @@ class Reader:
 
             # Pack the arrow buffer into a numpy array of the the right shape
             array = np.frombuffer(id_buffer, dtype=np.uint8)
-            return array.reshape((16, batch.num_reads))
+            return array.reshape((batch.num_reads, 16))
 
-        return format_read_ids(
-            np.concatenate([arrow_to_numpy(batch) for batch in self.read_batches()])
+        read_ids = np.concatenate(
+            [arrow_to_numpy(batch) for batch in self.read_batches()]
         )
+        return format_read_ids(read_ids)
 
     def get_batch(self, index: int) -> ReadRecordBatch:
         """
