@@ -67,9 +67,29 @@ docker base x86-64:
     max: 2
     when: runner_system_failure
 
+prepare_version:
+  stage: .pre
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
+  script:
+    - pip install --upgrade pip setuptools_scm
+    - python -m setuptools_scm
+    - cat _version.py
+    - python -m pod5_make_version
+    - cat cmake/POD5Version.cmake
+    - cp _version.py python/lib_pod5/src/lib_pod5/
+    - cp _version.py python/pod5/src/pod5/
+  artifacts:
+    name: "${CI_JOB_NAME}-artifacts"
+    paths:
+      - "cmake/POD5Version.cmake"
+      - "_version.py"
+      - "python/lib_pod5/src/lib_pod5/_version.py"
+      - "python/pod5/src/pod5/_version.py"
 
 tag_version_check:
   stage: pre-flight
+  needs:
+    - "prepare_version"
   only:
     - tags
   image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
@@ -80,7 +100,6 @@ tag_version_check:
         echo "Tag is for release ${tag_version}, but POD5 version is $pod5_version";
         exit 1;
       fi
-
 
 pre-commit checks:
     image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
@@ -105,6 +124,8 @@ pre-commit checks:
 build-standalone-ubu20:
   stage: build-lib
   image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:20.04
+  needs:
+    - "prepare_version"
   script:
     - export DEBIAN_FRONTEND=noninteractive
     - apt update
@@ -113,21 +134,23 @@ build-standalone-ubu20:
     - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt update
     - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev=8.0.0-1
-    - mkdir build
+    - mkdir -p build
     - cd build
     - cmake -DBUILD_PYTHON_WHEEL=OFF ..
     - make -j
 
 .build-linux:
   stage: build-lib
+  needs:
+    - "prepare_version"
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install 'conan<2' auditwheel build
+    - /opt/python/cp310-cp310/bin/pip install -U pip 'conan<2' auditwheel build
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   script:
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - mkdir build
+    - mkdir -p build
     - cd build
     - conan install --profile ${CONAN_PROFILE} -opod5_file_format:nanopore_internal_build=True ..
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF ..
@@ -189,6 +212,8 @@ linux-aarch64-gcc9-release-build:
 
 .build-osx-common:
   stage: build-lib
+  needs:
+    - "prepare_version"
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
@@ -263,6 +288,8 @@ osx-arm64-clang13-release-build:
 
 .build-win-common:
   stage: build-lib
+  needs:
+    - "prepare_version"
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - export PYENV="${HOME}/.pyenv/pyenv-win"
@@ -290,6 +317,7 @@ osx-arm64-clang13-release-build:
     - ../ci/package.sh ${OUTPUT_SKU}
 
 
+
 win-x64-msvc2017-release-build:
   extends: [".build-win-common"]
   tags:
@@ -311,11 +339,14 @@ win-x64-msvc2017-release-build:
 
 build-python-api:
   stage: build-python-api
-  needs: ["linux-x64-gcc9-release-build"]
+  needs:
+    - "prepare_version"
+    - "linux-x64-gcc9-release-build"
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
   tags:
     - linux
   script:
+    - cat _version.py
     - cd python/pod5/
     - pip install -U pip build
     - python -m build --outdir ../../
@@ -484,7 +515,8 @@ benchmark-linux-aarch64:
 
 .conan-build-common:
   stage: build-conan
-  dependencies: [] # don't need all the previous build artifacts: we're doing a fresh build
+  dependencies:
+    - "prepare_version"
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install 'conan<2'
@@ -494,6 +526,8 @@ benchmark-linux-aarch64:
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
+  dependencies:
+    - "prepare_version"
   only:
     - tags
   before_script:
