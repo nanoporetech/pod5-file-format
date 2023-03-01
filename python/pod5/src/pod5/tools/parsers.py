@@ -203,6 +203,75 @@ def prepare_pod5_convert(parent: argparse._SubParsersAction) -> argparse.Argumen
 
 
 #
+# Filter
+#
+def prepare_pod5_filter_argparser(
+    parent: Optional[argparse._SubParsersAction] = None,
+) -> argparse.ArgumentParser:
+    """Create an argument parser for the pod5 filter tool"""
+
+    _desc = "Take a subset of reads using a list of read_ids from one or more inputs"
+    if parent is None:
+        parser = argparse.ArgumentParser(description=_desc)
+    else:
+        parser = parent.add_parser(
+            name="filter",
+            description=_desc,
+            epilog="Example: pod5 filter inputs*.pod5 --ids read_ids.txt --output filtered.pod5",
+        )
+
+    # Core arguments
+    parser.add_argument(
+        "inputs", type=Path, nargs="+", help="Pod5 filepaths to use as inputs"
+    )
+    parser.add_argument(
+        "-f",
+        "--force_overwrite",
+        action="store_true",
+        help="Overwrite destination files",
+    )
+
+    required_group = parser.add_argument_group("required arguments")
+    required_group.add_argument(
+        "-i",
+        "--ids",
+        type=Path,
+        required=True,
+        help="A file containing a list of only valid read ids to filter from inputs",
+    )
+    required_group.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination output filename",
+    )
+
+    content_group = parser.add_argument_group("content settings")
+    content_group.add_argument(
+        "-M",
+        "--missing_ok",
+        action="store_true",
+        help="Allow missing read_ids",
+    )
+    content_group.add_argument(
+        "-D",
+        "--duplicate_ok",
+        action="store_true",
+        help="Allow duplicate read_ids",
+    )
+
+    def run(**kwargs):
+        from pod5.tools.pod5_filter import filter_pod5
+
+        return filter_pod5(**kwargs)
+
+    parser.set_defaults(func=run)
+
+    return parser
+
+
+#
 # Inspect
 #
 def prepare_pod5_inspect_argparser(
@@ -473,75 +542,6 @@ def prepare_pod5_subset_argparser(
         from pod5.tools.pod5_subset import subset_pod5
 
         return subset_pod5(**kwargs)
-
-    parser.set_defaults(func=run)
-
-    return parser
-
-
-#
-# Take
-#
-def prepare_pod5_take_argparser(
-    parent: Optional[argparse._SubParsersAction] = None,
-) -> argparse.ArgumentParser:
-    """Create an argument parser for the pod5 take tool"""
-
-    _desc = "Take a subset of reads using a list of read_ids from one or more inputs"
-    if parent is None:
-        parser = argparse.ArgumentParser(description=_desc)
-    else:
-        parser = parent.add_parser(
-            name="take",
-            description=_desc,
-            epilog="Example: pod5 take inputs.pod5 --ids reads.txt --output take.pod5",
-        )
-
-    # Core arguments
-    parser.add_argument(
-        "inputs", type=Path, nargs="+", help="Pod5 filepaths to use as inputs"
-    )
-    parser.add_argument(
-        "-f",
-        "--force_overwrite",
-        action="store_true",
-        help="Overwrite destination files",
-    )
-
-    required_group = parser.add_argument_group("required arguments")
-    required_group.add_argument(
-        "-i",
-        "--ids",
-        type=Path,
-        required=True,
-        help="A file containing a list of only valid read ids to take from inputs",
-    )
-    required_group.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=True,
-        help="Destination output filename",
-    )
-
-    content_group = parser.add_argument_group("content settings")
-    content_group.add_argument(
-        "-M",
-        "--missing_ok",
-        action="store_true",
-        help="Allow missing read_ids",
-    )
-    content_group.add_argument(
-        "-D",
-        "--duplicate_ok",
-        action="store_true",
-        help="Allow duplicate read_ids",
-    )
-
-    def run(**kwargs):
-        from pod5.tools.pod5_take import take_pod5
-
-        return take_pod5(**kwargs)
 
     parser.set_defaults(func=run)
 

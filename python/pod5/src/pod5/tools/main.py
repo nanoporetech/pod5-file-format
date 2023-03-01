@@ -10,7 +10,7 @@ from pod5.tools.parsers import (
     prepare_pod5_merge_argparser,
     prepare_pod5_repack_argparser,
     prepare_pod5_subset_argparser,
-    prepare_pod5_take_argparser,
+    prepare_pod5_filter_argparser,
     prepare_pod5_update_argparser,
     run_tool,
 )
@@ -49,7 +49,7 @@ def main() -> Any:
     prepare_pod5_merge_argparser(root)
     prepare_pod5_repack_argparser(root)
     prepare_pod5_subset_argparser(root)
-    prepare_pod5_take_argparser(root)
+    prepare_pod5_filter_argparser(root)
     prepare_pod5_update_argparser(root)
 
     # Run the tool

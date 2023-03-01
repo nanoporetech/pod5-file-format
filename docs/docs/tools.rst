@@ -103,11 +103,34 @@ accidentally merging identical reads. To override this check set the argument
     $ pod5 merge *.pod5 -o merged.pod5 --duplicate_ok
 
 
+pod5 filter
+===========
+
+`pod5 filter` is an alternative to `pod5 subset` where reads are subset from
+one or more input `.pod5` files using a list of read ids provided using the `--ids` argument.
+
+An important difference between `pod5 subset` and `pod5 filter` is that `--output`
+specifies a directory in `subset` but a filepath in `filter`. This is because there is
+only one output file in `pod5 filter`.
+
+.. code-block:: console
+
+    pod5 filter example.pod5 --output filtered.pod5 --ids read_ids.txt
+
+The `--ids` filtering text file must be a simple list of valid UUID read_ids with
+one read_id per line. The only valid exceptions are:
+
+- Empty lines
+- Trailing / Leading whitespace
+- Lines beginning with a `#` (hash / pound symbol) to allow for comments
+- The text `read_id` to allow for the header from `pod5 inspect reads`
+
+
 pod5 subset
 ===========
 
 `pod5 subset` is a tool for subsetting reads in `.pod5` files into one or more
-output `.pod5` files. See also `pod5 take`
+output `.pod5` files. See also `pod5 filter`
 
 The `pod5 subset` tool requires a *mapping* which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
@@ -115,8 +138,8 @@ defined in either a `.csv` or `.json` file or by using a `--table` (csv or tsv)
 and instructions on how to interpret it.
 
 `pod5 subset` aims to be a generic tool to subset from multiple inputs to multiple outputs.
-If your use-case is to `take` read_ids from one or more inputs into a single output
-then `pod5 take` might be a more appropriate tool as the only input is a list of read_ids.
+If your use-case is to `filter` read_ids from one or more inputs into a single output
+then `pod5 filter` might be a more appropriate tool as the only input is a list of read_ids.
 
 .. code-block:: console
 
@@ -264,21 +287,6 @@ Miscellaneous
 
 To disable the `tqdm <https://github.com/tqdm/tqdm>`_  progress bar set the environment
 variable `POD5_PBAR=0`.
-
-pod5 take
-=========
-
-`pod5 take` is an alternative to `pod5 subset` where reads are subset from
-one or more input `.pod5` files using a list of read ids provided using the `--ids` argument.
-
-An important difference between `pod5 subset` and `pod5 take` is that `--output`
-specifies a directory in `subset` but a filepath in `take`. This is because there is
-only one output file in `pod5 take`.
-
-.. code-block:: console
-
-    pod5 take example.pod5 --output take.pod5 --ids read_ids.txt
-
 
 pod5 repack
 ===========

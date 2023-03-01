@@ -82,7 +82,8 @@ class TestPod5Tools:
             assert_exit_code(main.main, {}, 0)
 
     @pytest.mark.parametrize(
-        "command", ["convert", "inspect", "merge", "subset", "repack", "update"]
+        "command",
+        ["convert", "inspect", "filter", "merge", "subset", "repack", "update"],
     )
     def test_tool_exists(self, command: str) -> None:
         """Assert that a pod5 tool exists"""
@@ -201,12 +202,12 @@ class TestPod5Tools:
         with patch("argparse._sys.argv", args):
             main.main()
 
-    def test_take_command_runs(self, tmp_path: Path) -> None:
+    def test_filter_command_runs(self, tmp_path: Path) -> None:
         """Assert that typical commands are valid"""
 
         args = [
             "pod5",
-            "take",
+            "filter",
             str(POD5_PATH),
             "--output",
             str(tmp_path / "take.pod5"),

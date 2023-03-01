@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
-- Added `pod5 take` tool to subset pod5 files with simple list of read ids
+- Added `pod5 filter` tool to subset pod5 files with simple list of read ids
 - Reworked `pod5 subset` to give better control over resources used
 - Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
 - `pod5 subset` can now parse csv and tsv tables / summaries

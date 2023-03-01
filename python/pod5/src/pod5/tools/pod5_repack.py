@@ -1,10 +1,9 @@
 """
-Tool for repacking pod5 files into a single output
+Tool for repacking pod5 files to potentially improve performance
 """
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import os
 import sys
-import time
 import typing
 from pathlib import Path
 from tqdm import tqdm
@@ -19,13 +18,10 @@ def repack_pod5_file(src: Path, dest: Path):
     repacker = pod5.repack.Repacker()
     with p5.Reader(src) as reader:
         with p5.Writer(dest) as writer:
-            repacker_output = repacker.add_output(writer)
-
             # Add all reads to the repacker
+            repacker_output = repacker.add_output(writer)
             repacker.add_all_reads_to_output(repacker_output, reader)
-
-    while not repacker.is_complete:
-        time.sleep(0.5)
+            repacker.wait(show_pbar=False, finish=True)
 
 
 def repack_pod5(
@@ -55,11 +51,7 @@ def repack_pod5(
     futures = {}
     with ProcessPoolExecutor(max_workers=threads) as executor:
 
-        pbar = tqdm(
-            total=len(inputs),
-            ascii=True,
-            disable=disable_pbar,
-        )
+        pbar = tqdm(total=len(inputs), ascii=True, disable=disable_pbar, unit="Files")
 
         for src in inputs:
             dest = output / src.name

@@ -3,7 +3,6 @@ Tool for subsetting pod5 files into one or more outputs
 """
 
 import os
-import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from json import load as json_load
@@ -54,6 +53,9 @@ def parse_table_mapping(
     """
     Parse a table using pandas to create a mapping of output targets to read ids
     """
+    if not subset_columns:
+        raise AssertionError("Missing --columns when using --summary / --table")
+
     if not filename_template:
         filename_template = create_default_filename_template(subset_columns)
 
@@ -265,7 +267,7 @@ def calculate_transfers(
 
 
 def launch_subsetting(
-    transfers: Dict[Path, Dict[Path, Set[str]]],
+    transfers: Dict[Path, Dict[Path, Set[str]]], show_pbar: bool = False
 ) -> None:
     """
     Iterate over the transfers one target at a time, opening sources and copying
@@ -282,17 +284,13 @@ def launch_subsetting(
             readers.append(reader)
             repacker.add_selected_reads_to_output(output, reader, read_ids)
 
-        # Sleep to ensure async repacker has started
-        time.sleep(0.5)
         return readers
 
     for (dest, sources) in sorted(transfers.items()):
         repacker = p5_repack.Repacker()
         with p5.Writer(dest) as wrtr:
             readers = add_reads(repacker, wrtr, sources)
-
-            while not repacker.is_complete:
-                time.sleep(0.25)
+            repacker.wait(interval=0.5, show_pbar=show_pbar)
 
             for reader in readers:
                 reader.close()
@@ -348,25 +346,34 @@ def subset_pod5s_with_mapping(
         duplicate_ok=duplicate_ok,
     )
 
+    single_transfer = len(transfers) == 1
     disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
     futures = {}
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
-
         pbar = tqdm(
             total=len(transfers),
             ascii=True,
-            disable=disable_pbar,
+            disable=disable_pbar and single_transfer,
         )
 
+        # Launch the subsetting jobs
         for target in transfers:
             transfer = {target: transfers[target]}
-            futures[executor.submit(launch_subsetting, transfers=transfer)] = target
+            futures[
+                executor.submit(
+                    launch_subsetting, transfers=transfer, show_pbar=single_transfer
+                )
+            ] = target
 
+        # Collect the jobs as soon as they're complete
         for future in as_completed(futures):
             tqdm.write(f"Finished {futures[future]}")
-            pbar.update(1)
+            if not pbar.disable:
+                pbar.update(1)
 
-    pbar.close()
+    if not pbar.disable:
+        pbar.close()
+
     print("Done")
 
     return list(transfers.keys())
