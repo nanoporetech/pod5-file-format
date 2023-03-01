@@ -6,3 +6,6 @@ dist/
 venv/
 docs/public/
 .tmp_pod5*
+_version.py
+*egg-info/
+POD5Version.cmake

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 61.0", "wheel"]
+requires = ["setuptools >= 61.0", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 
@@ -8,7 +8,7 @@ name = "pod5"
 authors = [{name="Oxford Nanopore Technologies, Limited", email="support@nanoporetech.com"}]
 readme = "README.md"
 requires-python = "~= 3.7"
-version="0.1.8"
+dynamic = ["version"]
 description="Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
 
 keywords = ['nanopore']
@@ -26,7 +26,7 @@ classifiers=[
 dependencies = [
     "iso8601",
     "jsonschema",
-    "lib_pod5 ~= 0.1.8",
+    "lib_pod5 ~= 0.1",
     "more_itertools",
     "numpy >= 1.20.0",
     "pyarrow ~= 8.0.0",
@@ -57,6 +57,9 @@ pod5 = "pod5.tools.main:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["test*"]
+
+[tool.setuptools_scm]
+root = "../.."
 
 [tool.black]
 target-version = ["py37"]
