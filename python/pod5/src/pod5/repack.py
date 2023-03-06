@@ -11,7 +11,7 @@ import pod5 as p5
 from tqdm import tqdm
 
 # The default interval in seconds to check for completion
-DEFAULT_INTERVAL = 1
+DEFAULT_INTERVAL = 0.5
 
 
 class Repacker:
