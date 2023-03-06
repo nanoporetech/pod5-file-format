@@ -364,6 +364,13 @@ def prepare_pod5_merge_argparser(
         help="Output filepath",
     )
     parser.add_argument(
+        "-c",
+        "--chunk_size",
+        type=int,
+        default=100,
+        help="The number of files to merge in one chunk [100]",
+    )
+    parser.add_argument(
         "-f",
         "--force_overwrite",
         action="store_true",

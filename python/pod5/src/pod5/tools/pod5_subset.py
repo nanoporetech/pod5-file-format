@@ -290,7 +290,7 @@ def launch_subsetting(
         repacker = p5_repack.Repacker()
         with p5.Writer(dest) as wrtr:
             readers = add_reads(repacker, wrtr, sources)
-            repacker.wait(interval=0.5, show_pbar=show_pbar)
+            repacker.wait(interval=0.25, show_pbar=show_pbar)
 
             for reader in readers:
                 reader.close()

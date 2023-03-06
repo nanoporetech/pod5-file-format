@@ -164,10 +164,6 @@ class Repacker:
             unit="Reads",
         )
 
-        # Sleep a short time to ensure the repacker has started. This issue is being
-        # invesigated
-        time.sleep(1.0)
-
         last_time, last_bytes, last_reads = time.time(), 0, 0
         while not self.is_complete:
             time.sleep(interval)
