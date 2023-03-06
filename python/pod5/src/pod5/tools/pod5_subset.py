@@ -347,13 +347,15 @@ def subset_pod5s_with_mapping(
     )
 
     single_transfer = len(transfers) == 1
+
     disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
     futures = {}
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
         pbar = tqdm(
             total=len(transfers),
             ascii=True,
-            disable=disable_pbar and single_transfer,
+            disable=(disable_pbar or single_transfer),
+            unit="Files",
         )
 
         # Launch the subsetting jobs

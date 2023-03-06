@@ -2,6 +2,7 @@
 Tool for merging pod5 files
 """
 
+import os
 import typing
 from pathlib import Path
 from more_itertools import chunked
@@ -9,6 +10,7 @@ from more_itertools import chunked
 import pod5 as p5
 import pod5.repack as p5_repack
 from pod5.tools.parsers import prepare_pod5_merge_argparser, run_tool
+from tqdm import tqdm
 
 # Default number of files to merge at a time
 DEFAULT_CHUNK_SIZE = 100
@@ -68,9 +70,21 @@ def merge_pod5(
         repacker_output = repacker.add_output(writer)
 
         inputs = list(inputs)
-        chunks = list(chunked(inputs, 100))
+        chunks = list(chunked(inputs, chunk_size))
+
         if len(chunks) > 1:
-            print(f"{len(inputs)} input files will be merged in {len(chunks)} chunks")
+            print(
+                f"{len(inputs)} input files will be merged in {len(chunks)} chunks "
+                f"of {chunk_size} files per chunk"
+            )
+
+        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
+        pbar = tqdm(
+            total=len(inputs),
+            ascii=True,
+            disable=disable_pbar or len(chunks) == 1,
+            unit="Files",
+        )
 
         for chunk in chunks:
             # Submit each reader handle to the repacker
@@ -79,11 +93,13 @@ def merge_pod5(
                 repacker.add_all_reads_to_output(repacker_output, reader)
 
             # blocking wait for the repacker to complete merging inputs
-            repacker.wait(finish=False)
+            repacker.wait(finish=False, show_pbar=len(chunks) == 1, leave_pbar=True)
 
             # Close all the input handles
             for reader in readers:
                 reader.close()
+
+            pbar.update(len(chunk))
 
         repacker.finish()
     return

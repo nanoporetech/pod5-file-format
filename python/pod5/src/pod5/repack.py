@@ -137,9 +137,10 @@ class Repacker:
 
     def wait(
         self,
+        finish: bool = True,
         interval: float = DEFAULT_INTERVAL,
         show_pbar: bool = True,
-        finish: bool = True,
+        leave_pbar: bool = False,
     ) -> None:
         """
         Wait for the repacker (blocking) until it is done by checking is_complete every
@@ -147,20 +148,22 @@ class Repacker:
 
         Parameters
         ----------
+        finish : bool
+            Flag to toggle an optional final call to :py:meth:`finish` to
+            close the repacker and free resources
         interval : float
             The interval (in seconds) between checks to :py:meth:`is_complete`
         show_pbar : bool
             Flag to toggle showing the progress bar combined with POD5_PBAR
-        finish : bool
-            Flag to toggle an optional final call to :py:meth:`finish` to
-            close the repacker and free resources
+        leave_pbar : bool
+            Flag to toggle if the progress bar should not be cleared after use
         """
-        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1))) and show_pbar
+        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1))) or not show_pbar
         pbar = tqdm(
             total=self.reads_requested,
             ascii=True,
             disable=disable_pbar,
-            leave=False,
+            leave=leave_pbar,
             unit="Reads",
         )
 
@@ -178,18 +181,18 @@ class Repacker:
 
             # Compute write rate and completion percentage
             mb_per_sec = bytes_delta / (time_delta * 1e6)
-            pbar.set_description(f"{mb_per_sec:.2} MB/s")
+            pbar.set_description(f"{mb_per_sec:.2f} MB/s")
 
             # Update pbar - total / reads_requested might change if user adds more
             pbar.total = self.reads_requested
             pbar.update(self.reads_completed - last_reads)
             last_reads = self.reads_completed
-            tqdm.write(f"{self.reads_completed} , {self.reads_requested}")
-
-        pbar.close()
+            # tqdm.write(f"{self.reads_completed} , {self.reads_requested}")
 
         if finish:
             self.finish()
+
+        pbar.close()
 
     def finish(self) -> None:
         """
