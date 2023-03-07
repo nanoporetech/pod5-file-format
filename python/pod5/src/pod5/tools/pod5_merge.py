@@ -72,12 +72,6 @@ def merge_pod5(
         inputs = list(inputs)
         chunks = list(chunked(inputs, chunk_size))
 
-        if len(chunks) > 1:
-            print(
-                f"{len(inputs)} input files will be merged in {len(chunks)} chunks "
-                f"of {chunk_size} files per chunk"
-            )
-
         disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         pbar = tqdm(
             total=len(inputs),
