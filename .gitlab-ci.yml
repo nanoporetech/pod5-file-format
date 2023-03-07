@@ -71,6 +71,7 @@ prepare_version:
   stage: .pre
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
   script:
+    - git tag -d $(git tag -l "*.dev*")
     - pip install --upgrade pip setuptools_scm
     - python -m setuptools_scm
     - cat _version.py
@@ -346,6 +347,7 @@ build-python-api:
   tags:
     - linux
   script:
+    - git tag -d $(git tag -l "*.dev*")
     - cat _version.py
     - cd python/pod5/
     - pip install -U pip build
