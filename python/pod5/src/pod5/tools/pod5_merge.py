@@ -2,12 +2,18 @@
 Tool for merging pod5 files
 """
 
+import os
 import typing
 from pathlib import Path
+from more_itertools import chunked
 
 import pod5 as p5
 import pod5.repack as p5_repack
 from pod5.tools.parsers import prepare_pod5_merge_argparser, run_tool
+from tqdm import tqdm
+
+# Default number of files to merge at a time
+DEFAULT_CHUNK_SIZE = 100
 
 
 def assert_no_duplicate_reads(paths: typing.Iterable[Path]) -> None:
@@ -28,6 +34,7 @@ def assert_no_duplicate_reads(paths: typing.Iterable[Path]) -> None:
 def merge_pod5(
     inputs: typing.Iterable[Path],
     output: Path,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
     duplicate_ok: bool = False,
     force_overwrite: bool = False,
 ) -> None:
@@ -62,20 +69,33 @@ def merge_pod5(
         repacker = p5_repack.Repacker()
         repacker_output = repacker.add_output(writer)
 
-        # Iterate over all input files opening a reader handle
-        readers = [p5.Reader(path) for path in inputs]
+        inputs = list(inputs)
+        chunks = list(chunked(inputs, chunk_size))
 
-        # Submit each reader handle to the repacker
-        for reader in readers:
-            repacker.add_all_reads_to_output(repacker_output, reader)
+        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
+        pbar = tqdm(
+            total=len(inputs),
+            ascii=True,
+            disable=disable_pbar or len(chunks) == 1,
+            unit="Files",
+        )
 
-        # blocking wait for the repacker to complete merging inputs
-        repacker.wait()
+        for chunk in chunks:
+            # Submit each reader handle to the repacker
+            readers = [p5.Reader(path) for path in chunk]
+            for reader in readers:
+                repacker.add_all_reads_to_output(repacker_output, reader)
 
-        # Close all the input handles
-        for reader in readers:
-            reader.close()
+            # blocking wait for the repacker to complete merging inputs
+            repacker.wait(finish=False, show_pbar=len(chunks) == 1, leave_pbar=True)
 
+            # Close all the input handles
+            for reader in readers:
+                reader.close()
+
+            pbar.update(len(chunk))
+
+        repacker.finish()
     return
 
 

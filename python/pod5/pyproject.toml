@@ -35,6 +35,7 @@ dependencies = [
     "pandas",
     "h5py==v3.7.0",
     "vbz_h5py_plugin",
+    "tqdm"
 ]
 
 [project.optional-dependencies]
@@ -62,6 +63,3 @@ root = "../.."
 
 [tool.black]
 target-version = ["py37"]
-
-[tool.isort]
-profile = "black"

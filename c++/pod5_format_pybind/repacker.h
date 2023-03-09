@@ -364,6 +364,8 @@ public:
     boost::optional<AddReadBatchToOutput> pop_pending_read()
     {
         assert(m_queued_reads > 0);
+        m_queued_reads -= 1;
+
         boost::optional<AddReadBatchToOutput> task;
         auto pending_batch_reads = m_pending_batch_reads.synchronize();
         if (!pending_batch_reads->size()) {
@@ -372,7 +374,6 @@ public:
         task = pending_batch_reads->front();
         pending_batch_reads->pop_front();
 
-        m_queued_reads -= 1;
         return task;
     }
 

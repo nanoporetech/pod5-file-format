@@ -203,6 +203,75 @@ def prepare_pod5_convert(parent: argparse._SubParsersAction) -> argparse.Argumen
 
 
 #
+# Filter
+#
+def prepare_pod5_filter_argparser(
+    parent: Optional[argparse._SubParsersAction] = None,
+) -> argparse.ArgumentParser:
+    """Create an argument parser for the pod5 filter tool"""
+
+    _desc = "Take a subset of reads using a list of read_ids from one or more inputs"
+    if parent is None:
+        parser = argparse.ArgumentParser(description=_desc)
+    else:
+        parser = parent.add_parser(
+            name="filter",
+            description=_desc,
+            epilog="Example: pod5 filter inputs*.pod5 --ids read_ids.txt --output filtered.pod5",
+        )
+
+    # Core arguments
+    parser.add_argument(
+        "inputs", type=Path, nargs="+", help="Pod5 filepaths to use as inputs"
+    )
+    parser.add_argument(
+        "-f",
+        "--force_overwrite",
+        action="store_true",
+        help="Overwrite destination files",
+    )
+
+    required_group = parser.add_argument_group("required arguments")
+    required_group.add_argument(
+        "-i",
+        "--ids",
+        type=Path,
+        required=True,
+        help="A file containing a list of only valid read ids to filter from inputs",
+    )
+    required_group.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Destination output filename",
+    )
+
+    content_group = parser.add_argument_group("content settings")
+    content_group.add_argument(
+        "-M",
+        "--missing_ok",
+        action="store_true",
+        help="Allow missing read_ids",
+    )
+    content_group.add_argument(
+        "-D",
+        "--duplicate_ok",
+        action="store_true",
+        help="Allow duplicate read_ids",
+    )
+
+    def run(**kwargs):
+        from pod5.tools.pod5_filter import filter_pod5
+
+        return filter_pod5(**kwargs)
+
+    parser.set_defaults(func=run)
+
+    return parser
+
+
+#
 # Inspect
 #
 def prepare_pod5_inspect_argparser(
@@ -295,6 +364,13 @@ def prepare_pod5_merge_argparser(
         help="Output filepath",
     )
     parser.add_argument(
+        "-c",
+        "--chunk_size",
+        type=int,
+        default=100,
+        help="The number of files to merge in one chunk [100]",
+    )
+    parser.add_argument(
         "-f",
         "--force_overwrite",
         action="store_true",
@@ -338,6 +414,9 @@ def prepare_pod5_repack_argparser(
         "inputs", type=Path, nargs="+", help="Input pod5 file(s) to repack"
     )
     parser.add_argument("output", type=Path, help="Output path for pod5 files")
+    parser.add_argument(
+        "-t", "--threads", type=int, default=1, help="Number of repacking workers [1]"
+    )
 
     parser.add_argument(
         "--force-overwrite", action="store_true", help="Overwrite destination files"
@@ -391,6 +470,13 @@ def prepare_pod5_subset_argparser(
         action="store_true",
         help="Overwrite destination files",
     )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=1,
+        help="Number of subsetting workers [1]",
+    )
 
     mapping_group = parser.add_argument_group("direct mapping")
     mapping_exclusive = mapping_group.add_mutually_exclusive_group(required=False)
@@ -402,25 +488,33 @@ def prepare_pod5_subset_argparser(
     mapping_exclusive.add_argument(
         "--json", type=Path, help="JSON mapping output filename to array of read ids."
     )
-    summary_group = parser.add_argument_group("sequencing summary mapping")
-    summary_group.add_argument(
-        "-s", "--summary", type=Path, help="Sequencing summary path"
+
+    table_group = parser.add_argument_group("table mapping")
+
+    # Allow --summary or --table
+    table_group.add_argument(
+        "-s",
+        "--summary",
+        "--table",
+        type=Path,
+        help="Table filepath (csv or tsv)",
+        dest="table",
     )
-    summary_group.add_argument(
+    table_group.add_argument(
         "-r",
         "--read_id_column",
         type=str,
         default="read_id",
         help="Name of the read_id column in the summary. ['read_id']",
     )
-    summary_group.add_argument(
+    table_group.add_argument(
         "-c",
         "--columns",
         type=str,
         nargs="+",
         help="Names of --summary columns to subset on",
     )
-    summary_group.add_argument(
+    table_group.add_argument(
         "--template",
         type=str,
         default=None,
@@ -428,7 +522,7 @@ def prepare_pod5_subset_argparser(
         '(e.g. "mux-{mux}_barcode-{barcode}.pod5"). '
         "default is to concatenate all columns to values as shown in the example.",
     )
-    summary_group.add_argument(
+    table_group.add_argument(
         "-T",
         "--ignore_incomplete_template",
         action="store_true",

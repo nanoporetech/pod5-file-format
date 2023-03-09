@@ -1,15 +1,17 @@
 """
 Tools to assist repacking pod5 data into other pod5 files
 """
+import os
 import time
 from typing import Collection
 
 import lib_pod5 as p5b
 
 import pod5 as p5
+from tqdm import tqdm
 
 # The default interval in seconds to check for completion
-DEFAULT_INTERVAL = 15
+DEFAULT_INTERVAL = 0.5
 
 
 class Repacker:
@@ -17,6 +19,7 @@ class Repacker:
 
     def __init__(self):
         self._repacker = p5b.Repacker()
+        self._reads_requested = 0
 
     @property
     def is_complete(self) -> bool:
@@ -42,6 +45,11 @@ class Repacker:
     def reads_completed(self) -> int:
         """Find the number of reads written to files"""
         return self._repacker.reads_completed
+
+    @property
+    def reads_requested(self) -> int:
+        """Find the number of requested reads to be written"""
+        return self._reads_requested
 
     @property
     def pending_batch_writes(self) -> int:
@@ -105,6 +113,7 @@ class Repacker:
                 "requested reads in the source file"
             )
 
+        self._reads_requested += successful_finds
         self._repacker.add_selected_reads_to_output(
             output_ref, reader.inner_file_reader, per_batch_counts, all_batch_rows
         )
@@ -123,65 +132,67 @@ class Repacker:
         reader : :py:class:`Reader`
             The Pod5 file reader to copy reads from
         """
+        self._reads_requested += reader.num_reads
         self._repacker.add_all_reads_to_output(output_ref, reader.inner_file_reader)
 
     def wait(
         self,
-        interval: float = DEFAULT_INTERVAL,
-        status_updates: bool = True,
         finish: bool = True,
+        interval: float = DEFAULT_INTERVAL,
+        show_pbar: bool = True,
+        leave_pbar: bool = False,
     ) -> None:
         """
         Wait for the repacker (blocking) until it is done by checking is_complete every
-        interval seconds. Optionally report status updates to stdout and call
-        finish when done.
+        interval seconds. Optionally show a progress bar for updates.
 
         Parameters
         ----------
-        interval : float
-            The interval (in seconds) between checks to :py:meth:`is_complete`
-        status_updates : bool
-            Flag to toggle printed status updates which are generated every "interval"
         finish : bool
             Flag to toggle an optional final call to :py:meth:`finish` to
             close the repacker and free resources
+        interval : float
+            The interval (in seconds) between checks to :py:meth:`is_complete`
+        show_pbar : bool
+            Flag to toggle showing the progress bar combined with POD5_PBAR
+        leave_pbar : bool
+            Flag to toggle if the progress bar should not be cleared after use
         """
-        if interval <= 0:
-            print(f"Invalid interval {interval}sec. Using {DEFAULT_INTERVAL}sec")
-            interval = DEFAULT_INTERVAL
+        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1))) or not show_pbar
+        pbar = tqdm(
+            total=self.reads_requested,
+            ascii=True,
+            disable=disable_pbar,
+            leave=leave_pbar,
+            unit="Reads",
+        )
 
-        last_time = time.time()
-        last_bytes_complete = 0
-
+        last_time, last_bytes, last_reads = time.time(), 0, 0
         while not self.is_complete:
             time.sleep(interval)
 
-            if not status_updates:
-                continue
-
             # Compute the bytes completed since last check
             bytes_completed = self.reads_sample_bytes_completed
-            bytes_delta = bytes_completed - last_bytes_complete
-            last_bytes_complete = bytes_completed
+            bytes_delta, last_bytes = bytes_completed - last_bytes, bytes_completed
 
             # Update the time stamp
             time_now = time.time()
-            time_delta = time_now - last_time
-            last_time = time_now
+            time_delta, last_time = time_now - last_time, time_now
 
             # Compute write rate and completion percentage
-            mb_per_sec = (bytes_delta / (1000 * 1000)) / time_delta
-            pct_complete = 100 * (self.batches_completed / self.batches_requested)
+            mb_per_sec = bytes_delta / (time_delta * 1e6)
+            pbar.set_description(f"{mb_per_sec:.2f} MB/s")
 
-            print(
-                f"{pct_complete:.1f} % complete, " f"{mb_per_sec:.1f} MB/s. ",
-                f"Batches complete: {self.batches_completed}, "
-                f"requested: {self.batches_requested}, "
-                f"pending: {self.pending_batch_writes}, ",
-            )
+            # Update pbar - total / reads_requested might change if user adds more
+            pbar.total = self.reads_requested
+            pbar.update(self.reads_completed - last_reads)
+            last_reads = self.reads_completed
+            # tqdm.write(f"{self.reads_completed} , {self.reads_requested}")
 
         if finish:
             self.finish()
+
+        pbar.close()
 
     def finish(self) -> None:
         """

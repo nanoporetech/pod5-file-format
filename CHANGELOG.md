@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.9] 2023-03-07
 - Versioning now controlled by VCS inspection using `setuptools_scm`
 - Added version attributes to `lib-pod5`
+- Added `pod5 filter` tool to subset pod5 files with simple list of read ids
+- Reworked `pod5 subset` to give better control over resources used
+- Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
+- `pod5 subset` can now parse csv and tsv tables / summaries
+- Removed filepath header line from `pod5 inspect reads`
+- `pod5 repack` now repacks all inputs one-to-one
+
 
 ## [0.1.8] 2023-02-23
 - Update to zlib 1.2.13
