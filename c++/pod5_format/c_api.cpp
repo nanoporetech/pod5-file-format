@@ -272,6 +272,49 @@ pod5_error_t pod5_get_file_run_info_table_location(
     return POD5_OK;
 }
 
+pod5_error_t pod5_get_read_count(Pod5FileReader_t * reader, size_t * count)
+{
+    pod5_reset_error();
+
+    if (!check_file_not_null(reader) || !check_output_pointer_not_null(count)) {
+        return g_pod5_error_no;
+    }
+
+    POD5_C_ASSIGN_OR_RAISE(*count, reader->reader->read_count());
+
+    return POD5_OK;
+}
+
+pod5_error_t pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_t * read_ids)
+{
+    pod5_reset_error();
+
+    if (!check_file_not_null(reader) || !check_output_pointer_not_null(read_ids)) {
+        return g_pod5_error_no;
+    }
+
+    POD5_C_ASSIGN_OR_RAISE(auto read_count, reader->reader->read_count());
+    if (count < read_count) {
+        pod5_set_error(arrow::Status::Invalid("array to short to receive read ids"));
+        return g_pod5_error_no;
+    }
+
+    std::size_t count_so_far = 0;
+    for (std::size_t i = 0; i < reader->reader->num_read_record_batches(); ++i) {
+        POD5_C_ASSIGN_OR_RAISE(auto const batch, reader->reader->read_read_record_batch(i));
+
+        auto const read_id_column = batch.read_id_column();
+        auto raw_data = reinterpret_cast<uint8_t const *>(read_id_column->raw_values());
+        std::copy(
+            raw_data,
+            raw_data + (read_id_column->length() * sizeof(read_id_t)),
+            reinterpret_cast<uint8_t *>(read_ids + count_so_far));
+        count_so_far += read_id_column->length();
+    }
+
+    return POD5_OK;
+}
+
 pod5_error_t pod5_plan_traversal(
     Pod5FileReader_t * reader,
     uint8_t const * read_id_array,
@@ -549,7 +592,25 @@ pod5_get_run_info(Pod5ReadRecordBatch * batch, int16_t run_info, RunInfoDictData
     return POD5_OK;
 }
 
-POD5_FORMAT_EXPORT pod5_error_t pod5_release_run_info(RunInfoDictData * run_info_data)
+pod5_error_t pod5_get_file_run_info(
+    Pod5FileReader_t * file,
+    int16_t run_info_index,
+    RunInfoDictData_t ** run_info_data)
+{
+    pod5_reset_error();
+
+    if (!check_not_null(file) || !check_output_pointer_not_null(run_info_data)) {
+        return g_pod5_error_no;
+    }
+
+    POD5_C_ASSIGN_OR_RAISE(auto internal_data, file->reader->get_run_info(run_info_index));
+
+    auto data = std::make_unique<RunInfoDataCHelper>(std::move(internal_data));
+    *run_info_data = data.release();
+    return POD5_OK;
+}
+
+pod5_error_t pod5_free_run_info(RunInfoDictData_t * run_info_data)
 {
     pod5_reset_error();
 
@@ -559,6 +620,24 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_release_run_info(RunInfoDictData * run_info
 
     std::unique_ptr<RunInfoDataCHelper> helper(static_cast<RunInfoDataCHelper *>(run_info_data));
     helper.reset();
+
+    return POD5_OK;
+}
+
+pod5_error_t pod5_release_run_info(RunInfoDictData * run_info_data)
+{
+    return pod5_free_run_info(run_info_data);
+}
+
+pod5_error_t pod5_get_file_run_info_count(Pod5FileReader_t * file, size_t * run_info_count)
+{
+    pod5_reset_error();
+
+    if (!check_not_null(file)) {
+        return g_pod5_error_no;
+    }
+
+    POD5_C_ASSIGN_OR_RAISE(*run_info_count, file->reader->get_run_info_count());
 
     return POD5_OK;
 }

@@ -5,6 +5,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef _WIN32
+#define POD5_DEPRECATED __attribute__((deprecated))
+#else
+#define POD5_DEPRECATED
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -239,6 +245,18 @@ pod5_get_file_signal_table_location(Pod5FileReader_t * reader, EmbeddedFileData_
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_file_run_info_table_location(Pod5FileReader_t * reader, EmbeddedFileData_t * file_data);
 
+/// \brief Find the number of reads in the file.
+/// \param      reader  The file reader to read from
+/// \param[out] count   The number of reads in the file
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_count(Pod5FileReader_t * reader, size_t * count);
+
+/// \brief Find the number of reads in the file.
+/// \param        reader        The file reader to read from.
+/// \param        count         The number of read_id's allocated in [read_ids], an error is raised if the count is not greater or equal to pod5_get_read_count.
+/// \param[out]   read_ids      The read id's written in a contiguous array.
+POD5_FORMAT_EXPORT pod5_error_t
+pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_t * read_ids);
+
 /// \brief Plan the most efficient route through the data for the given read ids
 /// \param      file                The file to be queried.
 /// \param      read_id_array       The read id array (contiguous array, 16 bytes per id).
@@ -366,14 +384,35 @@ typedef struct RunInfoDictData RunInfoDictData_t;
 /// \param      batch               The read batch to query.
 /// \param      run_info            The run info index to query from the passed batch.
 /// \param[out] run_info_data       Output location for the run info data.
-/// \note The returned end_reason value should be released using pod5_release_calibration when it is no longer used.
+/// \note The returned run_info value should be released using pod5_free_run_info when it is no longer used.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_run_info(
     Pod5ReadRecordBatch_t * batch,
     int16_t run_info,
     RunInfoDictData_t ** run_info_data);
 
+/// \brief Find the run info for a row in a file.
+/// \param      file                The file to query.
+/// \param      run_info_index      The run info index to query from the passed file.
+/// \param[out] run_info_data       Output location for the run info data.
+/// \note The returned run_info value should be released using pod5_free_run_info when it is no longer used.
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_run_info(
+    Pod5FileReader_t * file,
+    int16_t run_info_index,
+    RunInfoDictData_t ** run_info_data);
+
 /// \brief Release a RunInfoDictData struct after use.
-POD5_FORMAT_EXPORT pod5_error_t pod5_release_run_info(RunInfoDictData_t * run_info_data);
+POD5_FORMAT_EXPORT pod5_error_t pod5_free_run_info(RunInfoDictData_t * run_info_data);
+
+/// \brief Release a RunInfoDictData struct after use.
+/// \deprecated
+POD5_FORMAT_EXPORT POD5_DEPRECATED pod5_error_t
+pod5_release_run_info(RunInfoDictData_t * run_info_data);
+
+/// \brief Find the run info for a row in a read file.
+/// \param      file                The file to query.
+/// \param[out] run_info_count      The number of run info's that are present in they queried file
+POD5_FORMAT_EXPORT pod5_error_t
+pod5_get_file_run_info_count(Pod5FileReader_t * file, size_t * run_info_count);
 
 /// \brief Find the end reason for a row in a read batch.
 /// \param        batch                           The read batch to query.
