@@ -194,7 +194,6 @@ def inspect_pod5(command: str, input_files: List[Path], **kwargs):
     }
 
     for filename in input_files:
-        print(f"File: {filename}")
         try:
             reader = p5.Reader(filename)
         except Exception as exc:

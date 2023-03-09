@@ -103,17 +103,43 @@ accidentally merging identical reads. To override this check set the argument
     $ pod5 merge *.pod5 -o merged.pod5 --duplicate_ok
 
 
+pod5 filter
+===========
+
+`pod5 filter` is an alternative to `pod5 subset` where reads are subset from
+one or more input `.pod5` files using a list of read ids provided using the `--ids` argument.
+
+An important difference between `pod5 subset` and `pod5 filter` is that `--output`
+specifies a directory in `subset` but a filepath in `filter`. This is because there is
+only one output file in `pod5 filter`.
+
+.. code-block:: console
+
+    pod5 filter example.pod5 --output filtered.pod5 --ids read_ids.txt
+
+The `--ids` filtering text file must be a simple list of valid UUID read_ids with
+one read_id per line. The only valid exceptions are:
+
+- Empty lines
+- Trailing / Leading whitespace
+- Lines beginning with a `#` (hash / pound symbol) to allow for comments
+- The text `read_id` to allow for the header from `pod5 inspect reads`
+
+
 pod5 subset
 ===========
 
-`pod5 subset` is a tool for separating the reads in `.pod5` files into one or more
-output files. This tool can be used to create new `.pod5` files which contain a
-user-defined subset of reads from the input.
+`pod5 subset` is a tool for subsetting reads in `.pod5` files into one or more
+output `.pod5` files. See also `pod5 filter`
 
-The `pod5 subset` tool requires a mapping which defines which read_ids should be
+The `pod5 subset` tool requires a *mapping* which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
-defined in either a `.csv` or `.json` file or by using a tab-separated table
-(e.g. basecaller sequencing summary) and instructions on how to interpret it.
+defined in either a `.csv` or `.json` file or by using a `--table` (csv or tsv)
+and instructions on how to interpret it.
+
+`pod5 subset` aims to be a generic tool to subset from multiple inputs to multiple outputs.
+If your use-case is to `filter` read_ids from one or more inputs into a single output
+then `pod5 filter` might be a more appropriate tool as the only input is a list of read_ids.
 
 .. code-block:: console
 
@@ -125,12 +151,14 @@ defined in either a `.csv` or `.json` file or by using a tab-separated table
     $ pod5 subset examples_*.pod5 --json mapping.json
 
     # Subset input(s) using a dynamic mapping created at runtime
-    $ pod5 subset example_1.pod5 --summary summary.txt --subset_columns barcode alignment_genome
+    $ pod5 subset example_1.pod5 --table table.txt --columns barcode
 
 .. important::
 
     Care should be taken to ensure that when providing multiple input `.pod5` files to `pod5 subset`
-    that there are no read_id UUID clashes. If this occurs both reads are written to the output.
+    that there are no read_id UUID clashes. If a duplicate read_id is detected an exception
+    will be raised unless the `--duplicate_ok` argument is set. If `--duplicate_ok` is
+    set then both reads will be written to the output, although this is not recommended.
 
 Creating a Subset Mapping
 ------------------------------
@@ -141,7 +169,8 @@ of read_ids which will be written to the destination.
 Subset Mapping (.csv)
 +++++++++++++++++++++++
 
-In the example below of a `.csv` subset mapping, note that the output filename can be specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
+The example below shows a `.csv` subset mapping. Note that the output filename can be
+specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
 
 .. code-block:: text
 
@@ -171,23 +200,19 @@ of read_id strings.
         ]
     }
 
-Subset Mapping from Summary
+Subset Mapping from Table
 ++++++++++++++++++++++++++++++++
 
 `pod5 subset` can dynamically generate output targets and collect associated reads
-based on a tab-separated file (e.g. sequencing summary) which contains a header row
-and a series of columns on which to group unique collections of values. Internally
-this process uses the `pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_
+based on a text file containing a table (csv or tsv) parsible by `pandas`.
+This table file could be the output from `pod5 inspect reads` or from a sequencing summary.
+The table must contain a header row and a series of columns on which to group unique
+collections of values. Internally this process uses the
+`pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_
 function where the `by` parameter is the sequence of column names specified with
 the `--columns` argument.
 
-.. warning::
-
-    The column names specified in `--columns` should be **categorical** in nature.
-    There may be an excessive number of output files if a continuous variable
-    is used for subsetting.
-
-Given the following example summary file, observe the resultant outputs given various
+Given the following example `--table` file, observe the resultant outputs given various
 arguments:
 
 .. code-block:: text
@@ -200,18 +225,18 @@ arguments:
 
 .. code-block:: console
 
-    $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
+    $ pod5 subset example_1.pod5 --output barcode_subset --table table.txt --columns barcode
     $ ls barcode_subset
     barcode-barcode_a.pod5     # Contains: read_a
     barcode-barcode_b.pod5     # Contains: read_b, read_c
     barcode-barcode_c.pod5     # Contains: read_d
 
-    $ pod5 subset example_1.pod5 --output mux_subset --summary summary.txt --columns mux
+    $ pod5 subset example_1.pod5 --output mux_subset --table table.txt --columns mux
     $ ls mux_subset
     mux-1.pod5     # Contains: read_a, read_b
     mus-2.pod5     # Contains: read_c, read_d
 
-    $ pod5 subset example_1.pod5 --output barcode_mux_subset --summary summary.txt --columns barcode mux
+    $ pod5 subset example_1.pod5 --output barcode_mux_subset --table table.txt --columns barcode mux
     $ ls barcode_mux_subset
     barcode-barcode_a_mux-1.pod5    # Contains: read_a
     barcode-barcode_b_mux-1.pod5    # Contains: read_b
@@ -219,9 +244,9 @@ arguments:
     barcode-barcode_c_mux-2.pod5    # Contains: read_d
 
 Output Filename Templating
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When subsetting using a summary the output filename is generated from a template
+When subsetting using a table the output filename is generated from a template
 string. The automatically generated template is the sequential concatenation of
 `column_name-column_value` followed by the `.pod5` file extension.
 
@@ -233,17 +258,35 @@ Keywords should be placed within curly-braces. For example:
 .. code-block:: console
 
     # default template used = "barcode-{barcode}.pod5"
-    $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
+    $ pod5 subset example_1.pod5 --output barcode_subset --table table.txt --columns barcode
 
     # default template used = "barcode-{barcode}_mux-{mux}.pod5"
-    $ pod5 subset example_1.pod5 --output barcode_mux_subset --summary summary.txt --columns barcode mux
+    $ pod5 subset example_1.pod5 --output barcode_mux_subset --table table.txt --columns barcode mux
 
-    $ pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode --template "{barcode}.subset.pod5"
+    $ pod5 subset example_1.pod5 --output barcode_subset --table table.txt --columns barcode --template "{barcode}.subset.pod5"
     $ ls barcode_subset
     barcode_a.subset.pod5    # Contains: read_a
     barcode_b.subset.pod5    # Contains: read_b, read_c
     barcode_c.subset.pod5    # Contains: read_d
 
+Example subsetting from `pod5 inspect reads`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `pod5 inspect reads` tool will output a csv table summarising the content of the
+specified `.pod5` file which can be used for subsetting. The example below shows
+how to split a `.pod5` file by the well field.
+
+.. code-block:: console
+
+    # Create the csv table from inspect reads, skipping the first line (File: ...)
+    $ pod5 inspect reads example.pod5 | awk 'NR>1' > table.csv
+    $ pod5 subset example.pod5 --table table.csv --columns well
+
+Miscellaneous
+~~~~~~~~~~~~~~
+
+To disable the `tqdm <https://github.com/tqdm/tqdm>`_  progress bar set the environment
+variable `POD5_PBAR=0`.
 
 pod5 repack
 ===========
