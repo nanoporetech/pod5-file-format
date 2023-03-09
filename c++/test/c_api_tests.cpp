@@ -13,7 +13,29 @@
 #include <iostream>
 #include <numeric>
 
-SCENARIO("C API")
+struct Pod5ReadId {
+    Pod5ReadId() = default;
+
+    Pod5ReadId(boost::uuids::uuid uid)
+    {
+        std::copy((uint8_t *)uid.begin(), (uint8_t *)uid.end(), read_id);
+    }
+
+    boost::uuids::uuid as_uuid() const
+    {
+        boost::uuids::uuid uid;
+        std::copy(read_id, read_id + sizeof(read_id), (uint8_t *)uid.begin());
+        return uid;
+    }
+
+    bool operator==(Pod5ReadId const & other) const { return as_uuid() == other.as_uuid(); }
+
+    read_id_t read_id;
+};
+
+std::ostream & operator<<(std::ostream & str, Pod5ReadId rid) { return str << rid.as_uuid(); }
+
+SCENARIO("C API Reads")
 {
     static constexpr char const * filename = "./foo_c_api.pod5";
 
@@ -22,6 +44,7 @@ SCENARIO("C API")
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
     auto input_read_id = uuid_gen();
+    auto input_read_id_2 = uuid_gen();
     std::vector<int16_t> signal_1(10);
     std::iota(signal_1.begin(), signal_1.end(), -20000);
 
@@ -156,6 +179,9 @@ SCENARIO("C API")
 
             std::size_t signal_counts = 1;
 
+            auto read_id_array = (read_id_t const *)input_read_id_2.begin();
+            row_data.read_id = read_id_array;
+
             CHECK(
                 pod5_add_reads_data_pre_compressed(
                     file,
@@ -196,6 +222,16 @@ SCENARIO("C API")
                 file_identifier.begin());
             CHECK(file_identifier == (*reader)->schema_metadata().file_identifier);
         }
+
+        std::size_t read_count = 0;
+        CHECK(pod5_get_read_count(file, &read_count) == POD5_OK);
+        REQUIRE(read_count == 2);
+
+        std::vector<Pod5ReadId> read_ids(2);
+        CHECK(pod5_get_read_ids(file, 1, (read_id_t *)read_ids.data()) != POD5_OK);
+        CHECK(pod5_get_read_ids(file, read_ids.size(), (read_id_t *)read_ids.data()) == POD5_OK);
+        std::vector<Pod5ReadId> expected_read_ids{input_read_id, input_read_id_2};
+        CHECK(read_ids == expected_read_ids);
 
         std::size_t batch_count = 0;
         CHECK(pod5_get_read_batch_count(&batch_count, file) == POD5_OK);
@@ -319,24 +355,124 @@ SCENARIO("C API")
             CHECK(calibration_extra_data.range == 8192 * calibration_scale);
         }
 
-        RunInfoDictData * run_info_data_out = nullptr;
-        CHECK(pod5_get_run_info(batch_0, 0, &run_info_data_out) == POD5_OK);
-        REQUIRE(!!run_info_data_out);
-        CHECK(run_info_data_out->tracking_id.size == 2);
-        CHECK(run_info_data_out->tracking_id.keys[0] == std::string("baz"));
-        CHECK(run_info_data_out->tracking_id.keys[1] == std::string("other"));
-        CHECK(run_info_data_out->tracking_id.values[0] == std::string("baz_val"));
-        CHECK(run_info_data_out->tracking_id.values[1] == std::string("other_val"));
-        CHECK(run_info_data_out->context_tags.size == 2);
-        CHECK(run_info_data_out->context_tags.keys[0] == std::string("thing"));
-        CHECK(run_info_data_out->context_tags.keys[1] == std::string("foo"));
-        CHECK(run_info_data_out->context_tags.values[0] == std::string("thing_val"));
-        CHECK(run_info_data_out->context_tags.values[1] == std::string("foo_val"));
-        pod5_release_run_info(run_info_data_out);
+        std::size_t run_info_count = 0;
+        CHECK(pod5_get_file_run_info_count(file, &run_info_count) == POD5_OK);
+        REQUIRE(run_info_count == 1);
+
+        auto check_run_info = [](RunInfoDictData * run_info) {
+            REQUIRE(!!run_info);
+            CHECK(run_info->tracking_id.size == 2);
+            CHECK(run_info->tracking_id.keys[0] == std::string("baz"));
+            CHECK(run_info->tracking_id.keys[1] == std::string("other"));
+            CHECK(run_info->tracking_id.values[0] == std::string("baz_val"));
+            CHECK(run_info->tracking_id.values[1] == std::string("other_val"));
+            CHECK(run_info->context_tags.size == 2);
+            CHECK(run_info->context_tags.keys[0] == std::string("thing"));
+            CHECK(run_info->context_tags.keys[1] == std::string("foo"));
+            CHECK(run_info->context_tags.values[0] == std::string("thing_val"));
+            CHECK(run_info->context_tags.values[1] == std::string("foo_val"));
+        };
+
+        RunInfoDictData * run_info_data_out_1 = nullptr;
+        CHECK(pod5_get_file_run_info(file, 0, &run_info_data_out_1) == POD5_OK);
+        check_run_info(run_info_data_out_1);
+        pod5_free_run_info(run_info_data_out_1);
+
+        RunInfoDictData * run_info_data_out_2 = nullptr;
+        CHECK(pod5_get_run_info(batch_0, 0, &run_info_data_out_2) == POD5_OK);
+        check_run_info(run_info_data_out_2);
+        pod5_free_run_info(run_info_data_out_2);
 
         pod5_free_read_batch(batch_0);
 
         pod5_close_and_free_reader(file);
         CHECK(pod5_get_error_no() == POD5_OK);
+    }
+}
+
+SCENARIO("C API Run Info")
+{
+    static constexpr char const * filename = "./foo_c_api.pod5";
+
+    pod5_init();
+    auto fin = gsl::finally([] { pod5_terminate(); });
+
+    std::int16_t adc_min = -4096;
+    std::int16_t adc_max = 4095;
+
+    auto expected_acq_id = [](std::size_t index) {
+        std::string acquisition_id{"acquisition_id_"};
+        acquisition_id += std::to_string(index);
+        return acquisition_id;
+    };
+
+    // Write the file:
+    {
+        REQUIRE(remove_file_if_exists(filename).ok());
+
+        auto file = pod5_create_file(filename, "c_software", NULL);
+        REQUIRE(file);
+        CHECK(pod5_get_error_no() == POD5_OK);
+
+        std::vector<char const *> context_tags_keys{"thing", "foo"};
+        std::vector<char const *> context_tags_values{"thing_val", "foo_val"};
+        std::vector<char const *> tracking_id_keys{"baz", "other"};
+        std::vector<char const *> tracking_id_values{"baz_val", "other_val"};
+
+        for (std::size_t i = 0; i < 10; ++i) {
+            std::int16_t run_info_id = -1;
+            CHECK(
+                pod5_add_run_info(
+                    &run_info_id,
+                    file,
+                    expected_acq_id(i).c_str(),
+                    15400,
+                    adc_max,
+                    adc_min,
+                    context_tags_keys.size(),
+                    context_tags_keys.data(),
+                    context_tags_values.data(),
+                    "experiment_name",
+                    "flow_cell_id",
+                    "flow_cell_product_code",
+                    "protocol_name",
+                    "protocol_run_id",
+                    200000,
+                    "sample_id",
+                    4000,
+                    "sequencing_kit",
+                    "sequencer_position",
+                    "sequencer_position_type",
+                    "software",
+                    "system_name",
+                    "system_type",
+                    tracking_id_keys.size(),
+                    tracking_id_keys.data(),
+                    tracking_id_values.data())
+                == POD5_OK);
+            CHECK(run_info_id == i);
+        }
+        CHECK(pod5_close_and_free_writer(file) == POD5_OK);
+    }
+
+    // Read the file back:
+    {
+        CHECK(pod5_get_error_no() == POD5_OK);
+        CHECK(!pod5_open_file(NULL));
+        auto file = pod5_open_file(filename);
+        CHECK(pod5_get_error_no() == POD5_OK);
+        CHECK(pod5_get_error_string() == std::string{""});
+        CHECK(!!file);
+
+        std::size_t run_info_count = 0;
+        CHECK(pod5_get_file_run_info_count(file, &run_info_count) == POD5_OK);
+        REQUIRE(run_info_count == 10);
+
+        for (std::size_t i = 0; i < 10; ++i) {
+            RunInfoDictData * run_info_data_out = nullptr;
+            CHECK(pod5_get_file_run_info(file, i, &run_info_data_out) == POD5_OK);
+            CHECK(run_info_data_out->acquisition_id == expected_acq_id(i));
+            pod5_free_run_info(run_info_data_out);
+        }
     }
 }

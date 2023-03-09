@@ -55,6 +55,8 @@ public:
     /// \brief Find the read schema metadata for this file.
     virtual SchemaMetadataDescription schema_metadata() const = 0;
 
+    virtual Result<std::size_t> read_count() const = 0;
+
     virtual Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const = 0;
     virtual std::size_t num_read_record_batches() const = 0;
 
@@ -97,6 +99,9 @@ public:
 
     virtual Result<std::shared_ptr<RunInfoData const>> find_run_info(
         std::string const & acquisition_id) const = 0;
+
+    virtual Result<std::shared_ptr<RunInfoData const>> get_run_info(std::size_t index) const = 0;
+    virtual Result<std::size_t> get_run_info_count() const = 0;
 };
 
 POD5_FORMAT_EXPORT pod5::Result<std::shared_ptr<FileReader>> open_file_reader(

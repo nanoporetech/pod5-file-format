@@ -47,6 +47,19 @@ public:
         return m_read_table_reader.schema_metadata();
     }
 
+    virtual Result<std::size_t> read_count() const override
+    {
+        auto const batch_count = num_read_record_batches();
+        if (batch_count == 0) {
+            return 0;
+        }
+
+        ARROW_ASSIGN_OR_RAISE(auto const first_batch, read_read_record_batch(0));
+        ARROW_ASSIGN_OR_RAISE(auto const last_batch, read_read_record_batch(batch_count - 1));
+
+        return (batch_count - 1) * first_batch.num_rows() + last_batch.num_rows();
+    }
+
     Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const override
     {
         return m_read_table_reader.read_record_batch(i);
@@ -118,6 +131,16 @@ public:
         std::string const & acquisition_id) const override
     {
         return m_run_info_table_reader.find_run_info(acquisition_id);
+    }
+
+    Result<std::shared_ptr<RunInfoData const>> get_run_info(std::size_t index) const override
+    {
+        return m_run_info_table_reader.get_run_info(index);
+    }
+
+    Result<std::size_t> get_run_info_count() const override
+    {
+        return m_run_info_table_reader.get_run_info_count();
     }
 
 private:

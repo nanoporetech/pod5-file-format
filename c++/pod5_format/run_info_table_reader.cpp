@@ -127,37 +127,18 @@ Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::find_run_info(
         return it->second;
     }
 
-    std::shared_ptr<RunInfoData> run_info = nullptr;
+    ARROW_RETURN_NOT_OK(prepare_run_infos_vector());
+
+    std::shared_ptr<const RunInfoData> run_info = nullptr;
+    std::size_t glb_run_info_index = 0;
     for (std::size_t i = 0; i < num_record_batches(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto batch, read_record_batch(i));
         auto acq_id = find_column(batch.batch(), m_field_locations->acquisition_id);
 
         for (std::size_t j = 0; j < batch.num_rows(); ++j) {
             if (acq_id->Value(j) == acquisition_id) {
-                ARROW_ASSIGN_OR_RAISE(auto columns, batch.columns());
-
-                run_info = std::make_shared<RunInfoData>(
-                    columns.acquisition_id->Value(j).to_string(),
-                    columns.acquisition_start_time->Value(j),
-                    columns.adc_max->Value(j),
-                    columns.adc_min->Value(j),
-                    value_for_map(columns.context_tags, j),
-                    columns.experiment_name->Value(j).to_string(),
-                    columns.flow_cell_id->Value(j).to_string(),
-                    columns.flow_cell_product_code->Value(j).to_string(),
-                    columns.protocol_name->Value(j).to_string(),
-                    columns.protocol_run_id->Value(j).to_string(),
-                    columns.protocol_start_time->Value(j),
-                    columns.sample_id->Value(j).to_string(),
-                    columns.sample_rate->Value(j),
-                    columns.sequencing_kit->Value(j).to_string(),
-                    columns.sequencer_position->Value(j).to_string(),
-                    columns.sequencer_position_type->Value(j).to_string(),
-                    columns.software->Value(j).to_string(),
-                    columns.system_name->Value(j).to_string(),
-                    columns.system_type->Value(j).to_string(),
-                    value_for_map(columns.tracking_id, j));
-
+                ARROW_ASSIGN_OR_RAISE(
+                    run_info, load_run_info_from_batch(batch, j, glb_run_info_index++));
                 break;
             }
         }
@@ -172,8 +153,94 @@ Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::find_run_info(
             "Failed to find acquisition id '", acquisition_id, "' in run info table");
     }
 
+    return run_info;
+}
+
+Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::get_run_info(std::size_t index) const
+{
+    ARROW_RETURN_NOT_OK(prepare_run_infos_vector());
+
+    if (index >= m_run_infos.size()) {
+        return arrow::Status::IndexError(
+            "Invalid index into run infos (expected ", index, " < ", m_run_infos.size(), ")");
+    }
+
+    if (m_run_infos[index]) {
+        return m_run_infos[index];
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto first_batch, read_record_batch(0));
+    auto const batch_size = first_batch.num_rows();
+
+    auto const batch_idx = index / batch_size;
+    auto const batch_row = index - (batch_idx * batch_size);
+
+    if (batch_idx >= num_record_batches()) {
+        return Status::Invalid("Row outside batch bounds");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto batch, read_record_batch(batch_idx));
+
+    return load_run_info_from_batch(batch, batch_row, index);
+}
+
+Result<std::size_t> RunInfoTableReader::get_run_info_count() const
+{
+    auto batch_count = num_record_batches();
+    if (batch_count == 0) {
+        return 0;
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto first_batch, read_record_batch(0));
+    ARROW_ASSIGN_OR_RAISE(auto last_batch, read_record_batch(batch_count - 1));
+
+    return (batch_count - 1) * first_batch.num_rows() + last_batch.num_rows();
+}
+
+Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::load_run_info_from_batch(
+    RunInfoTableRecordBatch const & batch,
+    std::size_t batch_index,
+    std::size_t global_index) const
+{
+    ARROW_ASSIGN_OR_RAISE(auto columns, batch.columns());
+
+    auto acquisition_id = columns.acquisition_id->Value(batch_index).to_string();
+    auto run_info = std::make_shared<RunInfoData>(
+        acquisition_id,
+        columns.acquisition_start_time->Value(batch_index),
+        columns.adc_max->Value(batch_index),
+        columns.adc_min->Value(batch_index),
+        value_for_map(columns.context_tags, batch_index),
+        columns.experiment_name->Value(batch_index).to_string(),
+        columns.flow_cell_id->Value(batch_index).to_string(),
+        columns.flow_cell_product_code->Value(batch_index).to_string(),
+        columns.protocol_name->Value(batch_index).to_string(),
+        columns.protocol_run_id->Value(batch_index).to_string(),
+        columns.protocol_start_time->Value(batch_index),
+        columns.sample_id->Value(batch_index).to_string(),
+        columns.sample_rate->Value(batch_index),
+        columns.sequencing_kit->Value(batch_index).to_string(),
+        columns.sequencer_position->Value(batch_index).to_string(),
+        columns.sequencer_position_type->Value(batch_index).to_string(),
+        columns.software->Value(batch_index).to_string(),
+        columns.system_name->Value(batch_index).to_string(),
+        columns.system_type->Value(batch_index).to_string(),
+        value_for_map(columns.tracking_id, batch_index));
+
+    // Cache run info for later retrieval by index:
+    m_run_infos[global_index] = run_info;
     m_run_info_lookup[acquisition_id] = run_info;
     return run_info;
+}
+
+arrow::Status RunInfoTableReader::prepare_run_infos_vector() const
+{
+    if (m_run_infos.empty()) {
+        ARROW_ASSIGN_OR_RAISE(auto row_count, get_run_info_count())
+        m_run_infos.resize(row_count);
+    }
+
+    return Status::OK();
 }
 
 //---------------------------------------------------------------------------------------------------------------------

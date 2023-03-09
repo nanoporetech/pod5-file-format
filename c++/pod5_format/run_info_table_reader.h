@@ -86,10 +86,20 @@ public:
     Result<std::shared_ptr<RunInfoData const>> find_run_info(
         std::string const & acquisition_id) const;
 
+    Result<std::shared_ptr<RunInfoData const>> get_run_info(std::size_t index) const;
+    Result<std::size_t> get_run_info_count() const;
+
 private:
+    Result<std::shared_ptr<RunInfoData const>> load_run_info_from_batch(
+        RunInfoTableRecordBatch const & batch,
+        std::size_t batch_index,
+        std::size_t global_index) const;
+    arrow::Status prepare_run_infos_vector() const;
+
     std::shared_ptr<RunInfoTableSchemaDescription const> m_field_locations;
     mutable std::mutex m_batch_get_mutex;
     mutable std::unordered_map<std::string, std::shared_ptr<RunInfoData const>> m_run_info_lookup;
+    mutable std::vector<std::shared_ptr<RunInfoData const>> m_run_infos;
     mutable std::mutex m_run_info_lookup_mutex;
 };
 
