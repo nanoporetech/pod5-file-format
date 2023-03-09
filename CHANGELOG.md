@@ -4,9 +4,13 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.9] 2023-03-07
-- Versioning now controlled by VCS inspection using `setuptools_scm`
-- Added version attributes to `lib-pod5`
+## [0.1.10] 2023-03-09
+- Added `pod5_get_read_count` to find the count of all reads in file
+- Added `pod5_get_read_ids` to retrieve all read id's in file
+- Added `pod5_get_file_run_info` to retrieve a run info at an absolute index in the file
+- Added `pod5_free_run_info` to free run info's (replaces `pod5_release_run_info`)
+- Deprecated `pod5_release_run_info` (see `pod5_free_run_info`)
+- Added `pod5_get_file_run_info_count` to find the number of run info's in a file
 - Added `pod5 filter` tool to subset pod5 files with simple list of read ids
 - Reworked `pod5 subset` to give better control over resources used
 - Added `tqdm` progress bar to `pod5 subset` (disable with `POD5_PBAR=0`)
@@ -14,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed filepath header line from `pod5 inspect reads`
 - `pod5 repack` now repacks all inputs one-to-one
 
+## [0.1.9] 2023-03-07
+- Versioning now controlled by VCS inspection using `setuptools_scm`
+- Added version attributes to `lib-pod5`
 
 ## [0.1.8] 2023-02-23
 - Update to zlib 1.2.13
