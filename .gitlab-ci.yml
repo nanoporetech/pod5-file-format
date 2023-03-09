@@ -522,20 +522,20 @@ benchmark-linux-aarch64:
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install 'conan<2'
+    - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
-  dependencies:
-    - "prepare_version"
   only:
     - tags
   before_script:
     - apt update
     - apt install -y cmake
     - pip3 install 'conan<2'
+    - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
 
@@ -571,7 +571,7 @@ build-conan:windows-x86_64-vs2017:
         - .conan-build-common
 upload-conan:windows-x86_64-vs2017:
     extends: .conan-upload
-    dependencies: [ "build-conan:windows-x86_64-vs2017" ]
+    dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2017" ]
 
 build-conan:windows-x86_64-vs2019:
     extends:
@@ -580,7 +580,7 @@ build-conan:windows-x86_64-vs2019:
         - .conan-build-common
 upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
-    dependencies: [ "build-conan:windows-x86_64-vs2019" ]
+    dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
 
 build-conan:macos-x86_64-appleclang-10.0:
     extends:
@@ -589,7 +589,7 @@ build-conan:macos-x86_64-appleclang-10.0:
         - .conan-build-common
 upload-conan:macos-x86_64-appleclang-10.0:
     extends: .conan-upload
-    dependencies: [ "build-conan:macos-x86_64-appleclang-10.0" ]
+    dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-10.0" ]
 
 build-conan:macos-x86_64-appleclang-12.0:
     extends:
@@ -598,7 +598,7 @@ build-conan:macos-x86_64-appleclang-12.0:
         - .conan-build-common
 upload-conan:macos-x86_64-appleclang-12.0:
     extends: .conan-upload
-    dependencies: [ "build-conan:macos-x86_64-appleclang-12.0" ]
+    dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-12.0" ]
 
 build-conan:macos-aarch64-appleclang-13.1:
     extends:
@@ -607,7 +607,7 @@ build-conan:macos-aarch64-appleclang-13.1:
         - .conan-build-common
 upload-conan:macos-aarch64-appleclang-13.1:
     extends: .conan-upload
-    dependencies: [ "build-conan:macos-aarch64-appleclang-13.1" ]
+    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-13.1" ]
 
 build-conan:ios-aarch64-appleclang-13.1:
     extends:
@@ -620,7 +620,7 @@ build-conan:ios-aarch64-appleclang-13.1:
         - *tarball-package-without-macos
 upload-conan:ios-aarch64-appleclang-13.1:
     extends: .conan-upload
-    dependencies: [ "build-conan:ios-aarch64-appleclang-13.1" ]
+    dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-13.1" ]
 
 build-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends:
@@ -633,7 +633,7 @@ build-conan:iOSSimulator-aarch64-appleclang-13.1:
         - *tarball-package-without-macos
 upload-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends: .conan-upload
-    dependencies: [ "build-conan:iOSSimulator-aarch64-appleclang-13.1" ]
+    dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-13.1" ]
 
 build-conan:iOSSimulator-x86_64-appleclang-13.1:
     extends:
@@ -646,7 +646,7 @@ build-conan:iOSSimulator-x86_64-appleclang-13.1:
         - *tarball-package-without-macos
 upload-conan:iOSSimulator-x86_64-appleclang-13.1:
     extends: .conan-upload
-    dependencies: [ "build-conan:iOSSimulator-x86_64-appleclang-13.1" ]
+    dependencies: [ "prepare_version", "build-conan:iOSSimulator-x86_64-appleclang-13.1" ]
 
 build-conan:linux-x86_64-gcc9:
     extends:
@@ -655,7 +655,7 @@ build-conan:linux-x86_64-gcc9:
         - .conan-build-common
 upload-conan:linux-x86_64-gcc9:
     extends: .conan-upload
-    dependencies: [ "build-conan:linux-x86_64-gcc9" ]
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
 
 build-conan:linux-x86_64-gcc11:
     extends:
@@ -664,7 +664,7 @@ build-conan:linux-x86_64-gcc11:
         - .conan-build-common
 upload-conan:linux-x86_64-gcc11:
     extends: .conan-upload
-    dependencies: [ "build-conan:linux-x86_64-gcc11" ]
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
 
 build-conan:linux-aarch64-gcc7:
     extends:
@@ -673,7 +673,7 @@ build-conan:linux-aarch64-gcc7:
         - .conan-build-common
 upload-conan:linux-aarch64-gcc7:
     extends: .conan-upload
-    dependencies: [ "build-conan:linux-aarch64-gcc7" ]
+    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc7" ]
 
 build-conan:linux-aarch64-gcc9:
     extends:
@@ -682,7 +682,7 @@ build-conan:linux-aarch64-gcc9:
         - .conan-build-common
 upload-conan:linux-aarch64-gcc9:
     extends: .conan-upload
-    dependencies: [ "build-conan:linux-aarch64-gcc9" ]
+    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc9" ]
 
 build-conan:linux-aarch64-gcc11:
     extends:
@@ -691,7 +691,7 @@ build-conan:linux-aarch64-gcc11:
         - .conan-build-common
 upload-conan:linux-aarch64-gcc11:
     extends: .conan-upload
-    dependencies: [ "build-conan:linux-aarch64-gcc11" ]
+    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]
 
 
 internal_wheel_upload:
