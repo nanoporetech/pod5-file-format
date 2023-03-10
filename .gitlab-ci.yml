@@ -260,7 +260,7 @@ osx-x64-clang12-release-build:
       - PYTHON_VERSION: ["3.7.4", "3.8.9", "3.9.13"]
         MACOSX_DEPLOYMENT_TARGET: "10.9"
         OUTPUT_SKU: "osx-10.9-x64"
-      - PYTHON_VERSION: ["3.10.5", "3.11.1"]
+      - PYTHON_VERSION: ["3.10.10", "3.11.2"]
         MACOSX_DEPLOYMENT_TARGET: "10.9"
         OUTPUT_SKU: "osx-10.9-x64"
 
@@ -281,7 +281,7 @@ osx-arm64-clang13-release-build:
         MACOSX_DEPLOYMENT_TARGET: "10.9"
         OUTPUT_SKU: "osx-10.9-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
-      - PYTHON_VERSION: ["3.10.5", "3.11.1"]
+      - PYTHON_VERSION: ["3.10.10", "3.11.2"]
         MACOSX_DEPLOYMENT_TARGET: "11.0"
         OUTPUT_SKU: "osx-11.0-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
@@ -298,7 +298,9 @@ osx-arm64-clang13-release-build:
     - export PYENV_HOME="${PYENV}"
     - export PATH="${PYENV}/bin:${PYENV}/shims:${PATH}"
     - pyenv versions
-    - pyenv local "${PYTHON_VERSION_WINDOWS}"
+    - pyenv update
+    - pyenv install ${PYTHON_VERSION}
+    - pyenv local ${PYTHON_VERSION}
     - python -m venv .venv
     - source .venv/Scripts/activate
   script:
@@ -331,7 +333,7 @@ win-x64-msvc2017-release-build:
     OUTPUT_SKU: "win-x64"
   parallel:
     matrix:
-      - PYTHON_VERSION_WINDOWS: [ "3.7.5", "3.8.0", "3.10.5" ]
+      - PYTHON_VERSION: ["3.7.5", "3.8.0", "3.9.13", "3.10.10", "3.11.2"]
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -377,72 +379,79 @@ build-archive:
       - ./*.tar.gz
       - ./*.whl
 
+.parallel-py-minor-ver: &parallel-py-minor-ver
+  parallel:
+    matrix:
+      - PY_MINOR_VER: ["7", "8", "9", "10", "11"]
+
+tools-linux-x64:
+  stage: test-python
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  tags:
+    - linux
+  before_script:
+    - python3.${PY_MINOR_VER} -m venv .venv/
+    - source .venv/bin/activate
+  needs:
+    - linux-x64-gcc9-release-build
+    - build-python-api
+  script:
+    - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
+    - pod5 convert fast5 ./test_data/ ./output_files --output-one-to-one ./test_data
+    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
+    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
+    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
+    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
+    - pod5 convert to_fast5 ./output_files/ ./output_files
+    - pod5 convert fast5 ./output_files/*.fast5 ./output_files_2 --output-one-to-one ./output_files/
+    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
+  <<: *parallel-py-minor-ver
+
 .pytest:
   stage: test-python
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl
+    - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
     - pip install pytest pytest-cov
     - pytest python/pod5/ -v --color=yes
-
-
-tools-linux-x64:
-  stage: test-python
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
-  tags:
-    - linux
-  before_script:
-    - python3 -m venv .venv/
-    - source .venv/bin/activate
-  needs:
-    - linux-x64-gcc9-release-build
-    - build-python-api
-  script:
-    - pip install lib_pod5*cp39*.whl pod5-*.whl
-    - pod5 convert fast5 ./test_data/ ./output_files --output-one-to-one ./test_data
-    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
-    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
-    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
-    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
-    - pod5 convert to_fast5 ./output_files/ ./output_files
-    - pod5 convert fast5 ./output_files/*.fast5 ./output_files_2 --output-one-to-one ./output_files/
-    - python3 python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
-  variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+    - pytest python/lib_pod5/ -v --color=yes
 
 pytest-linux-x64:
   extends: [".pytest"]
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
-  variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+  <<: *parallel-py-minor-ver
 
 pytest-linux-aarch64:
   extends: [".pytest"]
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux_aarch64
     - high-cpu
   needs:
     - linux-aarch64-gcc9-release-build
     - build-python-api
-  variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+  <<: *parallel-py-minor-ver
 
-.pyenv-and-venv: &setup-pyenv-and-venv
-  # needs PYENV_VERSION set, and optionally VENV_BIN_DIR
-  - pyenv versions
-  - pyenv install --skip-existing "${PYENV_VERSION}"
-    # with pyenv, we don't have to use `python3` (and `python` also works on Windows)
-  - python -m venv .venv/
-  - source .venv/${VENV_BIN_DIR:-bin}/activate
-  - python -m pip install --upgrade pip
+.versions-matrix-pyenv-and-venv: &versions-matrix-pyenv-and-venv
+  parallel:
+    matrix:
+      - PY_MINOR_VER: "7"
+        PYTHON_VERSION: "3.7.4"
+      - PY_MINOR_VER: "8"
+        PYTHON_VERSION: "3.8.9"
+      - PY_MINOR_VER: "9"
+        PYTHON_VERSION: "3.9.13"
+      - PY_MINOR_VER: "10"
+        PYTHON_VERSION: "3.10.10"
+      - PY_MINOR_VER: "11"
+        PYTHON_VERSION: "3.11.2"
 
 pytest-osx-x64:
   extends: [".pytest"]
@@ -456,12 +465,19 @@ pytest-osx-x64:
     - build-python-api
   before_script:
       # make sure pyenv's shims are on the path
+    - brew update && brew upgrade pyenv
     - eval "$(pyenv init -)"
-    - *setup-pyenv-and-venv
-  variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
-    # this version is known to be available on macos runners
-    PYENV_VERSION: "3.9.11"
+    - pyenv versions
+    - pyenv install --list
+    - pyenv install --skip-existing ${PYTHON_VERSION}
+    - pyenv global ${PYTHON_VERSION}
+    - python --version
+      # with pyenv, we don't have to use `python3` (and `python` also works on Windows)
+    - python -m venv .venv/
+    - source .venv/bin/activate
+    - python -m pip install --upgrade pip
+    - python --version
+  <<: *versions-matrix-pyenv-and-venv
 
 pytest-win-x64:
   extends: [".pytest"]
@@ -474,11 +490,51 @@ pytest-win-x64:
       # pyenv doesn't live on the PATH by default (and pyenv-win doesn't have `pyenv init`)
     - export PYENV=~/.pyenv/pyenv-win
     - export PATH=${PYENV}/bin:${PYENV}/shims:${PATH}
-    - *setup-pyenv-and-venv
-  variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp310*.whl"
-    PYENV_VERSION: "3.10.5"
-    VENV_BIN_DIR: "Scripts"
+    # needs PYTHON_VERSION set, and optionally VENV_BIN_DIR
+    - pyenv update
+    - pyenv versions
+    - pyenv install --list
+    - pyenv install --skip-existing ${PYTHON_VERSION}
+    - pyenv global ${PYTHON_VERSION}
+    - python --version
+      # with pyenv, we don't have to use `python3` (and `python` also works on Windows)
+    - python -m venv .venv/
+    - source .venv/Scripts/activate
+    - python -m pip install --upgrade pip
+    - python --version
+  <<: *versions-matrix-pyenv-and-venv
+
+
+conda_pytest:
+  extends: [".pytest"]
+  image: condaforge/mambaforge:latest
+  tags:
+    - linux
+  needs:
+    - linux-x64-gcc9-release-build
+    - build-python-api
+  before_script:
+    - |
+      cat > environment.yml << EOF
+      name: pod5_conda_test
+      channels:
+        - conda-forge
+        - bioconda
+      dependencies:
+        - python=3.${PY_MINOR_VER}
+        - cmake
+        - boost
+        - pyarrow
+        - pip
+      EOF
+    - cat environment.yml
+    - mamba --version
+    - mamba env create -f environment.yml
+    - conda env list
+    # This is a work around for conda init in gitlab
+    - eval "$(conda shell.bash hook)"
+    - conda activate pod5_conda_test
+  <<: *parallel-py-minor-ver
 
 .benchmark:
   stage: test-python
@@ -723,6 +779,7 @@ external_wheel_upload:
 pages:
   stage: pages
   image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.7
+  needs: []
   tags:
     - linux
   script:
@@ -732,3 +789,5 @@ pages:
     paths:
       - public
   when: manual
+  only:
+    - tags
