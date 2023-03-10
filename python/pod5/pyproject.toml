@@ -1,5 +1,9 @@
 [build-system]
-requires = ["setuptools >= 61.0", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = [
+  "setuptools >= 61.0",
+  "wheel",
+  "setuptools_scm[toml]>=6.2",
+]
 build-backend = "setuptools.build_meta"
 
 
@@ -29,11 +33,11 @@ dependencies = [
     "lib_pod5 ~= 0.1.10dev0",
     "more_itertools",
     "numpy >= 1.20.0",
-    "pyarrow ~= 8.0.0",
+    "pyarrow ~= 11.0.0",
     "pytz",
     "packaging",
     "pandas",
-    "h5py==v3.7.0",
+    "h5py~=3.8.0",
     "vbz_h5py_plugin",
     "tqdm"
 ]

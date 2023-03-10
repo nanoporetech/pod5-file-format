@@ -291,13 +291,9 @@ class BaseRead:
     #: Number of minknow events that the read contains
     num_minknow_events: int = field(default=0)
     #: Shift and Scale for tracked read scaling values (based on previous reads shift)
-    tracked_scaling: ShiftScalePair = field(
-        default=ShiftScalePair(float("nan"), float("nan"))
-    )
+    tracked_scaling: ShiftScalePair = field(default_factory=ShiftScalePair)
     #: Shift and Scale for predicted read scaling values (based on this read's raw signal)
-    predicted_scaling: ShiftScalePair = field(
-        default=ShiftScalePair(float("nan"), float("nan"))
-    )
+    predicted_scaling: ShiftScalePair = field(default_factory=ShiftScalePair)
     #: Number of selected reads since the last mux change on this reads channel
     num_reads_since_mux_change: int = field(default=0)
     #: Time in seconds since the last mux change on this reads channel
@@ -334,7 +330,9 @@ class Read(BaseRead):
     """
 
     #: Uncompressed signal data.
-    signal: npt.NDArray[np.int16] = field(default=np.array([], dtype=np.int16))
+    signal: npt.NDArray[np.int16] = field(
+        default_factory=lambda: np.array([], dtype=np.int16)
+    )
 
     @property
     def sample_count(self) -> int:
@@ -374,10 +372,10 @@ class CompressedRead(BaseRead):
     """
 
     #: Compressed signal data in chunks.
-    signal_chunks: List[npt.NDArray[np.uint8]] = field(default_factory=lambda: [])
+    signal_chunks: List[npt.NDArray[np.uint8]] = field(default_factory=list)
 
     #: Chunk lengths (number of samples) of signal data **before** compression.
-    signal_chunk_lengths: List[int] = field(default_factory=lambda: [])
+    signal_chunk_lengths: List[int] = field(default_factory=list)
 
     @property
     def sample_count(self) -> int:

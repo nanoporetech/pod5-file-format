@@ -4,6 +4,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+- Python API supports python 3.11
+- Changed python API dependency version `pyarrow~=11.0.0` from `8.0.0` to support python 3.11
+- Changed python API dependency version `hdf5~=8.0.0` from `v7.0.0` to support python 3.11
+- Added missing python API wheels on windows
+
 ## [0.1.10] 2023-03-09
 - Added `pod5_get_read_count` to find the count of all reads in file
 - Added `pod5_get_read_ids` to retrieve all read id's in file
