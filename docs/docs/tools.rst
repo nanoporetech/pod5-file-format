@@ -4,7 +4,7 @@ Tools
 
 
 The ``pod5`` package provides the following tools for inspecting and manipulating
-POD5 files as well as converting between `.pod5` and `.fast5` file formats.
+POD5 files as well as converting between ``.pod5`` and ``.fast5`` file formats.
 
 .. contents:: Entry-Points
     :local:
@@ -14,8 +14,8 @@ POD5 files as well as converting between `.pod5` and `.fast5` file formats.
 Pod5 inspect
 ============
 
-The `pod5 inspect` tool can be used to extract details and summaries of
-the contents of `.pod5` files. There are two programs for users within `pod5 inspect`
+The ``pod5 inspect`` tool can be used to extract details and summaries of
+the contents of ``.pod5`` files. There are two programs for users within ``pod5 inspect``
 and these are read and reads
 
 .. code-block:: console
@@ -27,7 +27,7 @@ and these are read and reads
 pod5 inspect reads
 ------------------
 
-Inspect all reads and print a csv table of the details of all reads in the given `.pod5` files.
+Inspect all reads and print a csv table of the details of all reads in the given ``.pod5`` files.
 
 .. code-block:: console
 
@@ -78,11 +78,10 @@ Inspect the pod5 file, find a specific read and print its details.
         ...
 
 
-
 pod5 merge
 ==========
 
-`pod5 merge` is a tool for merging multiple  `.pod5` files into one monolithic pod5 file.
+``pod5 merge`` is a tool for merging multiple  ``.pod5`` files into one monolithic pod5 file.
 
 The contents of the input files are checked for duplicate read_ids to avoid
 accidentally merging identical reads. To override this check set the argument
@@ -106,40 +105,57 @@ accidentally merging identical reads. To override this check set the argument
 pod5 filter
 ===========
 
-`pod5 filter` is an alternative to `pod5 subset` where reads are subset from
-one or more input `.pod5` files using a list of read ids provided using the `--ids` argument.
+``pod5 filter`` is a simpler alternative to ``pod5 subset`` where reads are subset from
+one or more input ``.pod5`` files using a list of read ids provided using the ``--ids`` argument
+and writing those reads to a *single* ``--output`` file.
 
-An important difference between `pod5 subset` and `pod5 filter` is that `--output`
-specifies a directory in `subset` but a filepath in `filter`. This is because there is
-only one output file in `pod5 filter`.
+See ``pod5 subset`` for more advanced subsetting.
 
 .. code-block:: console
 
     pod5 filter example.pod5 --output filtered.pod5 --ids read_ids.txt
 
-The `--ids` filtering text file must be a simple list of valid UUID read_ids with
+The ``--ids`` filtering text file must be a simple list of valid UUID read_ids with
 one read_id per line. The only valid exceptions are:
 
 - Empty lines
 - Trailing / Leading whitespace
-- Lines beginning with a `#` (hash / pound symbol) to allow for comments
-- The text `read_id` to allow for the header from `pod5 inspect reads`
+- Lines beginning with a ``#`` (hash / pound symbol) to allow for comments
+- The text ``read_id`` to allow for the header from ``pod5 inspect reads``
 
+
+.. note::
+
+    The ``filter`` and ``subset`` tool will assert that any requested read_ids are
+    present in the inputs. If a requested read_id is missing from the inputs
+    then the tool will issue the following error:
+
+    .. code-block::
+
+        POD5 has encountered an error: 'Missing read_ids from inputs but --missing_ok not set'
+
+    To disable this warning then set the '-M / --missing_ok' flag.
+
+.. warning::
+
+    When supplying multiple input files to 'filter' or 'subset', the tools is
+    effectively performing a ``merge`` operation. The 'merge' tool is better suited
+    for handling very large numbers of input files.
 
 pod5 subset
 ===========
 
-`pod5 subset` is a tool for subsetting reads in `.pod5` files into one or more
-output `.pod5` files. See also `pod5 filter`
+``pod5 subset`` is a tool for subsetting reads in ``.pod5`` files into one or more
+output ``.pod5`` files. See also ``pod5 filter``
 
-The `pod5 subset` tool requires a *mapping* which defines which read_ids should be
+The ``pod5 subset`` tool requires a *mapping* which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
-defined in either a `.csv` or `.json` file or by using a `--table` (csv or tsv)
+defined in either a ``.csv`` or ``.json`` file or by using a ``--table`` (csv or tsv)
 and instructions on how to interpret it.
 
-`pod5 subset` aims to be a generic tool to subset from multiple inputs to multiple outputs.
-If your use-case is to `filter` read_ids from one or more inputs into a single output
-then `pod5 filter` might be a more appropriate tool as the only input is a list of read_ids.
+``pod5 subset`` aims to be a generic tool to subset from multiple inputs to multiple outputs.
+If your use-case is to ``filter`` read_ids from one or more inputs into a single output
+then ``pod5 filter`` might be a more appropriate tool as the only input is a list of read_ids.
 
 .. code-block:: console
 
@@ -155,21 +171,21 @@ then `pod5 filter` might be a more appropriate tool as the only input is a list 
 
 .. important::
 
-    Care should be taken to ensure that when providing multiple input `.pod5` files to `pod5 subset`
+    Care should be taken to ensure that when providing multiple input ``.pod5`` files to ``pod5 subset``
     that there are no read_id UUID clashes. If a duplicate read_id is detected an exception
-    will be raised unless the `--duplicate_ok` argument is set. If `--duplicate_ok` is
+    will be raised unless the ``--duplicate_ok`` argument is set. If ``--duplicate_ok`` is
     set then both reads will be written to the output, although this is not recommended.
 
 Creating a Subset Mapping
 ------------------------------
 
-The `.csv` or `.json` inputs should define a mapping of destination filename to an array
+The ``.csv`` or ``.json`` inputs should define a mapping of destination filename to an array
 of read_ids which will be written to the destination.
 
 Subset Mapping (.csv)
 +++++++++++++++++++++++
 
-The example below shows a `.csv` subset mapping. Note that the output filename can be
+The example below shows a ``.csv`` subset mapping. Note that the output filename can be
 specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
 
 .. code-block:: text
@@ -182,9 +198,9 @@ specified on multiple lines. This allows multi-line specifications to avoid exce
 Subset Mapping (.json)
 +++++++++++++++++++++++++++
 
-See below an example of a `.json` subset mapping. This file must of course be well-formatted
-`json` in addition to the formatting standard required by the tool. The formatting requirements
-for the `.json` mapping are that keys should be unique filenames mapped to an array
+See below an example of a ``.json`` subset mapping. This file must of course be well-formatted
+``json`` in addition to the formatting standard required by the tool. The formatting requirements
+for the ``.json`` mapping are that keys should be unique filenames mapped to an array
 of read_id strings.
 
 .. code-block:: json
@@ -203,16 +219,16 @@ of read_id strings.
 Subset Mapping from Table
 ++++++++++++++++++++++++++++++++
 
-`pod5 subset` can dynamically generate output targets and collect associated reads
-based on a text file containing a table (csv or tsv) parsible by `pandas`.
-This table file could be the output from `pod5 inspect reads` or from a sequencing summary.
+``pod5 subset`` can dynamically generate output targets and collect associated reads
+based on a text file containing a table (csv or tsv) parsible by ``pandas``.
+This table file could be the output from ``pod5 inspect reads`` or from a sequencing summary.
 The table must contain a header row and a series of columns on which to group unique
 collections of values. Internally this process uses the
 `pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_
-function where the `by` parameter is the sequence of column names specified with
-the `--columns` argument.
+function where the ``by`` parameter is the sequence of column names specified with
+the ``--columns`` argument.
 
-Given the following example `--table` file, observe the resultant outputs given various
+Given the following example ``--table`` file, observe the resultant outputs given various
 arguments:
 
 .. code-block:: text
@@ -248,9 +264,9 @@ Output Filename Templating
 
 When subsetting using a table the output filename is generated from a template
 string. The automatically generated template is the sequential concatenation of
-`column_name-column_value` followed by the `.pod5` file extension.
+``column_name-column_value`` followed by the ``.pod5`` file extension.
 
-The user can set their own filename template using the `--template` argument.
+The user can set their own filename template using the ``--template`` argument.
 This argument accepts a string in the `Python f-string style <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`_
 where the subsetting variables are used for keyword placeholder substitution.
 Keywords should be placed within curly-braces. For example:
@@ -269,29 +285,29 @@ Keywords should be placed within curly-braces. For example:
     barcode_b.subset.pod5    # Contains: read_b, read_c
     barcode_c.subset.pod5    # Contains: read_d
 
-Example subsetting from `pod5 inspect reads`
+Example subsetting from ``pod5 inspect reads``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `pod5 inspect reads` tool will output a csv table summarising the content of the
-specified `.pod5` file which can be used for subsetting. The example below shows
-how to split a `.pod5` file by the well field.
+The ``pod5 inspect reads`` tool will output a csv table summarising the content of the
+specified ``.pod5`` file which can be used for subsetting. The example below shows
+how to split a ``.pod5`` file by the well field.
 
 .. code-block:: console
 
-    # Create the csv table from inspect reads, skipping the first line (File: ...)
-    $ pod5 inspect reads example.pod5 | awk 'NR>1' > table.csv
+    # Create the csv table from inspect reads
+    $ pod5 inspect reads example.pod5 > table.csv
     $ pod5 subset example.pod5 --table table.csv --columns well
 
 Miscellaneous
 ~~~~~~~~~~~~~~
 
 To disable the `tqdm <https://github.com/tqdm/tqdm>`_  progress bar set the environment
-variable `POD5_PBAR=0`.
+variable ``POD5_PBAR=0``.
 
 pod5 repack
 ===========
 
-`pod5 repack` will simply repack `.pod5` files into one-for-one output files of the same name.
+``pod5 repack`` will simply repack ``.pod5`` files into one-for-one output files of the same name.
 
 .. code-block:: console
 
@@ -301,14 +317,14 @@ pod5 repack
 pod5 convert fast5
 =======================
 
-The `pod5 convert fast5` tool takes one or more `.fast5` files and converts them
-to one or more `.pod5` files.
+The ``pod5 convert fast5`` tool takes one or more ``.fast5`` files and converts them
+to one or more ``.pod5`` files.
 
 .. warning::
 
-    Some content previously stored in `.fast5` files is **not** compatible with the POD5
+    Some content previously stored in ``.fast5`` files is **not** compatible with the POD5
     format and will not be converted. This includes all analyses stored in the
-    `.fast5` file.
+    ``.fast5`` file.
 
 .. important::
 
@@ -354,9 +370,9 @@ to one or more `.pod5` files.
 pod5 convert to_fast5
 =====================
 
-The `pod5 convert to_fast5` tool takes one or more `.pod5` files and converts them
-to multiple `.fast5` files. The default behaviour is to write 4000 reads per output file
-but this can be controlled with the `--file-read-count` argument.
+The ``pod5 convert to_fast5`` tool takes one or more ``.pod5`` files and converts them
+to multiple ``.fast5`` files. The default behaviour is to write 4000 reads per output file
+but this can be controlled with the ``--file-read-count`` argument.
 
 .. code-block:: console
 

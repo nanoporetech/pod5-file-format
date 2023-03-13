@@ -27,8 +27,8 @@ Developing with Conan
 ---------------------
 
 For this development process you will need `conan <https://conan.io/>`_ installed.
-You can install `conan` using `pip` or your platforms' package manager (e.g. `brew`)
-You will also need the python `setuptools_scm` package to manage pod5 versioning:
+You can install ``conan`` using ``pip`` or your platforms' package manager (e.g. ``brew``)
+You will also need the python ``setuptools_scm`` package to manage pod5 versioning:
 
 .. code-block:: console
 
@@ -49,7 +49,7 @@ You will also need the python `setuptools_scm` package to manage pod5 versioning
    # Creates _version.py and cmake/POD5Version.cmake which are ignored by git
    $ pip install setuptools_scm
    $ python -m setuptools_scm
-   $ python -m pod5_make_version.py
+   $ python -m pod5_make_version
 
 .. code-block:: console
 
@@ -108,17 +108,17 @@ Python Development Setup
 ========================
 
 After completing the required :ref:`build <docs/install:Installation from Source>` stages above,
-to create a Python virtual environment for development use the `Makefile` in
-the `python` directory to install the two pod5 python packages including all `dev`
-dependencies such as `pre-commit` and `black`.
+to create a Python virtual environment for development use the ``Makefile`` in
+the ``python`` directory to install the two pod5 python packages including all ``dev``
+dependencies such as ``pre-commit`` and ``black``.
 
 .. code-block:: console
 
    $ cd python
    $ make install
 
-Note this will completely `clean` the existing python virtual environment. If one only
-requires an update to the python environment entry-points (e.g. `pod5 inspect`) simply
+Note this will completely ``clean`` the existing python virtual environment. If one only
+requires an update to the python environment entry-points (e.g. ``pod5 inspect``) simply
 run:
 
 .. code-block:: console
@@ -129,8 +129,8 @@ run:
 Installing Pre-commit Hooks
 ---------------------------
 
-The project uses `pre-commit` to ensure code is consistently formatted, you can set this
-up using `pip` but if you chose to use the supplied `Makefile` this will be done
+The project uses ``pre-commit`` to ensure code is consistently formatted, you can set this
+up using ``pip`` but if you chose to use the supplied ``Makefile`` this will be done
 automatically as :ref:`detailed above <docs/install:Python Development Setup>`
 
 .. code-block:: console

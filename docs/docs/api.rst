@@ -13,7 +13,6 @@ on how to install the pod5-format packages.
 Reading POD5 Files
 ========================
 
-
 To use the module to open a POD5 file, create a :class:`~pod5.reader.Reader`.
 It is strongly recommended that users use python's
 `with statement <https://docs.python.org/3/reference/compound_stmts.html#the-with-statement>`_
