@@ -4,6 +4,9 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+- Fixed file handle leak in repacker
+
 ## [0.1.11] 2023-03-13
 - Python API supports python 3.11
 - Changed python API dependency version `pyarrow~=11.0.0` from `8.0.0` to support python 3.11
