@@ -149,8 +149,8 @@ public:
             return;
         }
 
-        auto & next_batch = m_pending_writes.front();
-        if (next_batch.index == m_next_write_write_index) {
+        if (m_pending_writes.front().index == m_next_write_write_index) {
+            auto next_batch = std::move(m_pending_writes.front());
             auto result = write_next_batch(next_batch.batch, next_batch.selected_rows);
             next_batch.complete();
 
@@ -294,7 +294,7 @@ public:
         pod5::ReadTableRecordBatch const & source_batch,
         pod5::PoreDictionaryIndex source_index)
     {
-        auto const key = std::make_pair(source_file, source_index);
+        auto const key = std::make_pair(make_file_key(source_file), source_index);
         auto const it = m_pore_indexes.find(key);
         if (it != m_pore_indexes.end()) {
             return it->second;
@@ -312,7 +312,7 @@ public:
         pod5::ReadTableRecordBatch const & source_batch,
         pod5::EndReasonDictionaryIndex source_index)
     {
-        auto const key = std::make_pair(source_file, source_index);
+        auto const key = std::make_pair(make_file_key(source_file), source_index);
         auto const it = m_end_reason_indexes.find(key);
         if (it != m_end_reason_indexes.end()) {
             return it->second;
@@ -331,7 +331,7 @@ public:
         pod5::ReadTableRecordBatch const & source_batch,
         pod5::RunInfoDictionaryIndex source_index)
     {
-        auto const key = std::make_pair(source_file, source_index);
+        auto const key = std::make_pair(make_file_key(source_file), source_index);
         auto const it = m_run_info_indexes.find(key);
         if (it != m_run_info_indexes.end()) {
             return it->second;
@@ -427,13 +427,17 @@ private:
     WriteIndex m_next_write_index = 0;
     WriteIndex m_next_write_write_index = 0;
 
+    using FileKey = std::uint64_t;
+
+    FileKey make_file_key(std::shared_ptr<pod5::FileReader> const & file)
+    {
+        return reinterpret_cast<FileKey>(file.get());
+    }
+
     template <typename IndexType>
-    using DictionaryLookup = std::unordered_map<
-        std::pair<std::shared_ptr<pod5::FileReader>, IndexType>,
-        IndexType,
-        pair_hasher>;
+    using DictionaryLookup =
+        std::unordered_map<std::pair<FileKey, IndexType>, IndexType, pair_hasher>;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_pore_indexes;
-    DictionaryLookup<pod5::PoreDictionaryIndex> m_calibration_indexes;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_end_reason_indexes;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_run_info_indexes;
 };
@@ -495,6 +499,7 @@ public:
         for (std::size_t i = 0; i < input.reader->num_read_record_batches(); ++i) {
             new_reads.emplace_back(output, output->get_next_write_index(), input, i);
         }
+
         output->add_pending_reads(std::move(new_reads));
         m_batches_requested += input.reader->num_read_record_batches();
 
@@ -642,6 +647,8 @@ private:
                     set_error(batch.status());
                     return;
                 }
+
+                task->input.reader = nullptr;
 
                 task->output->batch_write(
                     task->write_index,
