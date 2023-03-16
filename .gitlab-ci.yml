@@ -55,6 +55,15 @@ docker base x86-64:
     IMAGE_TAG: "build-x64"
     DOCKERFILE: "ci/docker/Dockerfile.py39.x64"
 
+docker conda:
+  tags:
+    - docker-builder
+  extends:
+    - .build-docker-image
+  variables:
+    IMAGE_TAG: "conda"
+    DOCKERFILE: "ci/docker/Dockerfile.conda"
+
 #
 # Templates (docker)
 #
@@ -69,7 +78,7 @@ docker base x86-64:
 
 prepare_version:
   stage: .pre
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
   script:
     - git tag -d $(git tag -l "*.dev*")
     - pip install --upgrade pip setuptools_scm
@@ -93,7 +102,7 @@ tag_version_check:
     - "prepare_version"
   only:
     - tags
-  image: git.oxfordnanolabs.local:4567/minknow/images/build-x86_64-gcc9:latest
+  image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc9:latest
   script:
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - tag_version="${CI_COMMIT_TAG/#v/}"
@@ -103,7 +112,7 @@ tag_version_check:
       fi
 
 pre-commit checks:
-    image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
+    image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
     stage: pre-flight
     tags:
         - linux
@@ -170,7 +179,7 @@ build-standalone-ubu20:
       - "lib_pod5*.whl"
 
 linux-aarch64-gcc7-release-build:
-  image: git.oxfordnanolabs.local:4567/ofan/ofan-docker-base/arm64v8/conan:18.04
+  image: ${CI_REGISTRY}/ofan/ofan-docker-base/arm64v8/conan:18.04
   extends: [".build-linux"]
   before_script:
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
@@ -345,7 +354,7 @@ build-python-api:
   needs:
     - "prepare_version"
     - "linux-x64-gcc9-release-build"
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.10
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
   tags:
     - linux
   script:
@@ -386,7 +395,7 @@ build-archive:
 
 tools-linux-x64:
   stage: test-python
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
   before_script:
@@ -420,7 +429,7 @@ tools-linux-x64:
 
 pytest-linux-x64:
   extends: [".pytest"]
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
   needs:
@@ -430,7 +439,7 @@ pytest-linux-x64:
 
 pytest-linux-aarch64:
   extends: [".pytest"]
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux_aarch64
     - high-cpu
@@ -507,7 +516,7 @@ pytest-win-x64:
 
 conda_pytest:
   extends: [".pytest"]
-  image: condaforge/mambaforge:latest
+  image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
   tags:
     - linux
   needs:
@@ -550,7 +559,7 @@ conda_pytest:
 
 benchmark-linux-x64:
   extends: [".benchmark"]
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.9
   tags:
     - linux
   needs:
@@ -561,7 +570,7 @@ benchmark-linux-x64:
 
 benchmark-linux-aarch64:
   extends: [".benchmark"]
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.9
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.9
   tags:
     - linux_aarch64
     - high-cpu
@@ -778,7 +787,7 @@ external_wheel_upload:
 # Build documentation pages which are hosted only on the gitlab ci pages for now
 pages:
   stage: pages
-  image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.7
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.7
   needs: []
   tags:
     - linux
