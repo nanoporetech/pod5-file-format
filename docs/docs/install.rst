@@ -27,13 +27,13 @@ Developing with Conan
 ---------------------
 
 For this development process you will need `conan <https://conan.io/>`_ installed.
-You can install ``conan`` using ``pip`` or your platforms' package manager (e.g. ``brew``)
+You can install ``conan<2`` using ``pip`` or your platforms' package manager (e.g. ``brew``)
 You will also need the python ``setuptools_scm`` package to manage pod5 versioning:
 
 .. code-block:: console
 
    # Conan and python build dependencies
-   $ pip install conan build
+   $ pip install "conan<2" build
    $ conan --version
    Conan version 1.48.0
 

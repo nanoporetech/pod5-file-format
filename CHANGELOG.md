@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 - Fixed file handle leak in repacker
 - Added readthedocs documentation links in README.md
+- Updated developer installation instructions to use `conan<2`
 
 ## [0.1.11] 2023-03-13
 - Python API supports python 3.11
