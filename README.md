@@ -1,5 +1,10 @@
+[![Documentation Status](https://readthedocs.org/projects/pod5-file-format/badge/?version=latest)](https://pod5-file-format.readthedocs.io/)
+
 POD5 File Format
-===============
+================
+
+POD5 File Format
+================
 
 POD5 is a file format for storing nanopore dna data in an easily accessible way.
 The format is able to be written in a streaming manner which allows a sequencing
@@ -13,6 +18,11 @@ What does this project contain
 
 This project contains a core library for reading and writing POD5 data, and a toolkit for
 accessing this data in other languages.
+
+Documentation
+-------------
+
+Full documentation is found at https://pod5-file-format.readthedocs.io/
 
 
 Usage
