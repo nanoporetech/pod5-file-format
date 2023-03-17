@@ -320,17 +320,30 @@ pod5 convert fast5
 The ``pod5 convert fast5`` tool takes one or more ``.fast5`` files and converts them
 to one or more ``.pod5`` files.
 
+This tool will first check that all inputs are valid multi-read fast5s and only process
+input files which pass these checks. If the tool detects single-read fast5 files,
+please convert them into multi-read fast5 files using the tools available in the
+``ont_fast5_api`` project.
+
+The progress bar shown during conversion assumes the number of reads in an input
+``.fast5`` is 4000. The progress bar will update the total value during runtime if
+required.
+
 .. warning::
 
     Some content previously stored in ``.fast5`` files is **not** compatible with the POD5
     format and will not be converted. This includes all analyses stored in the
     ``.fast5`` file.
 
+    Please ensure that any other data is recovered from ``.fast5`` before deletion.
+
 .. important::
 
-    The conversion of single-read fast5 files is not supported by this tool. Please
-    first convert single-read fast5 files to multi-read fast5 files using the
-    ont_fast5_api tools.
+    By default ``pod5 convert fast5`` will show exceptions raised during conversion as *warnings*
+    to the user. This is to gracefully handle potentially corrupt input files or other
+    runtime errors in long-running conversion tasks. The ``--strict`` argument allows
+    users to opt-in to strict runtime assertions where any exception raised will promptly
+    stop the conversion process with an error.
 
 .. code-block:: console
 
@@ -338,31 +351,36 @@ to one or more ``.pod5`` files.
     $ pod5 convert fast5 --help
 
     # Convert fast5 files into a monolithic output file
-    $ pod5 convert fast5 ./input/*.fast5 converted.pod5
+    $ pod5 convert fast5 ./input/*.fast5 --output converted.pod5
 
     # Convert fast5 files into a monolithic output in an existing directory
-    $ pod5 convert fast5 ./input/*.fast5 outputs/
+    $ pod5 convert fast5 ./input/*.fast5 --output outputs/
     $ ls outputs/
-    outputs/output.pod5 # default name
+    output.pod5 # default name
 
     # Convert each fast5 to its relative converted output. The output files are written
     # into the output directory at paths relatve to the path given to the
-    # --output-one-to-one argument. Note: This path must be a relative parent to all
+    # --one-to-one argument. Note: This path must be a relative parent to all
     # input paths.
     $ ls input/*.fast5
     file_1.fast5 file_2.fast5 ... file_N.fast5
-    $ pod5 convert fast5 ./input/*.fast5 output_pod5s --output-one-to-one input/
+    $ pod5 convert fast5 ./input/*.fast5 --output output_pod5s/ --one-to-one ./input/
     $ ls output_pod5s/
     file_1.pod5 file_2.pod5 ... file_N.pod5
 
-    # Note the different --output-one-to-one path which is now the current working directory.
+    # Note the different --one-to-one path which is now the current working directory.
     # The new sub-directory output_pod5/input is created.
-    $ pod5 convert fast5 ./input/*.fast5 output_pod5s --output-one-to-one ./
+    $ pod5 convert fast5 ./input/*.fast5 output_pod5s --one-to-one ./
     $ ls output_pod5s/
     input/file_1.pod5 input/file_2.pod5 ... input/file_N.pod5
 
-    # Convert all inputs so that they have neibouring pod5 files
-    $ pod5 convert fast5 ./input/*.fast5 ./input/ --output-one-to-one ./input/
+    # Convert all inputs so that they have neibouring pod5 in current directory
+    $ pod5 convert fast5 *.fast5 --output . --one-to-one .
+    $ ls
+    file_1.fast5 file_1.pod5 file_2.fast5 file_2.pod5  ... file_N.fast5 file_N.pod5
+
+    # Convert all inputs so that they have neibouring pod5 files from a parent directory
+    $ pod5 convert fast5 ./input/*.fast5 --output ./input/ --one-to-one ./input/
     $ ls input/*
     file_1.fast5 file_1.pod5 file_2.fast5 file_2.pod5  ... file_N.fast5 file_N.pod5
 
@@ -380,6 +398,6 @@ but this can be controlled with the ``--file-read-count`` argument.
     $ pod5 convert to_fast5 --help
 
     # Convert pod5 files to fast5 files with default 4000 reads per file
-    $ pod5 convert to_fast5 example.pod5 pod5_to_fast5
+    $ pod5 convert to_fast5 example.pod5 --output pod5_to_fast5/
     $ ls pod5_to_fast5/
     output_1.fast5 output_2.fast5 ... output_N.fast5
