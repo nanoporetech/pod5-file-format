@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed file handle leak in repacker
 - Added readthedocs documentation links in README.md
 - Updated developer installation instructions to use `conan<2`
+- Reworked `pod5 convert fast5` to tolerate runtime exceptions
+- Added `--output` argument to `pod5 convert fast5` and `to_fast5` replacing positional argument of the same name
+- Added `--strict` argument to `pod5 convert fast5` to promptly stop on exceptions
 
 ## [0.1.11] 2023-03-13
 - Python API supports python 3.11

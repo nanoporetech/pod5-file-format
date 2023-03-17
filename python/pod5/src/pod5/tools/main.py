@@ -29,7 +29,7 @@ def main() -> Any:
     parser = argparse.ArgumentParser(
         prog="pod5",
         description=desc,
-        epilog="Example: pod5 convert fast5 input.fast5 output.pod5",
+        epilog="Example: pod5 convert fast5 input.fast5 --output output.pod5",
         formatter_class=SubcommandHelpFormatter,
     )
     parser.add_argument(

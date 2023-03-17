@@ -2,19 +2,30 @@
 Test for the convert_from_fast5 tool
 """
 import datetime
+from multiprocessing import Queue
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
+from unittest.mock import MagicMock, PropertyMock
 from uuid import UUID
 
 import h5py
 import numpy as np
+from pod5.tools.utils import iterate_inputs
 import pytest
 
 import pod5 as p5
 from pod5.tools.pod5_convert_from_fast5 import (
-    assert_multi_read_fast5,
+    ExcItem,
+    OutputHandler,
+    RequestItem,
+    StatusMonitor,
+    convert_fast5_files,
     convert_fast5_read,
     convert_from_fast5,
+    filter_multi_read_fast5s,
+    get_read_from_fast5,
+    is_multi_read_fast5,
+    process_conversion_tasks,
 )
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
@@ -221,27 +232,113 @@ class TestFast5Conversion:
                 assert expected_read.signal.shape[0] == signal.shape[0]
                 assert signal.dtype == np.int16
 
+
+class TestFast5Detection:
     def test_single_read_fast5_detection(self):
         """Test single-read fast5 files are detected raising an assertion error"""
-
-        with h5py.File(str(SINGLE_READ_FAST5_PATH), "r") as _f5:
-            with pytest.raises(AssertionError, match=".*not a multi-read fast5.*"):
-                assert_multi_read_fast5(_f5)
+        assert not is_multi_read_fast5(SINGLE_READ_FAST5_PATH)
 
     def test_multi_read_fast5_detection(self):
         """Test multi-read fast5 files are detected not raising an error"""
+        assert is_multi_read_fast5(FAST5_PATH)
 
+    def test_read_id_keys_detected(self) -> None:
+        """Test that only read_id groups are returned from a known good file"""
         with h5py.File(str(FAST5_PATH), "r") as _f5:
-            assert_multi_read_fast5(_f5)
+            for group_key in _f5.keys():
+                assert get_read_from_fast5(group_key, _f5) is not None
 
-    def test_missing_key_type_error(self):
-        """Test that a TypeError is raised when converting unsupported fast5 files"""
+    def test_unknown_keys_ignored(self) -> None:
+        """Test that non-read_id keys are ignored"""
+        with h5py.File(str(FAST5_PATH), "r") as _f5:
+            assert get_read_from_fast5("bad_key", _f5) is None
 
-        with h5py.File(str(SINGLE_READ_FAST5_PATH), "r") as _f5:
-            with pytest.raises(TypeError, match=".*supported fast5 file.*"):
-                for expected_read_id in _f5:
-                    cache: Dict[str, p5.RunInfo] = {}
-                    convert_fast5_read(_f5[expected_read_id], cache)
+    def test_bad_keys_skipped_with_warning(self) -> None:
+        """Test that read_id keys which are bad are skipped raising a warning"""
+        with h5py.File(str(FAST5_PATH), "r") as _f5:
+            with pytest.warns(UserWarning, match="Failed to read key"):
+                # Good reads should start with read_ prefix. This will cause a key error
+                assert get_read_from_fast5("read_bad_key", _f5) is None
+
+    def test_non_fast5s_ignored(self, tmp_path: Path) -> None:
+        """Test that only multi-read fast5s are passed to conversion"""
+
+        for name in ["ignore.txt", "skip.png", "hide.fasta"]:
+            (tmp_path / name).touch()
+
+        (tmp_path / "single.fast5").write_bytes(SINGLE_READ_FAST5_PATH.read_bytes())
+        (tmp_path / "multi.fast5").write_bytes(FAST5_PATH.read_bytes())
+
+        with pytest.warns(UserWarning, match='Ignored files: "single.fast5"'):
+            pending_fast5s = filter_multi_read_fast5s(
+                iterate_inputs([tmp_path], False, "*.fast5"), threads=1
+            )
+
+        assert len(pending_fast5s) == 1
+        assert pending_fast5s[0] == tmp_path / "multi.fast5"
+
+    def test_non_existent_files_ignored(self, tmp_path: Path, recwarn) -> None:
+        """Test that no non-existent files are passed to conversion"""
+
+        no_exist = tmp_path / "no_exist"
+        assert not no_exist.exists()
+
+        pending_fast5s = filter_multi_read_fast5s([no_exist], threads=1)
+
+        assert len(pending_fast5s) == 0
+        assert len(recwarn) == 0
+
+
+class TestQueues:
+    @staticmethod
+    def setup_queues() -> Tuple[Queue, Queue]:
+        """Setup request and data queues"""
+        return Queue(), Queue()
+
+    def test_runtime_exception(self, mocker) -> None:
+        """Test the propagation of a runtime exception"""
+        request_q, data_q = self.setup_queues()
+        request_q.put(RequestItem())
+
+        mocker.patch(
+            "pod5.tools.pod5_convert_from_fast5.convert_fast5_read",
+            side_effect=Exception("Boom"),
+        )
+        convert_fast5_files(request_q, data_q, [FAST5_PATH])
+
+        item = data_q.get()
+        assert isinstance(item, ExcItem)
+
+        with pytest.raises(Exception, match="Boom"):
+            raise item.exception
+
+    def test_process_queues_raises_when_strict(self, tmp_path: Path) -> None:
+        """When strict=True, test that exception is raised via queues"""
+        request_q, data_q = self.setup_queues()
+        handler = OutputHandler(tmp_path, None, False)
+        status = StatusMonitor([tmp_path])
+
+        data_q.put(ExcItem(Path.cwd(), Exception("inner_exception"), "error"))
+        with pytest.raises(Exception, match="inner_exception"):
+            process_conversion_tasks(request_q, data_q, handler, status, strict=True)
+
+    def test_process_queues_passes_exceptions(self, tmp_path: Path, mocker) -> None:
+        """When strict=False, test that no exception is raised via queues"""
+        request_q, data_q = self.setup_queues()
+
+        handler = OutputHandler(tmp_path, None, False)
+        status: MagicMock = mocker.MagicMock()
+        type(status).running = PropertyMock(side_effect=[True, False])
+
+        data_q.put(ExcItem(Path.cwd(), Exception("inner_exception"), "error"))
+        process_conversion_tasks(request_q, data_q, handler, status, strict=False)
+        assert status.write.call_count == 2
+
+        called_args = status.write.call_args_list
+        assert called_args[0][0][0].startswith("Error processing")
+        assert called_args[1][0][0].startswith("Sub-process trace")
+
+        assert status.close.call_count == 1
 
 
 class TestConvertBehaviour:
@@ -298,7 +395,10 @@ class TestConvertBehaviour:
         output.mkdir(parents=True, exist_ok=True)
 
         convert_from_fast5(
-            inputs=[clone_1, clone_2], output=output, output_one_to_one=tmp_path
+            inputs=[clone_1, clone_2],
+            output=output,
+            one_to_one=tmp_path,
+            strict=True,
         )
 
         assert (output / "clone1.pod5").exists()
@@ -324,5 +424,48 @@ class TestConvertBehaviour:
             convert_from_fast5(
                 inputs=[clone_1, clone_2],
                 output=output,
-                output_one_to_one=tmp_path / "subdir",
+                one_to_one=tmp_path / "subdir",
+                strict=True,
             )
+
+
+class TestOutputHandler:
+    def test_output_handler_default_writer(self, tmp_path: Path):
+        """Assert that the OutputHandler creates an output file with default name"""
+        handler = OutputHandler(tmp_path, None, False)
+        source = tmp_path / "test.fast5"
+        writer = handler.get_writer(source)
+
+        assert isinstance(writer, p5.Writer)
+        assert writer.path == tmp_path / "output.pod5"
+
+        handler.close_all()
+        assert writer._writer is None
+        assert len(list(tmp_path.glob("*.pod5"))) == 1
+
+    def test_output_handler_one_to_one_writer(self, tmp_path: Path):
+        """Assert that the OutputHandler creates output name is similar when in 1:1"""
+        handler = OutputHandler(tmp_path, tmp_path, False)
+        source = tmp_path / "test.fast5"
+        writer = handler.get_writer(source)
+
+        assert isinstance(writer, p5.Writer)
+        assert writer.path == tmp_path / "test.pod5"
+
+        handler.close_all()
+        assert writer._writer is None
+        assert len(list(tmp_path.glob("*.pod5"))) == 1
+
+    def test_output_handler_one_to_one_multiple_writer(self, tmp_path: Path):
+        """Assert that the OutputHandler creates output name is similar when in 1:1"""
+        handler = OutputHandler(tmp_path, tmp_path, False)
+
+        names = ["test1.fast5", "test2.fast5", "example.fast5"]
+        for name in names:
+            writer = handler.get_writer(tmp_path / name)
+
+            assert isinstance(writer, p5.Writer)
+            assert writer.path == (tmp_path / name).with_suffix(".pod5")
+
+        assert len(list(tmp_path.glob("*.pod5"))) == len(names)
+        handler.close_all()

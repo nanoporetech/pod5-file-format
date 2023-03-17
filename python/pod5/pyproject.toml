@@ -49,6 +49,7 @@ dev = [
   "pre-commit==v2.21.0",
   "pytest ~= 6.2",
   "pytest-cov ~= 3.0",
+  "pytest-mock",
   "types-jsonschema",
   "types-setuptools",
   "types-pytz",

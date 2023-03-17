@@ -54,7 +54,7 @@ def pod5_convert_from_fast5_argparser(
     Create an argument parser for the pod5 convert-from-fast5 tool
     """
 
-    _desc = "Convert a fast5 file into a pod5 file"
+    _desc = "Convert fast5 file(s) into a pod5 file(s)"
 
     if parent is None:
         parser = argparse.ArgumentParser(description=_desc)
@@ -69,12 +69,15 @@ def pod5_convert_from_fast5_argparser(
     parser.add_argument(
         "inputs", type=Path, nargs="+", help="Input path for fast5 file"
     )
-    parser.add_argument(
-        "output",
+    required_group = parser.add_argument_group("required arguments")
+    required_group.add_argument(
+        "-o",
+        "--output",
         type=Path,
+        required=True,
         help="Output path for the pod5 file(s). This can be an existing "
         "directory (creating 'output.pod5' within it) or a new named file path. "
-        "A directory must be given for --output-one-to-one.",
+        "A directory must be given when using --one-to-one.",
     )
     parser.add_argument(
         "-r",
@@ -91,8 +94,15 @@ def pod5_convert_from_fast5_argparser(
         help="Set the number of threads to use [default: 10]",
     )
     parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Immediately quit if an exception is encountered during conversion "
+        "instead of continuing with remaining inputs after issuing a warning",
+    )
+    output_group = parser.add_argument_group("output control arguments")
+    output_group.add_argument(
         "-O",
-        "--output-one-to-one",
+        "--one-to-one",
         type=Path,
         default=None,
         help="Output files are written 1:1 to inputs. 1:1 output files are "
@@ -100,13 +110,13 @@ def pod5_convert_from_fast5_argparser(
         "directory path provided to this argument. This directory path must be a "
         "relative parent of all inputs.",
     )
-    parser.add_argument(
+    output_group.add_argument(
         "-f",
         "--force-overwrite",
         action="store_true",
         help="Overwrite destination files",
     )
-    parser.add_argument(
+    output_group.add_argument(
         "--signal-chunk-size",
         default=DEFAULT_SIGNAL_CHUNK_SIZE,
         help="Chunk size to use for signal data set",
@@ -143,7 +153,16 @@ def pod5_convert_to_fast5_argparser(
         )
 
     parser.add_argument("inputs", type=Path, nargs="+")
-    parser.add_argument("output", type=Path)
+    required_group = parser.add_argument_group("required arguments")
+    required_group.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Output path for the pod5 file(s). This can be an existing "
+        "directory (creating 'output.pod5' within it) or a new named file path. "
+        "A directory must be given when using --one-to-one.",
+    )
     parser.add_argument(
         "-r",
         "--recursive",
@@ -158,10 +177,11 @@ def pod5_convert_to_fast5_argparser(
         type=int,
         help="How many file writers to keep active [default: 10]",
     )
-    parser.add_argument(
+    output_group = parser.add_argument_group("output control arguments")
+    output_group.add_argument(
         "--force-overwrite", action="store_true", help="Overwrite destination files"
     )
-    parser.add_argument(
+    output_group.add_argument(
         "--file-read-count",
         default=4000,
         type=int,
@@ -189,7 +209,7 @@ def prepare_pod5_convert(parent: argparse._SubParsersAction) -> argparse.Argumen
     convert_parser = parent.add_parser(
         name="convert",
         description=_desc,
-        epilog="Example: pod5 convert fast5 input.fast5 output.pod5",
+        epilog="Example: pod5 convert fast5 input.fast5 --output output.pod5",
         formatter_class=SubcommandHelpFormatter,
     )
     convert_parser.set_defaults(func=lambda x: convert_parser.print_help())

@@ -406,13 +406,13 @@ tools-linux-x64:
     - build-python-api
   script:
     - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
-    - pod5 convert fast5 ./test_data/ ./output_files --output-one-to-one ./test_data
+    - pod5 convert fast5 ./test_data/ --output ./output_files --one-to-one ./test_data
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
-    - pod5 convert to_fast5 ./output_files/ ./output_files
-    - pod5 convert fast5 ./output_files/*.fast5 ./output_files_2 --output-one-to-one ./output_files/
+    - pod5 convert to_fast5 ./output_files/ --output ./output_files
+    - pod5 convert fast5 ./output_files/*.fast5 --output ./output_files_2 --one-to-one ./output_files/
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
   <<: *parallel-py-minor-ver
 
@@ -423,7 +423,7 @@ tools-linux-x64:
     - source .venv/bin/activate
   script:
     - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
-    - pip install pytest pytest-cov
+    - pip install pytest pytest-cov pytest-mock
     - pytest python/pod5/ -v --color=yes
     - pytest python/lib_pod5/ -v --color=yes
 

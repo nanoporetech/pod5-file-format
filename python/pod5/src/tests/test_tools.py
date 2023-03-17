@@ -99,7 +99,9 @@ class TestPod5Tools:
             "convert",
             "from_fast5",
             str(FAST5_PATH),
+            "--output",
             str(tmp_path / "new.pod5"),
+            "--strict",
         ]
         with patch("argparse._sys.argv", args):
             main.main()
@@ -113,6 +115,7 @@ class TestPod5Tools:
             "convert",
             "to_fast5",
             str(POD5_PATH),
+            "--output",
             str(outdir),
         ]
         with patch("argparse._sys.argv", args):
