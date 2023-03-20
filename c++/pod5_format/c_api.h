@@ -74,6 +74,8 @@ enum pod5_end_reason {
 };
 typedef enum pod5_end_reason pod5_end_reason_t;
 
+typedef uint16_t run_info_index_t;
+
 typedef uint8_t read_id_t[16];
 typedef uint8_t run_id_t[16];
 
@@ -397,7 +399,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_run_info(
 /// \note The returned run_info value should be released using pod5_free_run_info when it is no longer used.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_run_info(
     Pod5FileReader_t * file,
-    int16_t run_info_index,
+    run_info_index_t run_info_index,
     RunInfoDictData_t ** run_info_data);
 
 /// \brief Release a RunInfoDictData struct after use.
@@ -412,7 +414,7 @@ pod5_release_run_info(RunInfoDictData_t * run_info_data);
 /// \param      file                The file to query.
 /// \param[out] run_info_count      The number of run info's that are present in they queried file
 POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_file_run_info_count(Pod5FileReader_t * file, size_t * run_info_count);
+pod5_get_file_run_info_count(Pod5FileReader_t * file, run_info_index_t * run_info_count);
 
 /// \brief Find the end reason for a row in a read batch.
 /// \param        batch                           The read batch to query.

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reworked `pod5 convert fast5` to tolerate runtime exceptions
 - Added `--output` argument to `pod5 convert fast5` and `to_fast5` replacing positional argument of the same name
 - Added `--strict` argument to `pod5 convert fast5` to promptly stop on exceptions
+- Use same type `run_info_index_t` for pod5_get_file_run_info_count and pod5_get_file_run_info.
 
 ## [0.1.11] 2023-03-13
 - Python API supports python 3.11
