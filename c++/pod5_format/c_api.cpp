@@ -594,7 +594,7 @@ pod5_get_run_info(Pod5ReadRecordBatch * batch, int16_t run_info, RunInfoDictData
 
 pod5_error_t pod5_get_file_run_info(
     Pod5FileReader_t * file,
-    int16_t run_info_index,
+    run_info_index_t run_info_index,
     RunInfoDictData_t ** run_info_data)
 {
     pod5_reset_error();
@@ -629,7 +629,9 @@ pod5_error_t pod5_release_run_info(RunInfoDictData * run_info_data)
     return pod5_free_run_info(run_info_data);
 }
 
-pod5_error_t pod5_get_file_run_info_count(Pod5FileReader_t * file, size_t * run_info_count)
+pod5_error_t pod5_get_file_run_info_count(
+    Pod5FileReader_t * file,
+    run_info_index_t * run_info_count)
 {
     pod5_reset_error();
 

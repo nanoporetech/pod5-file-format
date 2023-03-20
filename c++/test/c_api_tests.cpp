@@ -355,7 +355,7 @@ SCENARIO("C API Reads")
             CHECK(calibration_extra_data.range == 8192 * calibration_scale);
         }
 
-        std::size_t run_info_count = 0;
+        run_info_index_t run_info_count = 0;
         CHECK(pod5_get_file_run_info_count(file, &run_info_count) == POD5_OK);
         REQUIRE(run_info_count == 1);
 
@@ -464,11 +464,11 @@ SCENARIO("C API Run Info")
         CHECK(pod5_get_error_string() == std::string{""});
         CHECK(!!file);
 
-        std::size_t run_info_count = 0;
+        run_info_index_t run_info_count = 0;
         CHECK(pod5_get_file_run_info_count(file, &run_info_count) == POD5_OK);
         REQUIRE(run_info_count == 10);
 
-        for (std::size_t i = 0; i < 10; ++i) {
+        for (run_info_index_t i = 0; i < 10; ++i) {
             RunInfoDictData * run_info_data_out = nullptr;
             CHECK(pod5_get_file_run_info(file, i, &run_info_data_out) == POD5_OK);
             CHECK(run_info_data_out->acquisition_id == expected_acq_id(i));
