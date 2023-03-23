@@ -58,7 +58,7 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
 inline arrow::Result<MigrationResult> migrate_if_required(
     Version writer_version,
     combined_file_utils::ParsedFooter const & read_footer,
-    std::shared_ptr<arrow::io::MemoryMappedFile> const & source,
+    std::shared_ptr<arrow::io::RandomAccessFile> const & source,
     arrow::MemoryPool * pool)
 {
     MigrationResult result{read_footer};

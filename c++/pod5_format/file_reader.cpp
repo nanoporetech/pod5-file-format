@@ -163,8 +163,15 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto file, arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ));
+    std::shared_ptr<arrow::io::RandomAccessFile> file;
+    // Try to open the file with mmap, if we fail fall back to a traditional open.
+    auto file_opt = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
+    if (file_opt.ok()) {
+        file = *file_opt;
+    } else {
+        ARROW_ASSIGN_OR_RAISE(auto file_reader, arrow::io::ReadableFile::Open(path, pool));
+        file = file_reader;
+    }
 
     ARROW_ASSIGN_OR_RAISE(
         auto original_footer_metadata, combined_file_utils::read_footer(path, file));

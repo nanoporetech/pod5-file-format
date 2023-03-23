@@ -6,6 +6,7 @@ import enum
 import mmap
 from collections import namedtuple
 from dataclasses import fields
+from io import IOBase
 from functools import total_ordering
 from pathlib import Path
 from typing import (
@@ -575,18 +576,51 @@ class ArrowTableHandle:
         self._path = Path(self._location.file_path)
 
         # Open the file
-        self._fh = self._path.open("r")
+        self._fh = self._path.open("rb")
 
         # Create a memory view of the file and select the region for the table
+        try:
+            self._reader = self._open_with_mmap()
+        except OSError:
+            # If we fail fall back to a traditional open.
+            self._reader = self._open_without_mmap()
+
+    def _open_without_mmap(self):
+        class File(IOBase):
+            def __init__(self, handle, location):
+                self._handle = handle
+                self._location = location
+                self.seek(0, whence=0)
+
+            def seek(self, position, whence=0):
+                if whence == 0:
+                    position = position + self._location.offset
+                elif whence == 2:
+                    position = (
+                        self._location.offset + self._location.length
+                    ) - position
+                    whence = 0
+                # The new abs location:
+                abs_location = self._handle.seek(position, whence)
+
+                return abs_location - self._location.offset
+
+            def read(self, size=-1):
+                return self._handle.read(size)
+
+        return pa.ipc.open_file(pa.PythonFile(File(self._fh, self._location)))
+
+    def _open_with_mmap(self):
         _mmap = mmap.mmap(self._fh.fileno(), length=0, access=mmap.ACCESS_READ)
-        map_view = memoryview(_mmap)
-        arrow_table_view = map_view[
+        file_view = memoryview(_mmap)
+
+        arrow_table_view = file_view[
             self._location.offset : self._location.offset + self._location.length
         ]
 
         # Open the table
         try:
-            self._reader = pa.ipc.open_file(pa.BufferReader(arrow_table_view))
+            return pa.ipc.open_file(pa.BufferReader(arrow_table_view))
         except pa.ArrowInvalid as exc:
             raise Pod5ApiException(f"Failed to open ArrowTable: {self._path}") from exc
 
