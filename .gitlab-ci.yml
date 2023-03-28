@@ -355,7 +355,6 @@ build-python-api:
   stage: build-python-api
   needs:
     - "prepare_version"
-    - "linux-x64-gcc9-release-build"
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
   tags:
     - linux
@@ -426,8 +425,7 @@ tools-linux-x64:
   script:
     - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
     - pip install pytest pytest-cov pytest-mock
-    - pytest python/pod5/ -v --color=yes
-    - pytest python/lib_pod5/ -v --color=yes
+    - pytest
 
 pytest-linux-x64:
   extends: [".pytest"]
