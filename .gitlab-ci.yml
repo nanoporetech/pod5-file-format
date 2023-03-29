@@ -664,10 +664,11 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
-  when: manual
   rules:
     - if: $CI_COMMIT_TAG
       when: always
+    - if: $CI
+      when: manual
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -861,10 +862,11 @@ build-archive:
     paths:
       - ./*.tar.gz
       - ./*.whl
-  when: manual
   rules:
     - if: $CI_COMMIT_TAG
       when: always
+    - if: $CI
+      when: manual
 
 # ======================================
 #
@@ -924,10 +926,11 @@ mlhub:
               }
       }' \
       ${MLHUB_TRIGGER_URL}
-  when: manual
   rules:
     - if: $CI_COMMIT_TAG
       when: always
+    - if: $CI
+      when: manual
   parallel:
     matrix:
       - PYTHON_VERSION:
