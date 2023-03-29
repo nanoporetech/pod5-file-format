@@ -1,6 +1,5 @@
 stages:
   - .pre
-  - pre-flight
   - build
   - test
   - build-conan
@@ -114,7 +113,7 @@ prepare_version:
 # ======================================
 
 tag_version_check:
-  stage: pre-flight
+  stage: .pre
   needs:
     - "prepare_version"
   only:
@@ -130,7 +129,7 @@ tag_version_check:
 
 pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
-    stage: pre-flight
+    stage: .pre
     tags:
         - linux
     script:
@@ -920,7 +919,7 @@ mlhub:
           "key": "'${MLHUB_TRIGGER_KEY}'",
           "job_name": "POD5-CI '${CI_COMMIT_REF_NAME}' - '"$CI_COMMIT_TITLE"' ",
           "script_parameters": {
-                "tag":'${CI_COMMIT_TAG}',
+                "tag":"0.1.13",
                 "python_ver":"'${PYTHON_VERSION}"
               }
       }' \
