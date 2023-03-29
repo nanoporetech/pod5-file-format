@@ -26,8 +26,8 @@ def assert_exit_code(func: Callable, func_kwargs: Dict, exit_code: int = 0) -> N
     """Assert that a function returns the given SystemExit exit code"""
     try:
         func(**func_kwargs)
-    except SystemExit as exc:
-        assert exc.code == exit_code
+    except SystemExit as sys_exc:
+        assert sys_exc.code == exit_code
 
 
 class TestPod5Tools:
@@ -41,7 +41,9 @@ class TestPod5Tools:
         m_run_tool.assert_called()
         assert return_value == "_return_value"
 
-    def test_run_tool_debug_env(self, capsys: pytest.CaptureFixture) -> None:
+    def test_run_tool_debug_env(
+        self, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Assert that exceptions are printed nicely without POD5_DEBUG"""
 
         dummy_error_string = "Dummy Error String"
@@ -53,7 +55,9 @@ class TestPod5Tools:
         parser.set_defaults(func=_func)
 
         # Intentionally raise an error
-        with patch("argparse._sys.argv", ["_raises_an_exception"]):
+        with monkeypatch.context() as mkp:
+            mkp.setenv("POD5_DEBUG", "0")
+            mkp.setattr("argparse._sys.argv", ["_raises_an_exception"])
             assert_exit_code(parsers.run_tool, {"parser": parser}, 1)
 
         error_str: str = capsys.readouterr().err
