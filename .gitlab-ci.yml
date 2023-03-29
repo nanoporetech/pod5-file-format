@@ -663,16 +663,12 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
-  rules:
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_TAG == null
-      when: manual
+  only: ["tags"]
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
-  rules:
-    - if: $CI_COMMIT_TAG
+  only: ["tags"]
   before_script:
     - apt update
     - apt install -y cmake
@@ -860,10 +856,6 @@ build-archive:
     paths:
       - ./*.tar.gz
       - ./*.whl
-  rules:
-    - if: $CI_COMMIT_TAG
-    - if: $CI_COMMIT_TAG == null
-      when: manual
 
 
 # ======================================
@@ -882,8 +874,7 @@ internal_wheel_upload:
     - ls -lh .
     - pip install twine
     - twine upload *.whl
-  rules:
-    - if: $CI_COMMIT_TAG
+  only: ["tags"]
 
 external_wheel_upload:
   stage: deploy
@@ -896,9 +887,8 @@ external_wheel_upload:
     - export TWINE_REPOSITORY_URL=
     - export TWINE_CERT=
     - twine upload *.whl -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}"
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: manual
+  only: ["tags"]
+  when: manual
 
 
 # ======================================
@@ -927,9 +917,8 @@ mlhub:
               }
       }' \
       ${MLHUB_TRIGGER_URL}
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: manual
+  only: ["tags"]
+  when: always
   parallel:
     matrix:
       - PYTHON_VERSION:
@@ -956,6 +945,6 @@ pages:
   artifacts:
     paths:
       - public
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: manual
+  when: manual
+  only:
+    - tags
