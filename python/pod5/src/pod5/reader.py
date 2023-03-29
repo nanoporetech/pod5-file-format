@@ -39,7 +39,7 @@ from pod5.pod5_types import (
     ShiftScalePair,
 )
 
-from .api_utils import Pod5ApiException, format_read_ids, pack_read_ids
+from .api_utils import Pod5ApiException, format_read_ids, pack_read_ids, safe_close
 from .signal_tools import vbz_decompress_signal, vbz_decompress_signal_into
 
 ReadRecordV3Columns = namedtuple(
@@ -637,7 +637,7 @@ class ArrowTableHandle:
         Cleanly close the open file handles and memory views.
         """
         self._reader = None
-        self._fh.close()
+        safe_close(self, "_fh")
 
     def __enter__(self) -> "ArrowTableHandle":
         return self
@@ -736,21 +736,18 @@ class Reader:
 
     def close(self) -> None:
         """Close files handles"""
-        if self._read_handle is not None:
-            self._read_handle.close()
-            self._read_handle = None
 
-        if self._run_info_handle is not None:
-            self._run_info_handle.close()
-            self._run_info_handle = None
+        safe_close(self, "_read_handle")
+        self._read_handle = None
 
-        if self._signal_handle is not None:
-            self._signal_handle.close()
-            self._signal_handle = None
+        safe_close(self, "_run_info_handle")
+        self._run_info_handle = None
 
-        if self._file_reader is not None:
-            self._file_reader.close()
-            self._file_reader = None
+        safe_close(self, "_signal_handle")
+        self._signal_handle = None
+
+        safe_close(self, "_file_reader")
+        self._file_reader = None
 
         # Explicitly clear this dictionary to close file handles used in cache
         self._cached_signal_batches = {}

@@ -4,7 +4,7 @@ Utility functions for the pod5-format API
 
 
 import warnings
-from typing import Collection, List, Union
+from typing import Any, Collection, List, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -79,3 +79,18 @@ def deprecation_warning(deprecated: str, alternate: str) -> None:
         DeprecationWarning,
         stacklevel=2,
     )
+
+
+def safe_close(obj: Any, attr: str) -> None:
+    """
+    Try to close() an object's attribute ignoring any exceptions raised.
+    This is used to safely handle closing potentially unassigned attributes
+    while calling close() in __del__()
+    """
+    if not hasattr(obj, attr):
+        return
+
+    try:
+        getattr(obj, attr).close()
+    except Exception:
+        pass

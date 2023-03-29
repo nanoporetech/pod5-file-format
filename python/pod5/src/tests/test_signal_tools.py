@@ -1,10 +1,13 @@
 """
 Testing signal_tools
 """
+from io import TextIOWrapper
+from pathlib import Path
 import random
 
 import numpy as np
 import numpy.typing as npt
+from pod5.api_utils import safe_close
 import pytest
 
 from pod5.signal_tools import (
@@ -77,3 +80,40 @@ class TestPod5SignalTools:
         )
 
         assert np.array_equal(uncompressed_signal, empty_signal)
+
+
+class DemoObj:
+    def __init__(self, path: Path) -> None:
+        self.handle: TextIOWrapper = path.open("r")
+        self.other: str = "other"
+
+    def __del__(self):
+        safe_close(self, "handle")
+
+
+@pytest.fixture
+def demo_obj(tmp_path: Path) -> DemoObj:
+    path = tmp_path / "example.txt"
+    path.touch()
+    return DemoObj(path)
+
+
+class TestSafeClose:
+    """Test the safe_close utility"""
+
+    def test_closes(self, demo_obj: DemoObj) -> None:
+        """Given a file handle assert it's closed"""
+        assert not demo_obj.handle.closed
+        safe_close(demo_obj, "handle")
+        assert demo_obj.handle.closed
+
+    def test_passes_unknown_attribute(self, demo_obj: DemoObj) -> None:
+        """Given a file handle assert it's closed"""
+        safe_close(demo_obj, "not_an_attr")
+        safe_close(demo_obj, "")
+
+    def test_passes_known_non_handle_attribute(self, demo_obj: DemoObj) -> None:
+        """Given a file handle assert it's closed"""
+        assert demo_obj.other == "other"
+        safe_close(demo_obj, "other")
+        assert demo_obj.other == "other"
