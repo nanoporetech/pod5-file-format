@@ -911,6 +911,7 @@ mlhub:
   stage: deploy
   image: ${MLHUB_TRIGGER_IMAGE}
   # needs: ["internal_wheel_upload"]
+  needs: []
   variables:
     GIT_STRATEGY: none
   script:
