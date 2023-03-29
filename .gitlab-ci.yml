@@ -919,7 +919,7 @@ mlhub:
           "key": "'${MLHUB_TRIGGER_KEY}'",
           "job_name": "POD5-CI '${CI_COMMIT_REF_NAME}' - '"$CI_COMMIT_TITLE"' ",
           "script_parameters": {
-                "tag":"0.1.13",
+                "tag":"'${CI_COMMIT_TAG}'",
                 "python_ver":"'${PYTHON_VERSION}'"
               }
       }' \

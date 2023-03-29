@@ -26,8 +26,8 @@ def assert_exit_code(func: Callable, func_kwargs: Dict, exit_code: int = 0) -> N
     """Assert that a function returns the given SystemExit exit code"""
     try:
         func(**func_kwargs)
-    except SystemExit as sys_exc:
-        assert sys_exc.code == exit_code
+    except SystemExit as exc:
+        assert exc.code == exit_code
 
 
 class TestPod5Tools:
