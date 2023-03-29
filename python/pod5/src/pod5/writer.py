@@ -21,7 +21,7 @@ import lib_pod5 as p5b
 import numpy as np
 import pytz
 
-from pod5.api_utils import Pod5ApiException
+from pod5.api_utils import Pod5ApiException, safe_close
 from pod5.pod5_types import (
     BaseRead,
     CompressedRead,
@@ -117,9 +117,8 @@ class Writer:
 
     def close(self) -> None:
         """Close the FileWriter handle"""
-        if self._writer:
-            self._writer.close()
-            self._writer = None
+        safe_close(self, "_writer")
+        self._writer = None
 
     @property
     def path(self) -> Path:
