@@ -664,6 +664,10 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
+  when: manual
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -857,7 +861,10 @@ build-archive:
     paths:
       - ./*.tar.gz
       - ./*.whl
-
+  when: manual
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
 
 # ======================================
 #
@@ -898,9 +905,8 @@ external_wheel_upload:
 #
 # ======================================
 
-.mlhub:
+mlhub:
   stage: deploy
-  when: manual
   image: ${MLHUB_TRIGGER_IMAGE}
   # needs: ["internal_wheel_upload"]
   variables:
@@ -918,16 +924,16 @@ external_wheel_upload:
               }
       }' \
       ${MLHUB_TRIGGER_URL}
+  when: manual
   rules:
-    if: $CI_COMMIT_TAG
-    when: always
-    if: true
-    when: manual
+    - if: $CI_COMMIT_TAG
+      when: always
   parallel:
     matrix:
       - PYTHON_VERSION:
         - "3.7"
         - "3.11"
+
 
 # ======================================
 #
