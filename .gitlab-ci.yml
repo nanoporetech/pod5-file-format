@@ -900,8 +900,7 @@ external_wheel_upload:
 mlhub:
   stage: deploy
   image: ${MLHUB_TRIGGER_IMAGE}
-  # needs: ["internal_wheel_upload"]
-  needs: []
+  needs: ["internal_wheel_upload"]
   variables:
     GIT_STRATEGY: none
   script:
