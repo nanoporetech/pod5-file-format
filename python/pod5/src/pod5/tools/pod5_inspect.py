@@ -21,7 +21,7 @@ def format_shift_scale_pair_num(pair):
     return f"({pair.shift:.1f} {pair.scale:.1f})"
 
 
-def do_reads_command(reader: p5.Reader):
+def do_reads_command(reader: p5.Reader, write_header: bool):
     keys = [
         "read_id",
         "channel",
@@ -42,7 +42,11 @@ def do_reads_command(reader: p5.Reader):
     ]
 
     csv_read_writer = csv.DictWriter(sys.stdout, keys)
-    csv_read_writer.writeheader()
+
+    # Only write header on first call
+    if write_header:
+        csv_read_writer.writeheader()
+
     for read in reader.reads():
         fields = {
             "read_id": read.read_id,
@@ -82,7 +86,7 @@ def dump_run_info(run_info: p5.RunInfo):
             print(f"{tab}{name}: {value}")
 
 
-def do_read_command(reader: p5.Reader, read_id: str):
+def do_read_command(reader: p5.Reader, read_id: str, **_):
     try:
         uuid_read_id = UUID(read_id)
 
@@ -120,7 +124,7 @@ def do_read_command(reader: p5.Reader, read_id: str):
         break
 
 
-def do_debug_command(reader: p5.Reader):
+def do_debug_command(reader: p5.Reader, **_):
     batch_count = 0
     batch_sizes = []
     read_count = 0
@@ -162,7 +166,7 @@ def do_debug_command(reader: p5.Reader):
         dump_run_info(run_info)
 
 
-def do_summary_command(reader: p5.Reader):
+def do_summary_command(reader: p5.Reader, **kwargs):
     batch_count = 0
     total_read_count = 0
 
@@ -193,7 +197,7 @@ def inspect_pod5(command: str, input_files: List[Path], **kwargs):
         "debug": do_debug_command,
     }
 
-    for filename in input_files:
+    for idx, filename in enumerate(input_files):
         try:
             reader = p5.Reader(filename)
         except Exception as exc:
@@ -201,6 +205,7 @@ def inspect_pod5(command: str, input_files: List[Path], **kwargs):
             continue
 
         kwargs["reader"] = reader
+        kwargs["write_header"] = idx == 0
         commands[command](**kwargs)
 
 
