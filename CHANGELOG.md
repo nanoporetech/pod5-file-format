@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Refactored `pod5 convert fast5` to use `concurrent.futures` only.
+- Add further info to error message when signal cannot be decompressed by zstd
 
 ### Fixed
 
