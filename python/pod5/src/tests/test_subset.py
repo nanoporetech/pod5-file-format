@@ -6,7 +6,7 @@ import jsonschema
 import pytest
 
 import pod5 as p5
-from pod5.tools.pod5_inspect import do_reads_command
+from pod5.tools.pod5_inspect import inspect_pod5
 from pod5.tools.pod5_subset import (
     calculate_transfers,
     create_default_filename_template,
@@ -118,8 +118,7 @@ class TestTableMappingParser:
         tmp_path: Path, capsys: pytest.CaptureFixture, columns: List[str]
     ) -> Tuple[Dict, Dict]:
         # Run pod5 inspect reads
-        with p5.Reader(POD5_PATH) as reader:
-            do_reads_command(reader)
+        inspect_pod5("reads", [POD5_PATH])
 
         # Capture stdout from pod5 inspect reads
         captured_stdout = str(capsys.readouterr().out)
@@ -137,9 +136,9 @@ class TestTableMappingParser:
 
         # TSV
         tsv_path = tmp_path / "table.tsv"
-        with tsv_path.open("w") as csv:
-            tsv = captured_stdout.replace(",", "\t")
-            csv.writelines(tsv.splitlines(keepends=True))
+        with tsv_path.open("w") as tsv:
+            std_out = captured_stdout.replace(",", "\t")
+            tsv.writelines(std_out.splitlines(keepends=True))
 
         tsv_table_mapping = parse_table_mapping(
             tsv_path,

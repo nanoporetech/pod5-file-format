@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed closing uninitialised file handles.
+- Fixed `pod5 inspect reads` repeating header
 
 ## [0.1.13] 2023-03-23
 
