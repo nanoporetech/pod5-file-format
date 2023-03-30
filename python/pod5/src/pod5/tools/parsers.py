@@ -37,7 +37,7 @@ def run_tool(parser: argparse.ArgumentParser) -> Any:
     try:
         return tool_func(**kwargs)
     except Exception as exc:
-        if os.getenv("POD5_DEBUG", 0):
+        if os.getenv("POD5_DEBUG") != "0":
             raise exc
         print(f"\nPOD5 has encountered an error: '{exc}'", file=sys.stderr)
         print("\nFor detailed information set POD5_DEBUG=1'", file=sys.stderr)

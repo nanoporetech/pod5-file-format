@@ -1,12 +1,9 @@
 stages:
   - .pre
-  - pre-flight
-  - build-lib
-  - build-python-api
-  - build-archive
-  - test-python
+  - build
+  - test
   - build-conan
-  - pages
+  - archive
   - deploy
 
 include:
@@ -21,6 +18,14 @@ variables:
 
 before_script:
   - ""
+
+
+# ======================================
+#
+#     Docker
+#
+# ======================================
+
 
 .build-docker-image:
   stage: .pre
@@ -64,9 +69,7 @@ docker conda:
     IMAGE_TAG: "conda"
     DOCKERFILE: "ci/docker/Dockerfile.conda"
 
-#
-# Templates (docker)
-#
+
 .docker template:
   stage: docker
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-docker:latest
@@ -75,6 +78,12 @@ docker conda:
   retry:
     max: 2
     when: runner_system_failure
+
+# ======================================
+#
+#     Versioning
+#
+# ======================================
 
 prepare_version:
   stage: .pre
@@ -96,8 +105,15 @@ prepare_version:
       - "python/lib_pod5/src/lib_pod5/_version.py"
       - "python/pod5/src/pod5/_version.py"
 
+
+# ======================================
+#
+#     Pre-Flight Setup / Checks
+#
+# ======================================
+
 tag_version_check:
-  stage: pre-flight
+  stage: .pre
   needs:
     - "prepare_version"
   only:
@@ -113,7 +129,7 @@ tag_version_check:
 
 pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
-    stage: pre-flight
+    stage: .pre
     tags:
         - linux
     script:
@@ -131,8 +147,16 @@ pre-commit checks:
         paths:
             - ${PRE_COMMIT_HOME}
 
+
+# ======================================
+#
+#     Build Lib Standalone
+#
+# ======================================
+
+
 build-standalone-ubu20:
-  stage: build-lib
+  stage: build
   image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:20.04
   needs:
     - "prepare_version"
@@ -151,8 +175,15 @@ build-standalone-ubu20:
   allow_failure: true
 
 
+# ======================================
+#
+#     Build Lib Linux
+#
+# ======================================
+
+
 .build-linux:
-  stage: build-lib
+  stage: build
   needs:
     - "prepare_version"
   before_script:
@@ -222,8 +253,16 @@ linux-aarch64-gcc9-release-build:
     matrix:
       - PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
+
+# ======================================
+#
+#     Build Lib OSX
+#
+# ======================================
+
+
 .build-osx-common:
-  stage: build-lib
+  stage: build
   needs:
     - "prepare_version"
   before_script:
@@ -298,8 +337,15 @@ osx-arm64-clang13-release-build:
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
 
 
+# ======================================
+#
+#     Build Lib Windows
+#
+# ======================================
+
+
 .build-win-common:
-  stage: build-lib
+  stage: build
   needs:
     - "prepare_version"
   before_script:
@@ -330,8 +376,6 @@ osx-arm64-clang13-release-build:
     - ../ci/install.sh
     - ../ci/package.sh ${OUTPUT_SKU}
 
-
-
 win-x64-msvc2017-release-build:
   extends: [".build-win-common"]
   tags:
@@ -351,8 +395,16 @@ win-x64-msvc2017-release-build:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
+
+# ======================================
+#
+#     Build Python API
+#
+# ======================================
+
+
 build-python-api:
-  stage: build-python-api
+  stage: build
   needs:
     - "prepare_version"
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
@@ -371,23 +423,13 @@ build-python-api:
     paths:
       - "pod5*.whl"
 
-build-archive:
-  stage: build-archive
-  needs:
-    - linux-x64-gcc9-release-build
-    - linux-aarch64-gcc9-release-build
-    - linux-aarch64-gcc7-release-build
-    - osx-x64-clang12-release-build
-    - osx-arm64-clang13-release-build
-    - win-x64-msvc2017-release-build
-    - build-python-api
-  script:
-    - find .
-  artifacts:
-    name: "${CI_JOB_NAME}-artifacts"
-    paths:
-      - ./*.tar.gz
-      - ./*.whl
+
+# ======================================
+#
+#     Test Tools
+#
+# ======================================
+
 
 .parallel-py-minor-ver: &parallel-py-minor-ver
   parallel:
@@ -395,7 +437,7 @@ build-archive:
       - PY_MINOR_VER: ["7", "8", "9", "10", "11"]
 
 tools-linux-x64:
-  stage: test-python
+  stage: test
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
@@ -417,8 +459,16 @@ tools-linux-x64:
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
   <<: *parallel-py-minor-ver
 
+
+# ======================================
+#
+#     Pytest
+#
+# ======================================
+
+
 .pytest:
-  stage: test-python
+  stage: test
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
@@ -514,6 +564,13 @@ pytest-win-x64:
   <<: *versions-matrix-pyenv-and-venv
 
 
+# ======================================
+#
+#     Conda Testing
+#
+# ======================================
+
+
 conda_pytest:
   extends: [".pytest"]
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
@@ -545,8 +602,16 @@ conda_pytest:
     - conda activate pod5_conda_test
   <<: *parallel-py-minor-ver
 
+
+# ======================================
+#
+#     Benchmarks
+#
+# ======================================
+
+
 .benchmark:
-  stage: test-python
+  stage: test
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
@@ -580,6 +645,14 @@ benchmark-linux-aarch64:
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
 
+
+# ======================================
+#
+#     Conan
+#
+# ======================================
+
+
 .conan-build-common:
   stage: build-conan
   dependencies:
@@ -590,12 +663,12 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
+  only: ["tags"]
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
-  only:
-    - tags
+  only: ["tags"]
   before_script:
     - apt update
     - apt install -y cmake
@@ -759,6 +832,39 @@ upload-conan:linux-aarch64-gcc11:
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]
 
 
+# ======================================
+#
+#     Archive
+#
+# ======================================
+
+
+build-archive:
+  stage: archive
+  needs:
+    - linux-x64-gcc9-release-build
+    - linux-aarch64-gcc9-release-build
+    - linux-aarch64-gcc7-release-build
+    - osx-x64-clang12-release-build
+    - osx-arm64-clang13-release-build
+    - win-x64-msvc2017-release-build
+    - build-python-api
+  script:
+    - find .
+  artifacts:
+    name: "${CI_JOB_NAME}-artifacts"
+    paths:
+      - ./*.tar.gz
+      - ./*.whl
+
+
+# ======================================
+#
+#     Deploy
+#
+# ======================================
+
+
 internal_wheel_upload:
   stage: deploy
   image: ${UPLOAD_PYTHON_IMAGE}
@@ -784,9 +890,50 @@ external_wheel_upload:
   only: ["tags"]
   when: manual
 
-# Build documentation pages which are hosted only on the gitlab ci pages for now
+
+# ======================================
+#
+#     MLHub Testing
+#
+# ======================================
+
+mlhub:
+  stage: deploy
+  image: ${MLHUB_TRIGGER_IMAGE}
+  needs: ["internal_wheel_upload"]
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - |
+      curl -i --header "Content-Type: application/json" \
+      --request POST \
+      --data '{
+          "key": "'${MLHUB_TRIGGER_KEY}'",
+          "job_name": "POD5-CI '${CI_COMMIT_REF_NAME}' - '"$CI_COMMIT_TITLE"' ",
+          "script_parameters": {
+                "tag":"'${CI_COMMIT_TAG}'",
+                "python_ver":"'${PYTHON_VERSION}'"
+              }
+      }' \
+      ${MLHUB_TRIGGER_URL}
+  only: ["tags"]
+  when: always
+  parallel:
+    matrix:
+      - PYTHON_VERSION:
+        - "3.7"
+        - "3.11"
+
+
+# ======================================
+#
+#     Pages
+#
+# ======================================
+
+
 pages:
-  stage: pages
+  stage: deploy
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.7
   needs: []
   tags:
