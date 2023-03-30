@@ -73,7 +73,12 @@ POD5_FORMAT_EXPORT arrow::Status decompress_signal(
     unsigned long long const decompressed_zstd_size =
         ZSTD_getFrameContentSize(compressed_bytes.data(), compressed_bytes.size());
     if (ZSTD_isError(decompressed_zstd_size)) {
-        return pod5::Status::Invalid("Input data not compressed by zstd");
+        return pod5::Status::Invalid(
+            "Input data not compressed by zstd: (",
+            decompressed_zstd_size,
+            " ",
+            ZSTD_getErrorName(decompressed_zstd_size),
+            ")");
     }
 
     ARROW_ASSIGN_OR_RAISE(
@@ -84,7 +89,12 @@ POD5_FORMAT_EXPORT arrow::Status decompress_signal(
         compressed_bytes.data(),
         compressed_bytes.size());
     if (ZSTD_isError(decompress_res)) {
-        return pod5::Status::Invalid("Input data failed to compress using zstd");
+        return pod5::Status::Invalid(
+            "Input data failed to decompress using zstd: (",
+            decompress_res,
+            " ",
+            ZSTD_getErrorName(decompress_res),
+            ")");
     }
 
     // Now decompress the data using svb:
