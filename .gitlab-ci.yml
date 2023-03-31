@@ -89,7 +89,11 @@ prepare_version:
   stage: .pre
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
   script:
-    - git tag -d $(git tag -l "*.dev*")
+    - git tag -d $(git tag -l "*a*")
+    - git tag -d $(git tag -l "*b*")
+    - git tag -d $(git tag -l "*r*")
+    - git tag -d $(git tag -l "*c*")
+    - git tag -d $(git tag -l "*dev*")
     - pip install --upgrade pip setuptools_scm
     - python -m setuptools_scm
     - cat _version.py
@@ -411,7 +415,11 @@ build-python-api:
   tags:
     - linux
   script:
-    - git tag -d $(git tag -l "*.dev*")
+    - git tag -d $(git tag -l "*a*")
+    - git tag -d $(git tag -l "*b*")
+    - git tag -d $(git tag -l "*r*")
+    - git tag -d $(git tag -l "*c*")
+    - git tag -d $(git tag -l "*dev*")
     - cat _version.py
     - cd python/pod5/
     - pip install -U pip build
