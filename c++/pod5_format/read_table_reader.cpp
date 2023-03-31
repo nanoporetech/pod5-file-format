@@ -266,6 +266,11 @@ Result<std::size_t> ReadTableReader::search_for_read_ids(
             ++file_ids_current_it;
         }
 
+        // No more ids to search, both lists are sorted and we haven't found this one, we won't find any others.
+        if (file_ids_current_it == file_ids_end) {
+            break;
+        }
+
         // If we found it record the location:
         if (file_ids_current_it->id == search_item.id) {
             batch_data[file_ids_current_it->batch].push_back(file_ids_current_it->batch_row);
