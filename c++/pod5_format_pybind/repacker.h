@@ -22,6 +22,13 @@ struct pair_hasher {
     }
 };
 
+struct run_info_hasher {
+    std::size_t operator()(pod5::RunInfoData const & run_info) const
+    {
+        return std::hash<std::string>{}(run_info.acquisition_id);
+    }
+};
+
 struct ReadSignalBatch {
     pod5::SignalType signal_type;
 
@@ -339,9 +346,18 @@ public:
 
         ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_run_info(source_index));
         ARROW_ASSIGN_OR_RAISE(auto const run_info, source_file->find_run_info(source_data));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_run_info(*run_info));
-        m_run_info_indexes[key] = new_index;
-        return new_index;
+        pod5::RunInfoDictionaryIndex dest_index = 0;
+
+        // See if we have the same run info by value stored in the file:
+        auto data_lookup_it = m_run_info_data_indexes.find(*run_info);
+        if (data_lookup_it != m_run_info_data_indexes.end()) {
+            dest_index = data_lookup_it->second;
+        } else {
+            ARROW_ASSIGN_OR_RAISE(dest_index, m_output_file->add_run_info(*run_info));
+        }
+
+        m_run_info_indexes[key] = dest_index;
+        return dest_index;
     }
 
     // Find an incrementing index that orders writes onto the output, used to ensure all writes occur
@@ -438,8 +454,10 @@ private:
     using DictionaryLookup =
         std::unordered_map<std::pair<FileKey, IndexType>, IndexType, pair_hasher>;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_pore_indexes;
-    DictionaryLookup<pod5::PoreDictionaryIndex> m_end_reason_indexes;
-    DictionaryLookup<pod5::PoreDictionaryIndex> m_run_info_indexes;
+    DictionaryLookup<pod5::EndReasonDictionaryIndex> m_end_reason_indexes;
+    DictionaryLookup<pod5::RunInfoDictionaryIndex> m_run_info_indexes;
+    std::unordered_map<pod5::RunInfoData, pod5::RunInfoDictionaryIndex, run_info_hasher>
+        m_run_info_data_indexes;
 };
 
 class Pod5Repacker : public std::enable_shared_from_this<Pod5Repacker> {
