@@ -30,7 +30,7 @@ classifiers=[
 dependencies = [
     "iso8601",
     "jsonschema",
-    "lib_pod5 ~= 0.1.10dev0",
+    "lib_pod5 ~= 0.1.15dev0",
     "more_itertools",
     "numpy >= 1.20.0",
     "pyarrow ~= 11.0.0",
