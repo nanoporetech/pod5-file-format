@@ -81,8 +81,10 @@ POD5_FORMAT_EXPORT arrow::Status decompress_signal(
             ")");
     }
 
+    auto allocation_padding = svb16::decode_input_buffer_padding_byte_count();
     ARROW_ASSIGN_OR_RAISE(
-        auto intermediate, arrow::AllocateResizableBuffer(decompressed_zstd_size, pool));
+        auto intermediate,
+        arrow::AllocateResizableBuffer(decompressed_zstd_size + allocation_padding, pool));
     size_t const decompress_res = ZSTD_decompress(
         intermediate->mutable_data(),
         intermediate->size(),
@@ -101,11 +103,8 @@ POD5_FORMAT_EXPORT arrow::Status decompress_signal(
     static constexpr bool UseDelta = true;
     static constexpr bool UseZigzag = true;
     auto consumed_count = svb16::decode<SampleType, UseDelta, UseZigzag>(
-        reinterpret_cast<SampleType *>(destination.data()),
-        intermediate->data(),
-        destination.size());
-
-    if (consumed_count != (std::size_t)intermediate->size()) {
+        destination, gsl::make_span(intermediate->data(), intermediate->size()));
+    if ((consumed_count + allocation_padding) != (std::size_t)intermediate->size()) {
         return pod5::Status::Invalid("Remaining data at end of signal buffer");
     }
 

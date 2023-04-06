@@ -45,11 +45,12 @@ void test_sse_encode_scalar_decode()
     CHECK(encoded == encoded_scalar);
 
     std::vector<Int16T> decoded(DATA_COUNT);
+    auto const encoded_span = gsl::make_span(encoded);
+    auto const key_length = svb16_key_length(data.size());
     auto const consumed = svb16::decode_sse<Int16T, UseDelta, UseZigzag>(
-                              decoded.data(),
-                              encoded.data(),
-                              encoded.data() + svb16_key_length(data.size()),
-                              DATA_COUNT)
+                              gsl::make_span(decoded),
+                              encoded_span.subspan(0, key_length),
+                              encoded_span.subspan(key_length))
                           - encoded.data();
 
     CHECK(consumed == encoded_count);
