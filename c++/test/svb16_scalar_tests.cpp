@@ -31,11 +31,12 @@ void test_scalar_encode_scalar_decode()
     CHECK(encoded_count <= svb16_max_encoded_length(data.size()));
 
     std::vector<Int16T> decoded(DATA_COUNT);
+    auto const encoded_span = gsl::make_span(encoded);
+    auto const key_length = svb16_key_length(data.size());
     auto const consumed = svb16::decode_scalar<Int16T, UseDelta, UseZigzag>(
-                              decoded.data(),
-                              encoded.data(),
-                              encoded.data() + svb16_key_length(data.size()),
-                              DATA_COUNT)
+                              gsl::make_span(decoded),
+                              encoded_span.subspan(0, key_length),
+                              encoded_span.subspan(key_length))
                           - encoded.data();
 
     CHECK(consumed == encoded_count);

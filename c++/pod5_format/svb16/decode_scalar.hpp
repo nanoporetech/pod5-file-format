@@ -2,6 +2,9 @@
 
 #include "common.hpp"
 
+#include <gsl/gsl-lite.hpp>
+
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -13,9 +16,8 @@ inline uint16_t zigzag_decode(uint16_t val)
     return (val >> 1) ^ static_cast<uint16_t>(0 - (val & 1));
 }
 
-inline uint16_t decode_data(uint8_t const * SVB_RESTRICT * dataPtrPtr, uint8_t code)
+inline uint16_t decode_data(gsl::span<uint8_t const>::iterator & dataPtr, uint8_t code)
 {
-    uint8_t const * dataPtr = *dataPtrPtr;
     uint16_t val;
 
     if (code == 0) {  // 1 byte
@@ -27,22 +29,25 @@ inline uint16_t decode_data(uint8_t const * SVB_RESTRICT * dataPtrPtr, uint8_t c
         dataPtr += 2;
     }
 
-    *dataPtrPtr = dataPtr;
     return val;
 }
 }  // namespace detail
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
 uint8_t const * decode_scalar(
-    Int16T * out,
-    uint8_t const * SVB_RESTRICT keys,
-    uint8_t const * SVB_RESTRICT data,
-    uint32_t count,
+    gsl::span<Int16T> out_span,
+    gsl::span<uint8_t const> keys_span,
+    gsl::span<uint8_t const> data_span,
     Int16T prev = 0)
 {
+    auto const count = out_span.size();
     if (count == 0) {
-        return data;
+        return data_span.begin();
     }
+
+    auto out = out_span.begin();
+    auto keys = keys_span.begin();
+    auto data = data_span.begin();
 
     uint8_t shift = 0;  // cycles 0 through 7 then resets
     uint8_t key_byte = *keys++;
@@ -53,7 +58,7 @@ uint8_t const * decode_scalar(
             shift = 0;
             key_byte = *keys++;
         }
-        uint16_t value = detail::decode_data(&data, (key_byte >> shift) & 0x01);
+        uint16_t value = detail::decode_data(data, (key_byte >> shift) & 0x01);
         SVB16_IF_CONSTEXPR(UseZigzag) { value = detail::zigzag_decode(value); }
         SVB16_IF_CONSTEXPR(UseDelta)
         {
@@ -62,6 +67,10 @@ uint8_t const * decode_scalar(
         }
         *out++ = static_cast<Int16T>(value);
     }
+
+    assert(out == out_span.end());
+    assert(keys == keys_span.end());
+    assert(data <= data_span.end());
     return data;
 }
 
