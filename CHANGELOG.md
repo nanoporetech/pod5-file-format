@@ -7,6 +7,13 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.16] 2023-04-06
+
+### Fixed
+
+- Fixed issue where pod5 would read out of bounds memory when decompressing some reads.
+
+
 ## [0.1.15] 2023-03-31
 
 ### Changed
