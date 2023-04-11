@@ -56,6 +56,11 @@ if (NOT DISABLE_DEBUG_SYMBOLS)
     endif()
 endif()
 
+option(ENABLE_FUZZERS "Enable fuzzing targets" OFF)
+if (ENABLE_FUZZERS)
+    include(pod5_fuzz)
+endif()
+
 
 # FIXME: DISABLE CONDITIONAL TO WORK ON BIONIC
 if (ENABLE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
@@ -101,4 +106,7 @@ add_subdirectory(c++)
 
 if (ENABLE_POD5_PACKAGING)
     include(pod5_packaging)
+endif()
+if (ENABLE_FUZZERS)
+    add_subdirectory(fuzz)
 endif()
