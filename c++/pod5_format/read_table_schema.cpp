@@ -6,7 +6,7 @@
 namespace pod5 {
 
 ReadTableSchemaDescription::ReadTableSchemaDescription()
-: SchemaDescriptionBase(table_version_from_file_version(current_build_version_number()))
+: SchemaDescriptionBase(ReadTableSpecVersion::latest())
 // V0 Fields
 , read_id(this, "read_id", uuid(), ReadTableSpecVersion::v0())
 , signal(this, "signal", arrow::list(arrow::uint64()), ReadTableSpecVersion::v0())

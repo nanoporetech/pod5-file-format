@@ -474,5 +474,7 @@ SCENARIO("C API Run Info")
             CHECK(run_info_data_out->acquisition_id == expected_acq_id(i));
             pod5_free_run_info(run_info_data_out);
         }
+
+        CHECK(pod5_close_and_free_reader(file) == POD5_OK);
     }
 }
