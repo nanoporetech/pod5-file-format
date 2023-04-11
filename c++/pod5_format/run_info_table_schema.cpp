@@ -6,7 +6,7 @@
 namespace pod5 {
 
 RunInfoTableSchemaDescription::RunInfoTableSchemaDescription()
-: SchemaDescriptionBase(table_version_from_file_version(current_build_version_number()))
+: SchemaDescriptionBase(RunInfoTableSpecVersion::latest())
 // V0 Fields
 , acquisition_id(this, "acquisition_id", arrow::utf8(), RunInfoTableSpecVersion::v0())
 , acquisition_start_time(

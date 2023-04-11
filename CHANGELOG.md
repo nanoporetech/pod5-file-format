@@ -7,6 +7,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## Fixed
+
+- Fixed leaks and UB when running unit tests.
+
 ## [0.1.17] 2023-04-06
 
 ### Changed

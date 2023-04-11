@@ -49,14 +49,11 @@ public:
     std::uint16_t revision_version() const { return std::get<2>(m_version); }
 
 private:
-    std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> parse_version_number(
-        std::string const & ver);
-
     std::tuple<std::uint16_t, std::uint16_t, std::uint16_t> m_version;
 };
 
-Result<Version> parse_version_number(std::string const & ver);
-Version current_build_version_number();
+POD5_FORMAT_EXPORT Result<Version> parse_version_number(std::string const & ver);
+POD5_FORMAT_EXPORT Version current_build_version_number();
 
 struct SchemaMetadataDescription {
     boost::uuids::uuid file_identifier;

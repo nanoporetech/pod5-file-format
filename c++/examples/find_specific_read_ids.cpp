@@ -14,6 +14,7 @@ int main(int argc, char ** argv)
         std::cerr << "Expected two arguments:\n"
                   << " - an pod5 file to search\n"
                   << " - a file containing newline separated of read ids\n";
+        return EXIT_FAILURE;
     }
 
     // Initialise the POD5 library:
@@ -110,4 +111,13 @@ int main(int argc, char ** argv)
     }
 
     std::cout << "Extracted " << read_count << " read numbers into " << output_path << "\n";
+
+    // Close the reader
+    if (pod5_close_and_free_reader(file) != POD5_OK) {
+        std::cerr << "Failed to close reader: " << pod5_get_error_string() << "\n";
+        return EXIT_FAILURE;
+    }
+
+    // Cleanup the library
+    pod5_terminate();
 }
