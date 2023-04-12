@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Fixed
 
 - Fixed leaks and UB when running unit tests.
+- Fixed run-away memory consumption during fast5 conversion
 
 ## [0.1.17] 2023-04-06
 
