@@ -82,6 +82,8 @@ public:
 
     Result<ReadTableRecordColumns> columns() const;
 
+    Result<std::shared_ptr<arrow::UInt64Array>> get_signal_rows(std::int64_t batch_row);
+
 private:
     std::shared_ptr<ReadTableSchemaDescription const> m_field_locations;
     mutable std::mutex m_dictionary_access_lock;
