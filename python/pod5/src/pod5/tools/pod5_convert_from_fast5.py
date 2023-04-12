@@ -290,7 +290,7 @@ def chunk_multi_read_fast5(
             if not is_multi_read(_h5):
                 return None
             return chunked_ranges(len(_h5.keys()), reads_per_chunk)
-    except Exception as _:
+    except Exception:
         pass
     return None
 
@@ -617,12 +617,15 @@ def submit_conversion_process(
     executor: ProcessPoolExecutor,
     work: Work,
     signal_chunk_size: int,
-) -> Optional[Tuple[Path, Future]]:
-    """Insert a new conversion future into `futures` if there is any availble `work`"""
+) -> None:
+    """
+    If there is any available `work`, submit a new conversion process to the `executor`
+    inserting the returned future into `futures`
+    """
     if not work:
         return
 
-    # Go from the first file found as it's likely to contain a full chunk of reads
+    # Go from the first chunk as it's more likely to contain a full chunk of reads
     path, chunk_range = work.pop(0)
     future = executor.submit(
         convert_fast5_file,
@@ -632,6 +635,7 @@ def submit_conversion_process(
     )
     futures[future] = path
     return
+
 
 def process_conversion(
     executor: ProcessPoolExecutor,
@@ -728,8 +732,8 @@ def convert_from_fast5(
 
         finally:
             output_handler.close_all()
-            executor.shutdown(wait=False)
             status.close()
+
 
 def main():
     """Main function for pod5_convert_from_fast5"""

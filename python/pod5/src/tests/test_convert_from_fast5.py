@@ -293,12 +293,12 @@ class TestFast5Conversion:
 class TestFast5Detection:
     def test_single_read_fast5_detection(self):
         """Test single-read fast5 files are detected raising an assertion error"""
-        with h5py.File(SINGLE_READ_FAST5_PATH) as _h5:
+        with h5py.File(SINGLE_READ_FAST5_PATH, "r") as _h5:
             assert not is_multi_read(_h5)
 
     def test_multi_read_fast5_detection(self):
         """Test multi-read fast5 files are detected not raising an error"""
-        with h5py.File(SINGLE_READ_FAST5_PATH) as _h5:
+        with h5py.File(FAST5_PATH, "r") as _h5:
             assert is_multi_read(_h5)
 
     def test_read_id_keys_detected(self) -> None:
@@ -329,12 +329,14 @@ class TestFast5Detection:
         (tmp_path / "multi.fast5").write_bytes(FAST5_PATH.read_bytes())
 
         with pytest.warns(UserWarning, match='Ignored files: "single.fast5"'):
-            pending_fast5s = chunk_multi_read_fast5s(
+            work = chunk_multi_read_fast5s(
                 iterate_inputs([tmp_path], False, "*.fast5"), threads=1
             )
 
-        assert len(pending_fast5s) == 1
-        assert pending_fast5s[0] == tmp_path / "multi.fast5"
+        assert len(work) == 1
+        path, chunk = work[0]
+        assert path == tmp_path / "multi.fast5"
+        assert chunk == (0, 10)
 
     def test_non_existent_files_ignored(self, tmp_path: Path, recwarn) -> None:
         """Test that no non-existent files are passed to conversion"""
@@ -576,7 +578,8 @@ class TestStatusMonitor:
         """Assert a file is detected as done after changing expected count"""
         path = tmp_path / "input.fast5"
         other = tmp_path / "other.fast5"
-        expected = {path: 4000, other: 999}
+
+        expected = [(path, (0, 200)), (path, (200, 4000)), (other, (0, 999))]
         sm = StatusMonitor(expected)
         assert sm.total_expected == 4999
 
@@ -635,8 +638,7 @@ class TestChunking:
     def test_plan_chunks_core(self) -> None:
         """Assert plan_chunks gives chunked ranges"""
         known_length = 10
-        path, chunks = plan_chunks(FAST5_PATH)
-        assert path == FAST5_PATH
+        chunks = plan_chunks(FAST5_PATH)
         assert chunks is not None
         assert chunks[-1][1] == known_length
 
@@ -656,5 +658,5 @@ class TestChunking:
     )
     def test_plan_chunks(self, rpc: int, expected: List[Tuple[int, int]]) -> None:
         """Assert plan_chunks gives chunked ranges"""
-        _, chunks = plan_chunks(FAST5_PATH, reads_per_chunk=rpc)
+        chunks = plan_chunks(FAST5_PATH, reads_per_chunk=rpc)
         assert chunks == expected
