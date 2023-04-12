@@ -11,6 +11,7 @@ from concurrent.futures import (
     wait,
 )
 import datetime
+from functools import partial
 from itertools import islice
 import os
 from pathlib import Path
@@ -42,6 +43,7 @@ from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chu
 from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
 from pod5.tools.utils import iterate_inputs
 
+TIMEOUT_SEC = 60
 READS_PER_CHUNK = 400
 
 Work = List[Tuple[Path, Tuple[int, int]]]
@@ -650,19 +652,46 @@ def process_conversion(
     Iterate through the available conversion tasks in `work` keeping at most
     `queue_size` number of converted chunks of reads queued for writing at any time.
     """
-    # Create the initial futures queue, each future contains a list of converted reads
     futures: Dict[Future, Path] = {}
-    for _ in range(queue_size):
-        submit_conversion_process(
-            futures=futures,
-            executor=executor,
-            work=work,
-            signal_chunk_size=signal_chunk_size,
-        )
+
+    submit_conversion_job = partial(
+        submit_conversion_process,
+        futures=futures,
+        executor=executor,
+        work=work,
+        signal_chunk_size=signal_chunk_size,
+    )
+
+    # Create the initial futures queue, each future contains a list of converted reads
+    for _ in range(max(queue_size, 2)):
+        submit_conversion_job()
+
+    attempt, max_attempts = 1, 3
 
     while work or futures:
         # Get the next finished future - returns Set[Future]
-        done, _ = wait(futures, return_when=FIRST_COMPLETED)
+
+        done, not_done = wait(futures, timeout=TIMEOUT_SEC, return_when=FIRST_COMPLETED)
+
+        if len(done) == 0:
+            status.write(
+                f"Conversion timed-out after {TIMEOUT_SEC} sec -"
+                f"Work: {len(work)} Active: {len(futures)} Wait: {len(not_done)}\n"
+                f"Waiting on: {futures}\n"
+                f"Attempting to resume.. Attempt {attempt} of {max_attempts}",
+                file=sys.stderr,
+            )
+            # Submit another conversion job in case we somehow ran empty?
+            if len(work) != 0:
+                submit_conversion_job()
+
+            # Appears there's nothing left to do?
+            if len(futures) == 0 and len(not_done) == 0:
+                break
+
+            if attempt >= max_attempts:
+                raise RuntimeError("Conversion process has timed-out")
+            attempt += 1
 
         # Write the converted reads as they become ready
         for future in done:
@@ -678,12 +707,7 @@ def process_conversion(
             )
 
             # Submit the next conversion process (if possible any work remaining)
-            submit_conversion_process(
-                futures=futures,
-                executor=executor,
-                work=work,
-                signal_chunk_size=signal_chunk_size,
-            )
+            submit_conversion_job()
 
 
 def convert_from_fast5(
