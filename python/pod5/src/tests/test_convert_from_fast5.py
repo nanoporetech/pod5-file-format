@@ -21,10 +21,10 @@ from pod5.tools.pod5_convert_from_fast5 import (
     convert_fast5_file,
     convert_fast5_read,
     convert_from_fast5,
-    filter_multi_read_fast5s,
+    chunk_multi_read_fast5s,
     futures_exception,
     get_read_from_fast5,
-    is_multi_read_fast5,
+    is_multi_read,
     plan_chunks,
 )
 
@@ -293,11 +293,13 @@ class TestFast5Conversion:
 class TestFast5Detection:
     def test_single_read_fast5_detection(self):
         """Test single-read fast5 files are detected raising an assertion error"""
-        assert not is_multi_read_fast5(SINGLE_READ_FAST5_PATH)
+        with h5py.File(SINGLE_READ_FAST5_PATH) as _h5:
+            assert not is_multi_read(_h5)
 
     def test_multi_read_fast5_detection(self):
         """Test multi-read fast5 files are detected not raising an error"""
-        assert is_multi_read_fast5(FAST5_PATH)
+        with h5py.File(SINGLE_READ_FAST5_PATH) as _h5:
+            assert is_multi_read(_h5)
 
     def test_read_id_keys_detected(self) -> None:
         """Test that only read_id groups are returned from a known good file"""
@@ -327,7 +329,7 @@ class TestFast5Detection:
         (tmp_path / "multi.fast5").write_bytes(FAST5_PATH.read_bytes())
 
         with pytest.warns(UserWarning, match='Ignored files: "single.fast5"'):
-            pending_fast5s = filter_multi_read_fast5s(
+            pending_fast5s = chunk_multi_read_fast5s(
                 iterate_inputs([tmp_path], False, "*.fast5"), threads=1
             )
 
@@ -340,7 +342,7 @@ class TestFast5Detection:
         no_exist = tmp_path / "no_exist"
         assert not no_exist.exists()
 
-        pending_fast5s = filter_multi_read_fast5s([no_exist], threads=1)
+        pending_fast5s = chunk_multi_read_fast5s([no_exist], threads=1)
 
         assert len(pending_fast5s) == 0
         assert len(recwarn) == 0
