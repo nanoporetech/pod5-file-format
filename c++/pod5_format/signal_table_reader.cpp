@@ -190,6 +190,10 @@ Result<std::size_t> SignalTableReader::signal_batch_for_row_id(
     std::uint64_t row,
     std::size_t * batch_row) const
 {
+    if (m_batch_size == 0) {
+        return Status::Invalid("Invalid row '", row, "' for file with zero signal rows.");
+    }
+
     auto batch = row / m_batch_size;
 
     if (batch_row) {

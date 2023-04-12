@@ -6,6 +6,7 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 int main(int argc, char ** argv)
 {
@@ -64,6 +65,13 @@ int main(int argc, char ** argv)
             pod5_format_read_id(read_data.read_id, formatted_read_id.data());
             output_stream << formatted_read_id.data() << "\n";
             read_count += 1;
+
+            std::size_t sample_count = 0;
+            pod5_get_read_complete_sample_count(file, batch, row, &sample_count);
+
+            std::vector<std::int16_t> samples;
+            samples.resize(sample_count);
+            pod5_get_read_complete_signal(file, batch, row, samples.size(), samples.data());
         }
 
         if (pod5_free_read_batch(batch) != POD5_OK) {

@@ -96,6 +96,28 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
     return result;
 }
 
+Result<std::shared_ptr<arrow::UInt64Array>> ReadTableRecordBatch::get_signal_rows(
+    std::int64_t batch_row)
+{
+    auto signal_col = signal_column();
+
+    auto const & values = signal_col->values();
+
+    auto const offset = signal_col->value_offset(batch_row);
+    if (offset >= values->length()) {
+        return arrow::Status::Invalid(
+            "Invalid signal row offset '", offset, "' is outside the size of the values array.");
+    }
+
+    auto const length = signal_col->value_length(batch_row);
+    if (length > values->length() - offset) {
+        return arrow::Status::Invalid(
+            "Invalid signal row length '", length, "' is outside the size of the values array.");
+    }
+
+    return std::static_pointer_cast<arrow::UInt64Array>(values->Slice(offset, length));
+}
+
 Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index) const
 {
     std::lock_guard<std::mutex> l(m_dictionary_access_lock);

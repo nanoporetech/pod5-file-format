@@ -453,7 +453,7 @@ pod5_error_t pod5_get_read_batch_row_info_data(
         typed_row_data->num_reads_since_mux_change = cols.num_reads_since_mux_change->Value(row);
         typed_row_data->time_since_mux_change = cols.time_since_mux_change->Value(row);
 
-        typed_row_data->signal_row_count = cols.signal->value_slice(row)->length();
+        typed_row_data->signal_row_count = cols.signal->value_length(row);
         typed_row_data->num_samples = cols.num_samples->Value(row);
     } else {
         pod5_set_error(
@@ -812,9 +812,7 @@ pod5_error_t pod5_get_read_complete_sample_count(
         return g_pod5_error_no;
     }
 
-    auto const & signal_col = batch->batch.signal_column();
-    auto const & signal_rows =
-        std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
+    POD5_C_ASSIGN_OR_RAISE(auto const & signal_rows, batch->batch.get_signal_rows(batch_row));
 
     std::vector<std::int16_t> output_samples;
     POD5_C_ASSIGN_OR_RAISE(
@@ -837,9 +835,7 @@ pod5_error_t pod5_get_read_complete_signal(
         return g_pod5_error_no;
     }
 
-    auto const & signal_col = batch->batch.signal_column();
-    auto const & signal_rows =
-        std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(batch_row));
+    POD5_C_ASSIGN_OR_RAISE(auto const & signal_rows, batch->batch.get_signal_rows(batch_row));
 
     POD5_C_RETURN_NOT_OK(reader->reader->extract_samples(
         gsl::make_span(signal_rows->raw_values(), signal_rows->length()),
