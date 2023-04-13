@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Repacker reads_completed value while copying a selection of reads.
+- Fixed crash when trying to load files with a bad footer.
 
 ## [0.1.20] 2023-04-20
 
