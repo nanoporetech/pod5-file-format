@@ -94,6 +94,7 @@ prepare_version:
     - git tag -d $(git tag -l "*r*")
     - git tag -d $(git tag -l "*c*")
     - git tag -d $(git tag -l "*dev*")
+    - if [[ ${CI_COMMIT_TAG/#v/} ]]; then git tag ${CI_COMMIT_TAG/#v/}; fi
     - pip install --upgrade pip setuptools_scm
     - python -m setuptools_scm
     - cat _version.py
@@ -420,6 +421,7 @@ build-python-api:
     - git tag -d $(git tag -l "*r*")
     - git tag -d $(git tag -l "*c*")
     - git tag -d $(git tag -l "*dev*")
+    - if [[ ${CI_COMMIT_TAG/#v/} ]]; then git tag ${CI_COMMIT_TAG/#v/}; fi
     - cat _version.py
     - cd python/pod5/
     - pip install -U pip build
