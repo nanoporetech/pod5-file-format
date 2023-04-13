@@ -7,9 +7,15 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added fuzz testing.
+
 ## [0.3.25]
 
-## Changed
+### Changed
 
 - Python 3.8 wheels are no longer built for Windows or macOS (Python 3.8 is end-of-life).
 - Better error messages and testing of file recovery.
@@ -20,29 +26,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.24]
 
-## Changed
+### Changed
 
 - Update to arrow 18 for the cpp library.
 
-## Fixed
+### Fixed
 
 - Flush `pod5 view` header to prevent issue on Windows systems where header would not be on top.
 
 ## [0.3.23]
 
-## Changed
+### Changed
 
 - Removed use of python `build` when building wheel in cmake.
 
 ## [0.3.22]
 
-## Added
+### Added
 
 - `ArrowTableHandle` `stream` member to store the `BatchFileReader` backend
 - `ArrowTableHandle` `options` argument to pass in `IpcReadOptions`
 - `pod5::default_memory_pool` function which selects an appropriate memory pool even on large page systems.
 
-## Changed
+### Changed
 
 - Refactored Multi-threading in `DatasetReader` to prevent too many open files errors
 - Updated dependency to `pyarrow~=18.0.0` for `python>=3.9`
@@ -50,103 +56,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.21]
 
-## Added
+### Added
 
 - Support for python 3.13.
 
-## Changed
+### Changed
 
 - Removed use of Boost. This does not affect the C interface, but may require changes to
   consumers of the C++ headers.
 
 ## [0.3.20]
 
-## Changed
+### Changed
 
 - Refactored directio writing engine to open up async io support.
 - Fixed Boost version compatibility checking in Conan packages.
 
 ## [0.3.19]
 
-## Added
+### Added
 
 - New end reason for reads terminated due to an analysis configuration change.
 
-## Changed
+### Changed
 
 - Reduced allocations when compressing signal.
 
-## Fixed
+### Fixed
 
 - Crash when searching empty file for reads.
 
 ## [0.3.18]
 
-## Added
+### Added
 
 - Ability to disable flushing on batch complete
 - Use new LinuxOutputStream to cache allocations and reduce memory when writing many files.
 
 ## [0.3.17]
 
-## Changed
+### Changed
 
 - Move svb headers to correct subdirectory in
 
 ## [0.3.16]
 
-## Added
+### Added
 
 - svb16 headers packaged with pod5
 
-## Changed
+### Changed
 
 - Directio output now writes on batch complete without flushing explicitly.
 
 ## [0.3.15]
 
-## Added
+### Added
 
 - Added new end reasons "api_request" and "device_data_error" to allow for new read end reasons future minknow versions will generate.
 - Allow directio to specify the chunk size directly.
 
 ## [0.3.14]
 
-## Added
+### Added
 
 - gcc8 builds
 
 ## [0.3.13]
 
-## Fixed
+### Fixed
 
 - Instability when creating a pod5 writer fails.
 - Issue with directio mode where space is over reserved.
 
 ## [0.3.12]
 
-## Fixed
+### Fixed
 
 - Fixed issues reading signal from uncompressed pod5 files.
 
 ## [0.3.11]
 
-## Added
+### Added
 
 - Typechecking on `Writer.add_reads` to inform users incorrectly passing `ReadRecords`
 - Compatibility with numpy 2.0.
 
-## Fixed
+### Fixed
 
 - `DatasetReader` correctly handles string paths
 
 ## [0.3.10]
 
-## Added
+### Added
 
 - Required pypa project metadata.
 
-## Removed
+### Removed
 
 - Dropped support OSX builds for XCode < 14.2.
 
@@ -346,7 +352,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `pod5 inspect reads` deprecated in-favour of `pod5 view`
 
-## Fixed
+### Fixed
 
 - Exception raised when calling `pod5` without any arguments
 - Exception raised in `pod5 convert fast5` where closed writers were reopened after being closed by a caught exception
