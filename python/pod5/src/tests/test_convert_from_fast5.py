@@ -1,10 +1,10 @@
 """
 Test for the convert_from_fast5 tool
 """
-from concurrent.futures import Future
+from concurrent.futures import Future, ProcessPoolExecutor
 import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict
 from unittest.mock import MagicMock
 from uuid import UUID
 
@@ -15,17 +15,20 @@ import pytest
 
 import pod5 as p5
 from pod5.tools.pod5_convert_from_fast5 import (
+    READS_PER_CHUNK,
     OutputHandler,
     StatusMonitor,
+    Work,
+    chunked_ranges,
     convert_fast5_end_reason,
     convert_fast5_file,
     convert_fast5_read,
     convert_from_fast5,
-    filter_multi_read_fast5s,
+    chunk_multi_read_fast5s,
     futures_exception,
     get_read_from_fast5,
-    is_multi_read_fast5,
-    plan_chunks,
+    is_multi_read,
+    process_conversion,
 )
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
@@ -293,11 +296,13 @@ class TestFast5Conversion:
 class TestFast5Detection:
     def test_single_read_fast5_detection(self):
         """Test single-read fast5 files are detected raising an assertion error"""
-        assert not is_multi_read_fast5(SINGLE_READ_FAST5_PATH)
+        with h5py.File(SINGLE_READ_FAST5_PATH, "r") as _h5:
+            assert not is_multi_read(_h5)
 
     def test_multi_read_fast5_detection(self):
         """Test multi-read fast5 files are detected not raising an error"""
-        assert is_multi_read_fast5(FAST5_PATH)
+        with h5py.File(FAST5_PATH, "r") as _h5:
+            assert is_multi_read(_h5)
 
     def test_read_id_keys_detected(self) -> None:
         """Test that only read_id groups are returned from a known good file"""
@@ -327,12 +332,14 @@ class TestFast5Detection:
         (tmp_path / "multi.fast5").write_bytes(FAST5_PATH.read_bytes())
 
         with pytest.warns(UserWarning, match='Ignored files: "single.fast5"'):
-            pending_fast5s = filter_multi_read_fast5s(
+            work = chunk_multi_read_fast5s(
                 iterate_inputs([tmp_path], False, "*.fast5"), threads=1
             )
 
-        assert len(pending_fast5s) == 1
-        assert pending_fast5s[0] == tmp_path / "multi.fast5"
+        assert len(work) == 1
+        path, chunk = work[0]
+        assert path == tmp_path / "multi.fast5"
+        assert chunk == (0, 10)
 
     def test_non_existent_files_ignored(self, tmp_path: Path, recwarn) -> None:
         """Test that no non-existent files are passed to conversion"""
@@ -340,7 +347,7 @@ class TestFast5Detection:
         no_exist = tmp_path / "no_exist"
         assert not no_exist.exists()
 
-        pending_fast5s = filter_multi_read_fast5s([no_exist], threads=1)
+        pending_fast5s = chunk_multi_read_fast5s([no_exist], threads=1)
 
         assert len(pending_fast5s) == 0
         assert len(recwarn) == 0
@@ -574,7 +581,8 @@ class TestStatusMonitor:
         """Assert a file is detected as done after changing expected count"""
         path = tmp_path / "input.fast5"
         other = tmp_path / "other.fast5"
-        expected = {path: 4000, other: 999}
+
+        expected = [(path, (0, 200)), (path, (200, 4000)), (other, (0, 999))]
         sm = StatusMonitor(expected)
         assert sm.total_expected == 4999
 
@@ -630,29 +638,83 @@ class TestConvertEndReason:
 
 
 class TestChunking:
-    def test_plan_chunks_core(self) -> None:
-        """Assert plan_chunks gives chunked ranges"""
-        known_length = 10
-        path, chunks = plan_chunks(FAST5_PATH)
-        assert path == FAST5_PATH
-        assert chunks is not None
-        assert chunks[-1][1] == known_length
+    """Test the index chunking of fast5 reads"""
 
-    def test_plan_chunks_raises_negative(self) -> None:
-        """Assert plan_chunks gives chunked ranges"""
+    def test_chunked_ranges(self) -> None:
+        assert chunked_ranges(0, 0) is None
+        assert chunked_ranges(0, 10) is None
+        assert chunked_ranges(0, -10) is None
+        assert chunked_ranges(-1, 10) is None
+
+        assert chunked_ranges(1, 1) == [(0, 1)]
+        assert chunked_ranges(3, 1) == [(0, 1), (1, 2), (2, 3)]
+        assert chunked_ranges(10, 3) == [(0, 3), (3, 6), (6, 9), (9, 10)]
+        assert chunked_ranges(1, 15) == [(0, 1)]
+        assert chunked_ranges(10, 15) == [(0, 10)]
+
         with pytest.raises(ValueError, match="greater than zero"):
-            plan_chunks(FAST5_PATH, 0)
+            chunked_ranges(10, -10)
 
-    @pytest.mark.parametrize(
-        "rpc,expected",
-        [
-            (4, [(0, 4), (4, 8), (8, 10)]),
-            (9, [(0, 9), (9, 10)]),
-            (10, [(0, 10)]),
-            (11, [(0, 10)]),
-        ],
-    )
-    def test_plan_chunks(self, rpc: int, expected: List[Tuple[int, int]]) -> None:
-        """Assert plan_chunks gives chunked ranges"""
-        _, chunks = plan_chunks(FAST5_PATH, reads_per_chunk=rpc)
-        assert chunks == expected
+    def test_reads_per_chunk(self) -> None:
+        """Assert the READS_PER_CHUNK value is greater than non-zero"""
+        assert READS_PER_CHUNK > 0
+
+
+class TestTimeout:
+    """Test the wait timeout"""
+
+    def test_timeout(self, mocker) -> None:
+        """Assert that a timeout is detected"""
+        with ProcessPoolExecutor(max_workers=1) as exc:
+            output_h = mocker.MagicMock()
+            status = mocker.MagicMock()
+            work: Work = [(FAST5_PATH, (0, 2))]
+            with pytest.raises(TimeoutError, match="process has timed-out"):
+                process_conversion(
+                    executor=exc,
+                    work=work,
+                    output_handler=output_h,
+                    status=status,
+                    queue_size=1,
+                    # Extremely low timeout, no way we could do the work in this time
+                    timeout=1e-9,
+                )
+
+        called_args = status.write.call_args_list
+        assert "Conversion timed-out after" in called_args[0][0][0]
+        assert "Attempt 1" in called_args[0][0][0]
+        assert "Conversion timed-out after" in called_args[1][0][0]
+        assert "Attempt 2" in called_args[1][0][0]
+        assert "Conversion timed-out after" in called_args[2][0][0]
+        assert "Attempt 3" in called_args[2][0][0]
+
+    def test_timeout_adds_work(self, mocker) -> None:
+        """Assert that we try to add another work job if timed out on other"""
+        with ProcessPoolExecutor(max_workers=1) as exc:
+            output_h = mocker.MagicMock()
+            status = mocker.MagicMock()
+            work: Work = [
+                (FAST5_PATH, (0, 2)),
+                (FAST5_PATH, (2, 4)),
+                (FAST5_PATH, (4, 6)),
+            ]
+            with pytest.raises(TimeoutError, match="process has timed-out"):
+                process_conversion(
+                    executor=exc,
+                    work=work,
+                    output_handler=output_h,
+                    status=status,
+                    queue_size=1,
+                    # Extremely low timeout, no way we could do the work in this time
+                    timeout=1e-9,
+                )
+
+        called_args = status.write.call_args_list
+        assert "Conversion timed-out after" in called_args[0][0][0]
+        assert "Attempt 1" in called_args[0][0][0]
+        assert "Submitting additional job" in called_args[1][0][0]
+        assert "Conversion timed-out after" in called_args[2][0][0]
+        assert "Attempt 2" in called_args[2][0][0]
+        assert "Submitting additional job" in called_args[3][0][0]
+        assert "Conversion timed-out after" in called_args[4][0][0]
+        assert "Attempt 3" in called_args[4][0][0]

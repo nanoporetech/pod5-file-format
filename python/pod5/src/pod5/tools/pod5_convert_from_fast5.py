@@ -2,21 +2,20 @@
 Tool for converting fast5 files to the pod5 format
 """
 
+from collections import defaultdict
 from concurrent.futures import (
+    FIRST_COMPLETED,
     Future,
     ProcessPoolExecutor,
-    ThreadPoolExecutor,
     as_completed,
+    wait,
 )
 import datetime
+from functools import partial
 from itertools import islice
 import os
-import sys
-import warnings
-from pod5.pod5_types import CompressedRead
-from tqdm.auto import tqdm
-import uuid
 from pathlib import Path
+import sys
 from typing import (
     Any,
     Dict,
@@ -27,6 +26,10 @@ from typing import (
     Tuple,
     Union,
 )
+import uuid
+import warnings
+
+from tqdm.auto import tqdm
 
 import h5py
 import iso8601
@@ -35,11 +38,15 @@ import numpy as np
 import vbz_h5py_plugin  # noqa: F401
 
 import pod5 as p5
+from pod5.pod5_types import CompressedRead
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chunked
 from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
 from pod5.tools.utils import iterate_inputs
 
-READS_PER_CHUNK = 250
+TIMEOUT_SEC = 1200
+READS_PER_CHUNK = 400
+
+Work = List[Tuple[Path, Tuple[int, int]]]
 
 
 class OutputHandler:
@@ -173,9 +180,15 @@ class OutputHandler:
 class StatusMonitor:
     """Class for monitoring the status of the conversion"""
 
-    def __init__(self, expected: Dict[Path, int]):
-        self.expected: Dict[Path, int] = expected
-        self.done: Dict[Path, int] = {path: 0 for path in expected}
+    def __init__(self, work: Work):
+        # Get the max key index from each file
+        expected_counts: Dict[Path, int] = defaultdict(int)
+        for path, chunk_range in work:
+            if expected_counts[path] < chunk_range[1]:
+                expected_counts[path] = chunk_range[1]
+
+        self.expected: Dict[Path, int] = expected_counts
+        self.done: Dict[Path, int] = {path: 0 for path in expected_counts}
 
         disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         self.pbar = tqdm(
@@ -186,26 +199,34 @@ class StatusMonitor:
             unit="Reads",
             leave=True,
             dynamic_ncols=True,
+            smoothing=0.05,
         )
 
     @property
     def total_files(self) -> int:
+        """Return the number of files being processed"""
         return len(self.expected)
 
     @property
     def total_expected(self) -> int:
+        """Return the number of reads which are expected to need converting"""
         return sum(self.expected.values())
 
-    def increment(self, path: Path, n: int, expected: int) -> None:
-        """Increment the reads status by n and update the number of expected"""
-        self.expected[path] -= expected - n
+    def increment(self, path: Path, incr: int, expected: int) -> None:
+        """
+        Increment the reads status by `incr` and update the number of `expected` reads
+        for this source `path`
+        """
+        self.expected[path] -= expected - incr
         self.pbar.total = self.total_expected
 
-        self.done[path] += n
-        self.pbar.update(n)
+        self.done[path] += incr
+        self.pbar.update(incr)
 
     def is_input_done(self, path: Path) -> bool:
-        """Returns true if the number of done reads equals the number of expected reads"""
+        """
+        Returns true if the number of done reads equals the number of expected reads
+        """
         return self.done[path] >= self.expected[path]
 
     def write(self, msg: str, file: Any) -> None:
@@ -217,35 +238,62 @@ class StatusMonitor:
         self.pbar.close()
 
 
-def is_multi_read_fast5(path: Path) -> bool:
-    """
-    Assert that the given path points to a a multi-read fast5 file for which
-    direct-to-pod5 conversion is supported.
-    """
-    try:
-        with h5py.File(path) as _h5:
-            # The "file_type" attribute might be present on supported multi-read fast5 files.
-            if _h5.attrs.get("file_type") == "multi-read":
-                return True
+def chunked_ranges(
+    count: int, reads_per_chunk: int = READS_PER_CHUNK
+) -> Optional[List[Tuple[int, int]]]:
+    """Create index ranges"""
+    if count <= 0:
+        return None
 
-            # No keys, assume multi-read but there shouldn't be anything to do which would
-            # cause an issue so pass silently
-            if len(_h5) == 0:
-                return True
+    if reads_per_chunk <= 0:
+        raise ValueError(
+            f"reads_per_chunk must be greater than zero got {reads_per_chunk}"
+        )
 
-            # if there are "read_x" keys, this is a multi-read file
-            if any(key for key in _h5 if key.startswith("read_")):
-                return True
+    # Creates a list of integers spanning the half-open interval [0, count)
+    # stepping by reads_per_chunk
+    ranges = list(np.arange(0, count, reads_per_chunk))
+    # Append count to create a closed interval [0, count]
+    ranges.append(count)
+    # Form list of pairwise tuples [(0, a), (a, b), ... (N, count)]
+    return list(pairwise(ranges))
 
-    except Exception:
-        pass
 
+def is_multi_read(handle: h5py.File) -> bool:
+    """Return true if this h5 file is a multi-read fast5"""
+    # The "file_type" attribute might be present on multi-read fast5 files.
+    if handle.attrs.get("file_type") == "multi-read":
+        return True
+    # if there are "read_x" keys, this is a multi-read file
+    if any(key for key in handle.keys() if key.startswith("read_")):
+        return True
     return False
 
 
-def filter_multi_read_fast5s(paths: Iterable[Path], threads: int) -> List[Path]:
-    """Filter an iterable of paths returning only multi-read-fast5s"""
-    multi_read_fast5s: List[Path] = []
+def chunk_multi_read_fast5(
+    path: Path, reads_per_chunk: int = READS_PER_CHUNK
+) -> Optional[List[Tuple[int, int]]]:
+    """
+    Iterate over paths checking for multi-read fast5 files for which
+    pod5 conversion is supported. While there, chunk the indexes for downstream
+    chunking
+    """
+    try:
+        with h5py.File(path) as _h5:
+            if not is_multi_read(_h5):
+                return None
+            return chunked_ranges(len(_h5.keys()), reads_per_chunk)
+    except Exception:
+        pass
+    return None
+
+
+def chunk_multi_read_fast5s(paths: Iterable[Path], threads: int) -> Work:
+    """
+    Filter an iterable of paths returning only multi-read-fast5s and chunk
+    the indexes for more granular multiprocessing
+    """
+    work: Work = []
     bad_paths: List[Path] = []
 
     paths = list(paths)
@@ -257,21 +305,23 @@ def filter_multi_read_fast5s(paths: Iterable[Path], threads: int) -> List[Path]:
         ascii=True,
         unit="Files",
         dynamic_ncols=True,
+        smoothing=0.1,
     )
 
-    # Speed up the check with multi-processing. Can't use multi-threading because
-    # hdf5 might crash
-    with ThreadPoolExecutor(max_workers=threads * 2) as exc:
+    with ProcessPoolExecutor(max_workers=threads) as exc:
         futures = {
-            exc.submit(is_multi_read_fast5, path): path
+            exc.submit(chunk_multi_read_fast5, path): path
             for path in paths
             if path.exists()
         }
         for future in as_completed(futures):
             pbar.update()
             path = futures[future]
-            if future.result():
-                multi_read_fast5s.append(path)
+
+            chunks = future.result()
+            if chunks:
+                for chunk in chunks:
+                    work.append((path, chunk))
             else:
                 bad_paths.append(path)
 
@@ -286,7 +336,7 @@ Ignored files: \"{skipped_paths}\""""
         )
 
     pbar.close()
-    return multi_read_fast5s
+    return work
 
 
 def decode_str(value: Union[str, bytes]) -> str:
@@ -479,39 +529,16 @@ def get_read_from_fast5(group_name: str, h5_file: h5py.File) -> Optional[h5py.Gr
     return None
 
 
-def plan_chunks(
-    path: Path, reads_per_chunk: int = READS_PER_CHUNK
-) -> Tuple[Path, Optional[List[Any]]]:
-    """Given a fast5 file, return index ranges for each chunk"""
-    with h5py.File(str(path), "r") as _f5:
-        ranges = chunked_ranges(len(_f5.keys()), reads_per_chunk)
-    return path, ranges
-
-
-def chunked_ranges(
-    count: int, reads_per_chunk: int = READS_PER_CHUNK
-) -> Optional[List[Any]]:
-    """Create index ranges"""
-    if count == 0:
-        return None
-
-    if reads_per_chunk <= 0:
-        raise ValueError(
-            f"reads_per_chunk must be greater than zero got {reads_per_chunk}"
-        )
-
-    ranges = list(np.arange(0, count, reads_per_chunk))
-    ranges.append(count)
-    return list(pairwise(ranges))
-
-
 def convert_fast5_file(
     fast5_file: Path,
     chunk_range: Tuple[int, int],
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
 ) -> Tuple[List[CompressedRead], int]:
-    """Convert the reads within chunk_range indices"""
-
+    """
+    Convert the reads within chunk_range indices into CompressedReads.
+    Also return the number of expected reads from this range to keep the status
+    bar accurate
+    """
     with h5py.File(str(fast5_file), "r") as _f5:
 
         run_info_cache: Dict[str, p5.RunInfo] = {}
@@ -553,61 +580,135 @@ def futures_exception(
 
 
 def write_converted_reads(
-    futures: Dict[Future, Path],
+    future: Future,
+    path: Path,
     output_handler: OutputHandler,
     status: StatusMonitor,
     strict: bool,
 ) -> None:
-    """Work through the futures until all work is done"""
+    """
+    Write the reads returned from the conversion `future` to a pod5 file.
+    Exceptions are raised if `future` has an exception and `strict` is `true`
+    """
+    if futures_exception(path, future, status, strict):
+        return
 
-    for future in as_completed(futures):
-        path = futures[future]
+    # Get the converted reads and write them to a pod5 file
+    result: Tuple[List[CompressedRead], int] = future.result()
+    reads, expected_chunk_count = result
+    output_handler.add_reads(path, reads)
 
-        if futures_exception(path, future, status, strict):
-            continue
-
-        result: Tuple[List[CompressedRead], int] = future.result()
-        reads, expected_chunk_count = result
-        output_handler.add_reads(path, reads)
-        status.increment(path, len(reads), expected_chunk_count)
-
-        if status.is_input_done(path):
-            output_handler.set_input_complete(path)
-
-    status.close()
+    # Increment the status bar, and update the count of expected reads for a given
+    # output so that finished outputs can be closed promptly
+    status.increment(path, len(reads), expected_chunk_count)
+    if status.is_input_done(path):
+        output_handler.set_input_complete(path)
 
 
-def submit_conversion_processes(
+def submit_conversion_process(
+    futures: Dict[Future, Path],
     executor: ProcessPoolExecutor,
-    fast5s: List[Path],
-    signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
-) -> Tuple[Dict[Future, Path], Dict[Path, int]]:
+    work: Work,
+    signal_chunk_size: int,
+) -> None:
+    """
+    If there is any available `work`, submit a new conversion process to the `executor`
+    inserting the returned future into `futures`
+    """
+    if not work:
+        return
 
-    # Track the number of keys in each input fast5 file
-    counts: Dict[Path, int] = {}
+    # Go from the first chunk as it's more likely to contain a full chunk of reads
+    path, chunk_range = work.pop(0)
+    future = executor.submit(
+        convert_fast5_file,
+        fast5_file=path,
+        chunk_range=chunk_range,
+        signal_chunk_size=signal_chunk_size,
+    )
+    futures[future] = path
+    return
+
+
+def process_conversion(
+    executor: ProcessPoolExecutor,
+    work: Work,
+    output_handler: OutputHandler,
+    status: StatusMonitor,
+    queue_size: int,
+    signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
+    strict: bool = False,
+    timeout: float = TIMEOUT_SEC,
+) -> None:
+    """
+    Iterate through the available conversion tasks in `work` keeping at most
+    `queue_size` number of converted chunks of reads queued for writing at any time.
+    """
     futures: Dict[Future, Path] = {}
 
-    # Plan the chunks (index ranges) that will be visited by each future
-    for plan in executor.map(plan_chunks, fast5s):
-        path, chunk_ranges = plan
+    submit_conversion_job = partial(
+        submit_conversion_process,
+        futures=futures,
+        executor=executor,
+        work=work,
+        signal_chunk_size=signal_chunk_size,
+    )
 
-        if not chunk_ranges:
-            print(f"{path} skipped - nothing to do")
-            continue
+    if queue_size < 1:
+        raise ValueError("queue_size must be positive integer")
 
-        counts[path] = chunk_ranges[-1][1]
+    # Create the initial futures queue, each future contains a list of converted reads
+    for _ in range(queue_size):
+        submit_conversion_job()
 
-        # Foreach index range chunk, spawn a subprocess in this executor
-        for chunk_range in chunk_ranges:
-            future = executor.submit(
-                convert_fast5_file,
-                fast5_file=path,
-                chunk_range=chunk_range,
-                signal_chunk_size=signal_chunk_size,
+    attempt, max_attempts = 1, 3
+
+    while work or futures:
+        # Get the next finished future - returns Tuple of Set[Future]
+        done, not_done = wait(futures, timeout=timeout, return_when=FIRST_COMPLETED)
+
+        if len(done) == 0:
+            status.write(
+                f"Conversion timed-out after {TIMEOUT_SEC} sec -"
+                f"Work: {len(work)} Active: {len(futures)} Wait: {len(not_done)}\n"
+                f"Waiting on: {futures}\n"
+                "A file listed above might be stuck.. "
+                f"Attempting to resume.. Attempt {attempt} of {max_attempts}",
+                file=sys.stderr,
             )
-            futures[future] = path
+            # Submit another conversion job in case we somehow ran empty?
+            if len(work) != 0:
+                status.write("Submitting additional job", file=sys.stderr)
+                submit_conversion_job()
 
-    return futures, counts
+            # Appears there's nothing left to do. This path should be impossible.
+            if len(futures) == 0 and len(not_done) == 0:
+                status.write("All work done, finishing", file=sys.stderr)
+                break
+
+            if attempt >= max_attempts:
+                raise TimeoutError("Conversion process has timed-out")
+            attempt += 1
+
+        # done is a Set[Future] and there should only be one as FIRST_COMPLETED
+        for future in done:
+            # Reset the attempt counter if we have a successful future
+            attempt = 1
+
+            # Remove this future from the pool, also frees memory
+            fast5_path = futures.pop(future)
+
+            # Blocking write to the output pod5
+            write_converted_reads(
+                future,
+                fast5_path,
+                output_handler=output_handler,
+                status=status,
+                strict=strict,
+            )
+
+            # Submit the next conversion process (if possible any work remaining)
+            submit_conversion_job()
 
 
 def convert_from_fast5(
@@ -629,28 +730,26 @@ def convert_from_fast5(
 
     output_handler = OutputHandler(output, one_to_one, force_overwrite)
 
-    fast5s = filter_multi_read_fast5s(
+    work = chunk_multi_read_fast5s(
         iterate_inputs(inputs, recursive, "*.fast5"), threads=threads
     )
 
-    if not fast5s:
+    if not work:
         raise RuntimeError("Found no fast5 files to process - Exiting")
 
+    status = StatusMonitor(work)
+
     with ProcessPoolExecutor(max_workers=threads) as executor:
-
-        futures, counts = submit_conversion_processes(
-            executor=executor, fast5s=fast5s, signal_chunk_size=signal_chunk_size
-        )
-
-        # Start the progress bar with the estimated number of reads
-        status = StatusMonitor(counts)
-
         try:
-            write_converted_reads(
-                futures,
+            process_conversion(
+                executor=executor,
+                work=work,
                 output_handler=output_handler,
                 status=status,
+                queue_size=threads * 2,
+                signal_chunk_size=signal_chunk_size,
                 strict=strict,
+                timeout=TIMEOUT_SEC,
             )
 
         except Exception as exc:
@@ -659,6 +758,7 @@ def convert_from_fast5(
 
         finally:
             output_handler.close_all()
+            status.close()
 
 
 def main():
