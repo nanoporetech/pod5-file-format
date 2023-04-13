@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed
+## [0.1.18] 2023-04-13
 
+## Fixed
+- Fixed crash loading malicious files (found via fuzz testing)
 - Fixed leaks and UB when running unit tests.
 - Fixed run-away memory consumption during fast5 conversion
 
