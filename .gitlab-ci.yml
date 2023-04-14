@@ -673,7 +673,6 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
-  only: ["tags"]
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -885,6 +884,7 @@ internal_wheel_upload:
     - pip install twine
     - twine upload *.whl
   only: ["tags"]
+  when: manual
 
 external_wheel_upload:
   stage: deploy
@@ -927,6 +927,7 @@ mlhub:
       }' \
       ${MLHUB_TRIGGER_URL}
   only: ["tags"]
+  when: manual
   parallel:
     matrix:
       - PYTHON_VERSION:
