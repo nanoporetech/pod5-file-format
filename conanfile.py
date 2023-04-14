@@ -173,6 +173,8 @@ class Pod5Conan(ConanFile):
         self._cmake.definitions["ENABLE_CONAN"] = "ON"
         self._cmake.definitions["BUILD_PYTHON_WHEEL"] = "OFF"
         self._cmake.definitions["INSTALL_THIRD_PARTY"] = "OFF"
+        self._cmake.definitions["POD5_DISABLE_TESTS"] = "ON"
+        self._cmake.definitions["POD5_BUILD_EXAMPLES"] = "OFF"
         self._cmake.definitions["BUILD_SHARED_LIB"] = (
             "ON" if self.options.shared else "OFF"
         )
