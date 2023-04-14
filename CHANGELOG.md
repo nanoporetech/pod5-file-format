@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.18] 2023-04-13
+## [0.1.19] 2023-04-14
 
 ## Fixed
 - Fixed crash loading malicious files (found via fuzz testing)
