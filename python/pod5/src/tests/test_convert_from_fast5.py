@@ -1,11 +1,12 @@
 """
 Test for the convert_from_fast5 tool
 """
-from concurrent.futures import Future, ProcessPoolExecutor
 import datetime
+from multiprocessing import Queue
 from pathlib import Path
-from typing import Dict
-from unittest.mock import MagicMock
+from random import randint
+from typing import Dict, Tuple
+from unittest.mock import MagicMock, PropertyMock
 from uuid import UUID
 
 import h5py
@@ -15,20 +16,17 @@ import pytest
 
 import pod5 as p5
 from pod5.tools.pod5_convert_from_fast5 import (
-    READS_PER_CHUNK,
+    ExcItem,
     OutputHandler,
-    StatusMonitor,
-    Work,
-    chunked_ranges,
-    convert_fast5_end_reason,
-    convert_fast5_file,
+    RequestItem,
+    discard_and_close,
+    convert_fast5_files,
     convert_fast5_read,
     convert_from_fast5,
-    chunk_multi_read_fast5s,
-    futures_exception,
+    filter_multi_read_fast5s,
     get_read_from_fast5,
-    is_multi_read,
-    process_conversion,
+    is_multi_read_fast5,
+    process_conversion_tasks,
 )
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
@@ -235,74 +233,15 @@ class TestFast5Conversion:
                 assert expected_read.signal.shape[0] == signal.shape[0]
                 assert signal.dtype == np.int16
 
-    def test_convert_fast5_file(self, tmp_path: Path) -> None:
-        """Assert read conversion works and the result is writable"""
-        reads, expected_count = convert_fast5_file(FAST5_PATH, chunk_range=(0, 2))
-        assert len(reads) == expected_count == 2
-        for read in reads:
-            assert isinstance(read, p5.CompressedRead)
-            assert read.signal_chunks
-            assert read.read_id
-
-        test_write = tmp_path / "output.pod5"
-        with p5.Writer(test_write) as writer:
-            writer.add_reads(reads)
-
-        assert test_write.exists()
-
-    def test_futures_exception_not_strict(self, tmp_path: Path, mocker) -> None:
-        """Test the handling of exceptions when not strict"""
-        path = tmp_path / "input.fast5"
-        status: MagicMock = mocker.MagicMock()
-        future: Future = Future()
-        assert future.set_running_or_notify_cancel()
-        future.set_exception(KeyError("example"))
-
-        result = futures_exception(path, future, status, strict=False)
-        assert result is True
-
-        called_args = status.write.call_args_list
-        assert called_args[0][0][0].startswith("Error processing")
-        assert called_args[1][0][0].startswith("Sub-process trace")
-        assert status.close.call_count == 0
-
-    def test_futures_exception_strict(self, tmp_path: Path, mocker) -> None:
-        """Test the handling of exceptions when strict"""
-        path = tmp_path / "input.fast5"
-        status: MagicMock = mocker.MagicMock()
-        future: Future = Future()
-        assert future.set_running_or_notify_cancel()
-        future.set_exception(KeyError("example"))
-
-        with pytest.raises(KeyError, match="example"):
-            futures_exception(path, future, status, strict=True)
-
-        called_args = status.write.call_args_list
-        assert called_args[0][0][0].startswith("Error processing")
-        assert called_args[1][0][0].startswith("Sub-process trace")
-        assert status.close.call_count == 1
-
-    def test_futures_exception_none(self, tmp_path: Path, mocker) -> None:
-        """Test the handling of exceptions with no exception"""
-        path = tmp_path / "input.fast5"
-        status: MagicMock = mocker.MagicMock()
-        future: Future = Future()
-        assert future.set_running_or_notify_cancel()
-        future.set_result(([], 0))
-        result = futures_exception(path, future, status, strict=True)
-        assert result is False
-
 
 class TestFast5Detection:
     def test_single_read_fast5_detection(self):
         """Test single-read fast5 files are detected raising an assertion error"""
-        with h5py.File(SINGLE_READ_FAST5_PATH, "r") as _h5:
-            assert not is_multi_read(_h5)
+        assert not is_multi_read_fast5(SINGLE_READ_FAST5_PATH)
 
     def test_multi_read_fast5_detection(self):
         """Test multi-read fast5 files are detected not raising an error"""
-        with h5py.File(FAST5_PATH, "r") as _h5:
-            assert is_multi_read(_h5)
+        assert is_multi_read_fast5(FAST5_PATH)
 
     def test_read_id_keys_detected(self) -> None:
         """Test that only read_id groups are returned from a known good file"""
@@ -332,14 +271,12 @@ class TestFast5Detection:
         (tmp_path / "multi.fast5").write_bytes(FAST5_PATH.read_bytes())
 
         with pytest.warns(UserWarning, match='Ignored files: "single.fast5"'):
-            work = chunk_multi_read_fast5s(
+            pending_fast5s = filter_multi_read_fast5s(
                 iterate_inputs([tmp_path], False, "*.fast5"), threads=1
             )
 
-        assert len(work) == 1
-        path, chunk = work[0]
-        assert path == tmp_path / "multi.fast5"
-        assert chunk == (0, 10)
+        assert len(pending_fast5s) == 1
+        assert pending_fast5s[0] == tmp_path / "multi.fast5"
 
     def test_non_existent_files_ignored(self, tmp_path: Path, recwarn) -> None:
         """Test that no non-existent files are passed to conversion"""
@@ -347,16 +284,136 @@ class TestFast5Detection:
         no_exist = tmp_path / "no_exist"
         assert not no_exist.exists()
 
-        pending_fast5s = chunk_multi_read_fast5s([no_exist], threads=1)
+        pending_fast5s = filter_multi_read_fast5s([no_exist], threads=1)
 
         assert len(pending_fast5s) == 0
         assert len(recwarn) == 0
 
 
+class TestQueues:
+    @staticmethod
+    def setup_queues() -> Tuple[Queue, Queue]:
+        """Setup request and data queues"""
+        return Queue(), Queue()
+
+    def test_runtime_exception(self, mocker) -> None:
+        """Test the propagation of a runtime exception"""
+        request_q, data_q = self.setup_queues()
+        request_q.put(RequestItem())
+
+        mocker.patch(
+            "pod5.tools.pod5_convert_from_fast5.convert_fast5_read",
+            side_effect=Exception("Boom"),
+        )
+
+        convert_fast5_files(
+            request_q,
+            data_q,
+            [FAST5_PATH],
+            is_subprocess=False,
+        )
+
+        item = data_q.get()
+        assert isinstance(item, ExcItem)
+
+        with pytest.raises(Exception, match="Boom"):
+            raise item.exception
+
+        discard_and_close(request_q)
+        discard_and_close(data_q)
+
+        self.assert_is_closed(request_q)
+        self.assert_is_closed(data_q)
+
+    def test_process_queues_raises_when_strict(self, tmp_path: Path, mocker) -> None:
+        """When strict=True, test that exception is raised via queues"""
+        request_q, data_q = self.setup_queues()
+        handler = OutputHandler(tmp_path, None, False)
+
+        status: MagicMock = mocker.MagicMock()
+        type(status).running = PropertyMock(side_effect=[True, False])
+
+        data_q.put(ExcItem(Path.cwd(), Exception("inner_exception"), "error"))
+        with pytest.raises(Exception, match="inner_exception"):
+            process_conversion_tasks(request_q, data_q, handler, status, strict=True)
+
+        called_args = status.write.call_args_list
+        assert called_args[0][0][0].startswith("Error processing")
+        assert called_args[1][0][0].startswith("Sub-process trace")
+        assert status.close.call_count == 1
+
+        discard_and_close(request_q)
+        discard_and_close(data_q)
+
+    def test_process_queues_passes_exceptions(self, tmp_path: Path, mocker) -> None:
+        """When strict=False, test that no exception is raised via queues"""
+        request_q, data_q = self.setup_queues()
+
+        handler = OutputHandler(tmp_path, None, False)
+        status: MagicMock = mocker.MagicMock()
+        type(status).running = PropertyMock(side_effect=[True, False])
+
+        data_q.put(ExcItem(Path.cwd(), Exception("inner_exception"), "error"))
+        process_conversion_tasks(request_q, data_q, handler, status, strict=False)
+        assert status.write.call_count == 2
+
+        called_args = status.write.call_args_list
+        assert called_args[0][0][0].startswith("Error processing")
+        assert called_args[1][0][0].startswith("Sub-process trace")
+
+        assert status.close.call_count == 1
+
+        discard_and_close(request_q)
+        discard_and_close(data_q)
+
+    def test_convert_queues_close(self) -> None:
+        """Test that convert_fast5_files queues are closed"""
+        request_q, data_q = self.setup_queues()
+        request_q.put(RequestItem())
+
+        convert_fast5_files(
+            request_q,
+            data_q,
+            [FAST5_PATH],
+            is_subprocess=False,
+        )
+
+        discard_and_close(request_q)
+        discard_and_close(data_q)
+
+        self.assert_is_closed(request_q)
+        self.assert_is_closed(data_q)
+
+    def test_discard_and_close(self) -> None:
+        """Assert that discard_and_close closes queues"""
+        for _ in range(10):
+            queue: Queue = Queue()
+            expected = randint(30, 150)
+            for idx in range(expected):
+                queue.put(idx)
+            count = discard_and_close(queue)
+            assert count == expected
+            self.assert_is_closed(queue)
+
+    def test_discard_and_close_empty(self) -> None:
+        """Assert that discard_and_close closes queues"""
+        queue: Queue = Queue()
+        count = discard_and_close(queue)
+        assert count == 0
+
+    def assert_is_closed(self, queue: Queue) -> None:
+        """Assert that a mp.Queue is closed"""
+        with pytest.raises(Exception, match="closed"):
+            queue.put("raises")
+
+        with pytest.raises(Exception, match="closed"):
+            queue.get(timeout=None)
+
+
 class TestConvertBehaviour:
     """Test the runtime behaviour of the conversion tool based on the cli arguments"""
 
-    def test_no_unforced_overwrite(self, tmp_path: Path) -> None:
+    def test_no_unforced_overwrite(self, tmp_path: Path):
         """Assert that the conversion tool will not overwrite existing files"""
 
         existing = tmp_path / "exists.pod5"
@@ -432,7 +489,7 @@ class TestConvertBehaviour:
         output = tmp_path / "output"
         output.mkdir(parents=True, exist_ok=True)
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match="directory must be a relative parent"):
             convert_from_fast5(
                 inputs=[clone_1, clone_2],
                 output=output,
@@ -442,79 +499,7 @@ class TestConvertBehaviour:
 
 
 class TestOutputHandler:
-    def test_writer(self, tmp_path: Path) -> None:
-        """Assert that a pod5 writer is created"""
-        handler = OutputHandler(tmp_path, None, True)
-        input_path = tmp_path / "input.fast5"
-        writer = handler.get_writer(input_path)
-        assert isinstance(writer, p5.Writer)
-        assert writer.path == tmp_path / "output.pod5"
-
-    def test_writer_no_reopen(self, tmp_path: Path) -> None:
-        """Assert that a writer cannot be re-opened"""
-        handler = OutputHandler(tmp_path, None, True)
-        input_path = tmp_path / "input.fast5"
-        _ = handler.get_writer(input_path)
-        handler.close_all()
-        with pytest.raises(FileExistsError, match="re-open"):
-            _ = handler.get_writer(input_path)
-
-    def test_writer_no_close_when_shared(self, tmp_path: Path) -> None:
-        """Assert that a writer isn't closed if shared"""
-        handler = OutputHandler(tmp_path, None, True)
-        input_path = tmp_path / "input.fast5"
-        writer = handler.get_writer(input_path)
-        handler.set_input_complete(input_path)
-        assert writer._writer
-
-    def test_writer_close_when_one_to_one(self, tmp_path: Path) -> None:
-        """Assert that a writer is closed when the input is finished"""
-        handler = OutputHandler(tmp_path, tmp_path, True)
-        input_path = tmp_path / "input.fast5"
-        writer = handler.get_writer(input_path)
-        handler.set_input_complete(input_path)
-        assert writer._writer is None
-
-    def test_no_overwrite_existing_file(self, tmp_path: Path) -> None:
-        """Assert no unintentional overwrite for existing files"""
-        exists = tmp_path / "existing.pod5"
-        exists.touch()
-        with pytest.raises(FileExistsError, match="force-overwrite not set"):
-            OutputHandler(exists, None, force_overwrite=False)
-
-    def test_overwrite_existing_file(self, tmp_path: Path) -> None:
-        """Assert force overwrite unlnks file"""
-        exists = tmp_path / "existing.pod5"
-        exists.touch()
-        OutputHandler(exists, None, force_overwrite=True)
-
-    def test_resolve_one_to_one_root(self, tmp_path: Path) -> None:
-        """Test the relative path resolution"""
-        example = tmp_path / "example.fast5"
-        example.touch()
-        expected = example = tmp_path / "example.pod5"
-        resolved = OutputHandler.resolve_one_to_one_path(example, tmp_path, tmp_path)
-        assert resolved == expected
-
-    def test_resolve_one_to_one_parent(self, tmp_path: Path) -> None:
-        """Test the relative path resolution"""
-        parent = tmp_path / "parent"
-        parent.mkdir(parents=True)
-        example = parent / "example.fast5"
-        example.touch()
-        expected = parent / "parent/example.pod5"
-        resolved = OutputHandler.resolve_one_to_one_path(example, parent, tmp_path)
-        assert resolved == expected
-
-    def test_resolve_one_to_one_error(self, tmp_path: Path) -> None:
-        """Test the relative path resolution raises"""
-        example = tmp_path / "example.fast5"
-        example.touch()
-        non_relative = tmp_path / "non_relative"
-        with pytest.raises(RuntimeError, match="relative parent"):
-            OutputHandler.resolve_one_to_one_path(example, tmp_path, non_relative)
-
-    def test_default_writer(self, tmp_path: Path):
+    def test_output_handler_default_writer(self, tmp_path: Path):
         """Assert that the OutputHandler creates an output file with default name"""
         handler = OutputHandler(tmp_path, None, False)
         source = tmp_path / "test.fast5"
@@ -527,7 +512,7 @@ class TestOutputHandler:
         assert writer._writer is None
         assert len(list(tmp_path.glob("*.pod5"))) == 1
 
-    def test_one_to_one_writer(self, tmp_path: Path):
+    def test_output_handler_one_to_one_writer(self, tmp_path: Path):
         """Assert that the OutputHandler creates output name is similar when in 1:1"""
         handler = OutputHandler(tmp_path, tmp_path, False)
         source = tmp_path / "test.fast5"
@@ -540,7 +525,7 @@ class TestOutputHandler:
         assert writer._writer is None
         assert len(list(tmp_path.glob("*.pod5"))) == 1
 
-    def test_one_to_one_multiple_writer(self, tmp_path: Path):
+    def test_output_handler_one_to_one_multiple_writer(self, tmp_path: Path):
         """Assert that the OutputHandler creates output name is similar when in 1:1"""
         handler = OutputHandler(tmp_path, tmp_path, False)
 
@@ -553,168 +538,3 @@ class TestOutputHandler:
 
         assert len(list(tmp_path.glob("*.pod5"))) == len(names)
         handler.close_all()
-
-    def test_resolve_path_default_dir(self, tmp_path: Path) -> None:
-        """Test default output case for directory"""
-        expect = tmp_path / "output.pod5"
-        result = OutputHandler.resolve_output_path(tmp_path, tmp_path, None)
-        assert result == expect
-
-    def test_resolve_path_default_file(self, tmp_path: Path) -> None:
-        """Test default output case for file is the file path given"""
-        path = tmp_path / "output.pod5"
-        result = OutputHandler.resolve_output_path(path, tmp_path, None)
-        assert result == path
-
-    def test_resolve_path_one_to_one(self, tmp_path: Path) -> None:
-        """Test resolve path for one_to_one mode creates parent directories"""
-        parent = tmp_path / "parent"
-        path = parent / "output.pod5"
-        result = OutputHandler.resolve_output_path(path, parent, tmp_path)
-        expected = tmp_path / "parent/parent/output.pod5"
-        assert result == expected
-        assert result.parent.exists()
-
-
-class TestStatusMonitor:
-    def test_done_after_expectation_change(self, tmp_path: Path) -> None:
-        """Assert a file is detected as done after changing expected count"""
-        path = tmp_path / "input.fast5"
-        other = tmp_path / "other.fast5"
-
-        expected = [(path, (0, 200)), (path, (200, 4000)), (other, (0, 999))]
-        sm = StatusMonitor(expected)
-        assert sm.total_expected == 4999
-
-        assert sm.expected[path] == 4000
-        assert sm.done[path] == 0
-        assert not sm.is_input_done(path)
-
-        # Converted the expected number of reads
-        sm.increment(path, 500, 500)
-        assert sm.expected[path] == 4000
-        assert sm.done[path] == 500
-        assert not sm.is_input_done(path)
-
-        # Converted fewer than the expected number of reads
-        sm.increment(path, 950, 2000)
-        assert sm.expected[path] == 2950  # Lower expectation 1010 reads
-        assert sm.done[path] == 1450
-        assert not sm.is_input_done(path)
-
-        sm.increment(path, 1400, 1500)
-        assert sm.expected[path] == 2850  # Lower expectation 100 reads
-        assert sm.done[path] == 2850
-
-        # this output is now done as expected == done
-        assert sm.is_input_done(path)
-
-        # Total expected has been adjusted and still adds up
-        assert sm.total_expected == 3849
-
-        # Other output is not done
-        assert sm.expected[other] == 999
-        assert sm.done[other] == 0
-        assert not sm.is_input_done(other)
-
-
-class TestConvertEndReason:
-    @pytest.mark.parametrize(
-        "fast5_value,expected_value",
-        [
-            (0, p5.EndReasonEnum.UNKNOWN),
-            (1, p5.EndReasonEnum.UNKNOWN),
-            (2, p5.EndReasonEnum.MUX_CHANGE),
-            (3, p5.EndReasonEnum.UNBLOCK_MUX_CHANGE),
-            (4, p5.EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE),
-            (5, p5.EndReasonEnum.SIGNAL_POSITIVE),
-            (6, p5.EndReasonEnum.SIGNAL_NEGATIVE),
-        ],
-    )
-    def test_all(self, fast5_value: int, expected_value: p5.EndReasonEnum) -> None:
-        """Test convert fast5 end reason"""
-        result = convert_fast5_end_reason(fast5_value)
-        assert result == p5.EndReason.from_reason_with_default_forced(expected_value)
-
-
-class TestChunking:
-    """Test the index chunking of fast5 reads"""
-
-    def test_chunked_ranges(self) -> None:
-        assert chunked_ranges(0, 0) is None
-        assert chunked_ranges(0, 10) is None
-        assert chunked_ranges(0, -10) is None
-        assert chunked_ranges(-1, 10) is None
-
-        assert chunked_ranges(1, 1) == [(0, 1)]
-        assert chunked_ranges(3, 1) == [(0, 1), (1, 2), (2, 3)]
-        assert chunked_ranges(10, 3) == [(0, 3), (3, 6), (6, 9), (9, 10)]
-        assert chunked_ranges(1, 15) == [(0, 1)]
-        assert chunked_ranges(10, 15) == [(0, 10)]
-
-        with pytest.raises(ValueError, match="greater than zero"):
-            chunked_ranges(10, -10)
-
-    def test_reads_per_chunk(self) -> None:
-        """Assert the READS_PER_CHUNK value is greater than non-zero"""
-        assert READS_PER_CHUNK > 0
-
-
-class TestTimeout:
-    """Test the wait timeout"""
-
-    def test_timeout(self, mocker) -> None:
-        """Assert that a timeout is detected"""
-        with ProcessPoolExecutor(max_workers=1) as exc:
-            output_h = mocker.MagicMock()
-            status = mocker.MagicMock()
-            work: Work = [(FAST5_PATH, (0, 2))]
-            with pytest.raises(TimeoutError, match="process has timed-out"):
-                process_conversion(
-                    executor=exc,
-                    work=work,
-                    output_handler=output_h,
-                    status=status,
-                    queue_size=1,
-                    # Extremely low timeout, no way we could do the work in this time
-                    timeout=1e-9,
-                )
-
-        called_args = status.write.call_args_list
-        assert "Conversion timed-out after" in called_args[0][0][0]
-        assert "Attempt 1" in called_args[0][0][0]
-        assert "Conversion timed-out after" in called_args[1][0][0]
-        assert "Attempt 2" in called_args[1][0][0]
-        assert "Conversion timed-out after" in called_args[2][0][0]
-        assert "Attempt 3" in called_args[2][0][0]
-
-    def test_timeout_adds_work(self, mocker) -> None:
-        """Assert that we try to add another work job if timed out on other"""
-        with ProcessPoolExecutor(max_workers=1) as exc:
-            output_h = mocker.MagicMock()
-            status = mocker.MagicMock()
-            work: Work = [
-                (FAST5_PATH, (0, 2)),
-                (FAST5_PATH, (2, 4)),
-                (FAST5_PATH, (4, 6)),
-            ]
-            with pytest.raises(TimeoutError, match="process has timed-out"):
-                process_conversion(
-                    executor=exc,
-                    work=work,
-                    output_handler=output_h,
-                    status=status,
-                    queue_size=1,
-                    # Extremely low timeout, no way we could do the work in this time
-                    timeout=1e-9,
-                )
-
-        called_args = status.write.call_args_list
-        assert "Conversion timed-out after" in called_args[0][0][0]
-        assert "Attempt 1" in called_args[0][0][0]
-        assert "Submitting additional job" in called_args[1][0][0]
-        assert "Conversion timed-out after" in called_args[2][0][0]
-        assert "Attempt 2" in called_args[2][0][0]
-        assert "Submitting additional job" in called_args[3][0][0]
-        assert "Conversion timed-out after" in called_args[4][0][0]
-        assert "Attempt 3" in called_args[4][0][0]

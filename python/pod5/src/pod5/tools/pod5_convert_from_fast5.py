@@ -2,51 +2,94 @@
 Tool for converting fast5 files to the pod5 format
 """
 
-from collections import defaultdict
-from concurrent.futures import (
-    FIRST_COMPLETED,
-    Future,
-    ProcessPoolExecutor,
-    as_completed,
-    wait,
-)
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import datetime
-from functools import partial
-from itertools import islice
+import multiprocessing as mp
+from multiprocessing.context import SpawnProcess
 import os
-from pathlib import Path
 import sys
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
-import uuid
 import warnings
-
 from tqdm.auto import tqdm
+import uuid
+from pathlib import Path
+from queue import Empty
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Set, Union
 
 import h5py
 import iso8601
-from more_itertools import pairwise
-import numpy as np
+import more_itertools
 import vbz_h5py_plugin  # noqa: F401
 
 import pod5 as p5
-from pod5.pod5_types import CompressedRead
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chunked
 from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
 from pod5.tools.utils import iterate_inputs
 
-TIMEOUT_SEC = 1200
-READS_PER_CHUNK = 400
+READ_CHUNK_SIZE = 100
+TIMEOUT_SECONDS = 1200
 
-Work = List[Tuple[Path, Tuple[int, int]]]
+
+class RequestItem(NamedTuple):
+    """Enqueued to request more reads"""
+
+
+class ExcItem(NamedTuple):
+    """Enqueued to pass exceptions"""
+
+    path: Path
+    exception: Exception
+    trace: str
+
+
+class ReadsItem(NamedTuple):
+    """Enqueued to send list of converted reads to be written"""
+
+    path: Path
+    reads: List[p5.CompressedRead]
+
+
+class EndItem(NamedTuple):
+    """Enqueued to send list of converted reads to be written"""
+
+    path: Path
+    total_reads: int
+
+
+def await_queue(queue: mp.Queue) -> Union[RequestItem, ExcItem, ReadsItem, EndItem]:
+    """Wait for the next item on a queue"""
+    try:
+        return queue.get(timeout=TIMEOUT_SECONDS)
+    except Empty:
+        raise RuntimeError(f"No progress in {TIMEOUT_SECONDS} seconds - quitting")
+
+
+def discard_and_close(queue: mp.Queue) -> int:
+    """
+    Discard all remaining enqueued items and close a queue to nicely shutdown the queue
+    Returns the number of discarded items
+    """
+    count = 0
+    while True:
+        try:
+            queue.get(timeout=0.1)
+            count += 1
+        except Exception:
+            break
+
+    queue.close()
+    queue.join_thread()
+    return count
+
+
+def terminate_processes(processes: List[SpawnProcess]) -> None:
+    """terminate all child processes"""
+    for proc in processes:
+        try:
+            proc.terminate()
+        except ValueError:
+            # Catch ValueError raised if proc is already closed
+            pass
+    return
 
 
 class OutputHandler:
@@ -64,14 +107,6 @@ class OutputHandler:
         self._input_to_output: Dict[Path, Path] = {}
         self._open_writers: Dict[Path, p5.Writer] = {}
         self._closed_writers: Set[Path] = set([])
-
-        if output_root.is_file() and not force_overwrite:
-            raise FileExistsError(
-                "Output path points to an existing file and --force-overwrite not set"
-            )
-
-        if len(output_root.parts) > 1:
-            output_root.parent.mkdir(parents=True, exist_ok=True)
 
     def _open_writer(self, output_path: Path) -> p5.Writer:
         """Get the writer from existing handles or create a new one if unseen"""
@@ -99,11 +134,6 @@ class OutputHandler:
 
         output_path = self._input_to_output[input_path]
         return self._open_writer(output_path=output_path)
-
-    def add_reads(self, input_path: Path, reads: List[CompressedRead]) -> None:
-        """Add reads to the writer handle stored for the input_path"""
-        writer = self.get_writer(input_path)
-        writer.add_reads(reads)
 
     @staticmethod
     def resolve_one_to_one_path(path: Path, root: Path, relative_root: Path):
@@ -180,54 +210,47 @@ class OutputHandler:
 class StatusMonitor:
     """Class for monitoring the status of the conversion"""
 
-    def __init__(self, work: Work):
-        # Get the max key index from each file
-        expected_counts: Dict[Path, int] = defaultdict(int)
-        for path, chunk_range in work:
-            if expected_counts[path] < chunk_range[1]:
-                expected_counts[path] = chunk_range[1]
-
-        self.expected: Dict[Path, int] = expected_counts
-        self.done: Dict[Path, int] = {path: 0 for path in expected_counts}
+    def __init__(self, paths: List[Path]):
+        # Estimate that a fast5 file will have 4k reads
+        self.path_reads = {path: 4000 for path in paths}
+        self.count_finished = 0
 
         disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         self.pbar = tqdm(
-            total=self.total_expected,
+            total=self.total_reads,
             ascii=True,
             disable=disable_pbar,
-            desc=f"Converting {len(self.expected)} Fast5s",
+            desc=f"Converting {len(self.path_reads)} Fast5s",
             unit="Reads",
             leave=True,
             dynamic_ncols=True,
-            smoothing=0.05,
         )
 
     @property
     def total_files(self) -> int:
-        """Return the number of files being processed"""
-        return len(self.expected)
+        return len(self.path_reads)
 
     @property
-    def total_expected(self) -> int:
-        """Return the number of reads which are expected to need converting"""
-        return sum(self.expected.values())
+    def total_reads(self) -> int:
+        return sum(self.path_reads.values())
 
-    def increment(self, path: Path, incr: int, expected: int) -> None:
-        """
-        Increment the reads status by `incr` and update the number of `expected` reads
-        for this source `path`
-        """
-        self.expected[path] -= expected - incr
-        self.pbar.total = self.total_expected
+    @property
+    def running(self) -> bool:
+        """Return true if not all files have finished processing"""
+        return self.count_finished < len(self.path_reads)
 
-        self.done[path] += incr
-        self.pbar.update(incr)
+    def increment(self) -> None:
+        """Increment the status by 1"""
+        self.count_finished += 1
 
-    def is_input_done(self, path: Path) -> bool:
-        """
-        Returns true if the number of done reads equals the number of expected reads
-        """
-        return self.done[path] >= self.expected[path]
+    def increment_reads(self, n: int) -> None:
+        """Increment the reads status by n"""
+        self.pbar.update(n)
+
+    def update_reads_total(self, path: Path, total: int) -> None:
+        """Increment the reads status by n and update the total reads"""
+        self.path_reads[path] = total
+        self.pbar.total = self.total_reads
 
     def write(self, msg: str, file: Any) -> None:
         """Write runtime message to avoid clobbering tqdm pbar"""
@@ -238,62 +261,35 @@ class StatusMonitor:
         self.pbar.close()
 
 
-def chunked_ranges(
-    count: int, reads_per_chunk: int = READS_PER_CHUNK
-) -> Optional[List[Tuple[int, int]]]:
-    """Create index ranges"""
-    if count <= 0:
-        return None
-
-    if reads_per_chunk <= 0:
-        raise ValueError(
-            f"reads_per_chunk must be greater than zero got {reads_per_chunk}"
-        )
-
-    # Creates a list of integers spanning the half-open interval [0, count)
-    # stepping by reads_per_chunk
-    ranges = list(np.arange(0, count, reads_per_chunk))
-    # Append count to create a closed interval [0, count]
-    ranges.append(count)
-    # Form list of pairwise tuples [(0, a), (a, b), ... (N, count)]
-    return list(pairwise(ranges))
-
-
-def is_multi_read(handle: h5py.File) -> bool:
-    """Return true if this h5 file is a multi-read fast5"""
-    # The "file_type" attribute might be present on multi-read fast5 files.
-    if handle.attrs.get("file_type") == "multi-read":
-        return True
-    # if there are "read_x" keys, this is a multi-read file
-    if any(key for key in handle.keys() if key.startswith("read_")):
-        return True
-    return False
-
-
-def chunk_multi_read_fast5(
-    path: Path, reads_per_chunk: int = READS_PER_CHUNK
-) -> Optional[List[Tuple[int, int]]]:
+def is_multi_read_fast5(path: Path) -> bool:
     """
-    Iterate over paths checking for multi-read fast5 files for which
-    pod5 conversion is supported. While there, chunk the indexes for downstream
-    chunking
+    Assert that the given path points to a a multi-read fast5 file for which
+    direct-to-pod5 conversion is supported.
     """
     try:
         with h5py.File(path) as _h5:
-            if not is_multi_read(_h5):
-                return None
-            return chunked_ranges(len(_h5.keys()), reads_per_chunk)
+            # The "file_type" attribute might be present on supported multi-read fast5 files.
+            if _h5.attrs.get("file_type") == "multi-read":
+                return True
+
+            # No keys, assume multi-read but there shouldn't be anything to do which would
+            # cause an issue so pass silently
+            if len(_h5) == 0:
+                return True
+
+            # if there are "read_x" keys, this is a multi-read file
+            if any(key for key in _h5 if key.startswith("read_")):
+                return True
+
     except Exception:
         pass
-    return None
+
+    return False
 
 
-def chunk_multi_read_fast5s(paths: Iterable[Path], threads: int) -> Work:
-    """
-    Filter an iterable of paths returning only multi-read-fast5s and chunk
-    the indexes for more granular multiprocessing
-    """
-    work: Work = []
+def filter_multi_read_fast5s(paths: Iterable[Path], threads: int) -> List[Path]:
+    """Filter an iterable of paths returning only multi-read-fast5s"""
+    multi_read_fast5s: List[Path] = []
     bad_paths: List[Path] = []
 
     paths = list(paths)
@@ -305,23 +301,21 @@ def chunk_multi_read_fast5s(paths: Iterable[Path], threads: int) -> Work:
         ascii=True,
         unit="Files",
         dynamic_ncols=True,
-        smoothing=0.1,
     )
 
-    with ProcessPoolExecutor(max_workers=threads) as exc:
+    # Speed up the check with multi-processing. Can't use multi-threading because
+    # hdf5 might crash
+    with ProcessPoolExecutor(max_workers=threads * 2) as exc:
         futures = {
-            exc.submit(chunk_multi_read_fast5, path): path
+            exc.submit(is_multi_read_fast5, path): path
             for path in paths
             if path.exists()
         }
         for future in as_completed(futures):
             pbar.update()
             path = futures[future]
-
-            chunks = future.result()
-            if chunks:
-                for chunk in chunks:
-                    work.append((path, chunk))
+            if future.result():
+                multi_read_fast5s.append(path)
             else:
                 bad_paths.append(path)
 
@@ -336,7 +330,7 @@ Ignored files: \"{skipped_paths}\""""
         )
 
     pbar.close()
-    return work
+    return multi_read_fast5s
 
 
 def decode_str(value: Union[str, bytes]) -> str:
@@ -529,24 +523,68 @@ def get_read_from_fast5(group_name: str, h5_file: h5py.File) -> Optional[h5py.Gr
     return None
 
 
+def process_conversion_tasks(
+    request_q: mp.Queue,
+    data_q: mp.Queue,
+    output_handler: OutputHandler,
+    status: StatusMonitor,
+    strict: bool,
+) -> None:
+    """Work through the queues of data until all work is done"""
+
+    while status.running:
+        item = await_queue(data_q)
+
+        assert not isinstance(item, RequestItem)
+
+        if isinstance(item, ReadsItem):
+            # Write the incoming list of converted reads
+            writer = output_handler.get_writer(item.path)
+            writer.add_reads(item.reads)
+            status.increment_reads(len(item.reads))
+            request_q.put(RequestItem())
+            continue
+
+        elif isinstance(item, ExcItem):
+            status.write(f"Error processing: {item.path}", file=sys.stderr)
+            status.write(f"Sub-process trace:\n{item.trace}", file=sys.stderr)
+            if strict:
+                status.close()
+                raise item.exception
+
+        elif isinstance(item, EndItem):
+            status.update_reads_total(item.path, item.total_reads)
+
+        status.increment()
+        output_handler.set_input_complete(item.path)
+
+        # Inform the input queues we can handle another input now
+        request_q.put(RequestItem())
+
+    try:
+        item = data_q.get_nowait()
+        raise RuntimeError(f"Unfinished data - {item}")
+    except Empty:
+        pass
+
+    status.close()
+
+
 def convert_fast5_file(
     fast5_file: Path,
-    chunk_range: Tuple[int, int],
+    data_q: mp.Queue,
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
-) -> Tuple[List[CompressedRead], int]:
-    """
-    Convert the reads within chunk_range indices into CompressedReads.
-    Also return the number of expected reads from this range to keep the status
-    bar accurate
-    """
+) -> int:
+    """Convert the reads in a fast5 file"""
+
     with h5py.File(str(fast5_file), "r") as _f5:
 
         run_info_cache: Dict[str, p5.RunInfo] = {}
         reads: List[p5.CompressedRead] = []
+        total_reads: int = 0
 
-        start, end = chunk_range
-        expected_chunk_count = end - start
-        for group_name in islice(_f5.keys(), start, end):
+        for group_name in _f5.keys():
+
             f5_read = get_read_from_fast5(group_name, _f5)
             if f5_read is None:
                 continue
@@ -557,158 +595,63 @@ def convert_fast5_file(
                 signal_chunk_size=signal_chunk_size,
             )
             reads.append(read)
-    return reads, expected_chunk_count
+
+            if len(reads) >= 250:
+                total_reads += len(reads)
+                data_q.put(ReadsItem(fast5_file, reads))
+                reads = []
+
+        # emplace remaining reads
+        total_reads += len(reads)
+        data_q.put(ReadsItem(fast5_file, reads))
+
+    return total_reads
 
 
-def futures_exception(
-    path: Path, future: Future, status: StatusMonitor, strict: bool
-) -> bool:
-    """Check a conversion future for exceptions and raise if strict"""
-    exc = future.exception()
-
-    if exc is None:
-        return False
-
-    status.write(f"Error processing: {path}", file=sys.stderr)
-    status.write(f"Sub-process trace:\n{exc}", file=sys.stderr)
-
-    if strict:
-        status.close()
-        raise exc
-
-    return True
-
-
-def write_converted_reads(
-    future: Future,
-    path: Path,
-    output_handler: OutputHandler,
-    status: StatusMonitor,
-    strict: bool,
-) -> None:
-    """
-    Write the reads returned from the conversion `future` to a pod5 file.
-    Exceptions are raised if `future` has an exception and `strict` is `true`
-    """
-    if futures_exception(path, future, status, strict):
-        return
-
-    # Get the converted reads and write them to a pod5 file
-    result: Tuple[List[CompressedRead], int] = future.result()
-    reads, expected_chunk_count = result
-    output_handler.add_reads(path, reads)
-
-    # Increment the status bar, and update the count of expected reads for a given
-    # output so that finished outputs can be closed promptly
-    status.increment(path, len(reads), expected_chunk_count)
-    if status.is_input_done(path):
-        output_handler.set_input_complete(path)
-
-
-def submit_conversion_process(
-    futures: Dict[Future, Path],
-    executor: ProcessPoolExecutor,
-    work: Work,
-    signal_chunk_size: int,
-) -> None:
-    """
-    If there is any available `work`, submit a new conversion process to the `executor`
-    inserting the returned future into `futures`
-    """
-    if not work:
-        return
-
-    # Go from the first chunk as it's more likely to contain a full chunk of reads
-    path, chunk_range = work.pop(0)
-    future = executor.submit(
-        convert_fast5_file,
-        fast5_file=path,
-        chunk_range=chunk_range,
-        signal_chunk_size=signal_chunk_size,
-    )
-    futures[future] = path
-    return
-
-
-def process_conversion(
-    executor: ProcessPoolExecutor,
-    work: Work,
-    output_handler: OutputHandler,
-    status: StatusMonitor,
-    queue_size: int,
+def convert_fast5_files(
+    request_q: mp.Queue,
+    data_q: mp.Queue,
+    fast5_files: Iterable[Path],
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
-    strict: bool = False,
-    timeout: float = TIMEOUT_SEC,
+    is_subprocess: bool = True,
 ) -> None:
     """
-    Iterate through the available conversion tasks in `work` keeping at most
-    `queue_size` number of converted chunks of reads queued for writing at any time.
+    Main function for converting an iterable of fast5 files.
+    Collections of converted reads are emplaced on the data_queue for writing in
+    the main process.
     """
-    futures: Dict[Future, Path] = {}
 
-    submit_conversion_job = partial(
-        submit_conversion_process,
-        futures=futures,
-        executor=executor,
-        work=work,
-        signal_chunk_size=signal_chunk_size,
-    )
+    for fast5_file in fast5_files:
+        try:
+            # Allow the out request queue to throttle us back if we are too far ahead.
+            await_queue(request_q)
 
-    if queue_size < 1:
-        raise ValueError("queue_size must be positive integer")
-
-    # Create the initial futures queue, each future contains a list of converted reads
-    for _ in range(queue_size):
-        submit_conversion_job()
-
-    attempt, max_attempts = 1, 3
-
-    while work or futures:
-        # Get the next finished future - returns Tuple of Set[Future]
-        done, not_done = wait(futures, timeout=timeout, return_when=FIRST_COMPLETED)
-
-        if len(done) == 0:
-            status.write(
-                f"Conversion timed-out after {TIMEOUT_SEC} sec -"
-                f"Work: {len(work)} Active: {len(futures)} Wait: {len(not_done)}\n"
-                f"Waiting on: {futures}\n"
-                "A file listed above might be stuck.. "
-                f"Attempting to resume.. Attempt {attempt} of {max_attempts}",
-                file=sys.stderr,
-            )
-            # Submit another conversion job in case we somehow ran empty?
-            if len(work) != 0:
-                status.write("Submitting additional job", file=sys.stderr)
-                submit_conversion_job()
-
-            # Appears there's nothing left to do. This path should be impossible.
-            if len(futures) == 0 and len(not_done) == 0:
-                status.write("All work done, finishing", file=sys.stderr)
-                break
-
-            if attempt >= max_attempts:
-                raise TimeoutError("Conversion process has timed-out")
-            attempt += 1
-
-        # done is a Set[Future] and there should only be one as FIRST_COMPLETED
-        for future in done:
-            # Reset the attempt counter if we have a successful future
-            attempt = 1
-
-            # Remove this future from the pool, also frees memory
-            fast5_path = futures.pop(future)
-
-            # Blocking write to the output pod5
-            write_converted_reads(
-                future,
-                fast5_path,
-                output_handler=output_handler,
-                status=status,
-                strict=strict,
+            # Convert reads in this fast5 file
+            total_reads = convert_fast5_file(
+                fast5_file=fast5_file,
+                data_q=data_q,
+                signal_chunk_size=signal_chunk_size,
             )
 
-            # Submit the next conversion process (if possible any work remaining)
-            submit_conversion_job()
+            # All reads are done, send end item
+            data_q.put(EndItem(fast5_file, total_reads))
+
+        except Exception as exc:
+            import traceback
+
+            # Found an exception, report this in the queue for reporting
+            data_q.put(ExcItem(fast5_file, exc, traceback.format_exc()))
+
+    if is_subprocess:
+        # Close the queues in a child process and join on the background thread
+        # ensuring all data is flushed to the pipe.
+        # Need to avoid this while testing within a test process
+
+        request_q.close()
+        request_q.join_thread()
+
+        data_q.close()
+        data_q.join_thread()
 
 
 def convert_from_fast5(
@@ -728,37 +671,76 @@ def convert_from_fast5(
     one_to_one Path.
     """
 
-    output_handler = OutputHandler(output, one_to_one, force_overwrite)
+    if output.is_file() and not force_overwrite:
+        raise FileExistsError(
+            "Output path points to an existing file and --force-overwrite not set"
+        )
 
-    work = chunk_multi_read_fast5s(
+    if len(output.parts) > 1:
+        output.parent.mkdir(parents=True, exist_ok=True)
+
+    pending_fast5s = filter_multi_read_fast5s(
         iterate_inputs(inputs, recursive, "*.fast5"), threads=threads
     )
 
-    if not work:
-        raise RuntimeError("Found no fast5 files to process - Exiting")
+    output_handler = OutputHandler(output, one_to_one, force_overwrite)
 
-    status = StatusMonitor(work)
+    ctx = mp.get_context("spawn")
+    request_queue: mp.Queue = ctx.Queue()
+    data_queue: mp.Queue = ctx.Queue()
+    active_processes = []
 
-    with ProcessPoolExecutor(max_workers=threads) as executor:
-        try:
-            process_conversion(
-                executor=executor,
-                work=work,
-                output_handler=output_handler,
-                status=status,
-                queue_size=threads * 2,
-                signal_chunk_size=signal_chunk_size,
-                strict=strict,
-                timeout=TIMEOUT_SEC,
-            )
+    if not pending_fast5s:
+        raise RuntimeError("Found no fast5 inputs to process - Exiting")
 
-        except Exception as exc:
-            status.write(f"An unexpected error occurred: {exc}", file=sys.stderr)
-            raise exc
+    threads = min(threads, len(pending_fast5s))
 
-        finally:
-            output_handler.close_all()
-            status.close()
+    # Create equally sized lists of files to process by each process
+    for fast5s in more_itertools.distribute(threads, pending_fast5s):
+
+        # spawn a new process to begin converting fast5 files
+        process = ctx.Process(
+            target=convert_fast5_files,
+            args=(
+                request_queue,
+                data_queue,
+                fast5s,
+                signal_chunk_size,
+            ),
+        )
+        process.start()
+        active_processes.append(process)
+
+    # start requests for reads, we probably don't need more reads in memory at a time
+    for _ in range(threads * 3):
+        request_queue.put(RequestItem())
+
+    status = StatusMonitor(pending_fast5s)
+
+    try:
+        process_conversion_tasks(
+            request_q=request_queue,
+            data_q=data_queue,
+            output_handler=output_handler,
+            status=status,
+            strict=strict,
+        )
+
+        discard_and_close(request_queue)
+        discard_and_close(data_queue)
+
+        # Finished running
+        for proc in active_processes:
+            proc.join()
+            proc.close()
+
+    except Exception as exc:
+        status.write(f"An unexpected error occurred: {exc}", file=sys.stderr)
+        terminate_processes(active_processes)
+        raise exc
+
+    finally:
+        output_handler.close_all()
 
 
 def main():
