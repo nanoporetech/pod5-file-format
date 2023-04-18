@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.19] 2023-04-14
 
 ## Fixed
+- Fixed memory usage growth over time as signal was loaded with large pod5 files.
 - Fixed crash loading malicious files (found via fuzz testing)
 - Fixed leaks and UB when running unit tests.
 - Fixed run-away memory consumption during fast5 conversion

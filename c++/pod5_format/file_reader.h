@@ -21,14 +21,26 @@ struct SchemaMetadataDescription;
 
 class POD5_FORMAT_EXPORT FileReaderOptions {
 public:
+    static constexpr std::uint32_t DEFAULT_MAX_CACHED_SIGNAL_TABLE_BATCHES = 5;
+
     FileReaderOptions();
 
     void memory_pool(arrow::MemoryPool * memory_pool) { m_memory_pool = memory_pool; }
 
     arrow::MemoryPool * memory_pool() const { return m_memory_pool; }
 
+    std::size_t max_cached_signal_table_batches() const
+    {
+        return m_max_cached_signal_table_batches;
+    }
+
+    // Set how many signal table batches can be cached in memory,
+    // Note: 0 here implies no limit.
+    void set_max_cached_signal_table_batches(std::size_t max_cached_signal_table_batches);
+
 private:
     arrow::MemoryPool * m_memory_pool;
+    std::size_t m_max_cached_signal_table_batches;
 };
 
 class POD5_FORMAT_EXPORT FileLocation {

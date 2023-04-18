@@ -814,7 +814,6 @@ pod5_error_t pod5_get_read_complete_sample_count(
 
     POD5_C_ASSIGN_OR_RAISE(auto const & signal_rows, batch->batch.get_signal_rows(batch_row));
 
-    std::vector<std::int16_t> output_samples;
     POD5_C_ASSIGN_OR_RAISE(
         *sample_count,
         reader->reader->extract_sample_count(
