@@ -5,6 +5,11 @@
 
 namespace pod5 {
 
+TableRecordBatch::TableRecordBatch(std::shared_ptr<arrow::RecordBatch> const & batch)
+: m_batch(batch)
+{
+}
+
 TableRecordBatch::TableRecordBatch(std::shared_ptr<arrow::RecordBatch> && batch)
 : m_batch(std::move(batch))
 {

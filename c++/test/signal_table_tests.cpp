@@ -75,7 +75,7 @@ SCENARIO("Signal table Tests")
         {
             REQUIRE_ARROW_STATUS_OK(file_in);
 
-            auto reader = pod5::make_signal_table_reader(*file_in, pool);
+            auto reader = pod5::make_signal_table_reader(*file_in, 20, pool);
             CAPTURE(reader);
             REQUIRE_ARROW_STATUS_OK(reader);
 

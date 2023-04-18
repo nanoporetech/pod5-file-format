@@ -18,6 +18,7 @@ namespace pod5 {
 
 class POD5_FORMAT_EXPORT TableRecordBatch {
 public:
+    TableRecordBatch(std::shared_ptr<arrow::RecordBatch> const & batch);
     TableRecordBatch(std::shared_ptr<arrow::RecordBatch> && batch);
 
     TableRecordBatch(TableRecordBatch &&);

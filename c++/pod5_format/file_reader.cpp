@@ -13,7 +13,17 @@
 
 namespace pod5 {
 
-FileReaderOptions::FileReaderOptions() : m_memory_pool(arrow::default_memory_pool()) {}
+FileReaderOptions::FileReaderOptions()
+: m_memory_pool(arrow::default_memory_pool())
+, m_max_cached_signal_table_batches(DEFAULT_MAX_CACHED_SIGNAL_TABLE_BATCHES)
+{
+}
+
+void FileReaderOptions::set_max_cached_signal_table_batches(
+    std::size_t max_cached_signal_table_batches)
+{
+    m_max_cached_signal_table_batches = max_cached_signal_table_batches;
+}
 
 inline FileLocation make_file_locaton(combined_file_utils::ParsedFileInfo const & parsed_file_info)
 {
@@ -197,7 +207,8 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
     ARROW_ASSIGN_OR_RAISE(
         auto signal_sub_file, open_sub_file(migration_result.footer().signal_table));
     ARROW_ASSIGN_OR_RAISE(
-        auto signal_table_reader, make_signal_table_reader(signal_sub_file, pool));
+        auto signal_table_reader,
+        make_signal_table_reader(signal_sub_file, options.max_cached_signal_table_batches(), pool));
 
     auto signal_metadata = signal_table_reader.schema_metadata();
     auto reads_metadata = read_table_reader.schema_metadata();

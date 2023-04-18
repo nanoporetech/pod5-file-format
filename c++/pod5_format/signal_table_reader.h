@@ -14,6 +14,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 
 namespace arrow {
 class Schema;
@@ -29,10 +30,12 @@ class RecordBatchFileReader;
 
 namespace pod5 {
 
+struct SignalTableReaderCacheCleaner;
+
 class POD5_FORMAT_EXPORT SignalTableRecordBatch : public TableRecordBatch {
 public:
     SignalTableRecordBatch(
-        std::shared_ptr<arrow::RecordBatch> && batch,
+        std::shared_ptr<arrow::RecordBatch> const & batch,
         SignalTableSchemaDescription field_locations,
         arrow::MemoryPool * pool);
 
@@ -61,6 +64,7 @@ public:
         SchemaMetadataDescription && schema_metadata,
         std::size_t num_record_batches,
         std::size_t batch_size,
+        std::size_t max_cached_table_batches,
         arrow::MemoryPool * pool);
 
     SignalTableReader(SignalTableReader &&);
@@ -95,15 +99,31 @@ public:
 private:
     SignalTableSchemaDescription m_field_locations;
     arrow::MemoryPool * m_pool;
+    std::size_t m_max_cached_table_batches;
+
+    mutable std::size_t m_last_read_record_batch_index = -1;
+    mutable std::shared_ptr<arrow::RecordBatch> m_last_read_record_batch;
 
     mutable std::mutex m_batch_get_mutex;
-    mutable std::vector<boost::optional<pod5::SignalTableRecordBatch>> m_table_batches;
+    using AccessIndex = std::uint64_t;
+
+    struct CachedItem {
+        pod5::SignalTableRecordBatch item;
+        AccessIndex last_access_index;
+    };
+
+    mutable std::unordered_map<std::size_t, CachedItem> m_table_batches;
+
+    mutable AccessIndex m_last_access_index = 0;
 
     std::size_t m_batch_size;
+
+    friend struct SignalTableReaderCacheCleaner;
 };
 
 POD5_FORMAT_EXPORT Result<SignalTableReader> make_signal_table_reader(
     std::shared_ptr<arrow::io::RandomAccessFile> const & sink,
+    std::size_t max_cached_table_batches,
     arrow::MemoryPool * pool);
 
 }  // namespace pod5

@@ -11,11 +11,36 @@
 
 namespace pod5 {
 
+struct SignalTableReaderCacheCleaner {
+    static void make_space_in_table_batches(
+        std::unordered_map<std::size_t, SignalTableReader::CachedItem> & cached_batches)
+    {
+        std::vector<std::pair<std::size_t, SignalTableReader::AccessIndex>> access_ordered_data;
+        access_ordered_data.reserve(cached_batches.size());
+
+        for (auto item : cached_batches) {
+            access_ordered_data.emplace_back(
+                std::make_pair(item.first, item.second.last_access_index));
+        }
+        std::sort(
+            access_ordered_data.begin(),
+            access_ordered_data.end(),
+            [](auto const & a, auto const & b) { return a.second < b.second; });
+
+        // Clear about 20% of the cache to make space for further growth:
+        auto const to_clear = std::max<std::size_t>(1, cached_batches.size() * 0.2f);
+        for (std::size_t i = 0; i < to_clear; ++i) {
+            auto const index_to_remove = access_ordered_data[i].first;
+            cached_batches.erase(index_to_remove);
+        }
+    }
+};
+
 SignalTableRecordBatch::SignalTableRecordBatch(
-    std::shared_ptr<arrow::RecordBatch> && batch,
+    std::shared_ptr<arrow::RecordBatch> const & batch,
     SignalTableSchemaDescription field_locations,
     arrow::MemoryPool * pool)
-: TableRecordBatch(std::move(batch))
+: TableRecordBatch(batch)
 , m_field_locations(field_locations)
 , m_pool(pool)
 {
@@ -142,10 +167,12 @@ SignalTableReader::SignalTableReader(
     SchemaMetadataDescription && schema_metadata,
     std::size_t num_record_batches,
     std::size_t batch_size,
+    std::size_t max_cached_table_batches,
     arrow::MemoryPool * pool)
 : TableReader(std::move(input_source), std::move(reader), std::move(schema_metadata), pool)
 , m_field_locations(field_locations)
 , m_pool(pool)
+, m_max_cached_table_batches(max_cached_table_batches)
 , m_table_batches(num_record_batches)
 , m_batch_size(batch_size)
 {
@@ -155,6 +182,7 @@ SignalTableReader::SignalTableReader(SignalTableReader && other)
 : TableReader(std::move(other))
 , m_field_locations(std::move(other.m_field_locations))
 , m_pool(other.m_pool)
+, m_max_cached_table_batches(other.m_max_cached_table_batches)
 , m_table_batches(std::move(other.m_table_batches))
 , m_batch_size(other.m_batch_size)
 {
@@ -164,6 +192,7 @@ SignalTableReader & SignalTableReader::operator=(SignalTableReader && other)
 {
     m_field_locations = std::move(other.m_field_locations);
     m_pool = other.m_pool;
+    m_max_cached_table_batches = other.m_max_cached_table_batches;
     m_batch_size = other.m_batch_size;
     m_table_batches = std::move(other.m_table_batches);
     static_cast<TableReader &>(*this) = std::move(static_cast<TableReader &>(other));
@@ -172,18 +201,31 @@ SignalTableReader & SignalTableReader::operator=(SignalTableReader && other)
 
 Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t i) const
 {
-    if (m_table_batches[i]) {
-        return *m_table_batches[i];
-    }
-
     std::lock_guard<std::mutex> l(m_batch_get_mutex);
-    if (m_table_batches[i]) {
-        return *m_table_batches[i];
+    if (m_last_read_record_batch_index == i) {
+        return pod5::SignalTableRecordBatch{m_last_read_record_batch, m_field_locations, m_pool};
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, reader()->ReadRecordBatch(i))
-    m_table_batches[i].emplace(std::move(record_batch), m_field_locations, m_pool);
-    return *m_table_batches[i];
+    auto it = m_table_batches.find(i);
+    if (it != m_table_batches.end()) {
+        it->second.last_access_index = m_last_access_index++;
+        return it->second.item;
+    }
+
+    // If limited in cached batches, then ensure we apply limit:
+    if (m_max_cached_table_batches != 0 && m_table_batches.size() >= m_max_cached_table_batches) {
+        SignalTableReaderCacheCleaner::make_space_in_table_batches(m_table_batches);
+        assert(m_table_batches.size() < m_max_cached_table_batches);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(m_last_read_record_batch, reader()->ReadRecordBatch(i));
+    m_last_read_record_batch_index = i;
+    auto inserted = m_table_batches.emplace(
+        i,
+        CachedItem{
+            pod5::SignalTableRecordBatch{m_last_read_record_batch, m_field_locations, m_pool},
+            m_last_access_index++});
+    return inserted.first->second.item;
 }
 
 Result<std::size_t> SignalTableReader::signal_batch_for_row_id(
@@ -276,6 +318,7 @@ SignalType SignalTableReader::signal_type() const { return m_field_locations.sig
 //---------------------------------------------------------------------------------------------------------------------
 Result<SignalTableReader> make_signal_table_reader(
     std::shared_ptr<arrow::io::RandomAccessFile> const & input,
+    std::size_t max_cached_table_batches,
     arrow::MemoryPool * pool)
 {
     arrow::ipc::IpcReadOptions options;
@@ -305,6 +348,7 @@ Result<SignalTableReader> make_signal_table_reader(
         std::move(read_metadata),
         num_record_batches,
         batch_size,
+        max_cached_table_batches,
         pool);
 }
 
