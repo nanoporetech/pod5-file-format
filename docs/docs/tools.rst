@@ -320,10 +320,8 @@ pod5 convert fast5
 The ``pod5 convert fast5`` tool takes one or more ``.fast5`` files and converts them
 to one or more ``.pod5`` files.
 
-This tool will first check that all inputs are valid multi-read fast5s and only process
-input files which pass these checks. If the tool detects single-read fast5 files,
-please convert them into multi-read fast5 files using the tools available in the
-``ont_fast5_api`` project.
+If the tool detects single-read fast5 files, please convert them into multi-read
+fast5 files using the tools available in the ``ont_fast5_api`` project.
 
 The progress bar shown during conversion assumes the number of reads in an input
 ``.fast5`` is 4000. The progress bar will update the total value during runtime if
