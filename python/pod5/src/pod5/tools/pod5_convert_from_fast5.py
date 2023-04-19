@@ -2,18 +2,21 @@
 Tool for converting fast5 files to the pod5 format
 """
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import datetime
+import functools
+import logging
 import multiprocessing as mp
-from multiprocessing.context import SpawnProcess
+from multiprocessing.context import SpawnContext, SpawnProcess
 import os
 import sys
+from time import perf_counter
 import warnings
+from pod5.pod5_types import CompressedRead
 from tqdm.auto import tqdm
 import uuid
 from pathlib import Path
 from queue import Empty
-from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import h5py
 import iso8601
@@ -23,64 +26,66 @@ import vbz_h5py_plugin  # noqa: F401
 import pod5 as p5
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chunked
 from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
-from pod5.tools.utils import iterate_inputs
+from pod5.tools.utils import is_pod5_debug, iterate_inputs
 
-READ_CHUNK_SIZE = 100
-TIMEOUT_SECONDS = 1200
-
-
-class RequestItem(NamedTuple):
-    """Enqueued to request more reads"""
+READ_CHUNK_SIZE = 400
+TIMEOUT_SECONDS = 600
 
 
-class ExcItem(NamedTuple):
-    """Enqueued to pass exceptions"""
-
-    path: Path
-    exception: Exception
-    trace: str
-
-
-class ReadsItem(NamedTuple):
-    """Enqueued to send list of converted reads to be written"""
-
-    path: Path
-    reads: List[p5.CompressedRead]
-
-
-class EndItem(NamedTuple):
-    """Enqueued to send list of converted reads to be written"""
-
-    path: Path
-    total_reads: int
+def _init_logging():
+    """Initialise logging only if POD5_DEBUG is true"""
+    if not is_pod5_debug():
+        logger = logging.getLogger()
+        logger.addHandler(logging.NullHandler())
+    else:
+        datetime_now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+        pid = os.getpid()
+        logging.basicConfig(
+            level=logging.DEBUG,
+            filename=f"{datetime_now}-{pid}-pod5-c2f5.log",
+            format="%(asctime)s %(levelname)s %(message)s",
+        )
+        logger = logging.getLogger()
+    return logger
 
 
-def await_queue(queue: mp.Queue) -> Union[RequestItem, ExcItem, ReadsItem, EndItem]:
-    """Wait for the next item on a queue"""
-    try:
-        return queue.get(timeout=TIMEOUT_SECONDS)
-    except Empty:
-        raise RuntimeError(f"No progress in {TIMEOUT_SECONDS} seconds - quitting")
+logger = _init_logging()
 
 
-def discard_and_close(queue: mp.Queue) -> int:
-    """
-    Discard all remaining enqueued items and close a queue to nicely shutdown the queue
-    Returns the number of discarded items
-    """
-    count = 0
-    while True:
-        try:
-            queue.get(timeout=0.1)
-            count += 1
-        except Exception:
-            break
+def logged(log_return: bool = False, log_args: bool = False, log_time: bool = False):
+    """Logging parameterised decorator"""
+    log_fn = logging.debug
 
-    queue.close()
-    queue.join_thread()
-    return count
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            uid = f"'{func.__name__}':{str(uuid.uuid4())[:8]}"
+            if log_args:
+                log_fn("{0}:{1}, {2}".format(uid, args, kwargs))
+            else:
+                log_fn("{0}".format(uid))
+            try:
+                started = perf_counter()
+                ret = func(*args, **kwargs)
+            except Exception as exc:
+                log_fn("{0}:Exception:{1}".format(uid, exc))
+                raise exc
+            if log_time:
+                duration_s = perf_counter() - started
+                log_fn("{0}:Done:{1:.3f}s".format(uid, duration_s))
+            if log_return:
+                log_fn("{0}:Returned:{1}".format(uid, ret))
+            return ret
+
+        return wrapper
+
+    return decorator
 
 
+logged_all = logged(log_return=True, log_args=True, log_time=True)
+
+
+@logged_all
 def terminate_processes(processes: List[SpawnProcess]) -> None:
     """terminate all child processes"""
     for proc in processes:
@@ -92,9 +97,152 @@ def terminate_processes(processes: List[SpawnProcess]) -> None:
     return
 
 
+class QueueManager:
+    def __init__(
+        self,
+        context: SpawnContext,
+        inputs: List[Path],
+        threads: int,
+        timeout: float,
+    ) -> None:
+        """Manager for balancing work queues"""
+        self._requests_size = threads * 2
+        self._inputs: mp.Queue = context.Queue(maxsize=len(inputs))
+        self._requests: mp.Queue = context.Queue(maxsize=self._requests_size)
+        self._data: mp.Queue = context.Queue()
+        self._exceptions: mp.Queue = context.Queue()
+        self._timeout = timeout
+
+        self._start(inputs=inputs)
+
+    def _await(self, queue: mp.Queue) -> Any:
+        """Await the next item on a queue raising TimeoutError if failing"""
+        try:
+            item = queue.get(timeout=self._timeout)
+            return item
+        except Empty:
+            logger.fatal("Empty queue or timeout ")
+            raise TimeoutError(f"No progress in {self._timeout} seconds - quitting")
+
+    def enqueue_request(self) -> None:
+        self._requests.put(None, timeout=self._timeout)
+
+    def await_request(self) -> None:
+        """Await a request for data"""
+        self._await(self._requests)
+
+    @logged()
+    def enqueue_data(
+        self, path: Optional[Path], reads: Union[List[CompressedRead], int, None]
+    ) -> None:
+        """
+        Enqueues an input path and either a list of compressed reads to be written, or
+        the total count of reads converted for that path.
+        Otherwise, if path is None, mark the child process as being empty.
+        """
+        self._data.put((path, reads), timeout=self._timeout)
+
+    @logged(log_time=True)
+    def await_data(
+        self,
+    ) -> Tuple[Optional[Path], Union[List[CompressedRead], int, None]]:
+        """
+        Await compressed reads or the total count of reads compressed (file end) for
+        a input filepath. Enqueues the next request if necessary
+        """
+        path, item = self._await(self._data)
+
+        # Check for the exhausted process sentinel value
+        if path is None:
+            return None, None
+
+        # Add another request if we received compressed reads
+        if isinstance(item, List):
+            self.enqueue_request()
+
+        return path, item
+
+    @logged(log_args=True)
+    def enqueue_exception(self, path: Path, exception: Exception, trace: str) -> None:
+        self._exceptions.put((path, exception, trace), timeout=self._timeout)
+
+    def get_exception(self) -> Optional[Tuple[Path, Exception, str]]:
+        """Promptly get an exception if any"""
+        try:
+            # Use short timeout instead of get_nowait as we might call this method
+            # very shortly after enqueueing an exception
+            path, exc, trace = self._exceptions.get(timeout=0.01)
+            logger.exception(f"Encountered an exception in {path} - {exc}")
+            if trace:
+                logger.exception(f"Trace Exception {path}\n{trace}")
+            return path, exc, trace
+        except Empty:
+            pass
+        return None
+
+    @logged(log_args=True)
+    def enqueue_input(self, path: Path) -> None:
+        """Enqueue a request"""
+        self._inputs.put(path)
+
+    @logged_all
+    def get_input(self) -> Optional[Path]:
+        """Promptly get an input if any returning None if queue is empty"""
+        try:
+            return self._inputs.get(timeout=0.1)
+        except Empty:
+            pass
+        return None
+
+    @logged(log_return=True)
+    def _discard_and_close(self, queue: mp.Queue) -> int:
+        """
+        Discard all remaining enqueued items and close a queue to nicely shutdown the
+        queue. Returns the number of discarded items
+        """
+        count = 0
+        while True:
+            try:
+                queue.get(timeout=0.1)
+                count += 1
+            except Exception:
+                break
+        queue.close()
+        queue.join_thread()
+        return count
+
+    @logged(log_return=True)
+    def shutdown(self) -> Tuple[int, int, int, int]:
+        """Shutdown all queues returning the counts of all remaining items"""
+        n_inputs = self._discard_and_close(self._inputs)
+        n_req = self._discard_and_close(self._requests)
+        n_data = self._discard_and_close(self._data)
+        n_exc = self._discard_and_close(self._exceptions)
+
+        if n_inputs > 0:
+            logger.warn("Unfinished inputs found during shutdown!")
+        if n_data > 0:
+            logger.warn("Unfinished data found during shutdown!")
+        if n_exc > 0:
+            logger.warn("Unfinished exceptions found during shutdown!")
+
+        return n_inputs, n_req, n_data, n_exc
+
+    @logged(log_args=True)
+    def _start(self, inputs: Iterable[Path]) -> None:
+        """Enqueue all inputs for child processes to poll and set the requests size"""
+        for path in inputs:
+            if path.is_file():
+                self.enqueue_input(path)
+
+        for _ in range(self._requests_size):
+            self.enqueue_request()
+
+
 class OutputHandler:
     """Class for managing p5.Writer handles"""
 
+    @logged(log_args=True)
     def __init__(
         self,
         output_root: Path,
@@ -136,6 +284,7 @@ class OutputHandler:
         return self._open_writer(output_path=output_path)
 
     @staticmethod
+    @logged_all
     def resolve_one_to_one_path(path: Path, root: Path, relative_root: Path):
         """
         Find the relative path between the input path and the relative root
@@ -153,6 +302,7 @@ class OutputHandler:
         return root / relative
 
     @staticmethod
+    @logged_all
     def resolve_output_path(
         path: Path, root: Path, relative_root: Optional[Path]
     ) -> Path:
@@ -180,6 +330,7 @@ class OutputHandler:
         # The provided output path is assumed to be a named file
         return root
 
+    @logged(log_args=True)
     def set_input_complete(self, input_path: Path) -> None:
         """Close the Pod5Writer for associated input_path"""
         if not self._one_to_one:
@@ -194,6 +345,7 @@ class OutputHandler:
         self._closed_writers.add(output_path)
         del self._open_writers[output_path]
 
+    @logged()
     def close_all(self):
         """Close all open writers"""
         for path, writer in self._open_writers.items():
@@ -210,6 +362,7 @@ class OutputHandler:
 class StatusMonitor:
     """Class for monitoring the status of the conversion"""
 
+    @logged_all
     def __init__(self, paths: List[Path]):
         # Estimate that a fast5 file will have 4k reads
         self.path_reads = {path: 4000 for path in paths}
@@ -234,33 +387,30 @@ class StatusMonitor:
     def total_reads(self) -> int:
         return sum(self.path_reads.values())
 
-    @property
-    def running(self) -> bool:
-        """Return true if not all files have finished processing"""
-        return self.count_finished < len(self.path_reads)
-
-    def increment(self) -> None:
-        """Increment the status by 1"""
-        self.count_finished += 1
-
+    @logged(log_args=True)
     def increment_reads(self, n: int) -> None:
         """Increment the reads status by n"""
         self.pbar.update(n)
 
+    @logged(log_args=True)
     def update_reads_total(self, path: Path, total: int) -> None:
         """Increment the reads status by n and update the total reads"""
         self.path_reads[path] = total
         self.pbar.total = self.total_reads
+        self.pbar.refresh()
 
+    @logged(log_args=True)
     def write(self, msg: str, file: Any) -> None:
         """Write runtime message to avoid clobbering tqdm pbar"""
         self.pbar.write(msg, file=file)
 
+    @logged()
     def close(self) -> None:
         """Close the progress bar"""
         self.pbar.close()
 
 
+@logged_all
 def is_multi_read_fast5(path: Path) -> bool:
     """
     Assert that the given path points to a a multi-read fast5 file for which
@@ -285,52 +435,6 @@ def is_multi_read_fast5(path: Path) -> bool:
         pass
 
     return False
-
-
-def filter_multi_read_fast5s(paths: Iterable[Path], threads: int) -> List[Path]:
-    """Filter an iterable of paths returning only multi-read-fast5s"""
-    multi_read_fast5s: List[Path] = []
-    bad_paths: List[Path] = []
-
-    paths = list(paths)
-    pbar = tqdm(
-        desc="Checking Fast5 Files",
-        total=len(paths),
-        disable=not bool(int(os.environ.get("POD5_PBAR", 1))),
-        leave=False,
-        ascii=True,
-        unit="Files",
-        dynamic_ncols=True,
-    )
-
-    # Speed up the check with multi-processing. Can't use multi-threading because
-    # hdf5 might crash
-    with ProcessPoolExecutor(max_workers=threads * 2) as exc:
-        futures = {
-            exc.submit(is_multi_read_fast5, path): path
-            for path in paths
-            if path.exists()
-        }
-        for future in as_completed(futures):
-            pbar.update()
-            path = futures[future]
-            if future.result():
-                multi_read_fast5s.append(path)
-            else:
-                bad_paths.append(path)
-
-    if bad_paths:
-        skipped_paths = " ".join(path.name for path in bad_paths)
-        warnings.warn(
-            f"""
-Some inputs are not multi-read fast5 files. Please use the conversion
-tools in the nanoporetech/ont_fast5_api project to convert this file to the supported
-multi-read fast5 format. These files will be ignored.
-Ignored files: \"{skipped_paths}\""""
-        )
-
-    pbar.close()
-    return multi_read_fast5s
 
 
 def decode_str(value: Union[str, bytes]) -> str:
@@ -523,137 +627,173 @@ def get_read_from_fast5(group_name: str, h5_file: h5py.File) -> Optional[h5py.Gr
     return None
 
 
-def process_conversion_tasks(
-    request_q: mp.Queue,
-    data_q: mp.Queue,
-    output_handler: OutputHandler,
-    status: StatusMonitor,
-    strict: bool,
-) -> None:
-    """Work through the queues of data until all work is done"""
+def convert_fast5_file_chunk(
+    queues: QueueManager,
+    handle: h5py.File,
+    chunk: Iterable[str],
+    cache: Dict[str, p5.RunInfo],
+    signal_chunk_size: int,
+) -> List[CompressedRead]:
 
-    while status.running:
-        item = await_queue(data_q)
+    reads: List[p5.CompressedRead] = []
 
-        assert not isinstance(item, RequestItem)
-
-        if isinstance(item, ReadsItem):
-            # Write the incoming list of converted reads
-            writer = output_handler.get_writer(item.path)
-            writer.add_reads(item.reads)
-            status.increment_reads(len(item.reads))
-            request_q.put(RequestItem())
-            continue
-
-        elif isinstance(item, ExcItem):
-            status.write(f"Error processing: {item.path}", file=sys.stderr)
-            status.write(f"Sub-process trace:\n{item.trace}", file=sys.stderr)
-            if strict:
-                status.close()
-                raise item.exception
-
-        elif isinstance(item, EndItem):
-            status.update_reads_total(item.path, item.total_reads)
-
-        status.increment()
-        output_handler.set_input_complete(item.path)
-
-        # Inform the input queues we can handle another input now
-        request_q.put(RequestItem())
-
+    # Allow request queue to throttle work
+    queues.await_request()
     try:
-        item = data_q.get_nowait()
-        raise RuntimeError(f"Unfinished data - {item}")
-    except Empty:
-        pass
+        for group_name in chunk:
+            f5_read = get_read_from_fast5(group_name, handle)
+            if f5_read is None:
+                continue
+            read = convert_fast5_read(f5_read, cache, signal_chunk_size)
+            reads.append(read)
 
-    status.close()
+    except Exception as exc:
+        # Ensures that requests aren't exhausted
+        queues.enqueue_request()
+        raise exc
+    return reads
 
 
+@logged_all
 def convert_fast5_file(
-    fast5_file: Path,
-    data_q: mp.Queue,
+    path: Path,
+    queues: QueueManager,
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
 ) -> int:
     """Convert the reads in a fast5 file"""
 
-    with h5py.File(str(fast5_file), "r") as _f5:
+    run_info_cache: Dict[str, p5.RunInfo] = {}
+    total_reads: int = 0
 
-        run_info_cache: Dict[str, p5.RunInfo] = {}
-        reads: List[p5.CompressedRead] = []
-        total_reads: int = 0
-
-        for group_name in _f5.keys():
-
-            f5_read = get_read_from_fast5(group_name, _f5)
-            if f5_read is None:
-                continue
-
-            read = convert_fast5_read(
-                f5_read,
-                run_info_cache,
-                signal_chunk_size=signal_chunk_size,
+    with h5py.File(str(path), "r") as _f5:
+        for chunk in more_itertools.chunked(_f5.keys(), READ_CHUNK_SIZE):
+            reads = convert_fast5_file_chunk(
+                queues, _f5, chunk, run_info_cache, signal_chunk_size
             )
-            reads.append(read)
-
-            if len(reads) >= 250:
-                total_reads += len(reads)
-                data_q.put(ReadsItem(fast5_file, reads))
-                reads = []
-
-        # emplace remaining reads
-        total_reads += len(reads)
-        data_q.put(ReadsItem(fast5_file, reads))
+            queues.enqueue_data(path, reads)
+            total_reads += len(reads)
 
     return total_reads
 
 
+@logged()
+def issue_not_multi_read_exception(path: Path, queues: QueueManager):
+    logger.error(f"Input {path.name} is not a multi-read fast5")
+    queues.enqueue_exception(
+        path=path,
+        exception=TypeError(f"{path} is not a multi-read fast5 file."),
+        trace="",
+    )
+    logger.info(f"Enqueueing file end: {path.name} reads: 0")
+    queues.enqueue_data(path, 0)
+
+
+@logged(log_time=True)
 def convert_fast5_files(
-    request_q: mp.Queue,
-    data_q: mp.Queue,
-    fast5_files: Iterable[Path],
+    queues: QueueManager,
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
-    is_subprocess: bool = True,
 ) -> None:
     """
-    Main function for converting an iterable of fast5 files.
+    Main function for converting fast5s available in queues.
     Collections of converted reads are emplaced on the data_queue for writing in
     the main process.
     """
+    while True:
+        path = queues.get_input()
 
-    for fast5_file in fast5_files:
+        if path is None:
+            logger.info("Inputs exhausted. Closing Process")
+            break
+
+        if not is_multi_read_fast5(path):
+            issue_not_multi_read_exception(path, queues)
+            continue
+
         try:
-            # Allow the out request queue to throttle us back if we are too far ahead.
-            await_queue(request_q)
-
-            # Convert reads in this fast5 file
-            total_reads = convert_fast5_file(
-                fast5_file=fast5_file,
-                data_q=data_q,
-                signal_chunk_size=signal_chunk_size,
-            )
-
-            # All reads are done, send end item
-            data_q.put(EndItem(fast5_file, total_reads))
+            total_reads = convert_fast5_file(path, queues, signal_chunk_size)
+            logger.info(f"Enqueueing file end: {path.name} reads: {total_reads}")
+            queues.enqueue_data(path, total_reads)
 
         except Exception as exc:
             import traceback
 
-            # Found an exception, report this in the queue for reporting
-            data_q.put(ExcItem(fast5_file, exc, traceback.format_exc()))
+            logger.error(f"Enqueueing exception: {path.name} {exc}")
+            queues.enqueue_exception(path, exc, traceback.format_exc())
 
-    if is_subprocess:
-        # Close the queues in a child process and join on the background thread
-        # ensuring all data is flushed to the pipe.
-        # Need to avoid this while testing within a test process
-
-        request_q.close()
-        request_q.join_thread()
-
-        data_q.close()
-        data_q.join_thread()
+    logger.info("Enqueue sentinel")
+    queues.enqueue_data(None, None)
 
 
+@logged(log_args=True)
+def handle_exception(
+    exception: Tuple[Path, Exception, str],
+    output_handler: OutputHandler,
+    status: StatusMonitor,
+    strict: bool,
+) -> None:
+
+    path, exc, trace = exception
+    status.write(str(exc), sys.stderr)
+    output_handler.set_input_complete(path)
+
+    if strict:
+        logger.fatal("Exception raised and --strict set")
+        logger.debug(f"trace: {trace}")
+        status.close()
+        raise exc
+
+
+@logged_all
+def process_conversion_tasks(
+    queues: QueueManager,
+    output_handler: OutputHandler,
+    status: StatusMonitor,
+    strict: bool,
+    threads: int,
+) -> None:
+    """Work through the queues of data until all work is done"""
+
+    count_complete_processes = 0
+    while count_complete_processes < threads:
+
+        # Always poll exceptions to ensure they're handled
+        exception = queues.get_exception()
+        if exception is not None:
+            handle_exception(
+                exception=exception,
+                output_handler=output_handler,
+                status=status,
+                strict=strict,
+            )
+            continue
+
+        path, data = queues.await_data()
+
+        # Handle exhausted processes
+        if path is None:
+            # Processed finished sentinel
+            count_complete_processes += 1
+            logger.info(
+                f"Got process end sentinel {count_complete_processes} of {threads}"
+            )
+            continue
+
+        # Update the progress bar with the total number of converted reads in the file
+        if isinstance(data, int):
+            status.update_reads_total(path, data)
+            output_handler.set_input_complete(path)
+            continue
+
+        # Write the incoming list of converted reads
+        writer = output_handler.get_writer(path)
+        logger.info(f"Writing {len(data)} reads to {path.name} using {writer}")
+        writer.add_reads(data)
+        status.increment_reads(len(data))
+
+    status.close()
+
+
+@logged(log_time=True)
 def convert_from_fast5(
     inputs: List[Path],
     output: Path,
@@ -679,57 +819,43 @@ def convert_from_fast5(
     if len(output.parts) > 1:
         output.parent.mkdir(parents=True, exist_ok=True)
 
-    pending_fast5s = filter_multi_read_fast5s(
-        iterate_inputs(inputs, recursive, "*.fast5"), threads=threads
-    )
-
-    output_handler = OutputHandler(output, one_to_one, force_overwrite)
-
-    ctx = mp.get_context("spawn")
-    request_queue: mp.Queue = ctx.Queue()
-    data_queue: mp.Queue = ctx.Queue()
-    active_processes = []
-
+    pending_fast5s = list(iterate_inputs(inputs, recursive, "*.fast5"))
     if not pending_fast5s:
+        logger.fatal(f"Found no *.fast5 files in inputs: {inputs}")
         raise RuntimeError("Found no fast5 inputs to process - Exiting")
 
+    output_handler = OutputHandler(output, one_to_one, force_overwrite)
+    status = StatusMonitor(pending_fast5s)
+
     threads = min(threads, len(pending_fast5s))
+    ctx = mp.get_context("spawn")
+    queues = QueueManager(
+        context=ctx,
+        inputs=pending_fast5s,
+        threads=threads,
+        timeout=TIMEOUT_SECONDS,
+    )
 
-    # Create equally sized lists of files to process by each process
-    for fast5s in more_itertools.distribute(threads, pending_fast5s):
-
-        # spawn a new process to begin converting fast5 files
+    active_processes = []
+    for _ in range(threads):
         process = ctx.Process(
             target=convert_fast5_files,
-            args=(
-                request_queue,
-                data_queue,
-                fast5s,
-                signal_chunk_size,
-            ),
+            args=(queues, signal_chunk_size),
+            daemon=True,
         )
         process.start()
         active_processes.append(process)
 
-    # start requests for reads, we probably don't need more reads in memory at a time
-    for _ in range(threads * 3):
-        request_queue.put(RequestItem())
-
-    status = StatusMonitor(pending_fast5s)
-
     try:
         process_conversion_tasks(
-            request_q=request_queue,
-            data_q=data_queue,
+            queues=queues,
             output_handler=output_handler,
             status=status,
             strict=strict,
+            threads=threads,
         )
 
-        discard_and_close(request_queue)
-        discard_and_close(data_queue)
-
-        # Finished running
+        queues.shutdown()
         for proc in active_processes:
             proc.join()
             proc.close()
@@ -741,6 +867,7 @@ def convert_from_fast5(
 
     finally:
         output_handler.close_all()
+        logger.disabled = True
 
 
 def main():
