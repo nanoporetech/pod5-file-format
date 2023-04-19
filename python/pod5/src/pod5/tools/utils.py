@@ -2,6 +2,7 @@
 Utility functions for pod5 tools
 """
 
+import os
 import typing
 from pathlib import Path
 
@@ -27,3 +28,21 @@ def iterate_inputs(
         # Non-directory, assert that it is a file and that it matches the file_pattern
         elif input_item.match(file_pattern) and input_item.is_file():
             yield input_item
+
+
+def is_disable_pbar() -> bool:
+    """Check if POD5_PBAR is set returning true if PBAR should be disabled"""
+    try:
+        enabled = bool(int(os.environ.get("POD5_PBAR", "1")))
+        return not enabled
+    except Exception:
+        return False
+
+
+def is_pod5_debug() -> bool:
+    """Check if POD5_DEBUG is set"""
+    try:
+        debug = bool(int(os.environ.get("POD5_DEBUG", "0")))
+        return debug
+    except Exception:
+        return True

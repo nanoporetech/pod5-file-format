@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.19] 2023-04-14
 
+## Changed
+
+- `pod5 convert fast5` now creates logs when `POD5_DEBUG=1` set
+- `pod5 convert fast5` checks multi-read fast5s at conversion time
+
 ## Fixed
 - Fixed memory usage growth over time as signal was loaded with large pod5 files.
 - Fixed crash loading malicious files (found via fuzz testing)

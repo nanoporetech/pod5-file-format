@@ -2,31 +2,32 @@
 Test for the convert_from_fast5 tool
 """
 import datetime
-from multiprocessing import Queue
+import multiprocessing as mp
 from pathlib import Path
-from random import randint
-from typing import Dict, Tuple
-from unittest.mock import MagicMock, PropertyMock
+import queue
+import sys
+from typing import Dict
+from unittest.mock import MagicMock, Mock, patch
 from uuid import UUID
 
 import h5py
 import numpy as np
-from pod5.tools.utils import iterate_inputs
+
+# from pod5.tools.utils import iterate_inputs
 import pytest
 
-import pod5 as p5
+import pod5
 from pod5.tools.pod5_convert_from_fast5 import (
-    ExcItem,
     OutputHandler,
-    RequestItem,
-    discard_and_close,
+    QueueManager,
+    convert_fast5_end_reason,
     convert_fast5_files,
     convert_fast5_read,
     convert_from_fast5,
-    filter_multi_read_fast5s,
     get_read_from_fast5,
+    handle_exception,
     is_multi_read_fast5,
-    process_conversion_tasks,
+    logger,
 )
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
@@ -38,14 +39,14 @@ SINGLE_READ_FAST5_PATH = (
 )
 
 EXPECTED_POD5_RESULTS = {
-    "0000173c-bf67-44e7-9a9c-1ad0bc728e74": p5.Read(
+    "0000173c-bf67-44e7-9a9c-1ad0bc728e74": pod5.Read(
         read_id=UUID("0000173c-bf67-44e7-9a9c-1ad0bc728e74"),
-        pore=p5.Pore(
+        pore=pod5.Pore(
             channel=109,
             well=4,
             pore_type="not_set",
         ),
-        calibration=p5.Calibration.from_range(
+        calibration=pod5.Calibration.from_range(
             offset=21.0,
             adc_range=1437.6976318359375,
             digitisation=8192.0,
@@ -53,11 +54,11 @@ EXPECTED_POD5_RESULTS = {
         read_number=1093,
         start_sample=4534321,
         median_before=183.1077423095703,
-        end_reason=p5.EndReason(
-            p5.EndReasonEnum.UNKNOWN,
+        end_reason=pod5.EndReason(
+            pod5.EndReasonEnum.UNKNOWN,
             False,
         ),
-        run_info=p5.RunInfo(
+        run_info=pod5.RunInfo(
             acquisition_id="a08e850aaa44c8b56765eee10b386fc3e516a62b",
             acquisition_start_time=datetime.datetime(
                 2019, 5, 13, 11, 11, 43, tzinfo=datetime.timezone.utc
@@ -123,10 +124,10 @@ EXPECTED_POD5_RESULTS = {
         # Values are not checked but the length here is from manual inspection
         signal=np.array([1] * 123627, dtype=np.int16),
     ),
-    "008468c3-e477-46c4-a6e2-7d021a4ebf0b": p5.Read(
+    "008468c3-e477-46c4-a6e2-7d021a4ebf0b": pod5.Read(
         read_id=UUID("008468c3-e477-46c4-a6e2-7d021a4ebf0b"),
-        pore=p5.Pore(channel=2, well=2, pore_type="not_set"),
-        calibration=p5.Calibration.from_range(
+        pore=pod5.Pore(channel=2, well=2, pore_type="not_set"),
+        calibration=pod5.Calibration.from_range(
             offset=4.0,
             adc_range=1437.6976318359375,
             digitisation=8192.0,
@@ -134,8 +135,8 @@ EXPECTED_POD5_RESULTS = {
         read_number=411,
         start_sample=2510647,
         median_before=219.04641723632812,
-        end_reason=p5.EndReason(reason=p5.EndReasonEnum.UNKNOWN, forced=False),
-        run_info=p5.RunInfo(
+        end_reason=pod5.EndReason(reason=pod5.EndReasonEnum.UNKNOWN, forced=False),
+        run_info=pod5.RunInfo(
             acquisition_id="a08e850aaa44c8b56765eee10b386fc3e516a62b",
             acquisition_start_time=datetime.datetime(
                 2019, 5, 13, 11, 11, 43, tzinfo=datetime.timezone.utc
@@ -211,7 +212,7 @@ class TestFast5Conversion:
         """
         Test known good fast5 reads
         """
-        run_info_cache: Dict[str, p5.RunInfo] = {}
+        run_info_cache: Dict[str, pod5.RunInfo] = {}
 
         with h5py.File(str(FAST5_PATH), "r") as _f5:
 
@@ -232,6 +233,22 @@ class TestFast5Conversion:
                 signal = read.decompressed_signal
                 assert expected_read.signal.shape[0] == signal.shape[0]
                 assert signal.dtype == np.int16
+
+    @pytest.mark.parametrize(
+        "fast5,expected",
+        [
+            (0, pod5.EndReasonEnum.UNKNOWN),
+            (1, pod5.EndReasonEnum.UNKNOWN),
+            (2, pod5.EndReasonEnum.MUX_CHANGE),
+            (3, pod5.EndReasonEnum.UNBLOCK_MUX_CHANGE),
+            (4, pod5.EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE),
+            (5, pod5.EndReasonEnum.SIGNAL_POSITIVE),
+            (6, pod5.EndReasonEnum.SIGNAL_NEGATIVE),
+        ],
+    )
+    def test_end_reason(self, fast5: int, expected: pod5.EndReasonEnum) -> None:
+        exp = pod5.EndReason.from_reason_with_default_forced(expected)
+        assert exp == convert_fast5_end_reason(fast5)
 
 
 class TestFast5Detection:
@@ -260,154 +277,6 @@ class TestFast5Detection:
             with pytest.warns(UserWarning, match="Failed to read key"):
                 # Good reads should start with read_ prefix. This will cause a key error
                 assert get_read_from_fast5("read_bad_key", _f5) is None
-
-    def test_non_fast5s_ignored(self, tmp_path: Path) -> None:
-        """Test that only multi-read fast5s are passed to conversion"""
-
-        for name in ["ignore.txt", "skip.png", "hide.fasta"]:
-            (tmp_path / name).touch()
-
-        (tmp_path / "single.fast5").write_bytes(SINGLE_READ_FAST5_PATH.read_bytes())
-        (tmp_path / "multi.fast5").write_bytes(FAST5_PATH.read_bytes())
-
-        with pytest.warns(UserWarning, match='Ignored files: "single.fast5"'):
-            pending_fast5s = filter_multi_read_fast5s(
-                iterate_inputs([tmp_path], False, "*.fast5"), threads=1
-            )
-
-        assert len(pending_fast5s) == 1
-        assert pending_fast5s[0] == tmp_path / "multi.fast5"
-
-    def test_non_existent_files_ignored(self, tmp_path: Path, recwarn) -> None:
-        """Test that no non-existent files are passed to conversion"""
-
-        no_exist = tmp_path / "no_exist"
-        assert not no_exist.exists()
-
-        pending_fast5s = filter_multi_read_fast5s([no_exist], threads=1)
-
-        assert len(pending_fast5s) == 0
-        assert len(recwarn) == 0
-
-
-class TestQueues:
-    @staticmethod
-    def setup_queues() -> Tuple[Queue, Queue]:
-        """Setup request and data queues"""
-        return Queue(), Queue()
-
-    def test_runtime_exception(self, mocker) -> None:
-        """Test the propagation of a runtime exception"""
-        request_q, data_q = self.setup_queues()
-        request_q.put(RequestItem())
-
-        mocker.patch(
-            "pod5.tools.pod5_convert_from_fast5.convert_fast5_read",
-            side_effect=Exception("Boom"),
-        )
-
-        convert_fast5_files(
-            request_q,
-            data_q,
-            [FAST5_PATH],
-            is_subprocess=False,
-        )
-
-        item = data_q.get()
-        assert isinstance(item, ExcItem)
-
-        with pytest.raises(Exception, match="Boom"):
-            raise item.exception
-
-        discard_and_close(request_q)
-        discard_and_close(data_q)
-
-        self.assert_is_closed(request_q)
-        self.assert_is_closed(data_q)
-
-    def test_process_queues_raises_when_strict(self, tmp_path: Path, mocker) -> None:
-        """When strict=True, test that exception is raised via queues"""
-        request_q, data_q = self.setup_queues()
-        handler = OutputHandler(tmp_path, None, False)
-
-        status: MagicMock = mocker.MagicMock()
-        type(status).running = PropertyMock(side_effect=[True, False])
-
-        data_q.put(ExcItem(Path.cwd(), Exception("inner_exception"), "error"))
-        with pytest.raises(Exception, match="inner_exception"):
-            process_conversion_tasks(request_q, data_q, handler, status, strict=True)
-
-        called_args = status.write.call_args_list
-        assert called_args[0][0][0].startswith("Error processing")
-        assert called_args[1][0][0].startswith("Sub-process trace")
-        assert status.close.call_count == 1
-
-        discard_and_close(request_q)
-        discard_and_close(data_q)
-
-    def test_process_queues_passes_exceptions(self, tmp_path: Path, mocker) -> None:
-        """When strict=False, test that no exception is raised via queues"""
-        request_q, data_q = self.setup_queues()
-
-        handler = OutputHandler(tmp_path, None, False)
-        status: MagicMock = mocker.MagicMock()
-        type(status).running = PropertyMock(side_effect=[True, False])
-
-        data_q.put(ExcItem(Path.cwd(), Exception("inner_exception"), "error"))
-        process_conversion_tasks(request_q, data_q, handler, status, strict=False)
-        assert status.write.call_count == 2
-
-        called_args = status.write.call_args_list
-        assert called_args[0][0][0].startswith("Error processing")
-        assert called_args[1][0][0].startswith("Sub-process trace")
-
-        assert status.close.call_count == 1
-
-        discard_and_close(request_q)
-        discard_and_close(data_q)
-
-    def test_convert_queues_close(self) -> None:
-        """Test that convert_fast5_files queues are closed"""
-        request_q, data_q = self.setup_queues()
-        request_q.put(RequestItem())
-
-        convert_fast5_files(
-            request_q,
-            data_q,
-            [FAST5_PATH],
-            is_subprocess=False,
-        )
-
-        discard_and_close(request_q)
-        discard_and_close(data_q)
-
-        self.assert_is_closed(request_q)
-        self.assert_is_closed(data_q)
-
-    def test_discard_and_close(self) -> None:
-        """Assert that discard_and_close closes queues"""
-        for _ in range(10):
-            queue: Queue = Queue()
-            expected = randint(30, 150)
-            for idx in range(expected):
-                queue.put(idx)
-            count = discard_and_close(queue)
-            assert count == expected
-            self.assert_is_closed(queue)
-
-    def test_discard_and_close_empty(self) -> None:
-        """Assert that discard_and_close closes queues"""
-        queue: Queue = Queue()
-        count = discard_and_close(queue)
-        assert count == 0
-
-    def assert_is_closed(self, queue: Queue) -> None:
-        """Assert that a mp.Queue is closed"""
-        with pytest.raises(Exception, match="closed"):
-            queue.put("raises")
-
-        with pytest.raises(Exception, match="closed"):
-            queue.get(timeout=None)
 
 
 class TestConvertBehaviour:
@@ -505,7 +374,7 @@ class TestOutputHandler:
         source = tmp_path / "test.fast5"
         writer = handler.get_writer(source)
 
-        assert isinstance(writer, p5.Writer)
+        assert isinstance(writer, pod5.Writer)
         assert writer.path == tmp_path / "output.pod5"
 
         handler.close_all()
@@ -518,7 +387,7 @@ class TestOutputHandler:
         source = tmp_path / "test.fast5"
         writer = handler.get_writer(source)
 
-        assert isinstance(writer, p5.Writer)
+        assert isinstance(writer, pod5.Writer)
         assert writer.path == tmp_path / "test.pod5"
 
         handler.close_all()
@@ -533,8 +402,189 @@ class TestOutputHandler:
         for name in names:
             writer = handler.get_writer(tmp_path / name)
 
-            assert isinstance(writer, p5.Writer)
+            assert isinstance(writer, pod5.Writer)
             assert writer.path == (tmp_path / name).with_suffix(".pod5")
 
         assert len(list(tmp_path.glob("*.pod5"))) == len(names)
         handler.close_all()
+
+
+class TestQueueManager:
+    def test_shutdown(self, monkeypatch, caplog: pytest.LogCaptureFixture):
+        logger.disabled = False
+        monkeypatch.setenv("POD5_DEBUG", "1")
+        threads, timeout = 5, 0.05
+        ctx = mp.get_context("spawn")
+        queues = QueueManager(ctx, [FAST5_PATH], threads, timeout)
+        n_inputs, n_req, n_data, n_exc = queues.shutdown()
+        assert n_inputs == 1
+        assert "Unfinished inputs" in caplog.messages[0]
+        assert n_req == threads * 2
+        assert n_data == 0
+        assert n_exc == 0
+
+        for getter in [
+            queues.await_data,
+            queues.await_request,
+            queues.get_exception,
+            queues.get_input,
+        ]:
+            with pytest.raises((OSError, ValueError), match="is closed"):
+                # OSError changed to ValueError in py3.8
+                getter()
+
+    def test_shutdown_with_work(self, monkeypatch, caplog: pytest.LogCaptureFixture):
+        logger.disabled = False
+        monkeypatch.setenv("POD5_DEBUG", "1")
+        threads, timeout = 1, 0.05
+        ctx = mp.get_context("spawn")
+        queues = QueueManager(ctx, [FAST5_PATH], threads, timeout)
+        queues.enqueue_data(None, None)
+        queues.enqueue_exception(Path.cwd(), Exception("blah"), "text")
+        n_inputs, n_req, n_data, n_exc = queues.shutdown()
+        assert n_inputs == 1
+        assert "Unfinished inputs" in caplog.messages[0]
+        assert n_req == threads * 2
+        assert n_data == 1
+        assert "Unfinished data" in caplog.messages[1]
+        assert n_exc == 1
+        assert "Unfinished exceptions" in caplog.messages[2]
+
+        for getter in [
+            queues.await_data,
+            queues.await_request,
+            queues.get_exception,
+            queues.get_input,
+        ]:
+            with pytest.raises((OSError, ValueError), match="is closed"):
+                # OSError changed to ValueError in py3.8
+                getter()
+
+    def test_blocked_by_requests(self) -> None:
+        threads, timeout = 3, 0.05
+        ctx = mp.get_context("spawn")
+        queues = QueueManager(ctx, [FAST5_PATH], threads, timeout)
+        # Exhaust the requests queue
+        for _ in range(queues._requests_size):
+            queues.await_request()
+
+        with pytest.raises(TimeoutError, match="No progress"):
+            queues.await_request()
+
+        queues.enqueue_request()
+        queues.await_request()
+
+        with pytest.raises(TimeoutError, match="No progress"):
+            queues.await_data()
+
+    def test_data_queue(self) -> None:
+        threads, timeout = 5, 0.05
+        ctx = mp.get_context("spawn")
+        queues = QueueManager(ctx, [FAST5_PATH], threads, timeout)
+
+        # Assert initially empty
+        with pytest.raises(TimeoutError, match="No progress"):
+            queues.await_data()
+
+        queues.enqueue_data(FAST5_PATH, [])
+        queues.enqueue_data(FAST5_PATH, 100)
+        queues.enqueue_data(None, None)
+
+        queues.await_request()
+        assert queues.await_data() == (FAST5_PATH, [])
+        assert queues.await_data() == (FAST5_PATH, 100)
+        assert queues.await_data() == (None, None)
+
+        # Assert await data for list of reads replaced the request by checking
+        # for requests being Full
+        queues.enqueue_data(FAST5_PATH, [])
+        with pytest.raises(queue.Full):
+            queues.await_data()
+
+        # Assert only 1 request taken and replaced
+        n_inputs, n_req, n_data, n_exc = queues.shutdown()
+        assert n_req == threads * 2
+
+    def test_exception_queue(self) -> None:
+        threads, timeout = 5, 0.05
+        ctx = mp.get_context("spawn")
+        queues = QueueManager(ctx, [FAST5_PATH], threads, timeout)
+
+        # Assert initially empty
+        assert queues.get_exception() is None
+
+        queues.enqueue_exception(FAST5_PATH, Exception("foo"), "bar")
+        item = queues.get_exception()
+        assert item is not None
+        path, exc, trace = item
+        assert path == FAST5_PATH
+        with pytest.raises(Exception, match="foo"):
+            raise exc
+        assert trace == "bar"
+
+        # Assert only 1 request taken and replaced
+        n_inputs, n_req, n_data, n_exc = queues.shutdown()
+        assert n_req == threads * 2
+
+
+class TestConvertLoop:
+    def test_convert_fast5_files_file_type_exceptions(self, tmp_path: Path) -> None:
+
+        nf5 = tmp_path / "not_a.fast5"
+        nf5.touch()
+        threads, timeout = 5, 0.05
+        ctx = mp.get_context("spawn")
+        queues = QueueManager(ctx, [nf5], threads, timeout)
+        convert_fast5_files(queues)
+
+        exception = queues.get_exception()
+        assert exception is not None
+        path, exc, _ = exception
+        assert path == nf5
+        with pytest.raises(TypeError, match="not a multi-read fast5"):
+            raise exc
+
+    def test_convert_fast5_files_breaks_loop(self) -> None:
+        threads, timeout = 5, 0.05
+        ctx = mp.get_context("spawn")
+        qm = QueueManager(ctx, [], threads, timeout)
+        convert_fast5_files(qm)
+
+        exception = qm.get_exception()
+        assert exception is None
+
+        # Assert sentinel enqueued
+        path, data = qm.await_data()
+        assert path is None
+        assert data is None
+
+    @patch("pod5.tools.pod5_convert_from_fast5.convert_fast5_file")
+    def test_convert_fast5_file_exception(self, mock: Mock) -> None:
+        threads, timeout = 5, 0.05
+        ctx = mp.get_context("spawn")
+        qm = QueueManager(ctx, [FAST5_PATH], threads, timeout)
+        mock.side_effect = Exception
+        convert_fast5_files(qm)
+        exception = qm.get_exception()
+        assert exception is not None
+        path, exc, _ = exception
+        assert path == FAST5_PATH
+        with pytest.raises(Exception):
+            raise exc
+
+        path, data = qm.await_data()
+        assert path is None
+        assert data is None
+
+    def test_handle_exception(self) -> None:
+        hndlr = MagicMock()
+        status = MagicMock()
+        exc = (FAST5_PATH, Exception("foo"), "bar")
+        with pytest.raises(Exception, match="foo"):
+            handle_exception(exc, hndlr, status, True)
+
+        hndlr.set_input_complete.assert_called_once_with(FAST5_PATH)
+        status.write.assert_called_once_with("foo", sys.stderr)
+        status.close.assert_called_once()
+
+        assert handle_exception(exc, hndlr, status, False) is None
