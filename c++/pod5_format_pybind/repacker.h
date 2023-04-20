@@ -261,9 +261,6 @@ public:
                 auto dest_pore_index,
                 find_pore_index(source_file, source_read_table_batch, pore_type_index));
             ARROW_ASSIGN_OR_RAISE(
-                auto dest_end_reason_index,
-                find_end_reason_index(source_file, source_read_table_batch, end_reason_index));
-            ARROW_ASSIGN_OR_RAISE(
                 auto dest_run_info_index,
                 find_run_info_index(source_file, source_read_table_batch, run_info_index));
 
@@ -278,7 +275,7 @@ public:
                     calibration_offset,
                     calibration_scale,
                     median_before,
-                    dest_end_reason_index,
+                    end_reason_index,
                     end_reason_forced,
                     dest_run_info_index,
                     num_minknow_events,
@@ -308,28 +305,19 @@ public:
         }
 
         ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_pore_type(source_index));
-        ARROW_ASSIGN_OR_RAISE(auto const new_index, m_output_file->add_pore_type(source_data));
-        m_pore_indexes[key] = new_index;
-        return new_index;
-    }
+        pod5::PoreDictionaryIndex dest_index = 0;
 
-    // Find or create a end reason index in the output file - expects to run on strand.
-    arrow::Result<pod5::EndReasonDictionaryIndex> find_end_reason_index(
-        std::shared_ptr<pod5::FileReader> const & source_file,
-        pod5::ReadTableRecordBatch const & source_batch,
-        pod5::EndReasonDictionaryIndex source_index)
-    {
-        auto const key = std::make_pair(make_file_key(source_file), source_index);
-        auto const it = m_end_reason_indexes.find(key);
-        if (it != m_end_reason_indexes.end()) {
-            return it->second;
+        // See if we have the same run info by value stored in the file:
+        auto data_lookup_it = m_pore_data_indexes.find(source_data);
+        if (data_lookup_it != m_pore_data_indexes.end()) {
+            dest_index = data_lookup_it->second;
+        } else {
+            ARROW_ASSIGN_OR_RAISE(dest_index, m_output_file->add_pore_type(source_data));
         }
 
-        ARROW_ASSIGN_OR_RAISE(auto source_data, source_batch.get_end_reason(source_index));
-        ARROW_ASSIGN_OR_RAISE(
-            auto const new_index, m_output_file->lookup_end_reason(source_data.first));
-        m_end_reason_indexes[key] = new_index;
-        return new_index;
+        m_pore_indexes[key] = dest_index;
+        m_pore_data_indexes[source_data] = dest_index;
+        return dest_index;
     }
 
     // Find or create a run_info index in the output file - expects to run on strand.
@@ -357,6 +345,7 @@ public:
         }
 
         m_run_info_indexes[key] = dest_index;
+        m_run_info_data_indexes[*run_info] = dest_index;
         return dest_index;
     }
 
@@ -454,7 +443,7 @@ private:
     using DictionaryLookup =
         std::unordered_map<std::pair<FileKey, IndexType>, IndexType, pair_hasher>;
     DictionaryLookup<pod5::PoreDictionaryIndex> m_pore_indexes;
-    DictionaryLookup<pod5::EndReasonDictionaryIndex> m_end_reason_indexes;
+    std::unordered_map<std::string, pod5::PoreDictionaryIndex> m_pore_data_indexes;
     DictionaryLookup<pod5::RunInfoDictionaryIndex> m_run_info_indexes;
     std::unordered_map<pod5::RunInfoData, pod5::RunInfoDictionaryIndex, run_info_hasher>
         m_run_info_data_indexes;
