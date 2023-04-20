@@ -178,6 +178,12 @@ public:
     pod5::Result<PoreDictionaryIndex> add(std::string const & pore_type)
     {
         auto const index = item_count();
+
+        if (index >= std::size_t(std::numeric_limits<std::int16_t>::max())) {
+            return arrow::Status::Invalid(
+                "Failed to add pore to dictionary, too many indices in file");
+        }
+
         ARROW_RETURN_NOT_OK(m_builder.append(pore_type));
         return index;
     }
@@ -215,6 +221,12 @@ public:
     pod5::Result<RunInfoDictionaryIndex> add(std::string const & acquisition_id)
     {
         auto const index = item_count();
+
+        if (index >= std::size_t(std::numeric_limits<std::int16_t>::max())) {
+            return arrow::Status::Invalid(
+                "Failed to add run info to dictionary, too many indices in file");
+        }
+
         ARROW_RETURN_NOT_OK(m_builder.append(acquisition_id));
         return index;
     }

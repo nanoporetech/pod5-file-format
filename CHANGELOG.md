@@ -7,14 +7,19 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.20] 2023-04-20
+
+### Fixed
+- Fixed merging many files running out the size limit of dictionary indices.
+
 ## [0.1.19] 2023-04-14
 
-## Changed
+### Changed
 
 - `pod5 convert fast5` now creates logs when `POD5_DEBUG=1` set
 - `pod5 convert fast5` checks multi-read fast5s at conversion time
 
-## Fixed
+### Fixed
 - Fixed memory usage growth over time as signal was loaded with large pod5 files.
 - Fixed crash loading malicious files (found via fuzz testing)
 - Fixed leaks and UB when running unit tests.
