@@ -7,11 +7,17 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- Repacker reads_completed value while copying a selection of reads.
+
 ## [0.1.20] 2023-04-20
 
 ### Fixed
-- Fixed merging many files running out the size limit of dictionary indices.
 
+- Fixed merging many files running out the size limit of dictionary indices.
 
 ## [0.1.19] 2023-04-14
 
@@ -21,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pod5 convert fast5` checks multi-read fast5s at conversion time
 
 ### Fixed
+
 - Fixed memory usage growth over time as signal was loaded with large pod5 files.
 - Fixed crash loading malicious files (found via fuzz testing)
 - Fixed leaks and UB when running unit tests.
@@ -32,13 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated internal arrow version to 8.0.0.3
 
-
 ## [0.1.16] 2023-04-06
 
 ### Fixed
 
 - Fixed issue where pod5 would read out of bounds memory when decompressing some reads.
-
 
 ## [0.1.15] 2023-03-31
 
