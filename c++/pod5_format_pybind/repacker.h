@@ -184,8 +184,6 @@ public:
         auto const & source_read_table_batch = batch->batch();
         auto const & source_file = batch->file();
 
-        m_reads_completed += source_read_table_batch.num_rows();
-
         ARROW_ASSIGN_OR_RAISE(auto columns, source_read_table_batch.columns());
 
         auto source_reads_pore_type_column =
@@ -288,6 +286,8 @@ public:
                 signal_rows,
                 total_sample_count));
         }
+
+        m_reads_completed += selected_row_indices.size();
 
         return arrow::Status::OK();
     }
