@@ -200,6 +200,11 @@ inline pod5::Result<ParsedFooter> read_footer(
     ARROW_RETURN_NOT_OK(file->ReadAt(
         footer_length_data_end - sizeof(footer_length), sizeof(footer_length), &footer_length));
     footer_length = arrow::bit_util::FromLittleEndian(footer_length);
+    if (footer_length < 0
+        || static_cast<std::size_t>(footer_length) > footer_length_data_end - sizeof(footer_length))
+    {
+        return arrow::Status::IOError("Invalid footer length");
+    }
 
     std::vector<std::uint8_t> footer_data;
     footer_data.resize(footer_length);
@@ -296,27 +301,46 @@ protected:
 
     arrow::Status DoSeek(int64_t offset)
     {
+        if (offset < 0 || offset > m_sub_file_length) {
+            return arrow::Status::IOError("Invalid offset into SubFile");
+        }
         offset += m_sub_file_offset;
         return m_file->Seek(offset);
     }
 
     arrow::Result<std::int64_t> DoRead(int64_t length, void * data)
     {
+        ARROW_ASSIGN_OR_RAISE(auto pos, m_file->Tell());
+        int64_t const remaining = m_sub_file_offset + m_sub_file_length - pos;
+        length = std::min(remaining, length);
         return m_file->Read(length, data);
     }
 
     arrow::Result<std::shared_ptr<arrow::Buffer>> DoRead(int64_t length)
     {
+        ARROW_ASSIGN_OR_RAISE(auto pos, m_file->Tell());
+        int64_t const remaining = m_sub_file_offset + m_sub_file_length - pos;
+        length = std::min(remaining, length);
         return m_file->Read(length);
     }
 
     Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void * out)
     {
+        if (position < 0 || position > m_sub_file_length) {
+            return arrow::Status::IOError("Invalid offset into SubFile");
+        }
+        int64_t const remaining = m_sub_file_length - position;
+        nbytes = std::min(nbytes, remaining);
         return m_file->ReadAt(position + m_sub_file_offset, nbytes, out);
     }
 
     Result<std::shared_ptr<arrow::Buffer>> DoReadAt(int64_t position, int64_t nbytes)
     {
+        if (position < 0 || position > m_sub_file_length) {
+            return arrow::Status::IOError("Invalid offset into SubFile");
+        }
+        int64_t const remaining = m_sub_file_length - position;
+        nbytes = std::min(nbytes, remaining);
         return m_file->ReadAt(position + m_sub_file_offset, nbytes);
     }
 
@@ -334,6 +358,12 @@ inline arrow::Result<std::shared_ptr<SubFile>> open_sub_file(ParsedFileInfo file
 {
     if (!file_info.file) {
         return arrow::Status::Invalid("Failed to open file from footer");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto file_size, file_info.file->GetSize());
+    if (file_info.file_length < 0 || file_info.file_length > file_size
+        || file_info.file_start_offset > file_size - file_info.file_length)
+    {
+        return arrow::Status::Invalid("Bad footer info");
     }
     // Restrict our open file to just the run info section:
     return std::make_shared<SubFile>(
