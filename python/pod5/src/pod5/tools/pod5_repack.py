@@ -6,7 +6,8 @@ import os
 import sys
 import typing
 from pathlib import Path
-from tqdm import tqdm
+from pod5.tools.utils import PBAR_DEFAULTS
+from tqdm.auto import tqdm
 
 import pod5 as p5
 import pod5.repack
@@ -51,7 +52,9 @@ def repack_pod5(
     futures = {}
     with ProcessPoolExecutor(max_workers=threads) as executor:
 
-        pbar = tqdm(total=len(inputs), ascii=True, disable=disable_pbar, unit="Files")
+        pbar = tqdm(
+            total=len(inputs), disable=disable_pbar, unit="Files", **PBAR_DEFAULTS
+        )
 
         for src in inputs:
             dest = output / src.name

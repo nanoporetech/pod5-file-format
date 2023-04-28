@@ -26,7 +26,7 @@ import vbz_h5py_plugin  # noqa: F401
 import pod5 as p5
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chunked
 from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
-from pod5.tools.utils import is_pod5_debug, iterate_inputs
+from pod5.tools.utils import PBAR_DEFAULTS, is_pod5_debug, iterate_inputs
 
 READ_CHUNK_SIZE = 400
 TIMEOUT_SECONDS = 600
@@ -371,12 +371,11 @@ class StatusMonitor:
         disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         self.pbar = tqdm(
             total=self.total_reads,
-            ascii=True,
             disable=disable_pbar,
             desc=f"Converting {len(self.path_reads)} Fast5s",
             unit="Reads",
             leave=True,
-            dynamic_ncols=True,
+            **PBAR_DEFAULTS,
         )
 
     @property

@@ -8,7 +8,8 @@ from typing import Collection
 import lib_pod5 as p5b
 
 import pod5 as p5
-from tqdm import tqdm
+from pod5.tools.utils import PBAR_DEFAULTS
+from tqdm.auto import tqdm
 
 # The default interval in seconds to check for completion
 DEFAULT_INTERVAL = 0.5
@@ -161,10 +162,10 @@ class Repacker:
         disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1))) or not show_pbar
         pbar = tqdm(
             total=self.reads_requested,
-            ascii=True,
             disable=disable_pbar,
             leave=leave_pbar,
             unit="Reads",
+            **PBAR_DEFAULTS,
         )
 
         last_time, last_bytes, last_reads = time.time(), 0, 0
@@ -187,7 +188,6 @@ class Repacker:
             pbar.total = self.reads_requested
             pbar.update(self.reads_completed - last_reads)
             last_reads = self.reads_completed
-            # tqdm.write(f"{self.reads_completed} , {self.reads_requested}")
 
         if finish:
             self.finish()

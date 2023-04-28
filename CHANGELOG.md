@@ -7,11 +7,11 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [0.1.21] 2023-04-27
 
 ### Fixed
 
-- Repacker reads_completed value while copying a selection of reads.
+- Repacker `reads_completed` value while copying a selection of reads.
 - Fixed crash when trying to load files with a bad footer.
 
 ## [0.1.20] 2023-04-20

@@ -7,6 +7,9 @@ import typing
 from pathlib import Path
 
 
+PBAR_DEFAULTS = dict(ascii=True, smoothing=0.0, dynamic_ncols=True)
+
+
 def iterate_inputs(
     input_items: typing.Iterable[Path], recursive: bool, file_pattern: str
 ) -> typing.Generator[Path, None, None]:

@@ -10,6 +10,7 @@ from more_itertools import chunked
 import pod5 as p5
 import pod5.repack as p5_repack
 from pod5.tools.parsers import prepare_pod5_merge_argparser, run_tool
+from pod5.tools.utils import PBAR_DEFAULTS
 from tqdm import tqdm
 
 # Default number of files to merge at a time
@@ -75,9 +76,9 @@ def merge_pod5(
         disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         pbar = tqdm(
             total=len(inputs),
-            ascii=True,
             disable=disable_pbar or len(chunks) == 1,
             unit="Files",
+            **PBAR_DEFAULTS,
         )
 
         for chunk in chunks:
