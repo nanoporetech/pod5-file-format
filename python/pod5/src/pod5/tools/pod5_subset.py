@@ -12,7 +12,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
 
 import jsonschema
 import pandas as pd
-from tqdm import tqdm
+from pod5.tools.utils import PBAR_DEFAULTS
+from tqdm.auto import tqdm
 
 import pod5 as p5
 import pod5.repack as p5_repack
@@ -353,9 +354,9 @@ def subset_pod5s_with_mapping(
     with ProcessPoolExecutor(max_workers=n_workers) as executor:
         pbar = tqdm(
             total=len(transfers),
-            ascii=True,
             disable=(disable_pbar or single_transfer),
             unit="Files",
+            **PBAR_DEFAULTS,
         )
 
         # Launch the subsetting jobs
