@@ -1,32 +1,61 @@
 """
 Tool for updating pod5 files to the latest available version
 """
-import sys
-import typing
+from typing import Iterable
 from pathlib import Path
+
+from tqdm.auto import tqdm
 
 import lib_pod5 as p5b
 
 import pod5 as p5
 from pod5.tools.parsers import prepare_pod5_update_argparser, run_tool
+from pod5.tools.utils import (
+    PBAR_DEFAULTS,
+    assert_no_duplicate_filenames,
+    collect_inputs,
+)
 
 
-def update_pod5(inputs: typing.List[Path], output: Path, force_overwrite: bool):
+def update_pod5(
+    inputs: Iterable[Path],
+    output: Path,
+    force_overwrite: bool = False,
+    recursive: bool = False,
+):
     """
     Given a list of pod5 files, update their tables to the most recent version
     """
-    print(f"Updating inputs {' '.join(str(i) for i in inputs)} into {output}")
-
     if not output.exists():
         output.mkdir(parents=True, exist_ok=True)
 
-    for input_path in inputs:
-        reader = p5.Reader(input_path)
-        dest_path = output / input_path.name
-        if dest_path.exists() and not force_overwrite:
-            print(f"{dest_path} already exists, not overwriting", file=sys.stderr)
-            continue
-        p5b.update_file(reader.inner_file_reader, str(dest_path))
+    paths = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
+    assert_no_duplicate_filenames(paths)
+
+    exists = set(output / p.name for p in paths if Path(output / p.name).exists())
+
+    if not paths.isdisjoint(exists):
+        inout = [p.name for p in exists - paths]
+        raise AssertionError(f"Cannot update inputs in-place. Found: {inout}")
+
+    if not force_overwrite and exists:
+        raise FileExistsError(
+            f"{len(exists)} Output files already exists and --force-overwrite not set. "
+            f"Found: {exists}"
+        )
+    else:
+        for path in exists:
+            path.unlink()
+
+    pbar = tqdm(
+        total=len(paths), desc="Updating", unit="File", leave=True, **PBAR_DEFAULTS
+    )
+
+    for path in paths:
+        dest = output / path.name
+        with p5.Reader(path) as reader:
+            p5b.update_file(reader.inner_file_reader, str(dest))
+        pbar.update()
 
 
 def main():

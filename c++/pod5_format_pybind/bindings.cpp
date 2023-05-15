@@ -92,6 +92,7 @@ PYBIND11_MODULE(pod5_format_pybind, m)
 
     // Opening files
     m.def("open_file", &open_file, "Open a POD5 file for reading");
+    m.def("recover_file", &recover_file, "Recover a POD5 file which was not closed correctly");
 
     m.def(
         "update_file",

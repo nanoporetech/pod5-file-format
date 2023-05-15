@@ -103,6 +103,11 @@ Status ReadTableWriter::close()
     return Status::OK();
 }
 
+Status ReadTableWriter::write_batch(arrow::RecordBatch const & record_batch)
+{
+    return m_writer->WriteRecordBatch(record_batch);
+}
+
 Status ReadTableWriter::write_batch()
 {
     POD5_TRACE_FUNCTION();

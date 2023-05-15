@@ -7,6 +7,42 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] 2023-05-11
+
+### Added
+
+- `pod5 view` tool to view / inspect pod5 files as tables. Gives a >200x speed improvement compared to `pod5 inspect reads`
+- `pod5 recover` tool to recover data from corrupted / truncated pod5 files
+- `pod5 update` documentation
+- source distributions to pypi
+
+### Changed
+
+- `pod5 subset` and `pod5 filter` uses `polars` to parse inputs
+- `pod5 subset` and `pod5 filter` csv formatting requirements tightened
+- `pod5` tools which use multiple pod5 file inputs now accept directories which can be searched recursively with `-r/--recursive`
+- `pod5 subset` `--read-id-column` argument abbreviateion `-r` change to `-R` to allow `-r/--recursive` to be consistent for all tools
+- `pod5` tools use hyphens in all arguments (e.g. `--force-overwrite` and `--read-id-column`)
+- `pod5 merge` and `pod5 update` uses named `-o/--output` argument instead of positional `output` argument to standardise tools
+- `pod5 update` progress bar and better detection of name conflicts
+- Minimised number of open file handles in tools to prevent `Too many open files` error
+- Logging added to `merge`, `filter` and `subset`. Enabled with `POD5_DEBUG=1`
+
+### Deprecated
+
+- `pod5 inspect reads` deprecated in-favour of `pod5 view`
+
+## Fixed
+
+- Exception raised when calling `pod5` without any arguments
+- Exception raised in `pod5 convert fast5` where closed writers were reopened after being closed by a caught exception
+
+### Removed
+
+- `pod5 subset` `--json` mapping arguments
+- `pod5 merge` `--chunk-size` argument
+- `ReadTableVersion` replaced with an integer value
+
 ## [0.1.21] 2023-04-27
 
 ### Fixed

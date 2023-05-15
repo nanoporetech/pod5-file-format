@@ -1,21 +1,20 @@
-POD5 Python Package
-===================
+# POD5 Python Package
 
 The `pod5` Python package contains the tools and python API wrapping the compiled bindings
 for the POD5 file format from `lib_pod5`.
 
-Installation
-------------
+## Installation
 
 The `pod5` package is available on [pypi](https://pypi.org/project/pod5/) and is
 installed using `pip`:
 
 ``` console
-pip install pod5
+  > pip install pod5
 ```
 
-Reading a POD5 File
--------------------
+## Usage
+
+### Reading a POD5 File
 
 To read a `pod5` file provide the the `Reader` class with the input `pod5` file path
 and call `Reader.reads()` to iterate over read records in the file. The example below
@@ -46,8 +45,7 @@ with p5.Reader("example.pod5") as reader:
         assert str(read_record.read_id) in read_ids
 ```
 
-Plotting Signal Data Example
-----------------------------
+### Plotting Signal Data Example
 
 Here is an example of how a user may plot a read’s signal data against time.
 
@@ -78,8 +76,7 @@ with p5.Reader(example_pod5) as reader:
     plt.plot(time, signal)
 ```
 
-Writing a POD5 File
--------------------
+### Writing a POD5 File
 
 The `pod5` package provides the functionality to write POD5 files.
 
@@ -122,254 +119,367 @@ with p5.Writer("example.pod5") as writer:
     writer.add_read(read)
 ```
 
-POD5 Format Tools
------------------
+## Tools
+
+1. [pod5 view](#pod5-view)
+2. [pod5 inspect](#pod5-inspect)
+3. [pod5 merge](#pod5-merge)
+4. [pod5 filter](#pod5-filter)
+5. [pod5 subset](#pod5-subset)
+6. [pod5 repack](#pod5-repack)
+7. [pod5 recover](#pod5-recover)
+8. [pod5 convert fast5](#pod5-convert-fast5)
+9. [pod5 convert to_fast5](#pod5-convert-to_fast5)
+10. [pod5 update](#pod5-update)
 
 The ``pod5`` package provides the following tools for inspecting and manipulating
-`.pod5` files as well as converting between `.pod5` and `.fast5` file formats.
+POD5 files as well as converting between ``.pod5`` and ``.fast5`` file formats.
 
-1. [pod5 update](#pod5%20update)
-2. [pod5 inspect](#pod5%20inspect)
-3. [pod5 subset](#pod5%20subset)
-4. [pod5 repack](#pod5%20repack)
-5. [pod5 convert fast5](#pod5%20convert%20fast5)
-6. [pod5 convert to_fast5](#pod5%20convert%20to_fast5)
+To disable the `tqdm <https://github.com/tqdm/tqdm>`_  progress bar set the environment
+variable ``POD5_PBAR=0``.
 
-pod5 update
------------
+To enable debugging output which may also output detailed log files, set the environment
+variable ``POD5_DEBUG=1``
 
-The `pod5 update` tool can be used to update a file in an older pod5 format to the latest available format.
+### Pod5 View
 
-```bash
-# View help on pod5 update tools
-> pod5 update --help
-> pod5 update my-old-pod5-file.pod5 ./migrated_files/
+The ``pod5 view`` tool is used to produce a table similarr to a sequencing summary
+from the contents of ``.pod5`` files. The default output is a tab-separated table
+written to stdout with all available fields.
+
+This tools is indented to replace ``pod5 inspect reads`` and is over 200x faster.
+
+``` bash
+> pod5 view --help
+
+# View the list of fields with a short description in-order (shortcut -L)
+> pod5 view --list-fields
+
+# Write the summary to stdout
+> pod5 view input.pod5
+
+# Write the summary of multiple pod5s to a file
+> pod5 view *.pod5 --output summary.tsv
+
+# Write the summary as a csv
+> pod5 view *.pod5 --output summary.csv --separator ','
+
+# Write only the read_ids with no header (shorthand -IH)
+> pod5 view input.pod5 --ids --no-header
+
+# Write only the listed fields
+# Note: The field order is fixed the order shown in --list-fields
+> pod5 view input.pod5 --include "read_id, channel, num_samples, end_reason"
+
+# Exclude some unwanted fields
+> pod5 view input.pod5 --exclude "filename, pore_type"
 ```
 
-pod5 inspect
-------------
+### Pod5 inspect
 
-The `pod5 inspect` tool can be used to extract details and summaries of the contents of `.pod5` files. There are three programs for users within `pod5 inspect` and these are [`reads`](#pod5%20inspect%20reads), [`read`](#pod5%20inspect%20read), and [`summary`](#pod5%20inspect%20summary),
+The ``pod5 inspect`` tool can be used to extract details and summaries of
+the contents of ``.pod5`` files. There are two programs for users within ``pod5 inspect``
+and these are read and reads
 
-```bash
-# View help on pod5 inspect tools
+``` bash
 > pod5 inspect --help
 > pod5 inspect {reads, read, summary} --help
 ```
 
-### pod5 inspect reads
+#### Pod5 inspect reads
 
-Inspect all reads and print a csv table of the details of all reads in the given `.pod5` files.
+> :warning: This tool is deprecated and has been replaced by ``pod5 view`` which is significantly faster.
 
-```bash
+Inspect all reads and print a csv table of the details of all reads in the given ``.pod5`` files.
+
+``` bash
 > pod5 inspect reads pod5_file.pod5
 
-# Sample Output:
-read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before,calibration_offset,calibration_scale,sample_count,byte_count,signal_compression_ratio
-00445e58-3c58-4050-bacf-3411bb716cc3,908,1,not_set,100776,374223800,signal_positive,205.3,-240.0,0.1,65582,58623,0.447
-00520473-4d3d-486b-86b5-f031c59f6591,220,1,not_set,7936,16135986,signal_positive,192.0,-233.0,0.1,167769,146495,0.437
-...
+  read_id,channel,well,pore_type,read_number,start_sample,end_reason,median_before,calibration_offset,calibration_scale,sample_count,byte_count,signal_compression_ratio
+  00445e58-3c58-4050-bacf-3411bb716cc3,908,1,not_set,100776,374223800,signal_positive,205.3,-240.0,0.1,65582,58623,0.447
+  00520473-4d3d-486b-86b5-f031c59f6591,220,1,not_set,7936,16135986,signal_positive,192.0,-233.0,0.1,167769,146495,0.437
+    ...
 ```
 
-### pod5 inspect read
+#### Pod5 inspect read
 
 Inspect the pod5 file, find a specific read and print its details.
 
-```bash
+``` console
 > pod5 inspect read pod5_file.pod5 00445e58-3c58-4050-bacf-3411bb716cc3
 
-# Sample Output:
-File: out-tmp/output.pod5
-read_id: 0e5d6827-45f6-462c-9f6b-21540eef4426
-read_number:    129227
-start_sample:   367096601
-median_before:  171.889404296875
-channel data:
+  File: out-tmp/output.pod5
+  read_id: 0e5d6827-45f6-462c-9f6b-21540eef4426
+  read_number:    129227
+  start_sample:   367096601
+  median_before:  171.889404296875
+  channel data:
   channel: 2366
   well: 1
   pore_type: not_set
-end reason:
+  end reason:
   name: signal_positive
   forced False
-calibration:
+  calibration:
   offset: -243.0
   scale: 0.1462070643901825
-samples:
+  samples:
   sample_count: 81040
   byte_count: 71989
   compression ratio: 0.444
-run info
-    acquisition_id: 2ca00715f2e6d8455e5174cd20daa4c38f95fae2
-    acquisition_start_time: 2021-07-23 13:48:59.780000
-    adc_max: 0
-    adc_min: 0
-    context_tags
+  run info
+      acquisition_id: 2ca00715f2e6d8455e5174cd20daa4c38f95fae2
+      acquisition_start_time: 2021-07-23 13:48:59.780000
+      adc_max: 0
+      adc_min: 0
+      context_tags
       barcoding_enabled: 0
       basecall_config_filename: dna_r10.3_450bps_hac_prom.cfg
       experiment_duration_set: 2880
-...
+      ...
 ```
 
-### pod5 inspect summary
+### Pod5 merge
 
-Inspect the pod5 file, printing summary information on the reads in each batch
+``pod5 merge`` is a tool for merging multiple  ``.pod5`` files into one monolithic pod5 file.
 
-pod5 subset
-----------
+The contents of the input files are checked for duplicate read_ids to avoid
+accidentally merging identical reads. To override this check set the argument
+``-D / --duplicate-ok``
 
-`pod5 subset` is a tool for separating the reads in `.pod5` files into one or more
-output files. This tool can be used to create new `.pod5` files which contain a
-user-defined subset of reads from the input.
+``` bash
+# View help
+> pod5 merge --help
 
-The `pod5 subset` tool requires a mapping which defines which read_ids should be
+# Merge a pair of pod5 files
+> pod5 merge example_1.pod5 example_2.pod5 --output merged.pod5
+
+# Merge a glob of pod5 files
+> pod5 merge *.pod5 -o merged.pod5
+
+# Merge a glob of pod5 files ignoring duplicate read ids
+> pod5 merge *.pod5 -o merged.pod5 --duplicate-ok
+```
+
+### Pod5 filter
+
+``pod5 filter`` is a simpler alternative to ``pod5 subset`` where reads are subset from
+one or more input ``.pod5`` files using a list of read ids provided using the ``--ids`` argument
+and writing those reads to a *single* ``--output`` file.
+
+See ``pod5 subset`` for more advanced subsetting.
+
+``` bash
+> pod5 filter example.pod5 --output filtered.pod5 --ids read_ids.txt
+```
+
+The ``--ids`` selection text file must be a simple list of valid UUID read_ids with
+one read_id per line. Only records which match the UUID regex (lower-case) are used.
+Lines beginning with a ``#`` (hash / pound symbol) are interpreted as comments.
+Empty lines are not valid and may cause errors during parsing.
+
+> The ``filter`` and ``subset`` tools will assert that any requested read_ids are
+> present in the inputs. If a requested read_id is missing from the inputs
+> then the tool will issue the following error:
+>
+> ``` bash
+> POD5 has encountered an error: 'Missing read_ids from inputs but --missing-ok not set'
+> ```
+>
+> To disable this warning then the '-M / --missing-ok' argument.
+
+When supplying multiple input files to 'filter' or 'subset', the tools is
+effectively performing a ``merge`` operation. The 'merge' tool is better suited
+for handling very large numbers of input files.
+
+#### Example filtering pipeline
+
+This is a trivial example of how to select a random sample of 1000 read_ids from a
+pod5 file using ``pod5 view`` and ``pod5 filter``.
+
+``` bash
+# Get a random selection of read_ids
+> pod5 view all.pod5 --ids --no-header --output all_ids.txt
+> all_ids.txt sort --random-sort | head --lines 1000 > 1k_ids.txt
+
+# Filter to that selection
+> pod5 filter all.pod5 --ids 1k_ids.txt --output 1k.pod5
+
+# Check the output
+> pod5 view 1k.pod5 -IH | wc -l
+1000
+```
+
+### Pod5 subset
+
+``pod5 subset`` is a tool for subsetting reads in ``.pod5`` files into one or more
+output ``.pod5`` files. See also ``pod5 filter``
+
+The ``pod5 subset`` tool requires a *mapping* which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
-defined in either a `.csv` or `.json` file or by using a tab-separated table
-(e.g. basecaller sequencing summary) and instructions on how to interpret it.
+defined in either a ``.csv`` file or by using a ``--table`` (csv or tsv)
+and instructions on how to interpret it.
 
-```bash
+``pod5 subset`` aims to be a generic tool to subset from multiple inputs to multiple outputs.
+If your use-case is to ``filter`` read_ids from one or more inputs into a single output
+then ``pod5 filter`` might be a more appropriate tool as the only input is a list of read_ids.
+
+``` bash
 # View help
 > pod5 subset --help
 
 # Subset input(s) using a pre-defined mapping
 > pod5 subset example_1.pod5 --csv mapping.csv
-> pod5 subset examples_*.pod5 --json mapping.json
 
 # Subset input(s) using a dynamic mapping created at runtime
-> pod5 subset example_1.pod5 --summary summary.txt --columns barcode alignment_genome
+> pod5 subset example_1.pod5 --table table.txt --columns barcode
 ```
 
-### Important note on read_id clashes
+> Care should be taken to ensure that when providing multiple input ``.pod5`` files to ``pod5 subset``
+> that there are no read_id UUID clashes. If a duplicate read_id is detected an exception
+> will be raised unless the ``--duplicate-ok`` argument is set. If ``--duplicate-ok`` is
+> set then both reads will be written to the output, although this is not recommended.
 
-Care should be taken to ensure that when providing multiple input `.pod5` files to `pod5 subset`
-that there are no read_id UUID clashes. If this occurs both reads are written to the output.
+#### Creating a Subset Mapping
 
-### Creating a Subset mapping
+##### Target Mapping (.csv)
 
-The `.csv` or `.json` inputs should define a mapping of destination filename to an array
-of read_ids which will be written to the destination.
+The example below shows a ``.csv`` subset target mapping. Any lines (e.g. header line)
+which do not have a read_id which matches the UUID regex (lower-case) in the second
+column is ignored.
 
-In the example below of a `.csv` subset mapping, note that the output filename can be specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
-
-```bash
-# --csv mapping filename to array of read_id
-output_1.pod5, 132b582c-56e8-4d46-9e3d-48a275646d3a, 12a4d6b1-da6e-4136-8bb3-1470ef27e311, ...
-output_2.pod5, 0ff4dc01-5fa4-4260-b54e-1d8716c7f225
-output_2.pod5, 0e359c40-296d-4edc-8f4a-cca135310ab2, 0e9aa0f8-99ad-40b3-828a-45adbb4fd30c
+``` text
+target, read_id
+output_1.pod5,132b582c-56e8-4d46-9e3d-48a275646d3a
+output_1.pod5,12a4d6b1-da6e-4136-8bb3-1470ef27e311
+output_2.pod5,0ff4dc01-5fa4-4260-b54e-1d8716c7f225
+output_2.pod5,0e359c40-296d-4edc-8f4a-cca135310ab2
+output_2.pod5,0e9aa0f8-99ad-40b3-828a-45adbb4fd30c
 ```
 
-See below an example of a `.json` subset mapping. This file must of course be well-formatted
-`json` in addition to the formatting standard required by the tool. The formatting requirements
-for the `.json` subset mapping are that keys should be unique filenames mapped to an array
-of read_id strings.
+##### Target Mapping from Table
 
-```json
-{
-    "output_1.pod5": [
-        "0000173c-bf67-44e7-9a9c-1ad0bc728e74",
-        "006d1319-2877-4b34-85df-34de7250a47b"
-    ],
-    "output_2.pod5": [
-        "00925f34-6baf-47fc-b40c-22591e27fb5c",
-        "009dc9bd-c5f4-487b-ba4c-b9ce7e3a711e"
-    ]
-}
-```
+``pod5 subset`` can dynamically generate output targets and collect associated reads
+based on a text file containing a table (csv or tsv) parsible by ``polars``.
+This table file could be the output from ``pod5 view`` or from a sequencing summary.
+The table must contain a header row and a series of columns on which to group unique
+collections of values. Internally this process uses the
+`polars.Dataframe.groupby <https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/api/polars.DataFrame.groupby.html>`_
+function where the ``by`` parameter is the sequence of column names specified with
+the ``--columns`` argument.
 
-### Subsetting from a summary
-
-`pod5 subset` can dynamically generate output targets and collect associated reads
-based on a tab-separated file (e.g. sequencing summary) which contains a header row
-and a series of columns on which to group unique collections of values. Internally
-this process uses the [`pandas.Dataframe.groupby`](https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html) function where the `by` parameter is the sequence of column names
-specified using the ``--columns` argument.
-
-The column names specified in `--columns` should be **categorical** in nature.
-There is no restriction in-place however there may be an excessive number of output files
-generated if a continuous variable was used for subsetting.
-
-Given the following example summary file, observe the resultant outputs given various
+Given the following example ``--table`` file, observe the resultant outputs given various
 arguments:
 
-```text
-read_id mux barcode     length
-read_a  1   barcode_a   4321
-read_b  1   barcode_b   1000
-read_c  2   barcode_b   1200
-read_d  2   barcode_c   1234
+``` text
+read_id    mux    barcode      length
+read_a     1      barcode_a    4321
+read_b     1      barcode_b    1000
+read_c     2      barcode_b    1200
+read_d     2      barcode_c    1234
 ```
 
-```bash
-> pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
+``` bash
+> pod5 subset example_1.pod5 --output barcode_subset --table table.txt --columns barcode
 > ls barcode_subset
-barcode-barcode_a.pod5 # Contains: read_a
-barcode-barcode_b.pod5 # Contains: read_b, read_c
-barcode-barcode_c.pod5 # Contains: read_d
+barcode-barcode_a.pod5     # Contains: read_a
+barcode-barcode_b.pod5     # Contains: read_b, read_c
+barcode-barcode_c.pod5     # Contains: read_d
 
-> pod5 subset example_1.pod5 --output mux_subset --summary summary.txt --columns mux
+> pod5 subset example_1.pod5 --output mux_subset --table table.txt --columns mux
 > ls mux_subset
-mux-1.pod5 # Contains: read_a, read_b
-mus-2.pod5 # Contains: read_c, read_d
+mux-1.pod5     # Contains: read_a, read_b
+mus-2.pod5     # Contains: read_c, read_d
 
-> pod5 subset example_1.pod5 --output barcode_mux_subset --summary summary.txt --columns barcode mux
+> pod5 subset example_1.pod5 --output barcode_mux_subset --table table.txt --columns barcode mux
 > ls barcode_mux_subset
-barcode-barcode_a_mux-1.pod5 # Contains: read_a
-barcode-barcode_b_mux-1.pod5 # Contains: read_b
-barcode-barcode_b_mux-2.pod5 # Contains: read_c
-barcode-barcode_c_mux-2.pod5 # Contains: read_d
+barcode-barcode_a_mux-1.pod5    # Contains: read_a
+barcode-barcode_b_mux-1.pod5    # Contains: read_b
+barcode-barcode_b_mux-2.pod5    # Contains: read_c
+barcode-barcode_c_mux-2.pod5    # Contains: read_d
 ```
 
-The output filename is generated from a template string. The automatically generated
-template is the sequential concatenation of column_name-column_value followed by the
-`.pod5` file extension. The user can set their own filename template using the ``--template``
-argument. This argument accepts a string in the Python f-string style where the subsetting
-variables are used for keyword placeholder substitution. Keywords should be placed
-within curly-braces. For example:
+##### Output Filename Templating
 
-From the examples above:
+When subsetting using a table the output filename is generated from a template
+string. The automatically generated template is the sequential concatenation of
+``column_name-column_value`` followed by the ``.pod5`` file extension.
 
-```bash
-> pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode
+The user can set their own filename template using the ``--template`` argument.
+This argument accepts a string in the `Python f-string style <https://docs.python.org/3/tutorial/inputoutput.html#formatted-string-literals>`_
+where the subsetting variables are used for keyword placeholder substitution.
+Keywords should be placed within curly-braces. For example:
+
+``` bash
 # default template used = "barcode-{barcode}.pod5"
+> pod5 subset example_1.pod5 --output barcode_subset --table table.txt --columns barcode
 
-> pod5 subset example_1.pod5 --output barcode_mux_subset --summary summary.txt --columns barcode mux
 # default template used = "barcode-{barcode}_mux-{mux}.pod5"
-```
+> pod5 subset example_1.pod5 --output barcode_mux_subset --table table.txt --columns barcode mux
 
-Custom template example:
-
-```bash
-> pod5 subset example_1.pod5 --output barcode_subset --summary summary.txt --columns barcode --template "{barcode}.subset.pod5"
+> pod5 subset example_1.pod5 --output barcode_subset --table table.txt --columns barcode --template "{barcode}.subset.pod5"
 > ls barcode_subset
-barcode_a.subset.pod5 # Contains: read_a
-barcode_b.subset.pod5 # Contains: read_b, read_c
-barcode_c.subset.pod5 # Contains: read_d
+barcode_a.subset.pod5    # Contains: read_a
+barcode_b.subset.pod5    # Contains: read_b, read_c
+barcode_c.subset.pod5    # Contains: read_d
 ```
 
-pod5 repack
------------
+##### Example subsetting from ``pod5 inspect reads``
 
-`pod5 repack` will simply repack `.pod5` files into one-for-one output files of the same name.
+The ``pod5 inspect reads`` tool will output a csv table summarising the content of the
+specified ``.pod5`` file which can be used for subsetting. The example below shows
+how to split a ``.pod5`` file by the well field.
+
+``` bash
+# Create the csv table from inspect reads
+> pod5 inspect reads example.pod5 > table.csv
+> pod5 subset example.pod5 --table table.csv --columns well
+```
+
+### Pod5 repack
+
+``pod5 repack`` will simply repack ``.pod5`` files into one-for-one output files of the same name.
 
 ``` bash
 > pod5 repack pod5s/*.pod5 repacked_pods/
 ```
 
-pod5 merge
------------
+### Pod5 Recover
 
-`pod5 merge` will merge multiple `.pod5` files into one output file.
+``pod5 recover`` will attempt to recover data from corrupted or truncated ``.pod5`` files
+by copying all valid table batches and cleanly closing the new files. New files are written
+as siblings to the inputs with the `_recovered.pod5` suffix.
 
 ``` bash
-> pod5 merge pod5s/*.pod5 merged.pod5
+> pod5 recover --help
+> pod5 recover broken.pod5
+> ls
+broken.pod5 broken_recovered.pod5
 ```
 
-pod5 convert fast5
------------------------
+### pod5 convert fast5
 
-The `pod5 convert fast5` tool takes one or more `.fast5` files and converts them
-to one or more `.pod5` files.
+The ``pod5 convert fast5`` tool takes one or more ``.fast5`` files and converts them
+to one or more ``.pod5`` files.
 
-**Some content previously stored in fast5 files is not compatible with the pod5 format and will not be converted**
+If the tool detects single-read fast5 files, please convert them into multi-read
+fast5 files using the tools available in the ``ont_fast5_api`` project.
+
+The progress bar shown during conversion assumes the number of reads in an input
+``.fast5`` is 4000. The progress bar will update the total value during runtime if
+required.
+
+> Some content previously stored in ``.fast5`` files is **not** compatible with the POD5
+> format and will not be converted. This includes all analyses stored in the
+> ``.fast5`` file.
+>
+> Please ensure that any other data is recovered from ``.fast5`` before deletion.
+
+By default ``pod5 convert fast5`` will show exceptions raised during conversion as *warnings*
+to the user. This is to gracefully handle potentially corrupt input files or other
+runtime errors in long-running conversion tasks. The ``--strict`` argument allows
+users to opt-in to strict runtime assertions where any exception raised will promptly
+stop the conversion process with an error.
 
 ``` bash
 # View help
@@ -381,39 +491,66 @@ to one or more `.pod5` files.
 # Convert fast5 files into a monolithic output in an existing directory
 > pod5 convert fast5 ./input/*.fast5 --output outputs/
 > ls outputs/
-outputs/output.pod5 # default name
+output.pod5 # default name
 
 # Convert each fast5 to its relative converted output. The output files are written
 # into the output directory at paths relatve to the path given to the
 # --one-to-one argument. Note: This path must be a relative parent to all
 # input paths.
 > ls input/*.fast5
-fast5_1.fast5 fast5_2.fast5 ... fast5_N.fast5
-> pod5 convert fast5 ./input/*.fast5 --output output_pod5s --one-to-one input/
+file_1.fast5 file_2.fast5 ... file_N.fast5
+> pod5 convert fast5 ./input/*.fast5 --output output_pod5s/ --one-to-one ./input/
 > ls output_pod5s/
-fast5_1.pod5 fast5_2.pod5 ... fast5_N.pod5
+file_1.pod5 file_2.pod5 ... file_N.pod5
 
 # Note the different --one-to-one path which is now the current working directory.
 # The new sub-directory output_pod5/input is created.
-> pod5 convert fast5 ./input/*.fast5 --output output_pod5s --one-to-one ./
+> pod5 convert fast5 ./input/*.fast5 output_pod5s --one-to-one ./
 > ls output_pod5s/
-input/fast5_1.pod5 input/fast5_2.pod5 ... input/fast5_N.pod5
+input/file_1.pod5 input/file_2.pod5 ... input/file_N.pod5
 
+# Convert all inputs so that they have neibouring pod5 in current directory
+> pod5 convert fast5 *.fast5 --output . --one-to-one .
+> ls
+file_1.fast5 file_1.pod5 file_2.fast5 file_2.pod5  ... file_N.fast5 file_N.pod5
+
+# Convert all inputs so that they have neibouring pod5 files from a parent directory
+> pod5 convert fast5 ./input/*.fast5 --output ./input/ --one-to-one ./input/
+> ls input/*
+file_1.fast5 file_1.pod5 file_2.fast5 file_2.pod5  ... file_N.fast5 file_N.pod5
 ```
 
-pod5 convert to_fast5
----------------------
+### Pod5 convert to_fast5
 
-The `pod5 convert to_fast5` tool takes one or more `.pod5` files and converts them
-to multiple `.fast5` files. The default behaviour is to write 4000 reads per output file
-but this can be controlled with the `--file-read-count` argument.
+The ``pod5 convert to_fast5`` tool takes one or more ``.pod5`` files and converts them
+to multiple ``.fast5`` files. The default behaviour is to write 4000 reads per output file
+but this can be controlled with the ``--file-read-count`` argument.
 
 ``` bash
 # View help
 > pod5 convert to_fast5 --help
 
 # Convert pod5 files to fast5 files with default 4000 reads per file
-> pod5 convert to_fast5 example.pod5 pod5_to_fast5
+> pod5 convert to_fast5 example.pod5 --output pod5_to_fast5/
 > ls pod5_to_fast5/
 output_1.fast5 output_2.fast5 ... output_N.fast5
+```
+
+### Pod5 Update
+
+The ``pod5 update`` tools is used to update old pod5 files to use the latest schema.
+Currently the latest schema version is version 3.
+
+Files are written into the ``--output`` directory with the same name.
+
+``` bash
+> pod5 update --help
+
+# Update a named files
+> pod5 update my.pod5 --output updated/
+> ls updated
+updated/my.pod5
+
+# Update an entire directory
+> pod5 update old/ -o updated/
 ```

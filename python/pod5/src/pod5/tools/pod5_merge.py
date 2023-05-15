@@ -2,42 +2,55 @@
 Tool for merging pod5 files
 """
 
-import os
-import typing
+from typing import Iterable, Set
 from pathlib import Path
-from more_itertools import chunked
+from tqdm.auto import tqdm
 
 import pod5 as p5
 import pod5.repack as p5_repack
 from pod5.tools.parsers import prepare_pod5_merge_argparser, run_tool
-from pod5.tools.utils import PBAR_DEFAULTS
-from tqdm import tqdm
+from pod5.tools.utils import (
+    PBAR_DEFAULTS,
+    collect_inputs,
+    init_logging,
+    logged_all,
+)
 
-# Default number of files to merge at a time
-DEFAULT_CHUNK_SIZE = 100
+logger = init_logging()
 
 
-def assert_no_duplicate_reads(paths: typing.Iterable[Path]) -> None:
+@logged_all
+def assert_no_duplicate_reads(paths: Iterable[Path]) -> int:
     """
     Raise AssertionError if we detect any duplicate read_ids in the pod5 files given.
     """
-    read_ids = set()
+
+    read_ids: Set[str] = set()
     for path in paths:
+        msg = f"Duplicate read_ids detected in {path.name} but --duplicate-ok not set"
+
         with p5.Reader(path) as reader:
-            for read in reader.reads():
-                if read.read_id in read_ids:
-                    raise AssertionError(
-                        "Duplicate read_id detected but --duplicate_ok not set"
-                    )
-                read_ids.add(read.read_id)
+            ids = reader.read_ids
+            set_ids = set(ids)
+
+            if len(ids) != len(set_ids):
+                raise AssertionError(msg)
+
+            if not read_ids.isdisjoint(set_ids):
+                raise AssertionError(msg)
+
+            read_ids.update(set_ids)
+
+    return len(read_ids)
 
 
+@logged_all
 def merge_pod5(
-    inputs: typing.Iterable[Path],
+    inputs: Iterable[Path],
     output: Path,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
     duplicate_ok: bool = False,
     force_overwrite: bool = False,
+    recursive: bool = False,
 ) -> None:
     """
     Merge the an iterable of input pod5 paths into the specified output path
@@ -48,55 +61,65 @@ def merge_pod5(
             output.unlink()
         else:
             raise FileExistsError(
-                f"Output files already exists and --force_overwrite not set. "
+                f"Output files already exists and --force-overwrite not set. "
                 f"Refusing to overwrite {output}."
             )
 
     if not output.parent.exists():
         output.parent.mkdir(parents=True, exist_ok=True)
 
-    # Assert inputs exist
-    non_existent_inputs = [path for path in inputs if not path.is_file()]
-    if non_existent_inputs:
-        raise FileExistsError(f"Some input(s) do not exist: {non_existent_inputs}")
+    inputs = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
 
     if not duplicate_ok:
-        assert_no_duplicate_reads(inputs)
+        total_reads = assert_no_duplicate_reads(inputs)
+    else:
+        total_reads = 0
+        for path in inputs:
+            with p5.Reader(path) as reader:
+                total_reads += reader.num_reads
+
+    print(f"Merging {total_reads} reads from {len(inputs)} files")
 
     # Open the output file writer
     with p5.Writer(output.absolute()) as writer:
-
         # Attach the writer to the repacker
         repacker = p5_repack.Repacker()
         repacker_output = repacker.add_output(writer)
+        prev = 0
 
-        inputs = list(inputs)
-        chunks = list(chunked(inputs, chunk_size))
-
-        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         pbar = tqdm(
             total=len(inputs),
-            disable=disable_pbar or len(chunks) == 1,
+            desc="Merging",
             unit="Files",
+            leave=True,
+            position=0,
             **PBAR_DEFAULTS,
         )
 
-        for chunk in chunks:
-            # Submit each reader handle to the repacker
-            readers = [p5.Reader(path) for path in chunk]
-            for reader in readers:
+        # Copy all reads from each input
+        for path in inputs:
+            with p5.Reader(path) as reader:
+                pbar2 = tqdm(
+                    total=reader.num_reads,
+                    desc=reader.path.name,
+                    unit="Reads",
+                    leave=False,
+                    position=1,
+                    **PBAR_DEFAULTS,
+                )
+
                 repacker.add_all_reads_to_output(repacker_output, reader)
+                for n_written in repacker.waiter():
+                    pbar2.update(n_written - prev)
+                    prev = n_written
 
-            # blocking wait for the repacker to complete merging inputs
-            repacker.wait(finish=False, show_pbar=len(chunks) == 1, leave_pbar=True)
-
-            # Close all the input handles
-            for reader in readers:
-                reader.close()
-
-            pbar.update(len(chunk))
+                pbar2.close()
+                pbar.update()
 
         repacker.finish()
+        del repacker
+        pbar.close()
+
     return
 
 

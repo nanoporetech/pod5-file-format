@@ -3,20 +3,26 @@ Tool for converting fast5 files to the pod5 format
 """
 
 import datetime
-import functools
-import logging
 import multiprocessing as mp
-from multiprocessing.context import SpawnContext, SpawnProcess
-import os
+from multiprocessing.context import SpawnContext
 import sys
-from time import perf_counter
 import warnings
 from pod5.pod5_types import CompressedRead
 from tqdm.auto import tqdm
 import uuid
 from pathlib import Path
 from queue import Empty
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import h5py
 import iso8601
@@ -26,82 +32,28 @@ import vbz_h5py_plugin  # noqa: F401
 import pod5 as p5
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE, vbz_compress_signal_chunked
 from pod5.tools.parsers import pod5_convert_from_fast5_argparser, run_tool
-from pod5.tools.utils import PBAR_DEFAULTS, is_pod5_debug, iterate_inputs
+from pod5.tools.utils import (
+    DEFAULT_THREADS,
+    PBAR_DEFAULTS,
+    collect_inputs,
+    init_logging,
+    logged,
+    logged_all,
+    terminate_processes,
+)
 
 READ_CHUNK_SIZE = 400
 TIMEOUT_SECONDS = 600
 
 
-def _init_logging():
-    """Initialise logging only if POD5_DEBUG is true"""
-    if not is_pod5_debug():
-        logger = logging.getLogger()
-        logger.addHandler(logging.NullHandler())
-    else:
-        datetime_now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
-        pid = os.getpid()
-        logging.basicConfig(
-            level=logging.DEBUG,
-            filename=f"{datetime_now}-{pid}-pod5-c2f5.log",
-            format="%(asctime)s %(levelname)s %(message)s",
-        )
-        logger = logging.getLogger()
-    return logger
-
-
-logger = _init_logging()
-
-
-def logged(log_return: bool = False, log_args: bool = False, log_time: bool = False):
-    """Logging parameterised decorator"""
-    log_fn = logging.debug
-
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            uid = f"'{func.__name__}':{str(uuid.uuid4())[:8]}"
-            if log_args:
-                log_fn("{0}:{1}, {2}".format(uid, args, kwargs))
-            else:
-                log_fn("{0}".format(uid))
-            try:
-                started = perf_counter()
-                ret = func(*args, **kwargs)
-            except Exception as exc:
-                log_fn("{0}:Exception:{1}".format(uid, exc))
-                raise exc
-            if log_time:
-                duration_s = perf_counter() - started
-                log_fn("{0}:Done:{1:.3f}s".format(uid, duration_s))
-            if log_return:
-                log_fn("{0}:Returned:{1}".format(uid, ret))
-            return ret
-
-        return wrapper
-
-    return decorator
-
-
-logged_all = logged(log_return=True, log_args=True, log_time=True)
-
-
-@logged_all
-def terminate_processes(processes: List[SpawnProcess]) -> None:
-    """terminate all child processes"""
-    for proc in processes:
-        try:
-            proc.terminate()
-        except ValueError:
-            # Catch ValueError raised if proc is already closed
-            pass
-    return
+logger = init_logging()
 
 
 class QueueManager:
     def __init__(
         self,
         context: SpawnContext,
-        inputs: List[Path],
+        inputs: Collection[Path],
         threads: int,
         timeout: float,
     ) -> None:
@@ -254,14 +206,18 @@ class OutputHandler:
         self._force_overwrite = force_overwrite
         self._input_to_output: Dict[Path, Path] = {}
         self._open_writers: Dict[Path, p5.Writer] = {}
-        self._closed_writers: Set[Path] = set([])
+        self._closed_writers: Dict[Path, bool] = {}
 
-    def _open_writer(self, output_path: Path) -> p5.Writer:
+    @logged_all
+    def _open_writer(self, output_path: Path) -> Optional[p5.Writer]:
         """Get the writer from existing handles or create a new one if unseen"""
         if output_path in self._open_writers:
             return self._open_writers[output_path]
 
         if output_path in self._closed_writers:
+            had_exception = self._closed_writers[output_path]
+            if had_exception:
+                return None
             raise FileExistsError(f"Trying to re-open a closed Writer to {output_path}")
 
         if output_path.exists() and self._force_overwrite:
@@ -271,10 +227,10 @@ class OutputHandler:
         self._open_writers[output_path] = writer
         return writer
 
-    def get_writer(self, input_path: Path) -> p5.Writer:
+    @logged_all
+    def get_writer(self, input_path: Path) -> Optional[p5.Writer]:
         """Get a Pod5Writer to write data from the input_path"""
         if input_path not in self._input_to_output:
-
             out_path = self.resolve_output_path(
                 path=input_path, root=self.output_root, relative_root=self._one_to_one
             )
@@ -331,7 +287,7 @@ class OutputHandler:
         return root
 
     @logged(log_args=True)
-    def set_input_complete(self, input_path: Path) -> None:
+    def set_input_complete(self, input_path: Path, is_exception: bool) -> None:
         """Close the Pod5Writer for associated input_path"""
         if not self._one_to_one:
             # Do not close common output file when not in 1-2-1 mode
@@ -342,7 +298,7 @@ class OutputHandler:
 
         output_path = self._input_to_output[input_path]
         self._open_writers[output_path].close()
-        self._closed_writers.add(output_path)
+        self._closed_writers[output_path] = is_exception
         del self._open_writers[output_path]
 
     @logged()
@@ -352,7 +308,7 @@ class OutputHandler:
             writer.close()
             del writer
             # Keep track of closed writers to ensure we don't overwrite our own work
-            self._closed_writers.add(path)
+            self._closed_writers[path] = False
         self._open_writers = {}
 
     def __del__(self) -> None:
@@ -363,15 +319,13 @@ class StatusMonitor:
     """Class for monitoring the status of the conversion"""
 
     @logged_all
-    def __init__(self, paths: List[Path]):
+    def __init__(self, paths: Sequence[Path]):
         # Estimate that a fast5 file will have 4k reads
         self.path_reads = {path: 4000 for path in paths}
         self.count_finished = 0
 
-        disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
         self.pbar = tqdm(
             total=self.total_reads,
-            disable=disable_pbar,
             desc=f"Converting {len(self.path_reads)} Fast5s",
             unit="Reads",
             leave=True,
@@ -633,7 +587,6 @@ def convert_fast5_file_chunk(
     cache: Dict[str, p5.RunInfo],
     signal_chunk_size: int,
 ) -> List[CompressedRead]:
-
     reads: List[p5.CompressedRead] = []
 
     # Allow request queue to throttle work
@@ -730,15 +683,14 @@ def handle_exception(
     status: StatusMonitor,
     strict: bool,
 ) -> None:
-
     path, exc, trace = exception
     status.write(str(exc), sys.stderr)
-    output_handler.set_input_complete(path)
+    output_handler.set_input_complete(path, is_exception=True)
 
     if strict:
+        status.close()
         logger.fatal("Exception raised and --strict set")
         logger.debug(f"trace: {trace}")
-        status.close()
         raise exc
 
 
@@ -748,13 +700,12 @@ def process_conversion_tasks(
     output_handler: OutputHandler,
     status: StatusMonitor,
     strict: bool,
-    threads: int,
+    threads: int = DEFAULT_THREADS,
 ) -> None:
     """Work through the queues of data until all work is done"""
 
     count_complete_processes = 0
     while count_complete_processes < threads:
-
         # Always poll exceptions to ensure they're handled
         exception = queues.get_exception()
         if exception is not None:
@@ -780,14 +731,19 @@ def process_conversion_tasks(
         # Update the progress bar with the total number of converted reads in the file
         if isinstance(data, int):
             status.update_reads_total(path, data)
-            output_handler.set_input_complete(path)
+            output_handler.set_input_complete(path, is_exception=False)
             continue
 
         # Write the incoming list of converted reads
         writer = output_handler.get_writer(path)
-        logger.info(f"Writing {len(data)} reads to {path.name} using {writer}")
-        writer.add_reads(data)
-        status.increment_reads(len(data))
+        if writer is None:
+            logger.warn(
+                f"Trying to write to {path} writer which was closed by an exception"
+            )
+        else:
+            logger.info(f"Writing {len(data)} reads to {path.name} using {writer}")
+            writer.add_reads(data)
+            status.increment_reads(len(data))
 
     status.close()
 
@@ -797,7 +753,7 @@ def convert_from_fast5(
     inputs: List[Path],
     output: Path,
     recursive: bool = False,
-    threads: int = 10,
+    threads: int = DEFAULT_THREADS,
     one_to_one: Optional[Path] = None,
     force_overwrite: bool = False,
     signal_chunk_size: int = DEFAULT_SIGNAL_CHUNK_SIZE,
@@ -818,7 +774,7 @@ def convert_from_fast5(
     if len(output.parts) > 1:
         output.parent.mkdir(parents=True, exist_ok=True)
 
-    pending_fast5s = list(iterate_inputs(inputs, recursive, "*.fast5"))
+    pending_fast5s = collect_inputs(inputs, recursive, "*.fast5")
     if not pending_fast5s:
         logger.fatal(f"Found no *.fast5 files in inputs: {inputs}")
         raise RuntimeError("Found no fast5 inputs to process - Exiting")

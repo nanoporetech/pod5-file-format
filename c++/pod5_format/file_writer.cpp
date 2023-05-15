@@ -1,7 +1,9 @@
 #include "pod5_format/file_writer.h"
 
+#include "pod5_format/file_recovery.h"
 #include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/combined_file_utils.h"
+#include "pod5_format/read_table_reader.h"
 #include "pod5_format/read_table_writer.h"
 #include "pod5_format/read_table_writer_utils.h"
 #include "pod5_format/run_info_table_writer.h"
@@ -13,6 +15,7 @@
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
 #include <arrow/util/future.h>
+#include <arrow/util/key_value_metadata.h>
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
 
@@ -174,12 +177,7 @@ public:
         return pod5::Status::OK();
     }
 
-    virtual arrow::Status close()
-    {
-        ARROW_RETURN_NOT_OK(close_read_table_writer());
-        ARROW_RETURN_NOT_OK(close_signal_table_writer());
-        return arrow::Status::OK();
-    }
+    virtual arrow::Status close() = 0;
 
     bool is_closed() const
     {
@@ -188,6 +186,30 @@ public:
     }
 
     arrow::MemoryPool * pool() const { return m_pool; }
+
+    RunInfoTableWriter * run_info_table_writer()
+    {
+        if (is_closed()) {
+            return nullptr;
+        }
+        return m_run_info_table_writer.get_ptr();
+    }
+
+    ReadTableWriter * read_table_writer()
+    {
+        if (is_closed()) {
+            return nullptr;
+        }
+        return m_read_table_writer.get_ptr();
+    }
+
+    SignalTableWriter * signal_table_writer()
+    {
+        if (is_closed()) {
+            return nullptr;
+        }
+        return m_signal_table_writer.get_ptr();
+    }
 
 private:
     DictionaryWriters m_read_table_dict_writers;
@@ -369,6 +391,22 @@ pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::M
     return writers;
 }
 
+std::string make_reads_tmp_path(
+    ::arrow::internal::PlatformFilename const & arrow_path,
+    boost::uuids::uuid const & file_identifier)
+{
+    return arrow_path.Parent().ToString() + "/"
+           + ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");
+}
+
+std::string make_run_info_tmp_path(
+    ::arrow::internal::PlatformFilename const & arrow_path,
+    boost::uuids::uuid const & file_identifier)
+{
+    return arrow_path.Parent().ToString() + "/"
+           + ("." + boost::uuids::to_string(file_identifier) + ".tmp-run-info");
+}
+
 pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     std::string const & path,
     std::string const & writing_software_name,
@@ -403,10 +441,8 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         auto file_schema_metadata,
         make_schema_key_value_metadata({file_identifier, writing_software_name, current_version}));
 
-    auto reads_tmp_path = arrow_path.Parent().ToString() + "/"
-                          + ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");
-    auto run_info_tmp_path = arrow_path.Parent().ToString() + "/"
-                             + ("." + boost::uuids::to_string(file_identifier) + ".tmp-run-info");
+    auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
+    auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
 
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(
@@ -469,6 +505,65 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         std::move(signal_table_writer),
         options.max_signal_chunk_size(),
         pool));
+}
+
+pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
+    std::string const & src_path,
+    std::string const & dest_path,
+    FileWriterOptions const & options)
+{
+    // Create a file to push recovered data into:
+    ARROW_ASSIGN_OR_RAISE(
+        auto dest_file, create_file_writer(dest_path, "pod5_file_recovery", options));
+
+    auto pool = arrow::default_memory_pool();
+    ARROW_ASSIGN_OR_RAISE(
+        auto arrow_path, ::arrow::internal::PlatformFilename::FromString(src_path));
+    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(src_path, pool));
+
+    // Signature should be right at 0:
+    ARROW_RETURN_NOT_OK(combined_file_utils::check_signature(file, 0));
+
+    auto null_metadata = arrow::KeyValueMetadata::Make({}, {});
+
+    // Recover the signal data into [dest_file]:
+    RecoveredData recovered_raw_data;
+    {
+        ARROW_ASSIGN_OR_RAISE(
+            auto raw_sub_file,
+            combined_file_utils::open_sub_file(file, combined_file_utils::header_size));
+        ARROW_ASSIGN_OR_RAISE(
+            recovered_raw_data,
+            recover_arrow_file(raw_sub_file, dest_file->impl()->signal_table_writer()));
+    }
+
+    auto file_identifier = recovered_raw_data.metadata.file_identifier;
+    auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
+    auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
+
+    // Recover the run info data into [dest_file]:
+    {
+        ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(run_info_tmp_path, pool));
+        ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
+        if (size > 0) {
+            ARROW_ASSIGN_OR_RAISE(
+                recovered_raw_data,
+                recover_arrow_file(file, dest_file->impl()->run_info_table_writer()));
+        }
+    }
+
+    // Recover the read data into [dest_file]:
+    {
+        ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(reads_tmp_path, pool));
+        ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
+        if (size > 0) {
+            ARROW_ASSIGN_OR_RAISE(
+                recovered_raw_data,
+                recover_arrow_file(file, dest_file->impl()->read_table_writer()));
+        }
+    }
+
+    return dest_file;
 }
 
 }  // namespace pod5

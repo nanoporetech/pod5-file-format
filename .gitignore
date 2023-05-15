@@ -4,6 +4,7 @@ dist/
 .DS_Store
 .pod5
 venv/
+.venv/
 docs/public/
 .tmp_pod5*
 _version.py

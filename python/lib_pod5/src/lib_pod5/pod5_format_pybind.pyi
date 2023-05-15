@@ -185,8 +185,9 @@ def compress_signal(
     signal: npt.NDArray[np.int16], compressed_signal_out: npt.NDArray[np.uint8]
 ) -> int: ...
 def create_file(
-    filename: str, writer_name: str, options: Optional[FileWriterOptions]
+    src_filename: str, writer_name: str, options: Optional[FileWriterOptions]
 ) -> FileWriter: ...
+def recover_file(src_filename: str, dst_filename: str) -> FileWriter: ...
 def decompress_signal(
     compressed_signal: Union[npt.NDArray[np.uint8], memoryview],
     signal_out: npt.NDArray[np.int16],
