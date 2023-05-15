@@ -35,7 +35,6 @@ def random_access(s5_file, read_list, col, result_q):
 
 
 def run(s5_file, benchmark, select_read_ids, col):
-
     if benchmark == "get_all_read_ids":
         read_ids = []
         extracted_columns = {"read_id": read_ids}

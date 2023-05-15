@@ -20,6 +20,8 @@ namespace pod5 { namespace combined_file_utils {
 static constexpr std::array<char, 8>
     FILE_SIGNATURE{'\213', 'P', 'O', 'D', '\r', '\n', '\032', '\n'};
 
+static constexpr std::size_t header_size = 24;  // signature 8 bytes, section marker 16 bytes
+
 inline pod5::Status pad_file(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
     std::uint32_t pad_to_size)
@@ -366,8 +368,26 @@ inline arrow::Result<std::shared_ptr<SubFile>> open_sub_file(ParsedFileInfo file
         return arrow::Status::Invalid("Bad footer info");
     }
     // Restrict our open file to just the run info section:
-    return std::make_shared<SubFile>(
+    auto sub_file = std::make_shared<SubFile>(
         file_info.file, file_info.file_start_offset, file_info.file_length);
+    ARROW_RETURN_NOT_OK(sub_file->Seek(0));
+    return sub_file;
+}
+
+inline arrow::Result<std::shared_ptr<SubFile>> open_sub_file(
+    std::shared_ptr<arrow::io::RandomAccessFile> const & file,
+    std::size_t offset)
+{
+    if (!file) {
+        return arrow::Status::Invalid("Failed to open file from footer");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto file_size, file->GetSize());
+
+    // Restrict our open file to just the run info section:
+    auto sub_file = std::make_shared<SubFile>(file, offset, file_size - offset);
+    ARROW_RETURN_NOT_OK(sub_file->Seek(0));
+    return sub_file;
 }
 
 enum class SubFileCleanup { CleanupOriginalFile, LeaveOrignalFile };

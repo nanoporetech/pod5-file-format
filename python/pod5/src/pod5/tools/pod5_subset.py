@@ -2,100 +2,133 @@
 Tool for subsetting pod5 files into one or more outputs
 """
 
-import os
-from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from json import load as json_load
+from copy import deepcopy
+import multiprocessing as mp
+from multiprocessing.context import SpawnContext
 from pathlib import Path
+from queue import Empty
 from string import Formatter
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
+import sys
+from typing import Any, List, Optional, Set, Tuple
 
-import jsonschema
-import pandas as pd
-from pod5.tools.utils import PBAR_DEFAULTS
+import polars as pl
 from tqdm.auto import tqdm
-
 import pod5 as p5
 import pod5.repack as p5_repack
+from pod5.tools.polars_utils import (
+    PL_DEST_FNAME,
+    PL_READ_ID,
+    PL_SRC_FNAME,
+    PL_UUID_REGEX,
+    pl_format_read_id,
+)
+from pod5.tools.utils import (
+    DEFAULT_THREADS,
+    PBAR_DEFAULTS,
+    collect_inputs,
+    init_logging,
+    logged,
+    logged_all,
+    terminate_processes,
+)
 from pod5.tools.parsers import prepare_pod5_subset_argparser, run_tool
 
-# Json Schema used to validate json mapping
-JSON_SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "subset.schema.json",
-    "title": "subset",
-    "description": "pod5_subset json schema",
-    "type": "object",
-    # Allow any not-empty filename to array of non-empty strings (read_ids)
-    "patternProperties": {
-        "^[\\w\\-.]+$": {
-            "description": "output targets",
-            "type": "array",
-            "items": {"type": "string", "description": "read_ids", "minLength": 1},
-            "minItems": 1,
-            "uniqueItems": True,
-            "minLength": 1,
-        },
-    },
-    # Refuse any keys which do not match the pattern
-    "additionalProperties": False,
-}
 
 DEFAULT_READ_ID_COLUMN = "read_id"
 
+logger = init_logging()
 
+
+@logged_all
+def get_separator(path: Path) -> str:
+    """
+    Inspect the first line of the file at path and attempt to determine the field
+    separator as either tab or comma, depending on the number of occurrences of each
+    Returns "," or "<tab>"
+    """
+    with path.open("r") as fh:
+        line = fh.readline()
+    n_tabs = line.count("\t")
+    n_comma = line.count(",")
+    if n_tabs >= n_comma:
+        return "\t"
+    return ","
+
+
+@logged_all
+def default_filename_template(subset_columns: List[str]) -> str:
+    """Create the default filename template from the subset_columns selected"""
+    default = "_".join(f"{col}-{{{col}}}" for col in subset_columns)
+    default += ".pod5"
+    return default
+
+
+@logged_all
+def column_keys_from_template(template: str) -> List[str]:
+    """Get a list of placeholder keys in the template"""
+    return [key for _, key, _, _ in Formatter().parse(template) if key]
+
+
+@logged_all
+def fstring_to_polars(
+    template: str,
+) -> Tuple[str, List[str]]:
+    """
+    Repalce f-string keyed placeholders with positional ones and return the keys in
+    their respective position
+    """
+    # This is for pl.format positional syntax
+    replaced = template
+    keys = column_keys_from_template(template)
+    for key in keys:
+        replaced = replaced.replace(f"{{{key}}}", "{}")
+    return replaced, keys
+
+
+@logged_all
 def parse_table_mapping(
     summary_path: Path,
     filename_template: Optional[str],
     subset_columns: List[str],
     read_id_column: str = DEFAULT_READ_ID_COLUMN,
     ignore_incomplete_template: bool = False,
-) -> Dict[str, Set[str]]:
+) -> pl.LazyFrame:
     """
-    Parse a table using pandas to create a mapping of output targets to read ids
+    Parse a table using polars to create a mapping of output targets to read ids
     """
     if not subset_columns:
         raise AssertionError("Missing --columns when using --summary / --table")
 
     if not filename_template:
-        filename_template = create_default_filename_template(subset_columns)
+        filename_template = default_filename_template(subset_columns)
 
     assert_filename_template(
         filename_template, subset_columns, ignore_incomplete_template
     )
 
-    # Parse the summary using pandas asserting that usecols exists
-    # Use python engine to dynamically detect separator
-    summary = pd.read_table(
-        summary_path,
-        sep=None,
-        engine="python",
-        usecols=subset_columns + [read_id_column],
+    # Add the destination filename as a column
+    pl_template, keys = fstring_to_polars(filename_template)
+
+    columns = deepcopy(subset_columns)
+    columns.append(read_id_column)
+
+    targets = (
+        pl.read_csv(
+            summary_path,
+            columns=columns,
+            separator=get_separator(summary_path),
+            comment_char="#",
+        )
+        .lazy()
+        .with_columns(
+            pl.format(pl_template, *keys).alias(PL_DEST_FNAME),
+            pl.col(read_id_column).alias(PL_READ_ID),
+        )
     )
-
-    def group_name_to_dict(group_name: Any, columns: List[str]) -> Dict[str, str]:
-        """Split group_name tuple/str into a dict by column name key"""
-        if not isinstance(group_name, (str, int, float)):
-            return {col: str(value).strip() for col, value in zip(columns, group_name)}
-        return {columns[0]: str(group_name).strip()}
-
-    mapping: Dict[str, Set[str]] = {}
-
-    # Convert length 1 list to string to silence pandas warning
-    subset_group_keys = subset_columns if len(subset_columns) > 1 else subset_columns[0]
-
-    # Create groups by unique sets of subset_columns values
-    for group_name, df_group in summary.groupby(subset_group_keys):
-        # Create filenames from the unique keys
-        group_dict = group_name_to_dict(group_name, subset_columns)
-        filename = filename_template.format(**group_dict)
-
-        # Add all the read_ids to the mapping
-        mapping[filename] = set(df_group[read_id_column].to_list())
-
-    return mapping
+    return targets
 
 
+@logged_all
 def assert_filename_template(
     template: str, subset_columns: List[str], ignore_incomplete_template: bool
 ) -> None:
@@ -119,10 +152,11 @@ def assert_filename_template(
         if unused:
             raise KeyError(
                 f"--template {template} does not use {unused} keys. "
-                "Use --ignore_incomplete_template to suppress this exception."
+                "Use --ignore-incomplete-template to suppress this exception."
             )
 
 
+@logged_all
 def create_default_filename_template(subset_columns: List[str]) -> str:
     """Create the default filename template from the subset_columns selected"""
     default = "_".join(f"{col}-{{{col}}}" for col in subset_columns)
@@ -130,184 +164,409 @@ def create_default_filename_template(subset_columns: List[str]) -> str:
     return default
 
 
-def parse_direct_mapping_targets(
-    csv_path: Optional[Path] = None,
-    json_path: Optional[Path] = None,
-) -> Dict[str, Set[str]]:
+@logged_all
+def parse_csv_mapping(csv_path: Path) -> pl.LazyFrame:
+    """Parse the csv direct mapping of output target to read_ids to a targets dataframe"""
+    targets = (
+        pl.scan_csv(
+            csv_path,
+            has_header=False,
+            comment_char="#",
+            new_columns=[PL_DEST_FNAME, PL_READ_ID],
+            rechunk=False,
+        )
+        .drop_nulls()
+        .with_columns(
+            [
+                pl.col(PL_READ_ID).str.contains(PL_UUID_REGEX).alias("is_uuid"),
+            ]
+        )
+        .filter(pl.col("is_uuid"))
+        .drop("is_uuid")
+    )
+
+    if len(targets.fetch(10)) == 0:
+        raise AssertionError(f"Found 0 read_ids in {csv_path}. Nothing to do")
+
+    return targets
+
+
+@logged_all
+def resolve_output_targets(targets: pl.LazyFrame, output: Path) -> pl.LazyFrame:
+    """Prepend the output path to the target filename and resolve the complete string"""
+    # Add output directory column
+    PL_O_DIR = "__output_dir"
+    targets = targets.with_columns(
+        pl.lit(str(output.resolve())).alias(PL_O_DIR),
+    )
+    # Concatenate output directory to the output filenmae, drop temporary column
+    targets = targets.with_columns(
+        pl.concat_str([pl.col(PL_O_DIR), pl.col(PL_DEST_FNAME)], separator="/").alias(
+            PL_DEST_FNAME
+        ),
+    ).drop(PL_O_DIR)
+
+    return targets
+
+
+@logged_all
+def assert_overwrite_ok(targets: pl.LazyFrame, force_overwrite: bool) -> None:
     """
-    Parse either the csv or json direct mapping of output target to read_ids
-
-    Returns
-    -------
-    dictionary mapping of output target to read_ids
-    """
-    # Both inputs are invalid
-    if csv_path and json_path:
-        raise RuntimeError("Given both --csv and --json when only one is required.")
-
-    if csv_path:
-        return parse_csv_mapping(csv_path)
-
-    if json_path:
-        return parse_json_mapping(json_path)
-
-    raise RuntimeError("Either --csv or --json is required.")
-
-
-def parse_csv_mapping(csv_path: Path) -> Dict[str, Set[str]]:
-    """Parse the csv direct mapping of output target to read_ids"""
-
-    mapping = defaultdict(set)
-
-    with csv_path.open("r") as _fh:
-        for line_no, line in enumerate(_fh):
-
-            if not line or line.startswith("#") or "," not in line:
-                continue
-
-            try:
-                target, *read_ids = (split.strip() for split in line.split(","))
-            except ValueError as exc:
-                raise RuntimeError(f"csv parse error at: {line_no} - {line}") from exc
-
-            if target and len(read_ids):
-                mapping[target].update(read_ids)
-
-    return mapping
-
-
-def parse_json_mapping(json_path: Path) -> Dict[str, Set[str]]:
-    """Parse the json direct mapping of output target to read_ids"""
-
-    with json_path.open("r") as _fh:
-        json_data = json_load(_fh)
-        jsonschema.validate(instance=json_data, schema=JSON_SCHEMA)
-
-    return json_data
-
-
-def assert_overwrite_ok(
-    output: Path, names: Iterable[str], force_overwrite: bool
-) -> None:
-    """
-    Given the output directory path and target filenames, assert that no unforced
-    overwrite will occur unless requested raising an FileExistsError if not
+    Given the target filenames, assert that no unforced overwrite will occur
+    unless requested raising an FileExistsError. Unlinks existing files if they exist
+    if `force_overwrite` set
     """
 
-    existing = [name for name in names if (output / name).exists()]
-    if any(existing):
+    def exists(path: str) -> bool:
+        return Path(path).exists()
+
+    DEST_EXISTS = "__dest_exists"
+    dests = (
+        targets.select(pl.col(PL_DEST_FNAME).unique())
+        .with_columns(pl.col(PL_DEST_FNAME).apply(exists).alias(DEST_EXISTS))
+        .collect()
+    )
+
+    if dests.get_column(DEST_EXISTS).any():
         if not force_overwrite:
             raise FileExistsError(
-                f"Output files already exists and --force_overwrite not set. "
-                f"Refusing to overwrite {existing} in {output} path."
+                "Output files already exists and --force-overwrite not set. "
             )
 
-        for name in existing:
-            (output / name).unlink()
+        def unlinker(item) -> bool:
+            path, *_ = item
+            Path(path).unlink()
+            return True
+
+        dests.select(pl.col(PL_DEST_FNAME).where(pl.col(DEST_EXISTS))).apply(unlinker)
 
 
-def resolve_targets(output: Path, mapping) -> Dict[str, Set[Path]]:
-    """Resolve the targets from the mapping"""
-    # Invert the mapping to have constant time lookup of read_id to targets
-    resolved_targets: Dict[str, Set[Path]] = defaultdict(set)
-    for target, read_ids in mapping.items():
-        for read_id in read_ids:
-            resolved_targets[read_id].add(output / target)
-    return resolved_targets
+@logged_all
+def parse_source_process(paths: mp.JoinableQueue, parsed_sources: mp.Queue):
+    """Parse sources until paths queue is consumed"""
+    while True:
+        path = paths.get(timeout=60)
+
+        # Seninel value of finished work
+        if path is None:
+            paths.task_done()
+            break
+
+        parsed_sources.put(parse_source(path))
+        paths.task_done()
+
+    parsed_sources.close()
+    paths.close()
 
 
-def calculate_transfers(
-    inputs: List[Path],
-    read_targets: Dict[str, Set[Path]],
-    missing_ok: bool,
-    duplicate_ok: bool,
-) -> Dict[Path, Dict[Path, Set[str]]]:
+@logged_all
+def parse_source(path: Path) -> pl.LazyFrame:
     """
-    Calculate the transfers which stores the collection of read_ids their source and
-    destination.
+    Reads the read ids available in a given pod5 file returning a dataframe
+    with the formatted read_ids and the source filename
     """
+    with p5.Reader(path) as rdr:
+        pa_read_table = rdr.read_table.read_all()
 
-    read_id_selection = list(read_targets.keys())
-    found = set([])
-
-    transfers: Dict[Path, Dict[Path, Set[str]]] = defaultdict(dict)
-
-    for input_path in inputs:
-        # Open a FileReader from input_path
-        with p5.Reader(input_path) as rdr:
-
-            # Iterate over batches of read_ids. Missing_ok here as selection could
-            # be in another file
-            for batch in rdr.read_batches(selection=read_id_selection, missing_ok=True):
-                for read_id in p5.format_read_ids(batch.read_id_column):
-
-                    if read_id in found and not duplicate_ok:
-                        raise AssertionError(
-                            f"read_id {read_id} was found in multiple inputs and --duplicate_ok not set"
-                        )
-
-                    found.add(read_id)
-
-                    # Add this read_id to the target_mapping.
-                    # transfers = {destination: { source: set(read_id) } }
-                    for target in read_targets[read_id]:
-                        if input_path in transfers[target]:
-                            transfers[target][input_path].add(str(read_id))
-                        else:
-                            transfers[target][input_path] = set([str(read_id)])
-
-    if not transfers:
-        raise RuntimeError(
-            f"No transfers prepared for supplied mapping and inputs: {inputs}"
+    source = (
+        pl.from_arrow(pa_read_table, rechunk=False)
+        .with_columns(
+            pl_format_read_id(pl.col("read_id")).alias(PL_READ_ID),
+            pl.lit(str(path.resolve())).alias(PL_SRC_FNAME),
         )
+        .select(PL_READ_ID, PL_SRC_FNAME)
+        .lazy()
+    )
+    return source
 
-    if not missing_ok and found != set(read_id_selection):
-        raise AssertionError("Missing read_ids from inputs but --missing_ok not set")
 
+@logged_all
+def parse_sources(
+    paths: Set[Path], duplicate_ok: bool, threads: int = DEFAULT_THREADS
+) -> pl.LazyFrame:
+    """Reads all inputs and return formatted lazy dataframe"""
+    assert threads > 0
+
+    n_proc = min(threads, len(paths))
+
+    ctx = mp.get_context("spawn")
+    work: mp.JoinableQueue = ctx.JoinableQueue(maxsize=len(paths) + n_proc)
+    parsed_sources = ctx.Queue(maxsize=len(paths))
+    for path in paths:
+        work.put(path)
+
+    # Spawn worker processes
+    active_processes = []
+    for _ in range(n_proc):
+        process = ctx.Process(
+            target=parse_source_process,
+            args=(work, parsed_sources),
+            daemon=True,
+        )
+        # Enqueue a sentinel for each process to stop
+        work.put(None)
+
+        process.start()
+        active_processes.append(process)
+
+    # Wait for all work to be done
+    work.join()
+    work.close()
+
+    items: List[pl.LazyFrame] = []
+    for _ in range(len(paths)):
+        # After work is joined we will have len(paths) items in parsed_sources
+        # shouldn't need to wait or seconds or ever see Empty.
+        items.append(parsed_sources.get(timeout=60))
+
+    parsed_sources.close()
+    parsed_sources.join_thread()
+
+    sources = pl.concat(
+        items=items,
+        how="vertical",
+        rechunk=False,
+        parallel=True,
+    )
+
+    # Shutdown
+    for proc in active_processes:
+        proc.join()
+        proc.close()
+
+    if not duplicate_ok:
+        if (
+            not sources.select(pl.col(PL_READ_ID))
+            .collect(streaming=True)
+            .is_unique()
+            .all()
+        ):
+            raise AssertionError(
+                "Found duplicate read_ids in input files and --duplicate-ok not set"
+            )
+
+    return sources
+
+
+@logged_all
+def calculate_transfers(
+    sources: pl.LazyFrame, targets: pl.LazyFrame, missing_ok: bool
+) -> pl.LazyFrame:
+    """
+    Produce the transfers dataframe which maps the read_ids, source and destination
+    """
+    transfers = targets.join(sources, on=PL_READ_ID, how="left").select(
+        PL_READ_ID, PL_SRC_FNAME, PL_DEST_FNAME
+    )
+
+    if not missing_ok:
+        # Find any records where there there is no source i.e. input is missing
+        if (
+            transfers.select(pl.col(PL_SRC_FNAME).is_null().any())
+            .collect()
+            .to_series()
+            .any()
+        ):
+            raise AssertionError(
+                "Missing read_ids from inputs but --missing-ok not set"
+            )
+
+    # Add filter to transfers query removing missing inputs
+    transfers = transfers.filter(pl.col(PL_SRC_FNAME).is_not_null())
     return transfers
 
 
-def launch_subsetting(
-    transfers: Dict[Path, Dict[Path, Set[str]]], show_pbar: bool = False
-) -> None:
-    """
-    Iterate over the transfers one target at a time, opening sources and copying
-    the required read_ids. Wait for the repacker to finish before moving on
-    to ensure we don't have too many open file handles.
-    """
+class WorkQueue:
+    def __init__(
+        self,
+        context: SpawnContext,
+        transfers: pl.LazyFrame,
+    ) -> None:
+        pass
 
-    def add_reads(repacker, writer, sources) -> List[p5.Reader]:
-        """Add reads to the repacker"""
-        readers = []
+        self.work: mp.JoinableQueue = context.JoinableQueue()
+        self.size = 0
+        groupby_dest = transfers.collect().groupby(PL_DEST_FNAME)
+        for dest, sources in groupby_dest:
+            self.work.put((Path(dest), sources))
+            self.size += 1
+
+        self.progress: mp.Queue = context.Queue(maxsize=self.size + 1)
+        logger.info(f"WorkQueue size: {self.size}")
+
+    @logged_all
+    def join(self) -> None:
+        """Call join on the work queue waiting for all tasks to be done"""
+        self.work.join()
+
+    @logged_all
+    def _discard_and_close(self, queue: mp.Queue) -> int:
+        """
+        Discard all remaining enqueued items and close a queue to nicely shutdown the
+        queue. Returns the number of discarded items
+        """
+        count = 0
+        while True:
+            try:
+                queue.get(timeout=0.1)
+                count += 1
+            except Exception:
+                break
+        queue.close()
+        queue.join_thread()
+        return count
+
+    @logged_all
+    def shutdown(self) -> int:
+        """Shutdown all queues returning the counts of all remaining items"""
+        n_work = self._discard_and_close(self.work)
+
+        if n_work > 0:
+            print("Unfinished work remaining during shutdown!", file=sys.stderr)
+
+        return n_work
+
+
+@logged_all
+def overall_progress(queue: WorkQueue):
+    pbar = tqdm(
+        total=queue.size,
+        desc="Subsetting",
+        unit="Files",
+        leave=True,
+        position=0,
+        **PBAR_DEFAULTS,
+    )
+
+    count = 0
+    while count < queue.size:
+        try:
+            queue.progress.get(timeout=1)
+            count += 1
+            pbar.update()
+        except Empty:
+            continue
+
+
+@logged_all
+def launch_subsetting(transfers: pl.LazyFrame, threads: int = DEFAULT_THREADS) -> None:
+    """
+    Iterate over the transfers dataframe subsetting reads from sources to destinations
+    """
+    assert threads > 0
+    assert {PL_READ_ID, PL_SRC_FNAME, PL_DEST_FNAME}.issubset(set(transfers.columns))
+
+    ctx = mp.get_context("spawn")
+    work = WorkQueue(ctx, transfers)
+
+    active_processes = []
+    try:
+        # Spawn worker processes
+        for idx in range(min(threads, work.size)):
+            process = ctx.Process(
+                target=process_subset_tasks,
+                args=(work, idx + 1),
+                daemon=True,
+            )
+            # Enqueue a sentinel for each process to stop
+            work.work.put(None)
+            process.start()
+            active_processes.append(process)
+
+        # Spawn progressbar process
+        progress_proc = ctx.Process(
+            target=overall_progress,
+            args=(work,),
+            daemon=True,
+        )
+        progress_proc.start()
+        active_processes.append(progress_proc)
+
+        # Wait for all work to be done
+        work.join()
+        work.shutdown()
+
+        # Shutdown
+        for proc in active_processes:
+            proc.join()
+            proc.close()
+
+    except Exception as exc:
+        terminate_processes(active_processes)
+        raise exc
+
+
+@logged(log_time=True)
+def process_subset_tasks(queue: WorkQueue, process: int):
+    """Consumes work from the queue and launches subsetting tasks"""
+    while True:
+        task = queue.work.get(timeout=60)
+        if task is None:
+            queue.work.task_done()
+            break
+
+        target, sources = task
+        try:
+            subset_reads(target, sources, process)
+        finally:
+            queue.work.task_done()
+            queue.progress.put(True)
+
+
+@logged(log_time=True)
+def subset_reads(dest: Path, sources: pl.DataFrame, process: int) -> None:
+    """Copy the reads in `sources` into a new pod5 file at `dest`"""
+    repacker = p5_repack.Repacker()
+    with p5.Writer(dest) as writer:
         output = repacker.add_output(writer)
-        for source, read_ids in sources.items():
-            reader = p5.Reader(source)
-            readers.append(reader)
-            repacker.add_selected_reads_to_output(output, reader, read_ids)
 
-        return readers
+        # Count the total number of reads expected
+        total_reads = 0
+        for source, reads in sources.groupby(PL_SRC_FNAME):
+            total_reads += len(reads.get_column(PL_READ_ID))
 
-    for (dest, sources) in sorted(transfers.items()):
-        repacker = p5_repack.Repacker()
-        with p5.Writer(dest) as wrtr:
-            readers = add_reads(repacker, wrtr, sources)
-            repacker.wait(interval=0.25, show_pbar=show_pbar)
+        pbar = tqdm(
+            total=total_reads,
+            desc=dest.name,
+            unit="Reads",
+            leave=False,
+            position=process,
+            **PBAR_DEFAULTS,
+        )
 
-            for reader in readers:
-                reader.close()
+        prev = 0
+        # Copy selected reads from one file at a time
+        for source, reads in sources.groupby(PL_SRC_FNAME):
+            with p5.Reader(Path(source)) as reader:
+                read_ids = reads.get_column(PL_READ_ID).unique().to_list()
 
-            repacker.finish()
+                logger.debug(f"Subsetting: {source} - n_reads: {len(read_ids)}")
+                repacker.add_selected_reads_to_output(output, reader, read_ids)
+
+                for n_written in repacker.waiter():
+                    pbar.update(n_written - prev)
+                    prev = n_written
+
+        pbar.update(total_reads - prev)
+
+        # Finish the pod5 file and close source handles
+        repacker.finish()
+
+    pbar.close()
+
+    return
 
 
+@logged(log_time=True)
 def subset_pod5s_with_mapping(
-    inputs: Iterable[Path],
+    inputs: Set[Path],
     output: Path,
-    mapping: Mapping[str, Set[str]],
-    threads: int = 1,
+    targets: pl.LazyFrame,
+    threads: int = DEFAULT_THREADS,
     missing_ok: bool = False,
     duplicate_ok: bool = False,
     force_overwrite: bool = False,
-) -> List[Path]:
+) -> None:
     """
     Given an iterable of input pod5 paths and an output directory, create output pod5
     files containing the read_ids specified in the given mapping of output filename to
@@ -317,93 +576,48 @@ def subset_pod5s_with_mapping(
     if not output.exists():
         output.mkdir(parents=True, exist_ok=True)
 
-    assert_overwrite_ok(output, mapping.keys(), force_overwrite)
+    targets = resolve_output_targets(targets, output)
+    assert_overwrite_ok(targets, force_overwrite)
 
-    requested_count = 0
-    for requested_read_ids in mapping.values():
-        requested_count += len(requested_read_ids)
+    print(f"Parsed {len(targets.collect())} targets")
+    sources_df = parse_sources(inputs, duplicate_ok, threads)
 
-    if requested_count == 0:
-        raise AssertionError("Selected 0 read_ids. Nothing to do")
-
-    # Invert the mapping to have constant time lookup of read_id to target
-    resolved_targets = resolve_targets(output, mapping)
-
-    all_targets = set([])
-    for targets in resolved_targets.values():
-        all_targets.update(targets)
-    n_targets = len(all_targets)
-    n_reads = len(resolved_targets)
-    n_workers = min(n_targets, threads)
-    print(
-        f"Subsetting {n_reads} read_ids into {n_targets} outputs using {n_workers} workers"
-    )
-
-    # Map the target outputs to which source read ids they're comprised of
     transfers = calculate_transfers(
-        inputs=list(inputs),
-        read_targets=resolved_targets,
+        sources=sources_df,
+        targets=targets,
         missing_ok=missing_ok,
-        duplicate_ok=duplicate_ok,
     )
 
-    single_transfer = len(transfers) == 1
-
-    disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
-    futures = {}
-    with ProcessPoolExecutor(max_workers=n_workers) as executor:
-        pbar = tqdm(
-            total=len(transfers),
-            disable=(disable_pbar or single_transfer),
-            unit="Files",
-            **PBAR_DEFAULTS,
-        )
-
-        # Launch the subsetting jobs
-        for target in transfers:
-            transfer = {target: transfers[target]}
-            futures[
-                executor.submit(
-                    launch_subsetting, transfers=transfer, show_pbar=single_transfer
-                )
-            ] = target
-
-        # Collect the jobs as soon as they're complete
-        for future in as_completed(futures):
-            tqdm.write(f"Finished {futures[future]}")
-            if not pbar.disable:
-                pbar.update(1)
-
-    if not pbar.disable:
-        pbar.close()
+    print(f"Calculated {len(transfers.collect())} transfers")
+    launch_subsetting(transfers=transfers, threads=threads)
 
     print("Done")
+    return None
 
-    return list(transfers.keys())
 
-
+@logged(log_time=True)
 def subset_pod5(
     inputs: List[Path],
     output: Path,
-    csv: Optional[Path],
-    json: Optional[Path],
-    table: Optional[Path],
     columns: List[str],
-    threads: int,
-    template: str,
-    read_id_column: str,
-    missing_ok: bool,
-    duplicate_ok: bool,
-    ignore_incomplete_template: bool,
-    force_overwrite: bool,
+    csv: Optional[Path] = None,
+    table: Optional[Path] = None,
+    threads: int = DEFAULT_THREADS,
+    template: str = "",
+    read_id_column: str = DEFAULT_READ_ID_COLUMN,
+    missing_ok: bool = False,
+    duplicate_ok: bool = False,
+    ignore_incomplete_template: bool = False,
+    force_overwrite: bool = False,
+    recursive: bool = False,
 ) -> Any:
     """Prepare the subsampling mapping and run the repacker"""
 
-    if csv or json:
-        mapping = parse_direct_mapping_targets(csv, json)
+    if csv:
+        targets = parse_csv_mapping(csv)
 
     elif table:
-        mapping = parse_table_mapping(
+        targets = parse_table_mapping(
             table, template, columns, read_id_column, ignore_incomplete_template
         )
 
@@ -412,10 +626,17 @@ def subset_pod5(
             "Arguments provided could not be used to generate a subset mapping."
         )
 
+    if not output.exists():
+        output.mkdir(parents=True)
+
+    _inputs = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
+    if len(_inputs) == 0:
+        raise ValueError("Found no input pod5 files")
+
     subset_pod5s_with_mapping(
-        inputs=inputs,
+        inputs=_inputs,
         output=output,
-        mapping=mapping,
+        targets=targets,
         threads=threads,
         missing_ok=missing_ok,
         duplicate_ok=duplicate_ok,
@@ -423,6 +644,7 @@ def subset_pod5(
     )
 
 
+@logged()
 def main():
     """pod5 subsample main"""
     run_tool(prepare_pod5_subset_argparser())

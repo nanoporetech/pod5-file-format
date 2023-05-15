@@ -57,6 +57,12 @@ public:
     /// \brief Reserve space for future row writes, called automatically when a flush occurs.
     Status reserve_rows();
 
+    /// \brief Find the schema for the table
+    std::shared_ptr<arrow::Schema> const & schema() const { return m_schema; }
+
+    /// \brief Flush passed data into the writer as a record batch.
+    Status write_batch(arrow::RecordBatch const &);
+
 private:
     /// \brief Flush buffered data into the writer as a record batch.
     Status write_batch();

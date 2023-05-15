@@ -109,6 +109,7 @@ def run_writer_test(f: Writer):
         gen_test_read(9, compressed=True),
     ]
     f.add_reads(test_reads)
+    assert test_reads[0].sample_count > 0
 
 
 def run_reader_test(reader: p5.Reader):
@@ -169,6 +170,9 @@ def run_reader_test(reader: p5.Reader):
         )
         chunk_signals = [read.signal_for_chunk(i) for i in range(len(read.signal_rows))]
         assert (np.concatenate(chunk_signals) == data.signal).all()
+        assert isinstance(read.end_reason_index, int)
+        assert read.end_reason_index == read.end_reason.reason.value
+        assert isinstance(read.run_info_index, int)
 
     assert reader.num_reads == read_count
     assert set(reader.read_ids) == read_id_strs

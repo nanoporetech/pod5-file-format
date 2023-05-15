@@ -3,12 +3,15 @@ Testing Pod5 Tools
 """
 import argparse
 from pathlib import Path
+import subprocess
+import sys
 from typing import Callable, Dict
 from unittest.mock import Mock, patch
 from uuid import UUID
 
 import h5py
 import numpy as np
+from pod5.tools.utils import collect_inputs
 import pytest
 import vbz_h5py_plugin  # noqa: F401
 
@@ -18,8 +21,8 @@ from pod5.tools import main, parsers
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
 POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
-SUBSET_CSV_PATH = TEST_DATA_PATH / "demux_mapping_examples/demux.csv"
-READ_IDS_PATH = TEST_DATA_PATH / "demux_mapping_examples/read_ids.txt"
+SUBSET_CSV_PATH = TEST_DATA_PATH / "subset_mapping_examples/subset.csv"
+READ_IDS_PATH = TEST_DATA_PATH / "subset_mapping_examples/read_ids.txt"
 
 
 def assert_exit_code(func: Callable, func_kwargs: Dict, exit_code: int = 0) -> None:
@@ -177,6 +180,7 @@ class TestPod5Tools:
             "pod5",
             "merge",
             str(POD5_PATH),
+            "--output",
             str(tmp_path / "new.pod5"),
         ]
         with patch("argparse._sys.argv", args):
@@ -189,6 +193,7 @@ class TestPod5Tools:
             "pod5",
             "repack",
             str(POD5_PATH),
+            "--output",
             str(tmp_path / "new.pod5"),
         ]
         with patch("argparse._sys.argv", args):
@@ -197,17 +202,21 @@ class TestPod5Tools:
     def test_subset_command_runs(self, tmp_path: Path) -> None:
         """Assert that typical commands are valid"""
 
+        output = Path(tmp_path / "test_dir")
+        output.mkdir()
         args = [
             "pod5",
             "subset",
             str(POD5_PATH),
             "--output",
-            str(tmp_path / "test_dir"),
+            str(output),
             "--csv",
             str(SUBSET_CSV_PATH),
         ]
         with patch("argparse._sys.argv", args):
             main.main()
+
+        # assert len(list(output.rglob("*pod5"))) == 2
 
     def test_filter_command_runs(self, tmp_path: Path) -> None:
         """Assert that typical commands are valid"""
@@ -231,7 +240,99 @@ class TestPod5Tools:
             "pod5",
             "update",
             str(POD5_PATH),
-            str(tmp_path / "new.pod5"),
+            "--output",
+            str(tmp_path),
         ]
         with patch("argparse._sys.argv", args):
             main.main()
+
+    def test_view_command_runs(self) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "view",
+            str(POD5_PATH),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_view_command_runs_list_fields(self) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "view",
+            "--list-fields",
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    @pytest.mark.skipif(
+        sys.platform.startswith("win") and sys.version_info < (3, 8),
+        reason="windows py3.7 pathlib concatenation issue",
+    )
+    @pytest.mark.parametrize(
+        "script", list((Path(__file__).parent.parent / "pod5/tools").glob("pod5*.py"))
+    )
+    def test_scripts_run_directly(self, script: Path) -> None:
+        """pod5 tools should run if executed directly as scripts"""
+        python_exe = Path(sys.executable)
+        subprocess.check_call([python_exe, script.absolute(), "--help"])
+
+
+class TestUtils:
+    def test_collect_inputs(self, tmp_path: Path) -> None:
+        expected = [
+            tmp_path / "a.pod5",
+            tmp_path / "longer-name.pod5",
+            tmp_path / ".pod5",
+            tmp_path / "sub/a.pod5",
+            tmp_path / "sub/sub2/xx.pod5",
+        ]
+        not_expected = [
+            tmp_path / "other.txt",
+            tmp_path / "pod5.p5",
+            tmp_path / ".pod5.p5",
+            tmp_path / "sub/other.png",
+            tmp_path / "sub/sub3/bad.pods",
+        ]
+
+        for path in expected + not_expected:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+
+        assert all([path.exists() for path in expected + not_expected])
+
+        # Expect all pod5s recursively
+        recurse = collect_inputs([tmp_path], recursive=True, pattern="*.pod5")
+        assert set(expected) == set(tmp_path.rglob("*.pod5"))
+        assert recurse == set(expected)
+        assert set(not_expected).isdisjoint(recurse)
+
+        # Expect all pod5s in top level
+        top = collect_inputs([tmp_path], recursive=False, pattern="*.pod5")
+        assert set(tmp_path.glob("*.pod5")) == top
+        assert set(top).isdisjoint(not_expected)
+
+        # Files aren't duplicated in similar patterns
+        dupl = collect_inputs([tmp_path], recursive=False, pattern=["*.pod5", "*d5"])
+        assert dupl == top
+
+        # Expect no matches
+        assert not collect_inputs([tmp_path], recursive=True, pattern="*.none")
+
+        # Expect file_pattern to find other than *.pod5
+        p5_suffix = collect_inputs([tmp_path], recursive=True, pattern="*.p5")
+        assert p5_suffix
+        assert p5_suffix == set(path for path in not_expected if path.suffix == ".p5")
+
+        expect_mixed = set([tmp_path / "other.txt", tmp_path / "sub/other.png"])
+        assert expect_mixed == collect_inputs(
+            [tmp_path], recursive=True, pattern=["*.txt", "*.png"]
+        )
+
+    def test_collect_inputs_non_existent(self, tmp_path: Path) -> None:
+        """Test FileExistsError raised if input doesn't exist"""
+        with pytest.raises(FileExistsError, match="inputs do not exist"):
+            collect_inputs([tmp_path / "non_existent.txt"], False, "*.txt")

@@ -13,7 +13,6 @@ from uuid import UUID
 import h5py
 import numpy as np
 
-# from pod5.tools.utils import iterate_inputs
 import pytest
 
 import pod5
@@ -215,7 +214,6 @@ class TestFast5Conversion:
         run_info_cache: Dict[str, pod5.RunInfo] = {}
 
         with h5py.File(str(FAST5_PATH), "r") as _f5:
-
             for read_id, expected_read in EXPECTED_POD5_RESULTS.items():
                 read = convert_fast5_read(
                     _f5[f"read_{read_id}"],
@@ -408,6 +406,31 @@ class TestOutputHandler:
         assert len(list(tmp_path.glob("*.pod5"))) == len(names)
         handler.close_all()
 
+    def test_no_reopen(self, tmp_path: Path):
+        """Assert that the OutputHandler will not overwrite files"""
+        handler = OutputHandler(tmp_path, tmp_path, False)
+        example = tmp_path / "example"
+        handler.get_writer(example)
+        handler.set_input_complete(example, is_exception=False)
+        with pytest.raises(FileExistsError, match="Trying to re-open"):
+            handler.get_writer(example)
+
+    def test_none_if_exception(self, tmp_path: Path):
+        """Assert that the OutputHandler will not overwrite files"""
+        handler = OutputHandler(tmp_path, tmp_path, False)
+        example = tmp_path / "example"
+        handler.get_writer(example)
+        handler.set_input_complete(example, is_exception=True)
+        assert handler.get_writer(example) is None
+
+    def test_no_duplicate_open(self, tmp_path: Path):
+        """Assert that the OutputHandler will re-use handles"""
+        handler = OutputHandler(tmp_path, tmp_path, False)
+        example = tmp_path / "example"
+        writer1 = handler.get_writer(example)
+        writer2 = handler.get_writer(example)
+        assert writer1 == writer2
+
 
 class TestQueueManager:
     def test_shutdown(self, monkeypatch, caplog: pytest.LogCaptureFixture):
@@ -529,7 +552,6 @@ class TestQueueManager:
 
 class TestConvertLoop:
     def test_convert_fast5_files_file_type_exceptions(self, tmp_path: Path) -> None:
-
         nf5 = tmp_path / "not_a.fast5"
         nf5.touch()
         threads, timeout = 5, 0.05
@@ -583,7 +605,7 @@ class TestConvertLoop:
         with pytest.raises(Exception, match="foo"):
             handle_exception(exc, hndlr, status, True)
 
-        hndlr.set_input_complete.assert_called_once_with(FAST5_PATH)
+        hndlr.set_input_complete.assert_called_once_with(FAST5_PATH, is_exception=True)
         status.write.assert_called_once_with("foo", sys.stderr)
         status.close.assert_called_once()
 

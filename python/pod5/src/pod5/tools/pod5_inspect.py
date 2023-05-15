@@ -11,6 +11,7 @@ from uuid import UUID
 
 import pod5 as p5
 from pod5.tools.parsers import prepare_pod5_inspect_argparser, run_tool
+from pod5.tools.utils import collect_inputs
 
 
 def format_shift_scale_pair(pair):
@@ -187,7 +188,9 @@ def do_summary_command(reader: p5.Reader, **kwargs):
     print(f"Found {batch_count} batches, {total_read_count} reads")
 
 
-def inspect_pod5(command: str, input_files: List[Path], **kwargs):
+def inspect_pod5(
+    command: str, input_files: List[Path], recursive: bool = False, **kwargs
+):
     """Determine which inspect command to run from the parsed arguments and run it"""
 
     commands: Dict[str, Callable] = {
@@ -197,7 +200,9 @@ def inspect_pod5(command: str, input_files: List[Path], **kwargs):
         "debug": do_debug_command,
     }
 
-    for idx, filename in enumerate(input_files):
+    for idx, filename in enumerate(
+        collect_inputs(input_files, recursive=recursive, pattern="*.pod5")
+    ):
         try:
             reader = p5.Reader(filename)
         except Exception as exc:

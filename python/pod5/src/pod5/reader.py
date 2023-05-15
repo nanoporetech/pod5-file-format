@@ -2,12 +2,10 @@
 Tools for accessing POD5 data from PyArrow files
 """
 
-import enum
 import mmap
 from collections import namedtuple
 from dataclasses import fields
 from io import IOBase
-from functools import total_ordering
 from pathlib import Path
 from typing import (
     Collection,
@@ -68,23 +66,6 @@ ReadRecordV3Columns = namedtuple(
         "num_samples",
     ],
 )
-
-
-@total_ordering
-class ReadTableVersion(enum.Enum):
-    """Version of read table"""
-
-    V3: int = 3
-
-    def __lt__(self, other) -> bool:
-        if self.__class__ is other.__class__:
-            return self.value < other.value
-        return NotImplemented
-
-    def __eq__(self, other) -> bool:
-        if self.__class__ is other.__class__:
-            return self.value == other.value
-        return NotImplemented
 
 
 Signal = namedtuple("Signal", ["signal", "samples"])
@@ -184,7 +165,7 @@ class ReadRecord:
         return self._batch.columns.num_reads_since_mux_change[self._row].as_py()  # type: ignore
 
     @property
-    def time_since_mux_change(self) -> int:
+    def time_since_mux_change(self) -> float:
         """
         Time in seconds since the last mux change on this reads channel.
         """
@@ -514,7 +495,7 @@ class ReadRecordBatch:
         return int(self._batch.num_rows)
 
     @property
-    def read_id_column(self):
+    def read_id_column(self) -> pa.FixedSizeBinaryArray:
         """
         Get the column of read ids for this batch
         """
@@ -523,7 +504,7 @@ class ReadRecordBatch:
         return self.columns.read_id
 
     @property
-    def read_number_column(self):
+    def read_number_column(self) -> pa.UInt32Array:
         """
         Get the column of read numbers for this batch
         """
@@ -682,7 +663,7 @@ class Reader:
         writing_version = packaging.version.parse(writing_version_str)
 
         self._columns_type = ReadRecordV3Columns
-        self._reads_table_version = ReadTableVersion.V3
+        self._reads_table_version = 3
 
         self._file_version = writing_version
         self._file_version_pre_migration = packaging.version.Version(
@@ -802,7 +783,7 @@ class Reader:
         return self._file_identifier
 
     @property
-    def reads_table_version(self) -> ReadTableVersion:
+    def reads_table_version(self) -> int:
         return self._reads_table_version
 
     @property
@@ -906,7 +887,8 @@ class Reader:
         An iterable of :py:class:`ReadRecordBatch` in the file.
         """
         if selection is not None:
-            assert not batch_selection
+            if batch_selection is not None:
+                raise ValueError("selection and batch_selection are mutually exclusive")
             yield from self._select_read_batches(
                 selection, missing_ok=missing_ok, preload=preload
             )

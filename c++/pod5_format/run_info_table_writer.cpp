@@ -88,6 +88,11 @@ Status RunInfoTableWriter::close()
     return Status::OK();
 }
 
+Status RunInfoTableWriter::write_batch(arrow::RecordBatch const & record_batch)
+{
+    return m_writer->WriteRecordBatch(record_batch);
+}
+
 Status RunInfoTableWriter::write_batch()
 {
     POD5_TRACE_FUNCTION();

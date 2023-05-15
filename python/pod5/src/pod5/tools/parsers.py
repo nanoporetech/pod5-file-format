@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from pod5.signal_tools import DEFAULT_SIGNAL_CHUNK_SIZE
-from pod5.tools.utils import is_pod5_debug
+from pod5.tools.utils import DEFAULT_THREADS, is_pod5_debug
 
 
 class SubcommandHelpFormatter(
@@ -42,6 +42,25 @@ def run_tool(parser: argparse.ArgumentParser) -> Any:
         print(f"\nPOD5 has encountered an error: '{exc}'", file=sys.stderr)
         print("\nFor detailed information set POD5_DEBUG=1'", file=sys.stderr)
         exit(1)
+
+
+def add_recursive_argument(parser: argparse.ArgumentParser):
+    parser.add_argument(
+        "-r",
+        "--recursive",
+        default=False,
+        action="store_true",
+        help="Search for input files recursively matching `*.pod5`",
+    )
+
+
+def add_force_overwrite_argument(parser: argparse._ActionsContainer):
+    parser.add_argument(
+        "-f",
+        "--force-overwrite",
+        action="store_true",
+        help="Overwrite destination files",
+    )
 
 
 #
@@ -79,19 +98,13 @@ def pod5_convert_from_fast5_argparser(
         "directory (creating 'output.pod5' within it) or a new named file path. "
         "A directory must be given when using --one-to-one.",
     )
-    parser.add_argument(
-        "-r",
-        "--recursive",
-        default=False,
-        action="store_true",
-        help="Search for input files recursively",
-    )
+    add_recursive_argument(parser)
     parser.add_argument(
         "-t",
         "--threads",
-        default=10,
+        default=DEFAULT_THREADS,
         type=int,
-        help="Set the number of threads to use [default: 10]",
+        help="Set the number of threads to use",
     )
     parser.add_argument(
         "--strict",
@@ -110,12 +123,7 @@ def pod5_convert_from_fast5_argparser(
         "directory path provided to this argument. This directory path must be a "
         "relative parent of all inputs.",
     )
-    output_group.add_argument(
-        "-f",
-        "--force-overwrite",
-        action="store_true",
-        help="Overwrite destination files",
-    )
+    add_force_overwrite_argument(output_group)
     output_group.add_argument(
         "--signal-chunk-size",
         default=DEFAULT_SIGNAL_CHUNK_SIZE,
@@ -163,24 +171,16 @@ def pod5_convert_to_fast5_argparser(
         "directory (creating 'output.pod5' within it) or a new named file path. "
         "A directory must be given when using --one-to-one.",
     )
-    parser.add_argument(
-        "-r",
-        "--recursive",
-        default=False,
-        action="store_true",
-        help="Search for input files recursively",
-    )
+    add_recursive_argument(parser)
     parser.add_argument(
         "-t",
         "--threads",
-        default=10,
+        default=DEFAULT_THREADS,
         type=int,
-        help="How many file writers to keep active [default: 10]",
+        help="How many file writers to keep active",
     )
     output_group = parser.add_argument_group("output control arguments")
-    output_group.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
-    )
+    add_force_overwrite_argument(output_group)
     output_group.add_argument(
         "--file-read-count",
         default=4000,
@@ -244,12 +244,8 @@ def prepare_pod5_filter_argparser(
     parser.add_argument(
         "inputs", type=Path, nargs="+", help="Pod5 filepaths to use as inputs"
     )
-    parser.add_argument(
-        "-f",
-        "--force_overwrite",
-        action="store_true",
-        help="Overwrite destination files",
-    )
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
 
     required_group = parser.add_argument_group("required arguments")
     required_group.add_argument(
@@ -266,17 +262,24 @@ def prepare_pod5_filter_argparser(
         required=True,
         help="Destination output filename",
     )
+    parser.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=DEFAULT_THREADS,
+        help="Number of workers",
+    )
 
     content_group = parser.add_argument_group("content settings")
     content_group.add_argument(
         "-M",
-        "--missing_ok",
+        "--missing-ok",
         action="store_true",
         help="Allow missing read_ids",
     )
     content_group.add_argument(
         "-D",
-        "--duplicate_ok",
+        "--duplicate-ok",
         action="store_true",
         help="Allow duplicate read_ids",
     )
@@ -329,6 +332,7 @@ def prepare_pod5_inspect_argparser(
         epilog="Example: pod5 inspect reads input.pod5",
     )
     reads_parser.add_argument("input_files", type=Path, nargs="+")
+    add_recursive_argument(reads_parser)
     reads_parser.set_defaults(func=run)
 
     read_parser = subparser.add_parser(
@@ -338,7 +342,7 @@ def prepare_pod5_inspect_argparser(
     )
     read_parser.add_argument("input_files", type=Path, nargs=1)
     read_parser.add_argument("read_id", type=str)
-    read_parser.set_defaults(func=run)
+    read_parser.set_defaults(func=run, recursive=False)
 
     debug_parser = subparser.add_parser(
         "debug",
@@ -379,26 +383,17 @@ def prepare_pod5_merge_argparser(
         help="Pod5 filepaths to use as inputs",
     )
     parser.add_argument(
-        "output",
+        "-o",
+        "--output",
+        required=True,
         type=Path,
         help="Output filepath",
     )
-    parser.add_argument(
-        "-c",
-        "--chunk_size",
-        type=int,
-        default=100,
-        help="The number of files to merge in one chunk [100]",
-    )
-    parser.add_argument(
-        "-f",
-        "--force_overwrite",
-        action="store_true",
-        help="Overwrite destination file if it already exists",
-    )
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
     parser.add_argument(
         "-D",
-        "--duplicate_ok",
+        "--duplicate-ok",
         action="store_true",
         help="Allow duplicate read_ids",
     )
@@ -433,13 +428,17 @@ def prepare_pod5_repack_argparser(
     parser.add_argument(
         "inputs", type=Path, nargs="+", help="Input pod5 file(s) to repack"
     )
-    parser.add_argument("output", type=Path, help="Output path for pod5 files")
     parser.add_argument(
-        "-t", "--threads", type=int, default=1, help="Number of repacking workers [1]"
+        "-o", "--output", type=Path, help="Output directory for pod5 files"
     )
-
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
     parser.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
+        "-t",
+        "--threads",
+        type=int,
+        default=DEFAULT_THREADS,
+        help="Number of repacking workers",
     )
 
     def run(**kwargs):
@@ -469,6 +468,7 @@ def prepare_pod5_subset_argparser(
         parser = parent.add_parser(
             name="subset",
             description=_desc,
+            formatter_class=SubcommandHelpFormatter,
             epilog="Example: pod5 subset inputs.pod5 --output subset_mux/ "
             "--summary summary.tsv --columns mux",
         )
@@ -482,20 +482,16 @@ def prepare_pod5_subset_argparser(
         "--output",
         type=Path,
         default=Path.cwd(),
-        help="Destination directory to write outputs [cwd]",
+        help="Destination directory to write outputs",
     )
-    parser.add_argument(
-        "-f",
-        "--force_overwrite",
-        action="store_true",
-        help="Overwrite destination files",
-    )
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
     parser.add_argument(
         "-t",
         "--threads",
         type=int,
-        default=1,
-        help="Number of subsetting workers [1]",
+        default=DEFAULT_THREADS,
+        help="Number of subsetting workers",
     )
 
     mapping_group = parser.add_argument_group("direct mapping")
@@ -504,9 +500,6 @@ def prepare_pod5_subset_argparser(
         "--csv",
         type=Path,
         help="CSV file mapping output filename to read ids",
-    )
-    mapping_exclusive.add_argument(
-        "--json", type=Path, help="JSON mapping output filename to array of read ids."
     )
 
     table_group = parser.add_argument_group("table mapping")
@@ -521,18 +514,18 @@ def prepare_pod5_subset_argparser(
         dest="table",
     )
     table_group.add_argument(
-        "-r",
-        "--read_id_column",
+        "-R",
+        "--read-id-column",
         type=str,
         default="read_id",
-        help="Name of the read_id column in the summary. ['read_id']",
+        help="Name of the read_id column in the summary",
     )
     table_group.add_argument(
         "-c",
         "--columns",
         type=str,
         nargs="+",
-        help="Names of --summary columns to subset on",
+        help="Names of --summary / --table columns to subset on",
     )
     table_group.add_argument(
         "--template",
@@ -544,23 +537,23 @@ def prepare_pod5_subset_argparser(
     )
     table_group.add_argument(
         "-T",
-        "--ignore_incomplete_template",
+        "--ignore-incomplete-template",
         action="store_true",
         default=None,
         help="Suppress the exception raised if the --template string does not contain "
-        "every --subset_columns key",
+        "every --columns key",
     )
 
     content_group = parser.add_argument_group("content settings")
     content_group.add_argument(
         "-M",
-        "--missing_ok",
+        "--missing-ok",
         action="store_true",
         help="Allow missing read_ids",
     )
     content_group.add_argument(
         "-D",
-        "--duplicate_ok",
+        "--duplicate-ok",
         action="store_true",
         help="Allow duplicate read_ids",
     )
@@ -569,6 +562,40 @@ def prepare_pod5_subset_argparser(
         from pod5.tools.pod5_subset import subset_pod5
 
         return subset_pod5(**kwargs)
+
+    parser.set_defaults(func=run)
+
+    return parser
+
+
+#
+# Recover
+#
+def prepare_pod5_recover_argparser(
+    parent: Optional[argparse._SubParsersAction] = None,
+) -> argparse.ArgumentParser:
+    """Create an argument parser for the pod5 recover tool"""
+
+    _desc = (
+        "Attempt to recover pod5 files. Recovered files are written "
+        "to sibling files with the '_recovered.pod5` suffix"
+    )
+    if parent is None:
+        parser = argparse.ArgumentParser(description=_desc)
+    else:
+        parser = parent.add_parser(name="recover", description=_desc)
+
+    parser.add_argument(
+        "inputs", type=Path, nargs="+", help="Input pod5 file(s) to update"
+    )
+
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
+
+    def run(**kwargs) -> Any:
+        from pod5.tools.pod5_recover import recover_pod5
+
+        return recover_pod5(**kwargs)
 
     parser.set_defaults(func=run)
 
@@ -587,21 +614,113 @@ def prepare_pod5_update_argparser(
     if parent is None:
         parser = argparse.ArgumentParser(description=_desc)
     else:
-        parser = parent.add_parser(name="update", description=_desc)
+        parser = parent.add_parser(
+            name="update",
+            description=_desc,
+            formatter_class=SubcommandHelpFormatter,
+        )
 
     parser.add_argument(
         "inputs", type=Path, nargs="+", help="Input pod5 file(s) to update"
     )
-    parser.add_argument("output", type=Path, help="Output path for pod5 files")
-
     parser.add_argument(
-        "--force-overwrite", action="store_true", help="Overwrite destination files"
+        "-o",
+        "--output",
+        type=Path,
+        help="Output directory for updated pod5 files",
+        required=True,
     )
+
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
 
     def run(**kwargs) -> Any:
         from pod5.tools.pod5_update import update_pod5
 
         return update_pod5(**kwargs)
+
+    parser.set_defaults(func=run)
+
+    return parser
+
+
+#
+# View
+#
+def prepare_pod5_view_argparser(
+    parent: Optional[argparse._SubParsersAction] = None,
+) -> argparse.ArgumentParser:
+    """Create an argument parser for the pod5 view tool"""
+
+    _desc = """
+    Write contents of some pod5 file(s) as a table to stdout or --output if given.
+    The default separator is <tab>.
+    The column order is always as shown in -L/--list-fields"
+    """
+
+    if parent is None:
+        parser = argparse.ArgumentParser(description=_desc)
+    else:
+        parser = parent.add_parser(
+            name="view",
+            description=_desc,
+            epilog="Example: pod5 view input.pod5",
+            formatter_class=SubcommandHelpFormatter,
+        )
+
+    parser.add_argument(
+        "inputs", type=Path, nargs="*", help="Input pod5 file(s) to view"
+    )
+
+    parser.add_argument(
+        "-o", "--output", type=Path, default=None, help="Output filename"
+    )
+    add_recursive_argument(parser)
+    add_force_overwrite_argument(parser)
+    format_group = parser.add_argument_group("Formatting")
+    format_group.add_argument(
+        "-H", "--no-header", action="store_true", help="Omit the header line"
+    )
+    format_group.add_argument(
+        "--separator",
+        default="\t",
+        help="Table separator character (e.g. ',')",
+        type=str,
+    )
+
+    selection = parser.add_argument_group("Selection")
+    selection.add_argument(
+        "-I",
+        "--ids",
+        action="store_true",
+        help="Only write 'read_id' field",
+        dest="group_read_id",
+    )
+    selection.add_argument(
+        "-i",
+        "--include",
+        type=str,
+        help="Include a double-quoted comma-separated list of fields",
+    )
+    selection.add_argument(
+        "-x",
+        "--exclude",
+        type=str,
+        help="Exclude a double-quoted comma-separated list of fields.",
+    )
+
+    help_group = parser.add_argument_group("List Fields")
+    help_group.add_argument(
+        "-L",
+        "--list-fields",
+        action="store_true",
+        help="List all groups and fields available for selection and exit",
+    )
+
+    def run(**kwargs):
+        from pod5.tools.pod5_view import view_pod5
+
+        return view_pod5(**kwargs)
 
     parser.set_defaults(func=run)
 

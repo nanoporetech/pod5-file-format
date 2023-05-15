@@ -11,6 +11,42 @@ POD5 files as well as converting between ``.pod5`` and ``.fast5`` file formats.
     :depth: 1
 
 
+Pod5 View
+=========
+
+The ``pod5 view`` tool is used to produce a table similarr to a sequencing summary
+from the contents of ``.pod5`` files. The default output is a tab-separated table
+written to stdout with all available fields.
+
+This tools is indented to replace ``pod5 inspect reads`` and is over 200x faster.
+
+.. code-block:: console
+
+    $ pod5 view --help
+
+    # View the list of fields with a short description in-order (shortcut -L)
+    $ pod5 view --list-fields
+
+    # Write the summary to stdout
+    $ pod5 view input.pod5
+
+    # Write the summary of multiple pod5s to a file
+    $ pod5 view *.pod5 --output summary.tsv
+
+    # Write the summary as a csv
+    $ pod5 view *.pod5 --output summary.csv --separator ','
+
+    # Write only the read_ids with no header (shorthand -IH)
+    $ pod5 view input.pod5 --ids --no-header
+
+    # Write only the listed fields
+    # Note: The field order is fixed the order shown in --list-fields
+    $ pod5 view input.pod5 --include "read_id, channel, num_samples, end_reason"
+
+    # Exclude some unwanted fields
+    $ pod5 view input.pod5 --exclude "filename, pore_type"
+
+
 Pod5 inspect
 ============
 
@@ -26,6 +62,10 @@ and these are read and reads
 
 pod5 inspect reads
 ------------------
+
+.. warning::
+
+    This tool is deprecated and has been replaced by ``pod5 view`` which is significantly faster.
 
 Inspect all reads and print a csv table of the details of all reads in the given ``.pod5`` files.
 
@@ -85,7 +125,7 @@ pod5 merge
 
 The contents of the input files are checked for duplicate read_ids to avoid
 accidentally merging identical reads. To override this check set the argument
-``-D / --duplicate_ok``
+``-D / --duplicate-ok``
 
 .. code-block:: console
 
@@ -99,7 +139,7 @@ accidentally merging identical reads. To override this check set the argument
     $ pod5 merge *.pod5 -o merged.pod5
 
     # Merge a glob of pod5 files ignoring duplicate read ids
-    $ pod5 merge *.pod5 -o merged.pod5 --duplicate_ok
+    $ pod5 merge *.pod5 -o merged.pod5 --duplicate-ok
 
 
 pod5 filter
@@ -115,14 +155,10 @@ See ``pod5 subset`` for more advanced subsetting.
 
     pod5 filter example.pod5 --output filtered.pod5 --ids read_ids.txt
 
-The ``--ids`` filtering text file must be a simple list of valid UUID read_ids with
-one read_id per line. The only valid exceptions are:
-
-- Empty lines
-- Trailing / Leading whitespace
-- Lines beginning with a ``#`` (hash / pound symbol) to allow for comments
-- The text ``read_id`` to allow for the header from ``pod5 inspect reads``
-
+The ``--ids`` selection text file must be a simple list of valid UUID read_ids with
+one read_id per line. Only records which match the UUID regex (lower-case) are used.
+Lines beginning with a ``#`` (hash / pound symbol) are interpreted as comments.
+Empty lines are not valid and may cause errors during parsing.
 
 .. note::
 
@@ -132,15 +168,38 @@ one read_id per line. The only valid exceptions are:
 
     .. code-block::
 
-        POD5 has encountered an error: 'Missing read_ids from inputs but --missing_ok not set'
+        POD5 has encountered an error: 'Missing read_ids from inputs but --missing-ok not set'
 
-    To disable this warning then set the '-M / --missing_ok' flag.
+    To disable this warning then set the '-M / --missing-ok' flag.
 
 .. warning::
 
     When supplying multiple input files to 'filter' or 'subset', the tools is
     effectively performing a ``merge`` operation. The 'merge' tool is better suited
     for handling very large numbers of input files.
+
+Example filtering pipeline
+--------------------------
+
+
+This is a trivial example of how to select a random sample of 1000 read_ids from a
+pod5 file using ``pod5 view`` and ``pod5 filter``.
+
+
+.. code-block:: console
+
+    # Get a random selection of read_ids
+    $ pod5 view all.pod5 --ids --no-header --output all_ids.txt
+    $ all_ids.txt sort --random-sort | head --lines 1000 > 1k_ids.txt
+
+    # Filter to that selection
+    $ pod5 filter all.pod5 --ids 1k_ids.txt --output 1k.pod5
+
+    # Check the output
+    $ pod5 view 1k.pod5 -IH | wc -l
+    1000
+
+
 
 pod5 subset
 ===========
@@ -150,7 +209,7 @@ output ``.pod5`` files. See also ``pod5 filter``
 
 The ``pod5 subset`` tool requires a *mapping* which defines which read_ids should be
 written to which output. There are multiple ways of specifying this mapping which are
-defined in either a ``.csv`` or ``.json`` file or by using a ``--table`` (csv or tsv)
+defined in either a ``.csv`` file or by using a ``--table`` (csv or tsv)
 and instructions on how to interpret it.
 
 ``pod5 subset`` aims to be a generic tool to subset from multiple inputs to multiple outputs.
@@ -164,7 +223,6 @@ then ``pod5 filter`` might be a more appropriate tool as the only input is a lis
 
     # Subset input(s) using a pre-defined mapping
     $ pod5 subset example_1.pod5 --csv mapping.csv
-    $ pod5 subset examples_*.pod5 --json mapping.json
 
     # Subset input(s) using a dynamic mapping created at runtime
     $ pod5 subset example_1.pod5 --table table.txt --columns barcode
@@ -173,58 +231,38 @@ then ``pod5 filter`` might be a more appropriate tool as the only input is a lis
 
     Care should be taken to ensure that when providing multiple input ``.pod5`` files to ``pod5 subset``
     that there are no read_id UUID clashes. If a duplicate read_id is detected an exception
-    will be raised unless the ``--duplicate_ok`` argument is set. If ``--duplicate_ok`` is
+    will be raised unless the ``--duplicate-ok`` argument is set. If ``--duplicate-ok`` is
     set then both reads will be written to the output, although this is not recommended.
 
 Creating a Subset Mapping
 ------------------------------
 
-The ``.csv`` or ``.json`` inputs should define a mapping of destination filename to an array
-of read_ids which will be written to the destination.
-
-Subset Mapping (.csv)
+Target Mapping (.csv)
 +++++++++++++++++++++++
 
-The example below shows a ``.csv`` subset mapping. Note that the output filename can be
-specified on multiple lines. This allows multi-line specifications to avoid excessively long lines.
+The example below shows a ``.csv`` subset target mapping. Any lines (e.g. header line)
+which do not have a read_id which matches the UUID regex (lower-case) in the second
+column is ignored.
 
 .. code-block:: text
 
-    output_1.pod5, 132b582c-56e8-4d46-9e3d-48a275646d3a, 12a4d6b1-da6e-4136-8bb3-1470ef27e311, ...
-    output_2.pod5, 0ff4dc01-5fa4-4260-b54e-1d8716c7f225
-    output_2.pod5, 0e359c40-296d-4edc-8f4a-cca135310ab2
-    output_2.pod5, 0e9aa0f8-99ad-40b3-828a-45adbb4fd30c
+    target, read_id
+    output_1.pod5,132b582c-56e8-4d46-9e3d-48a275646d3a
+    output_1.pod5,12a4d6b1-da6e-4136-8bb3-1470ef27e311
+    output_2.pod5,0ff4dc01-5fa4-4260-b54e-1d8716c7f225
+    output_2.pod5,0e359c40-296d-4edc-8f4a-cca135310ab2
+    output_2.pod5,0e9aa0f8-99ad-40b3-828a-45adbb4fd30c
 
-Subset Mapping (.json)
-+++++++++++++++++++++++++++
 
-See below an example of a ``.json`` subset mapping. This file must of course be well-formatted
-``json`` in addition to the formatting standard required by the tool. The formatting requirements
-for the ``.json`` mapping are that keys should be unique filenames mapped to an array
-of read_id strings.
-
-.. code-block:: json
-
-    {
-        "output_1.pod5": [
-            "0000173c-bf67-44e7-9a9c-1ad0bc728e74",
-            "006d1319-2877-4b34-85df-34de7250a47b"
-        ],
-        "output_2.pod5": [
-            "00925f34-6baf-47fc-b40c-22591e27fb5c",
-            "009dc9bd-c5f4-487b-ba4c-b9ce7e3a711e"
-        ]
-    }
-
-Subset Mapping from Table
+Target Mapping from Table
 ++++++++++++++++++++++++++++++++
 
 ``pod5 subset`` can dynamically generate output targets and collect associated reads
-based on a text file containing a table (csv or tsv) parsible by ``pandas``.
-This table file could be the output from ``pod5 inspect reads`` or from a sequencing summary.
+based on a text file containing a table (csv or tsv) parsible by ``polars``.
+This table file could be the output from ``pod5 view`` or from a sequencing summary.
 The table must contain a header row and a series of columns on which to group unique
 collections of values. Internally this process uses the
-`pandas.Dataframe.groupby <https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html>`_
+`polars.Dataframe.groupby <https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/api/polars.DataFrame.groupby.html>`_
 function where the ``by`` parameter is the sequence of column names specified with
 the ``--columns`` argument.
 
@@ -399,3 +437,24 @@ but this can be controlled with the ``--file-read-count`` argument.
     $ pod5 convert to_fast5 example.pod5 --output pod5_to_fast5/
     $ ls pod5_to_fast5/
     output_1.fast5 output_2.fast5 ... output_N.fast5
+
+pod5 update
+===========
+
+The ``pod5 update`` tools is used to update old pod5 files to use the latest schema.
+Currently the latest schema version is version 3.
+
+Files are written into the ``--output`` directory with the same filename as the input.
+
+.. code-block:: console
+
+    # View help
+    pod5 update --help
+
+    # Update a named files
+    $ pod5 update my.pod5 --output updated/
+    $ ls updated
+    updated/my.pod5
+
+    # Update an entire directory
+    $ pod5 update old/ -o updated/

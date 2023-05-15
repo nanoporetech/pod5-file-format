@@ -20,9 +20,9 @@ class POD5_FORMAT_EXPORT FileWriterOptions {
 public:
     /// \brief Default chunk size for signal table entries
     static constexpr std::uint32_t DEFAULT_SIGNAL_CHUNK_SIZE = 102'400;
-    static constexpr std::uint32_t DEFAULT_SIGNAL_TABLE_BATCH_SIZE = 1000;
-    static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 10000;
-    static constexpr std::uint32_t DEFAULT_RUN_INFO_TABLE_BATCH_SIZE = 10;
+    static constexpr std::uint32_t DEFAULT_SIGNAL_TABLE_BATCH_SIZE = 100;
+    static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 1000;
+    static constexpr std::uint32_t DEFAULT_RUN_INFO_TABLE_BATCH_SIZE = 1;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
 
     FileWriterOptions();
@@ -112,6 +112,8 @@ public:
 
     SignalType signal_type() const;
 
+    FileWriterImpl * impl() const { return m_impl.get(); };
+
 private:
     std::unique_ptr<FileWriterImpl> m_impl;
 };
@@ -119,6 +121,11 @@ private:
 POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     std::string const & path,
     std::string const & writing_software_name,
+    FileWriterOptions const & options = {});
+
+POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
+    std::string const & src_path,
+    std::string const & dest_path,
     FileWriterOptions const & options = {});
 
 }  // namespace pod5

@@ -13,8 +13,7 @@ from more_itertools import chunked
 
 import pod5 as p5
 from pod5.tools.parsers import pod5_convert_to_fast5_argparser, run_tool
-
-from .utils import iterate_inputs
+from pod5.tools.utils import DEFAULT_THREADS, collect_inputs
 
 # Pod5 does not have 'partial' so need to add that back in here.
 FAST5_END_REASONS = {
@@ -114,7 +113,6 @@ class StatusMonitor:
 
 
 def write_pod5_record_to_fast5(read: p5.ReadRecord, fast5: h5py.File) -> None:
-
     tracking_id = read.run_info.tracking_id
 
     read_group = fast5.create_group(f"read_{read.read_id}")
@@ -227,9 +225,7 @@ def convert_pod5_to_fast5(
     total_samples = 0
 
     with p5.Reader(source) as reader:
-
         with h5py.File(dest, "w") as f5:
-
             f5.attrs.create(
                 "file_version", "3.0".encode("ascii"), dtype=FAST5_STRING_TYPE
             )
@@ -252,24 +248,21 @@ def convert_to_fast5(
     inputs: List[Path],
     output: Path,
     recursive: bool = False,
-    threads: int = 10,
+    threads: int = DEFAULT_THREADS,
     force_overwrite: bool = False,
     file_read_count: int = 4000,
 ):
-
     if output.exists() and not output.is_dir():
         raise FileExistsError("Cannot output to a file")
 
     with ProcessPoolExecutor(max_workers=threads) as executor:
-
         total_reads = 0
         futures: Dict[Future, Path] = {}
 
         # Enumerate over input pod5 files
-        for input_idx, source in enumerate(iterate_inputs(inputs, recursive, "*.pod5")):
+        for input_idx, source in enumerate(collect_inputs(inputs, recursive, "*.pod5")):
             # Open the inputs to read the read ids
             with p5.Reader(source) as reader:
-
                 for chunk_idx, read_ids in enumerate(
                     chunked(reader.read_ids, file_read_count)
                 ):
@@ -279,7 +272,7 @@ def convert_to_fast5(
 
                     if dest.exists() and not force_overwrite:
                         raise FileExistsError(
-                            "Output path points to an existing file and --force_overwrite not set"
+                            "Output path points to an existing file and --force-overwrite not set"
                         )
 
                     kwargs = {

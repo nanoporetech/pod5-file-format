@@ -23,6 +23,27 @@ def create_pod5_version_cmake():
         )
 
 
+def copy_version_py():
+    """Copy the _version.py file into the lib_pod5 and pod5 project directories"""
+    vpy = Path("_version.py")
+    assert vpy.exists()
+
+    lib_vpy = Path(__file__).parent / "python/lib_pod5/src/lib_pod5/_version.py"
+    api_vpy = Path(__file__).parent / "python/pod5/src/pod5/_version.py"
+
+    if lib_vpy.exists():
+        lib_vpy.unlink()
+
+    if api_vpy.exists():
+        api_vpy.unlink()
+
+    lib_vpy.write_bytes(vpy.read_bytes())
+    api_vpy.write_bytes(vpy.read_bytes())
+
+
 if __name__ == "__main__":
     print(f"Writing POD5Version.cmake with version: {__version__}")
     create_pod5_version_cmake()
+
+    print("Copying _version.py into lib_pod5 and pod5 source directories")
+    copy_version_py()

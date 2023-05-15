@@ -2,16 +2,31 @@
 Tool for repacking pod5 files to potentially improve performance
 """
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import os
-import sys
 import typing
 from pathlib import Path
-from pod5.tools.utils import PBAR_DEFAULTS
 from tqdm.auto import tqdm
 
 import pod5 as p5
 import pod5.repack
+from pod5.tools.utils import (
+    DEFAULT_THREADS,
+    PBAR_DEFAULTS,
+    assert_no_duplicate_filenames,
+    collect_inputs,
+)
 from pod5.tools.parsers import prepare_pod5_repack_argparser, run_tool
+
+
+def resolve_overwrite(src: Path, dest: Path, force: bool) -> None:
+    if dest.exists():
+        if dest == src:
+            raise FileExistsError(f"Refusing to overwrite {src} inplace")
+        if force:
+            dest.unlink()
+        else:
+            raise FileExistsError(
+                "Refusing to overwrite output without --force-overwrite"
+            )
 
 
 def repack_pod5_file(src: Path, dest: Path):
@@ -22,41 +37,39 @@ def repack_pod5_file(src: Path, dest: Path):
             # Add all reads to the repacker
             repacker_output = repacker.add_output(writer)
             repacker.add_all_reads_to_output(repacker_output, reader)
-            repacker.wait(show_pbar=False, finish=True)
+            for _ in repacker.waiter():
+                pass
 
 
 def repack_pod5(
-    inputs: typing.List[Path], output: Path, threads: int, force_overwrite: bool
+    inputs: typing.List[Path],
+    output: Path,
+    threads: int = DEFAULT_THREADS,
+    force_overwrite: bool = False,
+    recursive: bool = False,
 ):
     """Given a list of pod5 files, repack their contents and write files 1-1"""
+
+    if output.exists() and not output.is_dir():
+        raise ValueError(f"Output cannot be an existing file: {output}")
 
     # Create output directory if required
     if not output.is_dir():
         output.mkdir(parents=True, exist_ok=True)
 
+    _inputs = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
+    assert_no_duplicate_filenames(_inputs)
+
     # Remove existing files if required
-    for input_filename in inputs:
+    for input_filename in _inputs:
         output_filename = output / input_filename.name
+        resolve_overwrite(input_filename, output_filename, force_overwrite)
 
-        if output_filename.exists():
-            if output_filename == input_filename:
-                print(f"Refusing to overwrite {input_filename} inplace")
-                sys.exit(1)
-            if force_overwrite:
-                output_filename.unlink()
-            else:
-                print("Refusing to overwrite output  without --force-overwrite")
-                sys.exit(1)
-
-    disable_pbar = not bool(int(os.environ.get("POD5_PBAR", 1)))
     futures = {}
     with ProcessPoolExecutor(max_workers=threads) as executor:
+        pbar = tqdm(total=len(_inputs), unit="Files", **PBAR_DEFAULTS)
 
-        pbar = tqdm(
-            total=len(inputs), disable=disable_pbar, unit="Files", **PBAR_DEFAULTS
-        )
-
-        for src in inputs:
+        for src in _inputs:
             dest = output / src.name
             futures[executor.submit(repack_pod5_file, src=src, dest=dest)] = dest
 

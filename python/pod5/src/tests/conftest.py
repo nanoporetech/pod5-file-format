@@ -4,19 +4,38 @@ Pod5 test fixtures
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Generator
+import sys
+from typing import Generator, Optional, Set
 from uuid import UUID, uuid4, uuid5
 
 import numpy
 import numpy.typing
+from pod5.pod5_types import ShiftScalePair
 import pytest
-
 import pod5 as p5
 
 TEST_UUID = uuid4()
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+
+POD5_TEST_SEED = int(os.getenv("POD5_TEST_SEED", numpy.random.randint(1, 9999)))
+
+
+skip_if_windows = pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="no symlink privilege on windows CI"
+)
+
+
+# Run pytest from the tests directory (containing conftest.py) to use this argument
+def pytest_addoption(parser):
+    """Add configurable random seed for testing"""
+    parser.addoption(
+        "--pod5-test-seed",
+        type=int,
+        default=numpy.random.randint(1, 9999),
+        help="pod5_factory test seed",
+    )
 
 
 @pytest.fixture(scope="function")
@@ -46,24 +65,26 @@ def writer(tmp_path: Path) -> Generator[p5.Writer, None, None]:
         assert False, "File handle still open"
 
 
-def rand_float() -> float:
+def rand_float(seed: int) -> float:
     """Return a random float in the half-open interval [0, 1)"""
+    numpy.random.seed(seed)
     return float(numpy.random.rand(1)[0])
 
 
-def rand_int(low: int, high: int) -> int:
+def rand_int(low: int, high: int, seed: int) -> int:
     """Returns a random integer in the half-open interval [low, high)"""
-    return int(numpy.random.randint(low, high, 1)[0])
+    numpy.random.seed(seed)
+    return int(numpy.random.randint(low, high))
 
 
-def rand_str(prefix: str) -> str:
+def rand_str(prefix: str, seed: int) -> str:
     """Create a random string by appending random integer to prefix"""
-    return f"{prefix}_{numpy.random.randint(1)}"
+    numpy.random.seed(seed)
+    return f"{prefix}_{numpy.random.randint(1, 9999999)}"
 
 
 def _random_read_id(seed: int = 1) -> UUID:
     """Create a random read_id UUID"""
-    numpy.random.seed(seed)
     return uuid5(TEST_UUID, str(seed))
 
 
@@ -73,10 +94,11 @@ def random_read_id(request) -> UUID:
     return _random_read_id(request.param)
 
 
-def _random_pore(seed: int = 1) -> p5.Pore:
+def _random_pore(seed: int) -> p5.Pore:
     """Create a random Pore object"""
-    numpy.random.seed(seed)
-    return p5.Pore(rand_int(0, 3000), rand_int(0, 4), rand_str("pore_type"))
+    return p5.Pore(
+        rand_int(0, 3000, seed), rand_int(0, 4, seed), rand_str("pore_type", seed)
+    )
 
 
 @pytest.fixture(scope="function")
@@ -87,8 +109,7 @@ def random_pore(request) -> p5.Pore:
 
 def _random_calibration(seed: int = 1) -> p5.Calibration:
     """Create a random Calibration object"""
-    numpy.random.seed(seed)
-    return p5.Calibration(rand_float(), rand_float())
+    return p5.Calibration(rand_float(seed), rand_float(seed + 1))
 
 
 @pytest.fixture(scope="function")
@@ -99,8 +120,9 @@ def random_calibration(request) -> p5.Calibration:
 
 def _random_end_reason(seed: int = 1) -> p5.EndReason:
     """Create a random EndReason object"""
-    numpy.random.seed(seed)
-    return p5.EndReason(p5.EndReasonEnum(rand_int(0, 5)), bool(rand_int(0, 1)))
+    return p5.EndReason(
+        p5.EndReasonEnum(rand_int(0, 5, seed)), bool(rand_int(0, 1, seed))
+    )
 
 
 @pytest.fixture(scope="function")
@@ -111,28 +133,29 @@ def random_end_reason(request) -> p5.EndReason:
 
 def _random_run_info(seed: int = 1) -> p5.RunInfo:
     """Create a random RunInfo object"""
-    numpy.random.seed(seed)
     return p5.RunInfo(
-        acquisition_id=rand_str("acq_id"),
-        acquisition_start_time=datetime.fromtimestamp(rand_int(0, 1), timezone.utc),
-        adc_max=rand_int(0, 1000),
-        adc_min=rand_int(-1000, 0),
-        context_tags={rand_str("context"): rand_str("tag")},
-        experiment_name=rand_str("exp_name"),
-        flow_cell_id=rand_str("flow_cell"),
-        flow_cell_product_code=rand_str("product_code"),
-        protocol_name=rand_str("protocol"),
-        protocol_run_id=rand_str("protocol_run_id"),
-        protocol_start_time=datetime.fromtimestamp(rand_int(0, 1), timezone.utc),
-        sample_id=rand_str("sample_id"),
-        sample_rate=rand_int(0, 10000),
-        sequencing_kit=rand_str("seq_kit"),
-        sequencer_position=rand_str("position"),
-        sequencer_position_type=rand_str("position_type"),
-        software=rand_str("software"),
-        system_name=rand_str("system_name"),
-        system_type=rand_str("system_type"),
-        tracking_id={rand_str("tracking"): rand_str("id")},
+        acquisition_id=rand_str("acq_id", seed),
+        acquisition_start_time=datetime.fromtimestamp(
+            rand_int(0, 1, seed), timezone.utc
+        ),
+        adc_max=rand_int(0, 1000, seed),
+        adc_min=rand_int(-1000, 0, seed),
+        context_tags={rand_str("context", seed): rand_str("tag", seed)},
+        experiment_name=rand_str("exp_name", seed),
+        flow_cell_id=rand_str("flow_cell", seed),
+        flow_cell_product_code=rand_str("product_code", seed),
+        protocol_name=rand_str("protocol", seed),
+        protocol_run_id=rand_str("protocol_run_id", seed),
+        protocol_start_time=datetime.fromtimestamp(rand_int(0, 1, seed), timezone.utc),
+        sample_id=rand_str("sample_id", seed),
+        sample_rate=rand_int(0, 10000, seed),
+        sequencing_kit=rand_str("seq_kit", seed),
+        sequencer_position=rand_str("position", seed),
+        sequencer_position_type=rand_str("position_type", seed),
+        software=rand_str("software", seed),
+        system_name=rand_str("system_name", seed),
+        system_type=rand_str("system_type", seed),
+        tracking_id={rand_str("tracking", seed): rand_str("id", seed)},
     )
 
 
@@ -145,7 +168,7 @@ def random_run_info(request) -> p5.RunInfo:
 def _random_signal(seed: int = 1) -> numpy.typing.NDArray[numpy.int16]:
     """Generate a random signal"""
     numpy.random.seed(seed)
-    size = rand_int(0, 200_000)
+    size = rand_int(0, 200_000, seed)
     return numpy.random.randint(-32768, 32767, size, dtype=numpy.int16)
 
 
@@ -162,11 +185,13 @@ def _random_read(seed: int = 1) -> p5.Read:
         read_id=_random_read_id(seed),
         pore=_random_pore(seed),
         calibration=_random_calibration(seed),
-        read_number=rand_int(0, 100000),
-        start_sample=rand_int(0, 10000000),
-        median_before=rand_float(),
+        read_number=rand_int(0, 100000, seed),
+        start_sample=rand_int(0, 10000000, seed),
+        median_before=rand_float(seed),
         end_reason=_random_end_reason(seed),
-        run_info=_random_run_info(seed),
+        run_info=_random_run_info(seed % 4),
+        predicted_scaling=ShiftScalePair(rand_float(seed), rand_float(seed + 1)),
+        tracked_scaling=ShiftScalePair(rand_float(seed + 2), rand_float(seed + 3)),
         signal=signal,
     )
 
@@ -184,11 +209,13 @@ def _random_read_pre_compressed(seed: int = 1) -> p5.CompressedRead:
         read_id=_random_read_id(seed),
         pore=_random_pore(seed),
         calibration=_random_calibration(seed),
-        read_number=rand_int(0, 100000),
-        start_sample=rand_int(0, 10000000),
-        median_before=rand_float(),
+        read_number=rand_int(0, 100000, seed),
+        start_sample=rand_int(0, 10000000, seed),
+        median_before=rand_float(seed),
         end_reason=_random_end_reason(seed),
-        run_info=_random_run_info(seed),
+        run_info=_random_run_info(seed % 4),
+        predicted_scaling=ShiftScalePair(rand_float(seed), rand_float(seed + 1)),
+        tracked_scaling=ShiftScalePair(rand_float(seed + 2), rand_float(seed + 3)),
         signal_chunks=[p5.vbz_compress_signal(signal)],
         signal_chunk_lengths=[len(signal)],
     )
@@ -198,3 +225,63 @@ def _random_read_pre_compressed(seed: int = 1) -> p5.CompressedRead:
 def random_read_pre_compressed(request) -> p5.CompressedRead:
     """Generate a Read with random data"""
     return _random_read_pre_compressed(request.param)
+
+
+def _seeder(seed: int) -> Generator[int, None, None]:
+    """Generates seed values for numpy.rand.seed"""
+    idx = 0
+    while True:
+        value = (seed + idx) % 2**23
+        idx += 13
+        yield value
+
+
+@pytest.fixture(scope="session")
+def pod5_factory(request, tmp_path_factory: pytest.TempPathFactory, pytestconfig):
+    """
+    Create and cache a temporary pod5 file of `n_records` random reads with a
+    default name unless given `name_parts` like `subdir/my.pod5`. Files
+    are cached under their path and are cleaned.
+    """
+
+    POD5_TEST_SEED = pytestconfig.getoption("pod5_test_seed")
+
+    tmp_path = tmp_path_factory.mktemp("pod5_factory")
+    existing_pod5s: Set[Path] = set([])
+
+    seeder = _seeder(POD5_TEST_SEED)
+
+    def _pod5_factory(
+        n_records: int = 100,
+        name: Optional[str] = None,
+    ) -> Path:
+        """Generate pod5 files with `n_records` with an optionally specified `name`"""
+        assert n_records > 0
+
+        if name:
+            path = tmp_path / name
+        else:
+            path = tmp_path / f"pod5_fixture_{n_records}.pod5"
+
+        if path in existing_pod5s:
+            if path.is_file():
+                return path
+            existing_pod5s.remove(path)
+
+        reads = [_random_read(seed=next(seeder)) for _ in range(n_records)]
+        with p5.Writer(path=path, software_name="pod5_pytest_fixture") as writer:
+            writer.add_reads(reads)
+
+        existing_pod5s.add(path)
+        assert path.is_file()
+        return path
+
+    yield _pod5_factory
+
+    for path in existing_pod5s:
+        path.unlink()
+
+    # Write the test seed to stdout, need to disable capturemanager first
+    capmanager = request.config.pluginmanager.getplugin("capturemanager")
+    with capmanager.global_and_fixture_disabled():
+        print(f"\n\nPOD5_TEST_SEED: {POD5_TEST_SEED}")

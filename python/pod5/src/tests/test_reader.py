@@ -2,15 +2,22 @@
 Testing Pod5Reader
 """
 from typing import Type
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import numpy
 import numpy.typing
+import packaging
+from pathlib import Path
+import pyarrow as pa
+
 import pytest
+import lib_pod5 as p5b
 
 import pod5 as p5
+from pod5.api_utils import format_read_ids
 from pod5.pod5_types import Calibration, EndReason, RunInfo
-from pod5.reader import SignalRowInfo
+from pod5.reader import ReadRecordBatch, SignalRowInfo
+from tests.conftest import POD5_PATH
 
 
 class TestPod5Reader:
@@ -109,3 +116,107 @@ class TestPod5Reader:
                 break
         else:
             assert False, "did not test minimum reads!"
+
+    def test_attribute_types(self) -> None:
+        with p5.Reader(POD5_PATH) as reader:
+            assert isinstance(reader.path, Path)
+            assert reader.path == POD5_PATH
+            assert reader.reads_table_version == 3
+
+            # File handles
+            assert isinstance(reader.inner_file_reader, p5b.Pod5FileReader)
+            assert isinstance(reader.read_table, pa.ipc.RecordBatchFileReader)
+            assert isinstance(reader.run_info_table, pa.ipc.RecordBatchFileReader)
+            assert isinstance(reader.signal_table, pa.ipc.RecordBatchFileReader)
+
+            assert isinstance(reader.file_version, packaging.version.Version)
+            assert isinstance(
+                reader.file_version_pre_migration, packaging.version.Version
+            )
+            assert isinstance(reader.writing_software, str)
+            assert isinstance(reader.file_identifier, UUID)
+            assert isinstance(reader.reads_table_version, int)
+            assert isinstance(reader.is_vbz_compressed, bool)
+            assert isinstance(reader.signal_batch_row_count, int)
+            assert isinstance(reader.batch_count, int)
+            assert isinstance(reader.num_reads, int)
+
+            assert isinstance(reader.read_ids_raw, pa.ChunkedArray)
+            assert isinstance(reader.read_ids, list)
+            assert all(isinstance(r, str) for r in reader.read_ids)
+
+            assert isinstance(reader.get_batch(0), ReadRecordBatch)
+
+
+class TestRecordBatch:
+    def test_get_read(self, pod5_factory) -> None:
+        n_reads = 10
+        path = pod5_factory(n_reads)
+        with p5.Reader(path) as reader:
+            reads = list(reader.reads())
+
+            assert reader.batch_count == 1
+            batch = reader.get_batch(0)
+            assert batch.num_reads == n_reads
+
+            for idx, read in enumerate(reads):
+                assert read.read_id == batch.get_read(idx).read_id
+            assert n_reads == idx + 1
+
+    def test_column_selection(self, pod5_factory) -> None:
+        n_reads = 10
+        path = pod5_factory(n_reads)
+        with p5.Reader(path) as reader:
+            batch = reader.get_batch(0)
+
+            assert len(batch.read_id_column) == n_reads
+            assert len(batch.read_number_column) == n_reads
+
+            select_idxs = [3, 4, 8]
+            batch.set_selected_batch_rows(select_idxs)
+
+            assert type(batch.read_id_column) == pa.FixedSizeBinaryArray
+            assert len(batch.read_id_column) == len(select_idxs)
+            ids = [reader.read_ids[idx] for idx in select_idxs]
+            assert format_read_ids(batch.read_id_column) == ids
+
+            assert type(batch.read_number_column) == pa.UInt32Array
+            assert len(batch.read_number_column) == len(select_idxs)
+            reads = list(reader.reads())
+            rnums = [reads[idx].read_number for idx in select_idxs]
+
+            # assert type(batch.read_number_column.to_numpy().tolist()) == list
+            assert batch.read_number_column.to_numpy().tolist() == rnums
+
+    def test_read_batches(self, pod5_factory) -> None:
+        n_reads = 1100
+        path = pod5_factory(n_reads)
+        with p5.Reader(path) as reader:
+            rrb = reader.read_batches
+            assert len(list(rrb())) == 2
+            assert len(list(rrb(batch_selection=[0]))) == 1
+            assert len(list(rrb(batch_selection=[0, 1]))) == 2
+
+    def test_read_batches_raises(self, pod5_factory) -> None:
+        n_reads = 1100
+        path = pod5_factory(n_reads)
+        with p5.Reader(path) as reader:
+            # with pytest.raises(AssertionError):
+            first, last = reader.read_ids[0], reader.read_ids[-1]
+            with pytest.raises(ValueError, match="mutually exclusive"):
+                list(reader.read_batches(selection=[first, last], batch_selection=[0]))
+
+            with pytest.raises(RuntimeError, match="Failed to find"):
+                list(reader.read_batches(selection=[str(uuid4())]))
+
+    def test_cache_exceptions(self, pod5_factory) -> None:
+        n_reads = 10
+        path = pod5_factory(n_reads)
+        with p5.Reader(path) as reader:
+            batch = reader.get_batch(0)
+
+            # No cache set
+            with pytest.raises(RuntimeError, match="No cached signal data available"):
+                batch.cached_sample_count_column
+            with pytest.raises(RuntimeError, match="No cached signal data available"):
+                batch.cached_samples_column

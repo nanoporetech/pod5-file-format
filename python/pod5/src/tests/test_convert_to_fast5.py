@@ -46,7 +46,6 @@ class TestPod5ConversionRoundTrip:
         with p5.Reader(POD5_PATH) as original:
             with p5.Reader(pod5_paths[0]) as converted:
                 for original_record, converted_record in zip(original, converted):
-
                     # Assert fields are identical
                     assert original_record.read_id == converted_record.read_id
                     assert original_record.read_number == converted_record.read_number
@@ -92,6 +91,17 @@ class TestConvertBehaviour:
 
         # Assert the file has been replaces
         assert existing.stat().st_mtime_ns > created_time
+
+    def test_recursive_input(self, tmp_path: Path):
+        """Assert that the conversion finds pod5s in subdirs"""
+
+        subdir = tmp_path / "sub/subsub/"
+        subdir.mkdir(parents=True)
+        src = subdir / "input.pod5"
+        src.write_bytes(POD5_PATH.read_bytes())
+
+        convert_to_fast5(inputs=[tmp_path], output=tmp_path, recursive=True)
+        assert len(list(tmp_path.glob("*.fast5")))
 
     def test_multiple_outputs(self, tmp_path: Path):
         """

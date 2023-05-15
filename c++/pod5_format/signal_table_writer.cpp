@@ -227,6 +227,11 @@ Status SignalTableWriter::close()
 
 SignalType SignalTableWriter::signal_type() const { return m_field_locations.signal_type; }
 
+Status SignalTableWriter::write_batch(arrow::RecordBatch const & record_batch)
+{
+    return m_writer->WriteRecordBatch(record_batch);
+}
+
 Status SignalTableWriter::write_batch()
 {
     POD5_TRACE_FUNCTION();

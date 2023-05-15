@@ -81,7 +81,9 @@ class Writer:
         self._software_name = software_name
 
         if self._path.is_file():
-            raise FileExistsError("Input path already exists. Refusing to overwrite.")
+            raise FileExistsError(
+                f"Input path already exists. Refusing to overwrite: {self._path}"
+            )
 
         self._writer: Optional[p5b.FileWriter] = p5b.create_file(
             str(self._path), software_name, None

@@ -98,10 +98,13 @@ prepare_version:
     - pip install --upgrade pip setuptools_scm
     - python -m setuptools_scm
     - cat _version.py
+    # Show the version that will be used in the pod5/pyproject.toml
+    - VERSION=$(grep "__version__" _version.py | awk '{print $5}' | tr -d "'" | cut -d'+' -f1)
+    - echo $VERSION
     - python -m pod5_make_version
     - cat cmake/POD5Version.cmake
-    - cp _version.py python/lib_pod5/src/lib_pod5/
-    - cp _version.py python/pod5/src/pod5/
+    - cat _version.py python/lib_pod5/src/lib_pod5/_version.py
+    - cat _version.py python/pod5/src/pod5/_version.py
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -359,9 +362,8 @@ osx-arm64-clang13-release-build:
     - export PYENV_ROOT="${PYENV}"
     - export PYENV_HOME="${PYENV}"
     - export PATH="${PYENV}/bin:${PYENV}/shims:${PATH}"
-    - pyenv versions
-    - pyenv update
-    - pyenv install ${PYTHON_VERSION}
+    - if [[ -z $(pyenv install --list | grep "${PYTHON_VERSION}") ]]; then pyenv update; fi
+    - pyenv install ${PYTHON_VERSION} --skip-existing
     - pyenv local ${PYTHON_VERSION}
     - python -m venv .venv
     - source .venv/Scripts/activate
@@ -423,15 +425,21 @@ build-python-api:
     - git tag -d $(git tag -l "*dev*")
     - if [[ ${CI_COMMIT_TAG/#v/} && -z $( git tag -l "${CI_COMMIT_TAG/#v/}" ) ]]; then git tag ${CI_COMMIT_TAG/#v/}; fi
     - cat _version.py
+    - VERSION=$(grep "__version__" _version.py | awk '{print $5}' | tr -d "'" | cut -d'+' -f1)
+    - echo $VERSION
     - cd python/pod5/
+    # update the lib_pod5 dependency in pod5/pyproject.toml to match
+    - sed -i "s/.*lib_pod5.*/\ \ \ \ \'lib_pod5 == ${VERSION}\',/" pyproject.toml
+    - cat pyproject.toml
     - pip install -U pip build
     - python -m build --outdir ../../
     - cd ../..
-    - ls *.whl
+    - ls *.whl *.tar.gz
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
       - "pod5*.whl"
+      - "pod5*.tar.gz"
 
 
 # ======================================
@@ -534,10 +542,8 @@ pytest-osx-x64:
     - build-python-api
   before_script:
       # make sure pyenv's shims are on the path
-    - brew update && brew upgrade pyenv
     - eval "$(pyenv init -)"
-    - pyenv versions
-    - pyenv install --list
+    - if [[ -z $( pyenv install --list | grep "${PYTHON_VERSION}" ) ]]; then brew update && brew upgrade pyenv; fi
     - pyenv install --skip-existing ${PYTHON_VERSION}
     - pyenv global ${PYTHON_VERSION}
     - python --version
@@ -560,9 +566,7 @@ pytest-win-x64:
     - export PYENV=~/.pyenv/pyenv-win
     - export PATH=${PYENV}/bin:${PYENV}/shims:${PATH}
     # needs PYTHON_VERSION set, and optionally VENV_BIN_DIR
-    - pyenv update
-    - pyenv versions
-    - pyenv install --list
+    - if [[ -z $( pyenv install --list | grep "${PYTHON_VERSION}" ) ]]; then pyenv update; fi
     - pyenv install --skip-existing ${PYTHON_VERSION}
     - pyenv global ${PYTHON_VERSION}
     - python --version
@@ -882,7 +886,7 @@ internal_wheel_upload:
   script:
     - ls -lh .
     - pip install twine
-    - twine upload *.whl
+    - twine upload *.whl pod5*.tar.gz
   only: ["tags"]
   when: manual
 
@@ -896,7 +900,7 @@ external_wheel_upload:
     - pip install twine
     - export TWINE_REPOSITORY_URL=
     - export TWINE_CERT=
-    - twine upload *.whl -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}"
+    - twine upload *.whl pod5*.tar.gz -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}"
   only: ["tags"]
   when: manual
 
