@@ -9,15 +9,17 @@ import pod5 as p5
 from pod5.tools.pod5_view import (
     Field,
     assert_unique_acquisition_id,
+    get_reads_tables,
     join_reads_to_run_info,
-    parse_reads_table,
+    parse_read_table_chunks,
+    parse_reads_table_all,
     parse_run_info_table,
     view_pod5,
     select_fields,
     get_field_or_raise,
     resolve_output,
     write,
-    get_table,
+    write_header,
     FIELDS,
 )
 
@@ -122,10 +124,16 @@ class TestView:
 
             assert idx == 9
 
+    def test_view_no_input(self, tmp_path: Path):
+        """Test that the merge tool raises AssertionError if found no files"""
+        with pytest.raises(AssertionError, match="Found no pod5 files"):
+            view_pod5([tmp_path], tmp_path)
+
     def test_write_stdout(self, capsys: pytest.CaptureFixture) -> None:
         """Test that polars writes to stdout when path is None"""
 
-        ldf = get_table(POD5_PATH, select_fields())
+        ldf = next(get_reads_tables(POD5_PATH, select_fields()))
+        write_header(None, select_fields())
         write(ldf, None)
         content: str = capsys.readouterr().out
         err: str = capsys.readouterr().err
@@ -161,15 +169,31 @@ class TestView:
         assert "context_tags" not in run_info.columns
         assert "tracking_id" not in run_info.columns
 
-    def test_parse_reads(self, pod5_factory) -> None:
-        """Test the reads table parser"""
+    def test_parse_reads_all(self, pod5_factory) -> None:
+        """Test the reads table parser where the file is small enough to do in one go"""
         a_pod5 = pod5_factory(10)
         with p5.Reader(a_pod5) as reader:
-            reads = parse_reads_table(reader)
+            reads = parse_reads_table_all(reader)
 
         assert isinstance(reads, pl.LazyFrame)
         assert "read_id" in reads.columns
         assert "run_info" in reads.columns
+        assert len(reads.collect()) == 10
+
+    def test_parse_reads_multi_chunk(self, pod5_factory) -> None:
+        """Test the reads table parser"""
+        a_pod5 = pod5_factory(1100)
+        with p5.Reader(a_pod5) as reader:
+            tables = [t for t in parse_read_table_chunks(reader, approx_size=999)]
+
+        assert len(tables) == 2
+        for table in tables:
+            assert isinstance(table, pl.LazyFrame)
+            assert "read_id" in table.columns
+            assert "run_info" in table.columns
+
+        all_reads = pl.concat(tables)
+        assert len(all_reads.collect()) == 1100
 
     def test_unique_on_duplicated_run_info(self) -> None:
         """Legacy bug where run_info data was duplicated"""
@@ -209,9 +233,11 @@ class TestSelection:
         assert "read_id" not in select_fields(exclude="read_id")
         assert {"pore_type", "mux"} not in select_fields(exclude="pore_type,mux")
         assert set(ALL_FIELDS) == select_fields(exclude="")
+        assert set(ALL_FIELDS) == select_fields(exclude=", ,")
 
         drop_rid = set(ALL_FIELDS) - {"read_id"}
         assert drop_rid == select_fields(exclude="read_id")
+        assert drop_rid == select_fields(exclude=",read_id,,   ,")
 
     @pytest.mark.parametrize("field", ["read_i", "mix", "ed_reason", "_", "channell"])
     def test_misspelling(self, field: str) -> None:
@@ -263,6 +289,9 @@ class TestMisc:
         exist.touch()
         with pytest.raises(FileExistsError):
             resolve_output(exist, False)
+
+        # Test the default output path if a directory is given
+        assert tmp_path / "view.txt" == resolve_output(tmp_path, False)
 
     def test_fields(self) -> None:
         assert all(key == field for key, field in zip(ALL_FIELDS, FIELDS.keys()))

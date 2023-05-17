@@ -629,7 +629,9 @@ def subset_pod5(
     if not output.exists():
         output.mkdir(parents=True)
 
-    _inputs = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
+    _inputs = collect_inputs(
+        inputs, recursive=recursive, pattern="*.pod5", threads=threads
+    )
     if len(_inputs) == 0:
         raise ValueError("Found no input pod5 files")
 

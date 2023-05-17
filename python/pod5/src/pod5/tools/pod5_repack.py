@@ -57,7 +57,9 @@ def repack_pod5(
     if not output.is_dir():
         output.mkdir(parents=True, exist_ok=True)
 
-    _inputs = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
+    _inputs = collect_inputs(
+        inputs, recursive=recursive, pattern="*.pod5", threads=threads
+    )
     assert_no_duplicate_filenames(_inputs)
 
     # Remove existing files if required

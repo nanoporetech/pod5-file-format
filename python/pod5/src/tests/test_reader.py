@@ -2,6 +2,7 @@
 Testing Pod5Reader
 """
 from typing import Type
+from unittest import mock
 from uuid import UUID, uuid4
 
 import numpy
@@ -16,7 +17,7 @@ import lib_pod5 as p5b
 import pod5 as p5
 from pod5.api_utils import format_read_ids
 from pod5.pod5_types import Calibration, EndReason, RunInfo
-from pod5.reader import ReadRecordBatch, SignalRowInfo
+from pod5.reader import ArrowTableHandle, ReadRecordBatch, SignalRowInfo
 from tests.conftest import POD5_PATH
 
 
@@ -146,6 +147,23 @@ class TestPod5Reader:
             assert all(isinstance(r, str) for r in reader.read_ids)
 
             assert isinstance(reader.get_batch(0), ReadRecordBatch)
+
+    def test_without_mmap(self) -> None:
+        """Test the file load without mmap for low-memory devices"""
+        pod5_file_reader = p5b.open_file(str(POD5_PATH))
+        read_table_location = pod5_file_reader.get_file_read_table_location()
+
+        # Raise OSerror when loading with mmap
+        mocked = ArrowTableHandle
+        mocked._open_reader_with_mmap = mock.Mock(side_effect=OSError)  # type: ignore
+        ath = ArrowTableHandle(read_table_location)
+
+        # Assert no handles are opened promptly
+        assert ath.reader is not None
+        assert ath.reader.num_record_batches > 0
+
+        # Clean reader resources
+        del pod5_file_reader
 
 
 class TestRecordBatch:

@@ -18,7 +18,10 @@ DEFAULT_THREADS = min(mp.cpu_count(), 8)
 
 
 def collect_inputs(
-    paths: Iterable[Path], recursive: bool, pattern: Union[str, Collection[str]]
+    paths: Iterable[Path],
+    recursive: bool,
+    pattern: Union[str, Collection[str]],
+    threads: int = DEFAULT_THREADS,
 ) -> Set[Path]:
     """
     Returns a set of `path` which match any of the given glob-style `pattern`s
@@ -30,7 +33,10 @@ def collect_inputs(
     """
     paths = set(paths)
     assert_inputs_exist(paths)
-    return search_paths(paths, recursive, pattern)
+    if len(paths) == 0:
+        raise AssertionError("Got 0 input paths to search")
+
+    return search_paths(paths, recursive, pattern, min(threads, len(paths)))
 
 
 def assert_inputs_exist(inputs: Iterable[Path]):
@@ -45,7 +51,10 @@ def assert_inputs_exist(inputs: Iterable[Path]):
 
 
 def search_paths(
-    paths: Iterable[Path], recursive: bool, pattern: Union[str, Collection[str]]
+    paths: Iterable[Path],
+    recursive: bool,
+    pattern: Union[str, Collection[str]],
+    threads: int = DEFAULT_THREADS,
 ) -> Set[Path]:
     """
     Search all `paths` matching any of `patterns` searching directories recursively
@@ -54,10 +63,12 @@ def search_paths(
     if isinstance(pattern, str):
         pattern = [pattern]
 
+    srch = functools.partial(search_path, recursive=recursive, patterns=pattern)
+
     all_matches: Set[Path] = set()
-    for path in paths:
-        matches = search_path(path, recursive, pattern)
-        all_matches.update(matches)
+    with mp.Pool(processes=threads) as pool:
+        for matches in pool.imap_unordered(srch, paths):
+            all_matches.update(matches)
 
     return all_matches
 

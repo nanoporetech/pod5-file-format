@@ -67,6 +67,24 @@ class TestPod5Tools:
         assert "POD5_DEBUG=1" in error_str
         assert dummy_error_string in error_str
 
+    def test_run_tool_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Assert that exceptions are raised if POD5_DEBUG is set"""
+        dummy_error_string = "Dummy Error String"
+
+        def _func() -> None:
+            raise Exception(dummy_error_string)
+
+        parser = argparse.ArgumentParser()
+        parser.set_defaults(func=_func)
+
+        # Intentionally raise an error
+        with monkeypatch.context() as mkp:
+            mkp.setenv("POD5_DEBUG", "1")
+            mkp.setattr("argparse._sys.argv", ["_raises_an_exception"])
+
+            with pytest.raises(Exception, match=dummy_error_string):
+                parsers.run_tool(parser)
+
     def test_pod5_version_argument(self, capsys: pytest.CaptureFixture) -> None:
         """Assert that pod5 has a --version argument"""
         with patch("argparse._sys.argv", ["pod5", "--version"]):
@@ -195,6 +213,17 @@ class TestPod5Tools:
             str(POD5_PATH),
             "--output",
             str(tmp_path / "new.pod5"),
+        ]
+        with patch("argparse._sys.argv", args):
+            main.main()
+
+    def test_recover_command_runs(self) -> None:
+        """Assert that typical commands are valid"""
+
+        args = [
+            "pod5",
+            "recover",
+            str(POD5_PATH),
         ]
         with patch("argparse._sys.argv", args):
             main.main()
