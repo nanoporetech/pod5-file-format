@@ -260,7 +260,9 @@ def convert_to_fast5(
         futures: Dict[Future, Path] = {}
 
         # Enumerate over input pod5 files
-        for input_idx, source in enumerate(collect_inputs(inputs, recursive, "*.pod5")):
+        for input_idx, source in enumerate(
+            collect_inputs(inputs, recursive, "*.pod5", threads=threads)
+        ):
             # Open the inputs to read the read ids
             with p5.Reader(source) as reader:
                 for chunk_idx, read_ids in enumerate(

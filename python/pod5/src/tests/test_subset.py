@@ -7,13 +7,13 @@ import polars as pl
 from polars.testing import assert_frame_equal, assert_series_equal
 
 import pytest
-from tests.conftest import skip_if_windows
 
 from pod5.tools.pod5_inspect import inspect_pod5
 from pod5.tools.pod5_subset import (
     PL_DEST_FNAME,
     PL_READ_ID,
     assert_filename_template,
+    assert_overwrite_ok,
     calculate_transfers,
     column_keys_from_template,
     create_default_filename_template,
@@ -122,14 +122,13 @@ class TestSubset:
         csv = self.csv_mapping_single(tmp_path, MAPPING_REPEATED)
         self._test_subset(tmp_path, csv, MAPPING_REPEATED)
 
-    @skip_if_windows
     def test_subset_dir_and_recurse(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         csv = tmp_path / "csv.csv"
-        symlink = tmp_path / "subdir/test.pod5"
-        symlink.parent.mkdir(exist_ok=False, parents=True)
-        symlink.symlink_to(POD5_PATH)
+        data = tmp_path / "subdir/test.pod5"
+        data.parent.mkdir(exist_ok=False, parents=True)
+        data.write_bytes(POD5_PATH.read_bytes())
 
         inspect_pod5("reads", [POD5_PATH])
         captured_stdout = str(capsys.readouterr().out)
@@ -156,6 +155,23 @@ class TestSubset:
         for output_pod5 in output.glob("*.pod5"):
             with pod5.Reader(output_pod5) as reader:
                 assert reader.read_ids
+
+    def test_assert_overwrite(self, tmp_path: Path) -> None:
+        """Test overwriting existing files if requested"""
+        no_exists = tmp_path / "no_exists"
+        exists = tmp_path / "exists"
+        exists.touch()
+
+        ldf = pl.DataFrame({PL_DEST_FNAME: map(str, [no_exists, exists])}).lazy()
+        with pytest.raises(FileExistsError, match="--force-overwrite"):
+            assert_overwrite_ok(ldf, force_overwrite=False)
+
+        assert not no_exists.exists()
+        assert exists.exists()
+
+        assert_overwrite_ok(ldf, force_overwrite=True)
+        assert not no_exists.exists()
+        assert not exists.exists()
 
 
 class TestFilenameTemplating:

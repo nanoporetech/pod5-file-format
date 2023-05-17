@@ -135,7 +135,7 @@ def filter_pod5(
     targets = parse_read_id_targets(ids, output=output)
     print(f"Parsed {len(targets.collect())} reads_ids from: {ids.name}")
 
-    _inputs = collect_inputs(inputs, recursive, "*.pod5")
+    _inputs = collect_inputs(inputs, recursive, "*.pod5", threads=threads)
     sources = parse_sources(_inputs, duplicate_ok=duplicate_ok, threads=threads)
     print(f"Found {len(sources.collect())} read_ids from {len(_inputs)} inputs")
 

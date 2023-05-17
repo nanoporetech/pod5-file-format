@@ -677,6 +677,13 @@ def prepare_pod5_view_argparser(
     )
     add_recursive_argument(parser)
     add_force_overwrite_argument(parser)
+    parser.add_argument(
+        "-t",
+        "--threads",
+        default=DEFAULT_THREADS,
+        type=int,
+        help="Set the number of reader workers",
+    )
     format_group = parser.add_argument_group("Formatting")
     format_group.add_argument(
         "-H", "--no-header", action="store_true", help="Omit the header line"
