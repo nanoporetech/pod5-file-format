@@ -959,5 +959,3 @@ pages:
     paths:
       - public
   when: manual
-  only:
-    - tags

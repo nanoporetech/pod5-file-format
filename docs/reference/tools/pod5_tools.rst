@@ -19,3 +19,4 @@ Submodules
    pod5_tools.pod5_update
    pod5_tools.parsers
    pod5_tools.utils
+   pod5_tools.main
