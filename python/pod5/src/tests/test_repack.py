@@ -17,13 +17,13 @@ POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
 class TestRepack:
     """Test that pod5 repack runs"""
 
-    @skip_if_windows
     def test_works(self, tmp_path: Path) -> None:
-        symlink = tmp_path / "subdir/test.pod5"
-        symlink.parent.mkdir(exist_ok=False, parents=True)
-        symlink.symlink_to(POD5_PATH)
+        data = tmp_path / "subdir/test.pod5"
+        data.parent.mkdir(exist_ok=False, parents=True)
+        data.write_bytes(POD5_PATH.read_bytes())
 
         output = tmp_path / "output"
+        assert not (output / "test.pod5").exists()
         repack_pod5(
             [tmp_path], output, threads=2, force_overwrite=False, recursive=True
         )
@@ -31,18 +31,17 @@ class TestRepack:
         assert (output / "test.pod5").is_file()
 
         with p5.Reader(output / "test.pod5") as dest:
-            with p5.Reader(symlink) as source:
+            with p5.Reader(data) as source:
                 for d_read, s_read in zip(dest, source):
                     assert d_read.read_id == s_read.read_id
                     assert d_read.pore == s_read.pore
                     assert d_read.calibration == s_read.calibration
                     assert np.array_equal(d_read.signal, s_read.signal)
 
-    @skip_if_windows
     def test_detect_name_collision(self, tmp_path: Path) -> None:
-        symlink = tmp_path / "subdir/test.pod5"
-        symlink.parent.mkdir(exist_ok=False, parents=True)
-        symlink.symlink_to(POD5_PATH)
+        data = tmp_path / "subdir/test.pod5"
+        data.parent.mkdir(exist_ok=False, parents=True)
+        data.write_bytes(POD5_PATH.read_bytes())
 
         similar_name = tmp_path / "test.pod5"
         similar_name.touch()
@@ -54,7 +53,7 @@ class TestRepack:
             )
 
     @skip_if_windows
-    def test_overwrite(self, tmp_path: Path) -> None:
+    def test_overwrite_symlink(self, tmp_path: Path) -> None:
         symlink = tmp_path / "subdir/test.pod5"
         symlink.parent.mkdir(exist_ok=False, parents=True)
         symlink.symlink_to(POD5_PATH)
@@ -78,6 +77,27 @@ class TestRepack:
             force_overwrite=True,
             recursive=True,
         )
+
+        assert dest.is_file()
+        with p5.Reader(dest) as reader:
+            assert reader.read_ids
+
+    def test_overwrite_data(self, tmp_path: Path) -> None:
+        data = tmp_path / "subdir/test.pod5"
+        data.parent.mkdir(exist_ok=False, parents=True)
+        data.write_bytes(POD5_PATH.read_bytes())
+
+        dest = tmp_path / "test.pod5"
+        dest.touch()
+
+        repack_pod5(
+            [tmp_path / "subdir"],
+            tmp_path,
+            threads=2,
+            force_overwrite=True,
+            recursive=True,
+        )
+
         assert dest.is_file()
         with p5.Reader(dest) as reader:
             assert reader.read_ids
