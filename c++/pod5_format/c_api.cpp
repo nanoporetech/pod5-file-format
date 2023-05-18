@@ -661,8 +661,9 @@ pod5_error_t pod5_get_end_reason(
     }
 
     POD5_C_ASSIGN_OR_RAISE(auto const end_reason_val, batch->batch.get_end_reason(end_reason));
+    auto const input_buffer_len = *end_reason_string_value_size;
     *end_reason_string_value_size = end_reason_val.second.size() + 1;
-    if (end_reason_val.second.size() >= *end_reason_string_value_size) {
+    if (end_reason_val.second.size() >= input_buffer_len) {
         return POD5_ERROR_STRING_NOT_LONG_ENOUGH;
     }
 
@@ -708,8 +709,9 @@ pod5_error_t pod5_get_pore_type(
     }
 
     POD5_C_ASSIGN_OR_RAISE(auto const pore_type_str, batch->batch.get_pore_type(pore_type));
+    auto const input_buffer_len = *pore_type_string_value_size;
     *pore_type_string_value_size = pore_type_str.size() + 1;
-    if (pore_type_str.size() >= *pore_type_string_value_size) {
+    if (pore_type_str.size() >= input_buffer_len) {
         return POD5_ERROR_STRING_NOT_LONG_ENOUGH;
     }
 
