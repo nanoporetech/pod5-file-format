@@ -324,7 +324,7 @@ Keywords should be placed within curly-braces. For example:
     barcode_c.subset.pod5    # Contains: read_d
 
 Example subsetting from ``pod5 inspect reads``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``pod5 inspect reads`` tool will output a csv table summarising the content of the
 specified ``.pod5`` file which can be used for subsetting. The example below shows
