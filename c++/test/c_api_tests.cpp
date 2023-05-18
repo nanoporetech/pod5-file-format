@@ -328,25 +328,55 @@ SCENARIO("C API Reads")
                 pod5_free_signal_row_info(signal_row_indices.size(), signal_row_info.data())
                 == POD5_OK);
 
-            std::array<char, 256> char_buffer{};
-            std::size_t returned_size = char_buffer.size();
-            CHECK(
-                pod5_get_pore_type(batch_0, v3_struct.pore_type, char_buffer.data(), &returned_size)
-                == POD5_OK);
             std::string expected_pore_type{"pore_type"};
-            CHECK(returned_size == expected_pore_type.size() + 1);
-            CHECK(std::string{char_buffer.data()} == expected_pore_type);
+            std::array<char, 128> char_buffer{};
+            std::size_t returned_size = 2;  // deliberately too short!
+            {
+                CHECK(
+                    pod5_get_pore_type(
+                        batch_0, v3_struct.pore_type, char_buffer.data(), &returned_size)
+                    == POD5_ERROR_STRING_NOT_LONG_ENOUGH);
+                CHECK(returned_size == expected_pore_type.size() + 1);
+            }
+            {
+                returned_size = char_buffer.size();
+                CHECK(
+                    pod5_get_pore_type(
+                        batch_0, v3_struct.pore_type, char_buffer.data(), &returned_size)
+                    == POD5_OK);
+                CHECK(returned_size == expected_pore_type.size() + 1);
+                CHECK(std::string{char_buffer.data()} == expected_pore_type);
+            }
 
-            returned_size = char_buffer.size();
-            pod5_end_reason end_reason = POD5_END_REASON_UNKNOWN;
-            CHECK(
-                pod5_get_end_reason(
-                    batch_0, v3_struct.end_reason, &end_reason, char_buffer.data(), &returned_size)
-                == POD5_OK);
             std::string expected_end_reason{"mux_change"};
-            CHECK(returned_size == expected_end_reason.size() + 1);
-            CHECK(end_reason == POD5_END_REASON_MUX_CHANGE);
-            CHECK(std::string{char_buffer.data()} == expected_end_reason);
+            {
+                returned_size = 2;  // deliberately too short!
+                pod5_end_reason end_reason = POD5_END_REASON_UNKNOWN;
+                CHECK(
+                    pod5_get_end_reason(
+                        batch_0,
+                        v3_struct.end_reason,
+                        &end_reason,
+                        char_buffer.data(),
+                        &returned_size)
+                    == POD5_ERROR_STRING_NOT_LONG_ENOUGH);
+                CHECK(returned_size == expected_end_reason.size() + 1);
+            }
+            {
+                returned_size = char_buffer.size();
+                pod5_end_reason end_reason = POD5_END_REASON_UNKNOWN;
+                CHECK(
+                    pod5_get_end_reason(
+                        batch_0,
+                        v3_struct.end_reason,
+                        &end_reason,
+                        char_buffer.data(),
+                        &returned_size)
+                    == POD5_OK);
+                CHECK(returned_size == expected_end_reason.size() + 1);
+                CHECK(end_reason == POD5_END_REASON_MUX_CHANGE);
+                CHECK(std::string{char_buffer.data()} == expected_end_reason);
+            }
 
             CalibrationExtraData calibration_extra_data{};
             CHECK(

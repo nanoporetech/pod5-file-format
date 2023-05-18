@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Exception raised when calling `pod5` without any arguments
 - Exception raised in `pod5 convert fast5` where closed writers were reopened after being closed by a caught exception
+- Fixed Gitlab 38, pod5_get_end_reason and pod5_get_pore_type ignoring input string length checks.
 
 ### Removed
 
