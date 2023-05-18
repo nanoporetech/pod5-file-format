@@ -17,7 +17,7 @@ venv:
 update:
 	source ${envDir}/bin/activate \
 	&& pip install -U pip \
-	&& pip install -r docs/requirements.txt
+	&& pip install -r docs/requirements.txt --no-cache-dir
 
 # Clean existing docs and re-build using the same command as used by RTD
 docs:
