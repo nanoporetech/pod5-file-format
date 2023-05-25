@@ -76,7 +76,7 @@ class Pod5Conan(ConanFile):
                 "Pod5Conan: setVersionsAndSuffixes for internal build, add .1"
             )
             self.package_suffix = "@nanopore/stable"
-            self.arrow_version = f"{self.arrow_version}.3"
+            self.arrow_version = f"{self.arrow_version}.4"
             self.boost_version = f"{self.boost_version}.1"
         else:
             self.output.warn(
