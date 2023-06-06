@@ -85,6 +85,8 @@ public:
             return arrow::Status::Invalid("File writer closed, cannot write further data");
         }
 
+        ARROW_RETURN_NOT_OK(check_read(read_data));
+
         ARROW_ASSIGN_OR_RAISE(
             std::vector<std::uint64_t> signal_rows, add_signal(read_data.read_id, signal));
 
@@ -103,10 +105,29 @@ public:
             return arrow::Status::Invalid("File writer closed, cannot write further data");
         }
 
+        ARROW_RETURN_NOT_OK(check_read(read_data));
+
         // Write read data and signal row entries:
         auto read_table_row =
             m_read_table_writer->add_read(read_data, signal_rows, signal_duration);
         return read_table_row.status();
+    }
+
+    arrow::Status check_read(ReadData const & read_data)
+    {
+        if (!m_read_table_dict_writers.run_info_writer->is_valid(read_data.run_info)) {
+            return arrow::Status::Invalid("Invalid run info passed to add_read");
+        }
+
+        if (!m_read_table_dict_writers.pore_writer->is_valid(read_data.pore_type)) {
+            return arrow::Status::Invalid("Invalid pore type passed to add_read");
+        }
+
+        if (!m_read_table_dict_writers.end_reason_writer->is_valid(read_data.end_reason)) {
+            return arrow::Status::Invalid("Invalid end reason passed to add_read");
+        }
+
+        return arrow::Status::OK();
     }
 
     pod5::Result<std::vector<SignalTableRowIndex>> add_signal(

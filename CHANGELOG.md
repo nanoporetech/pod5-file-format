@@ -7,6 +7,11 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] 2023-06-06
+
+### Fixed
+- Add API error when adding reads with invalid end reason, pore type or run info.
+
 ## [0.2.1] 2023-05-25
 
 ### Changed
