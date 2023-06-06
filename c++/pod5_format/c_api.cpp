@@ -1058,8 +1058,10 @@ inline bool load_struct_row_into_read_data(
             end_reason_internal = pod5::ReadEndReason::signal_negative;
             break;
         default:
-            pod5_set_error(
-                arrow::Status::Invalid("out of range end reason passed to pod5_add_end_reason"));
+            pod5_set_error(arrow::Status::Invalid(
+                "out of range end reason ",
+                typed_row_data->end_reason[row_id],
+                " passed to add read"));
             return false;
         }
 

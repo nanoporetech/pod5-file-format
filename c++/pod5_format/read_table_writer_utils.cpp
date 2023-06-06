@@ -28,6 +28,9 @@ arrow::Result<std::shared_ptr<arrow::ArrayData>> get_array_data(
     std::size_t expected_length)
 {
     auto const value_data = builder.get_string_data();
+    if (!value_data) {
+        return Status::Invalid("Missing array value data for dictionary");
+    }
 
     arrow::TypedBufferBuilder<std::int32_t> offset_builder;
     auto const & offset_data = builder.get_typed_offset_data();

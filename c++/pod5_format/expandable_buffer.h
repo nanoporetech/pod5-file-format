@@ -43,7 +43,10 @@ public:
 
     gsl::span<T const> get_data_span() const
     {
-        assert(m_buffer);
+        if (!m_buffer) {
+            return {};
+        }
+
         return gsl::make_span(m_buffer->data(), m_buffer->size()).template as_span<T const>();
     }
 

@@ -17,6 +17,8 @@ public:
         std::shared_ptr<arrow::Array> const & indices);
     virtual pod5::Result<std::shared_ptr<arrow::Array>> get_value_array() = 0;
     virtual std::size_t item_count() = 0;
+
+    bool is_valid(std::size_t value) { return value < item_count(); }
 };
 
 }  // namespace pod5
