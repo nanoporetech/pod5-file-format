@@ -581,9 +581,13 @@ SCENARIO("C API Many Reads")
 
     // Read the file back:
     {
+        Pod5ReaderOptions_t options{};
+        options.force_disable_file_mapping = true;
+
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!pod5_open_file(NULL));
-        auto file = pod5_open_file(filename);
+        CHECK(!pod5_open_file_options(NULL, &options));
+        CHECK(!pod5_open_file_options(filename, NULL));
+        auto file = pod5_open_file_options(filename, &options);
         CHECK_POD5_OK(pod5_get_error_no());
         CHECK(!!file);
 

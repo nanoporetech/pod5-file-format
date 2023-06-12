@@ -7,6 +7,11 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- Add API (pod5_open_file_options) to prevent pod5 from opening a file using mmap, instead using direct file IO.
+
 ## [0.2.2] 2023-06-06
 
 ### Fixed
