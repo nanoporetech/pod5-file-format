@@ -197,9 +197,25 @@ typedef struct ReadBatchRowInfoArrayV3 ReadBatchRowInfoArray_t;
 // Reading files
 //---------------------------------------------------------------------------------------------------------------------
 
+// Options to control how a file is written.
+struct Pod5ReaderOptions {
+    /// \brief Disable file mapping into memory. Reduces memory usage of pod5 files, at the expense
+    ///        of the underlying arrow file loading into memory on demand.
+    char force_disable_file_mapping;
+};
+typedef struct Pod5ReaderOptions Pod5ReaderOptions_t;
+
 /// \brief Open a file reader
 /// \param filename         The filename of the pod5 file.
+/// \see             pod5_open_file_options
 POD5_FORMAT_EXPORT Pod5FileReader_t * pod5_open_file(char const * filename);
+
+/// \brief Open a file reader
+/// \param filename         The filename of the pod5 file.
+/// \param options          The options to use when opening the file.
+POD5_FORMAT_EXPORT Pod5FileReader_t * pod5_open_file_options(
+    char const * filename,
+    Pod5ReaderOptions_t const * options);
 
 /// \brief Close a file reader, releasing all memory held by the reader.
 POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_reader(Pod5FileReader_t * file);

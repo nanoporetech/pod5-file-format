@@ -38,9 +38,17 @@ public:
     // Note: 0 here implies no limit.
     void set_max_cached_signal_table_batches(std::size_t max_cached_signal_table_batches);
 
+    void set_force_disable_file_mapping(bool force_disable_file_mapping)
+    {
+        m_force_disable_file_mapping = force_disable_file_mapping;
+    }
+
+    bool force_disable_file_mapping() const { return m_force_disable_file_mapping; }
+
 private:
     arrow::MemoryPool * m_memory_pool;
     std::size_t m_max_cached_signal_table_batches;
+    bool m_force_disable_file_mapping = false;
 };
 
 class POD5_FORMAT_EXPORT FileLocation {
