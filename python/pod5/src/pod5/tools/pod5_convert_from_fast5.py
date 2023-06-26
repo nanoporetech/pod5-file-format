@@ -425,7 +425,9 @@ def convert_fast5_end_reason(fast5_end_reason: int) -> p5.EndReason:
     )
 
 
-def convert_datetime_as_epoch_ms(time_str: Optional[str]) -> datetime.datetime:
+def convert_datetime_as_epoch_ms(
+    time_str: Union[str, bytes, None]
+) -> datetime.datetime:
     """Convert the fast5 time string to timestamp"""
     epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=datetime.timezone.utc)
     if time_str is None:
@@ -441,15 +443,15 @@ def convert_run_info(
     adc_max: int,
     adc_min: int,
     sample_rate: int,
-    context_tags: Dict[str, str],
+    context_tags: Dict[str, Union[str, bytes]],
     device_type: str,
-    tracking_id: Dict[str, str],
+    tracking_id: Dict[str, Union[str, bytes]],
 ) -> p5.RunInfo:
     """Create a Pod5RunInfo instance from parsed fast5 data"""
     return p5.RunInfo(
         acquisition_id=acq_id,
         acquisition_start_time=convert_datetime_as_epoch_ms(
-            tracking_id["exp_start_time"]
+            tracking_id.get("exp_start_time")
         ),
         adc_max=adc_max,
         adc_min=adc_min,
@@ -461,12 +463,12 @@ def convert_run_info(
         flow_cell_product_code=decode_str(
             tracking_id.get("flow_cell_product_code", b"")
         ),
-        protocol_name=decode_str(tracking_id["exp_script_name"]),
-        protocol_run_id=decode_str(tracking_id["protocol_run_id"]),
+        protocol_name=decode_str(tracking_id.get("exp_script_name", b"")),
+        protocol_run_id=decode_str(tracking_id.get("protocol_run_id", b"")),
         protocol_start_time=convert_datetime_as_epoch_ms(
             tracking_id.get("protocol_start_time", None)
         ),
-        sample_id=decode_str(tracking_id["sample_id"]),
+        sample_id=decode_str(tracking_id.get("sample_id", b"")),
         sample_rate=sample_rate,
         sequencing_kit=decode_str(context_tags.get("sequencing_kit", b"")),
         sequencer_position=decode_str(tracking_id.get("device_id", b"")),
