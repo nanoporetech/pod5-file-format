@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lib_pod5"
-authors = [{name="Oxford Nanopore Technologies, Limited", email="support@nanoporetech.com"}]
+authors = [{name="Oxford Nanopore Technologies plc", email="support@nanoporetech.com"}]
 readme="README.md"
 requires-python=">=3.7"
 description="Python bindings for the POD5 file format"

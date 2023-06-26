@@ -10,18 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
+
 - Add API (pod5_open_file_options) to prevent pod5 from opening a file using mmap, instead using direct file IO.
+
+### Changed
+
+- Corrected Oxford Nanopore Technologies company name in package metadata to use Public Limited Company (Plc) instead of Limited (Ltd)
 
 ## [0.2.2] 2023-06-06
 
 ### Fixed
+
 - Add API error when adding reads with invalid end reason, pore type or run info.
 
 ## [0.2.1] 2023-05-25
 
 ### Changed
-- Update internal arrow lib to not export flatbuffers symbols.
 
+- Update internal arrow lib to not export flatbuffers symbols.
 
 ## [0.2.0] 2023-05-18
 
