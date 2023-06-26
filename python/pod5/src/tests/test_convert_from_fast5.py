@@ -19,15 +19,18 @@ import pod5
 from pod5.tools.pod5_convert_from_fast5 import (
     OutputHandler,
     QueueManager,
+    convert_datetime_as_epoch_ms,
     convert_fast5_end_reason,
     convert_fast5_files,
     convert_fast5_read,
     convert_from_fast5,
+    convert_run_info,
     get_read_from_fast5,
     handle_exception,
     is_multi_read_fast5,
     logger,
 )
+
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
@@ -247,6 +250,92 @@ class TestFast5Conversion:
     def test_end_reason(self, fast5: int, expected: pod5.EndReasonEnum) -> None:
         exp = pod5.EndReason.from_reason_with_default_forced(expected)
         assert exp == convert_fast5_end_reason(fast5)
+
+    def test_convert_run_info_defaults(self) -> None:
+        result = convert_run_info(
+            acq_id="acq_id",
+            adc_max=1,
+            adc_min=1,
+            sample_rate=1,
+            context_tags={},
+            device_type="dev_type",
+            tracking_id={},
+        )
+
+        epoch = convert_datetime_as_epoch_ms(f"{datetime.datetime.utcfromtimestamp(0)}")
+        assert isinstance(result, pod5.RunInfo)
+        assert result.acquisition_id == "acq_id"
+        assert result.acquisition_start_time == epoch
+        assert result.adc_max == 1
+        assert result.adc_min == 1
+        assert result.context_tags == {}
+        assert result.experiment_name == ""
+        assert result.flow_cell_id == ""
+        assert result.flow_cell_product_code == ""
+        assert result.protocol_name == ""
+        assert result.protocol_run_id == ""
+        assert result.protocol_start_time == epoch
+        assert result.sample_id == ""
+        assert result.sample_rate == 1
+        assert result.sequencing_kit == ""
+        assert result.sequencer_position == ""
+        assert result.sequencer_position_type == "dev_type"
+        assert result.software == "python-pod5-converter"
+        assert result.system_name == ""
+        assert result.system_type == ""
+        assert result.tracking_id == {}
+
+    def test_convert_run_info(self) -> None:
+        result = convert_run_info(
+            acq_id="_acq_id",
+            adc_max=2,
+            adc_min=3,
+            sample_rate=4,
+            context_tags={"sequencing_kit": b"sequencing_kit", "ctag": b"ctag"},
+            device_type="_dev_type",
+            tracking_id={
+                "exp_start_time": f"{datetime.datetime.utcfromtimestamp(1)}",
+                "flow_cell_id": b"flow_cell_id",
+                "flow_cell_product_code": b"flow_cell_product_code",
+                "exp_script_name": b"exp_script_name",
+                "protocol_run_id": b"protocol_run_id",
+                "protocol_start_time": f"{datetime.datetime.utcfromtimestamp(2)}",
+                "sample_id": b"sample_id",
+                "sequencing_kit": b"sequencing_kit",
+                "device_id": b"device_id",
+                "device_type": b"device_type",
+                "host_product_serial_number": b"host_product_serial_number",
+                "host_product_code": b"host_product_code",
+            },
+        )
+
+        assert isinstance(result, pod5.RunInfo)
+        assert result.acquisition_id == "_acq_id"
+        assert result.acquisition_start_time == convert_datetime_as_epoch_ms(
+            f"{datetime.datetime.utcfromtimestamp(1)}"
+        )
+        assert result.adc_max == 2
+        assert result.adc_min == 3
+        assert result.context_tags == {
+            "sequencing_kit": "sequencing_kit",
+            "ctag": "ctag",
+        }
+        assert result.experiment_name == ""
+        assert result.flow_cell_id == "flow_cell_id"
+        assert result.flow_cell_product_code == "flow_cell_product_code"
+        assert result.protocol_name == "exp_script_name"
+        assert result.protocol_run_id == "protocol_run_id"
+        assert result.protocol_start_time == convert_datetime_as_epoch_ms(
+            f"{datetime.datetime.utcfromtimestamp(2)}"
+        )
+        assert result.sample_id == "sample_id"
+        assert result.sample_rate == 4
+        assert result.sequencing_kit == "sequencing_kit"
+        assert result.sequencer_position == "device_id"
+        assert result.sequencer_position_type == "device_type"
+        assert result.software == "python-pod5-converter"
+        assert result.system_name == "host_product_serial_number"
+        assert result.system_type == "host_product_code"
 
 
 class TestFast5Detection:
