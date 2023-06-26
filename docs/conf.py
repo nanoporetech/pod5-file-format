@@ -27,8 +27,8 @@ sys.path.insert(0, str((repo_root / "python/pod5/src/").absolute()))
 # -- Project information -----------------------------------------------------
 
 project = "Pod5 File Format"
-copyright = "2022 Oxford Nanopore Technologies Ltd."
-author = "Oxford Nanopore Technologies Ltd."
+copyright = "2022 Oxford Nanopore Technologies plc"
+author = "Oxford Nanopore Technologies plc"
 
 import pod5
 

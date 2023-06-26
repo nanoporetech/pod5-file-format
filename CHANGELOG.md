@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add API (pod5_open_file_options) to prevent pod5 from opening a file using mmap, instead using direct file IO.
 - Default field values (empty string) when converting fast5 files with missing fields
 
+### Changed
+
+- Corrected Oxford Nanopore Technologies company name in package metadata to use Public Limited Company (Plc) instead of Limited (Ltd)
+
 ## [0.2.2] 2023-06-06
 
 ### Fixed
