@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Corrected Oxford Nanopore Technologies company name in package metadata to use Public Limited Company (Plc) instead of Limited (Ltd)
+- Limited the number of processes created when specifying `--threads` to the number of cpu cores available `os.cpu_count()`
+- Reduced the default value for `--threads` from 8 to 4 to improve stability on resource constrained systems
 
 ## [0.2.2] 2023-06-06
 

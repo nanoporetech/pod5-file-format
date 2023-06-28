@@ -37,6 +37,7 @@ from pod5.tools.utils import (
     PBAR_DEFAULTS,
     collect_inputs,
     init_logging,
+    limit_threads,
     logged,
     logged_all,
     terminate_processes,
@@ -775,6 +776,8 @@ def convert_from_fast5(
 
     if len(output.parts) > 1:
         output.parent.mkdir(parents=True, exist_ok=True)
+
+    threads = limit_threads(threads)
 
     pending_fast5s = collect_inputs(inputs, recursive, "*.fast5", threads=threads)
     if not pending_fast5s:

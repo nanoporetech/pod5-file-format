@@ -13,7 +13,7 @@ from more_itertools import chunked
 
 import pod5 as p5
 from pod5.tools.parsers import pod5_convert_to_fast5_argparser, run_tool
-from pod5.tools.utils import DEFAULT_THREADS, collect_inputs
+from pod5.tools.utils import DEFAULT_THREADS, collect_inputs, limit_threads
 
 # Pod5 does not have 'partial' so need to add that back in here.
 FAST5_END_REASONS = {
@@ -254,6 +254,8 @@ def convert_to_fast5(
 ):
     if output.exists() and not output.is_dir():
         raise FileExistsError("Cannot output to a file")
+
+    threads = limit_threads(threads)
 
     with ProcessPoolExecutor(max_workers=threads) as executor:
         total_reads = 0

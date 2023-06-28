@@ -14,7 +14,17 @@ from pathlib import Path
 import uuid
 
 
-DEFAULT_THREADS = min(mp.cpu_count(), 8)
+# os.cpu_count() can return None if it fails
+DEFAULT_THREADS = min(os.cpu_count() or 4, 4)
+
+
+def limit_threads(requested: int) -> int:
+    """
+    Santise and limit the number of `requested` threads to the number of logical cores
+    """
+    if requested < 1:
+        return os.cpu_count() or 4
+    return min(os.cpu_count() or requested, requested)
 
 
 def collect_inputs(

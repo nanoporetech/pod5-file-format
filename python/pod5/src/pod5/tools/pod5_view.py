@@ -17,6 +17,7 @@ from pod5.tools.utils import (
     DEFAULT_THREADS,
     collect_inputs,
     init_logging,
+    limit_threads,
     logged,
     logged_all,
     terminate_processes,
@@ -509,6 +510,8 @@ def view_pod5(
     if list_fields:
         print_fields()
         return
+
+    threads = limit_threads(threads)
 
     output_path = resolve_output(output, force_overwrite)
 
