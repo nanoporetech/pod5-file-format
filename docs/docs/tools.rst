@@ -11,7 +11,21 @@ POD5 files as well as converting between ``.pod5`` and ``.fast5`` file formats.
     :depth: 1
 
 
-Pod5 View
+.. note::
+
+    The ``--threads`` argument controls the number of *additional* processes spawned by
+    the tools where necessary. The default value for ``--threads`` is 4 unless
+    the number of available cpu cores is fewer in which case this lower value is used.
+
+    Specifying a ``--threads`` value less than 1 will use the number of available cpu
+    cores. The ``--help`` text shown for all tools should show the default value on
+    your system.
+
+    If you experience errors which mention threading or spawning processes. Please
+    reduce the ``--threads`` value.
+
+
+pod5 view
 =========
 
 The ``pod5 view`` tool is used to produce a table similarr to a sequencing summary
@@ -47,7 +61,7 @@ This tools is indented to replace ``pod5 inspect reads`` and is over 200x faster
     $ pod5 view input.pod5 --exclude "filename, pore_type"
 
 
-Pod5 inspect
+pod5 inspect
 ============
 
 The ``pod5 inspect`` tool can be used to extract details and summaries of

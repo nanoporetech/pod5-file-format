@@ -2,6 +2,7 @@
 Testing Pod5 Tools
 """
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -11,7 +12,7 @@ from uuid import UUID
 
 import h5py
 import numpy as np
-from pod5.tools.utils import collect_inputs
+from pod5.tools.utils import collect_inputs, limit_threads
 import pytest
 import vbz_h5py_plugin  # noqa: F401
 
@@ -365,3 +366,16 @@ class TestUtils:
         """Test FileExistsError raised if input doesn't exist"""
         with pytest.raises(FileExistsError, match="inputs do not exist"):
             collect_inputs([tmp_path / "non_existent.txt"], False, "*.txt")
+
+    @pytest.mark.skipif(os.cpu_count() is None, reason="os.cpu_count is None")
+    def test_limit_threads(self) -> None:
+        """Test thread limiting"""
+        cpus = os.cpu_count()
+        if cpus is None:
+            assert False
+        limit_threads(-1) == cpus
+        limit_threads(0) == cpus
+        for i in range(1, cpus + 1):
+            assert limit_threads(i) == i
+        assert limit_threads(cpus + 1) == cpus
+        limit_threads(1_000_000) == cpus

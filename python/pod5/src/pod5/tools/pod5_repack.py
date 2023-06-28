@@ -13,6 +13,7 @@ from pod5.tools.utils import (
     PBAR_DEFAULTS,
     assert_no_duplicate_filenames,
     collect_inputs,
+    limit_threads,
 )
 from pod5.tools.parsers import prepare_pod5_repack_argparser, run_tool
 
@@ -56,6 +57,8 @@ def repack_pod5(
     # Create output directory if required
     if not output.is_dir():
         output.mkdir(parents=True, exist_ok=True)
+
+    threads = limit_threads(threads)
 
     _inputs = collect_inputs(
         inputs, recursive=recursive, pattern="*.pod5", threads=threads

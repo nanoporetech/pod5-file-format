@@ -27,6 +27,7 @@ from pod5.tools.utils import (
     PBAR_DEFAULTS,
     collect_inputs,
     init_logging,
+    limit_threads,
     logged,
     logged_all,
     terminate_processes,
@@ -285,8 +286,8 @@ def parse_sources(
     paths: Set[Path], duplicate_ok: bool, threads: int = DEFAULT_THREADS
 ) -> pl.LazyFrame:
     """Reads all inputs and return formatted lazy dataframe"""
-    assert threads > 0
 
+    threads = limit_threads(threads)
     n_proc = min(threads, len(paths))
 
     ctx = mp.get_context("spawn")
@@ -453,7 +454,7 @@ def launch_subsetting(transfers: pl.LazyFrame, threads: int = DEFAULT_THREADS) -
     """
     Iterate over the transfers dataframe subsetting reads from sources to destinations
     """
-    assert threads > 0
+    threads = limit_threads(threads)
     assert {PL_READ_ID, PL_SRC_FNAME, PL_DEST_FNAME}.issubset(set(transfers.columns))
 
     ctx = mp.get_context("spawn")
