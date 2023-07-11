@@ -532,6 +532,7 @@ def subset_reads(dest: Path, sources: pl.DataFrame, process: int) -> None:
             unit="Reads",
             leave=False,
             position=process,
+            delay=2,
             **PBAR_DEFAULTS,
         )
 

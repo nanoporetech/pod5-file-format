@@ -567,13 +567,16 @@ public:
             if (output->has_error()) {
                 throw std::runtime_error(output->error().ToString());
             }
-            if (output->pending_writes() > 0) {
-                return false;
-            }
+        }
+
+        if (m_batches_requested > m_batches_completed) {
+            return false;
         }
 
         for (auto const & output : m_outputs) {
-            if (output->pending_unqueued_reads() > 0) {
+            if (output->pending_writes() > 0 || output->pending_unqueued_reads() > 0
+                || output->queued_reads() > 0)
+            {
                 return false;
             }
         }

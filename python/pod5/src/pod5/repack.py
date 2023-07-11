@@ -1,18 +1,13 @@
 """
 Tools to assist repacking pod5 data into other pod5 files
 """
-import time
-from typing import Collection, Generator, Optional
-from venv import logger
+from typing import Collection, Generator
+import warnings
 
 import lib_pod5 as p5b
 
 import pod5 as p5
-from pod5.tools.utils import PBAR_DEFAULTS, logged_all
-from tqdm.auto import tqdm
-
-# The default interval in seconds to check for completion
-DEFAULT_INTERVAL = 0.5
+from pod5.tools.utils import logged_all
 
 
 class Repacker:
@@ -25,14 +20,6 @@ class Repacker:
     @property
     def is_complete(self) -> bool:
         """Find if the requested repack operations are complete"""
-        # is_complete can be initialised to true before work starts
-        # this gives a short time to allow the value to be set
-        if self._repacker.is_complete:
-            for _ in range(100):
-                time.sleep(0.02)
-                if not self._repacker.is_complete:
-                    break
-
         return self._repacker.is_complete
 
     @property
@@ -127,6 +114,7 @@ class Repacker:
             output_ref, reader.inner_file_reader, per_batch_counts, all_batch_rows
         )
 
+    @logged_all
     def add_all_reads_to_output(
         self, output_ref: p5b.Pod5RepackerOutput, reader: p5.Reader
     ) -> None:
@@ -145,94 +133,61 @@ class Repacker:
         self._repacker.add_all_reads_to_output(output_ref, reader.inner_file_reader)
 
     @logged_all
-    def wait(
-        self,
-        finish: bool = True,
-        interval: float = DEFAULT_INTERVAL,
-        desc: str = "",
-        total_reads: Optional[int] = None,
-        offset: int = 0,
-    ) -> int:
+    def wait(self, finish: bool = True, **kwargs) -> int:
         """
-        Wait for the repacker (blocking) until it is done checking every `interval`
-        seconds. Shows a progress bar at the current process index with desc string
-        as the description.
+        Wait for the repacker (blocking) until it is done. Returning the number of reads
+        completed.
 
         Parameters
         ----------
         finish : bool
             Flag to toggle an optional final call to :py:meth:`finish` to
             close the repacker and free resources
-        interval : float
-            The interval (in seconds) between checks to :py:meth:`is_complete`
-        desc : str
-            Progressbar description string
-        total_reads : int
-            Overwrites the total number of reads expected
-        offset : int
-            Sets the progress bar position offset
 
         Returns
         -------
         num_reads_completed: int
             The number of reads written
         """
-        logger.info(f"pos: {offset}")
+        if kwargs:
+            warnings.warn(
+                f"pod5.repack.Repacker.wait: {kwargs.keys()} parameters are "
+                "deprecated and have no effect",
+                FutureWarning,
+            )
 
-        if total_reads is not None:
-            total = total_reads
-        else:
-            total = self.reads_requested
-
-        pbar = tqdm(
-            total=total,
-            desc=desc,
-            leave=False,
-            unit="Read",
-            position=offset,
-            **PBAR_DEFAULTS,
-        )
-
-        last_reads = 0
         while not self.is_complete:
-            time.sleep(interval)
-
-            # Update pbar - total / reads_requested might change if user adds more
-            if total_reads is None:
-                pbar.total = self.reads_requested
-            pbar.update(self.reads_completed - last_reads)
-            last_reads = self.reads_completed
+            continue
 
         if finish:
             self.finish()
 
-        return last_reads
+        return self.reads_completed
 
-    def waiter(
-        self,
-        interval: float = DEFAULT_INTERVAL,
-    ) -> Generator[int, None, None]:
+    @logged_all
+    def waiter(self, **kwargs) -> Generator[int, None, None]:
         """
-        Wait for the repacker (blocking) until it is done checking every `interval`
-        seconds. Yields number of reads completed .
-
-        Parameters
-        ----------
-        interval : float
-            The interval (in seconds) between checks to :py:meth:`is_complete`
+        Generate number of reads completed while waiting for the repacker to return
+        `is_complete==True`.
 
         Returns
         -------
-        num_reads_completed: int
-            The number of reads written
+        reads_completed: int
+            The number of reads completed
         """
-        # Sleep to ensure `is_complete` state correctly set
+        if kwargs:
+            warnings.warn(
+                f"pod5.repack.Repacker.waiter: {kwargs.keys()} parameters are "
+                "deprecated and have no effect",
+                FutureWarning,
+            )
+
         while not self.is_complete:
             yield self.reads_completed
-            time.sleep(interval)
 
     def finish(self) -> None:
         """
-        Call finish on the underlying c_api repacker instance to free resources
+        Call finish on the underlying c_api repacker instance to write the footer
+        completing the file and freeing resources
         """
         return self._repacker.finish()
