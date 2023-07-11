@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "lib_pod5"
 authors = [{name="Oxford Nanopore Technologies plc", email="support@nanoporetech.com"}]
 readme="README.md"
-requires-python=">=3.7"
+requires-python="~=3.7"
 description="Python bindings for the POD5 file format"
 dynamic = ["version"]
 keywords = ['nanopore']
@@ -20,7 +20,7 @@ classifiers=[
     'Programming Language :: Python :: 3',
     'Topic :: Scientific/Engineering :: Bio-Informatics',
 ]
-dependencies = ["numpy"]
+dependencies = ["numpy>=1.21.0"]
 
 
 [project.optional-dependencies]
