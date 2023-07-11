@@ -7,12 +7,21 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
-## Unreleased
+## [0.2.4] 2023-07-11
 
 ### Changed
 
 - Increased `numpy` minimum version to `>= 1.21.0`
+- Improved performance of `subset`, `filter` and `merge` tools.
+- `Repacker.wait` and `Repacker.waiter` parameters
+
+### Deprecated
+
+- `Repacker.wait` and `Repacker.waiter` some parameters are deprecated and issue `FutureWarning`
+
+### Fixed
+
+- `Repacker.is_complete` returning `True` when work is queued.
 
 ## [0.2.3] 2023-06-26
 

@@ -96,7 +96,7 @@ def filter_reads(dest: Path, sources: pl.DataFrame) -> None:
 
             with p5.Reader(src) as reader:
                 repacker.add_selected_reads_to_output(output, reader, read_ids)
-                for n_written in repacker.waiter(interval=0.1):
+                for n_written in repacker.waiter():
                     pbar.update(n_written - prev)
                     prev = n_written
 

@@ -122,7 +122,8 @@ class TestRepacker:
 
             with p5.Reader(path) as reader:
                 repacker.add_all_reads_to_output(output, reader)
-                repacker.wait(finish=False)
+                for reads_complete in repacker.waiter():
+                    assert isinstance(reads_complete, int)
 
                 total_bytes = sum(r.byte_count for r in reader)
                 batch_count = reader.batch_count
@@ -149,7 +150,6 @@ class TestRepacker:
                 selection = set(random.sample(reader.read_ids, 50))
                 repacker.add_selected_reads_to_output(output, reader, selection)
                 repacker.wait(finish=False)
-
                 total_bytes = sum(
                     r.byte_count for r in reader if str(r.read_id) in selection
                 )

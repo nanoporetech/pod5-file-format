@@ -105,6 +105,7 @@ def merge_pod5(
                     unit="Reads",
                     leave=False,
                     position=1,
+                    delay=10,
                     **PBAR_DEFAULTS,
                 )
 
