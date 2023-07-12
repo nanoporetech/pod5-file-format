@@ -733,15 +733,6 @@ upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
 
-build-conan:macos-x86_64-appleclang-10.0:
-    extends:
-        - .profile-macos-x86_64-appleclang-10.0
-        - .build-package
-        - .conan-build-common
-upload-conan:macos-x86_64-appleclang-10.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-10.0" ]
-
 build-conan:macos-x86_64-appleclang-12.0:
     extends:
         - .profile-macos-x86_64-appleclang-12.0
