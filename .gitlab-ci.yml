@@ -639,8 +639,9 @@ conda_pytest:
   script:
     - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl
     - pip install -r ./benchmarks/image/requirements-benchmarks.txt
+    - export SLOW_5_VERSION=v1.0.0
     - ./benchmarks/image/install_slow5.sh
-    - export PATH="$(pwd)/slow5tools-v0.5.0/:$PATH"
+    - export PATH="$(pwd)/slow5tools-${SLOW_5_VERSION}/:$PATH"
     - ./benchmarks/run_benchmarks.py ./test_data/ ./benchmark-outputs
 
 benchmark-linux-x64:
@@ -728,6 +729,7 @@ build-conan:windows-x86_64-vs2017:
         - .profile-windows-x86_64-vs2017
         - .build-package-win
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:windows-x86_64-vs2017:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2017" ]
@@ -737,6 +739,7 @@ build-conan:windows-x86_64-vs2019:
         - .profile-windows-x86_64-vs2019
         - .build-package-win
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
@@ -746,6 +749,7 @@ build-conan:macos-x86_64-appleclang-12.0:
         - .profile-macos-x86_64-appleclang-12.0
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:macos-x86_64-appleclang-12.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-12.0" ]
@@ -755,6 +759,7 @@ build-conan:macos-aarch64-appleclang-13.1:
         - .profile-macos-aarch64-appleclang-13.1
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:macos-aarch64-appleclang-13.1:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-13.1" ]
@@ -803,6 +808,7 @@ build-conan:linux-x86_64-gcc9:
         - .profile-linux-x86_64-gcc9
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:linux-x86_64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
@@ -812,6 +818,7 @@ build-conan:linux-x86_64-gcc11:
         - .profile-linux-x86_64-gcc11
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:linux-x86_64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
@@ -821,6 +828,7 @@ build-conan:linux-aarch64-gcc7:
         - .build-package
         - .profile-linux-aarch64-gcc7
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:linux-aarch64-gcc7:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc7" ]
@@ -830,6 +838,7 @@ build-conan:linux-aarch64-gcc9:
         - .profile-linux-aarch64-gcc9
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:linux-aarch64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc9" ]
@@ -839,6 +848,7 @@ build-conan:linux-aarch64-gcc11:
         - .profile-linux-aarch64-gcc11
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
 upload-conan:linux-aarch64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]

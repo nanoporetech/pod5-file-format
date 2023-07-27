@@ -2,7 +2,7 @@
 
 set -e
 
-SLOW_5_VERSION=v0.5.0
+: "${SLOW_5_VERSION:=v1.0.0}"
 
 apt update
 apt install -y libzstd-dev libhdf5-dev

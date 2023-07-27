@@ -65,8 +65,6 @@ class Pod5Conan(ConanFile):
         # Packages that are built with C++14 should be compatible with clients that use C++17 & 20.
         if self.settings.compiler.cppstd in ["17", "20"]:
             return [{"settings": [("compiler.cppstd", "14")]}]
-        else:
-            return super().compatibility()
 
     def build_requirements(self):
         # When cross compiling we need pre compiled flatbuffers for flatc to run on the build machine
