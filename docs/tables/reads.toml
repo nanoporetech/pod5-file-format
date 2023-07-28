@@ -63,7 +63,7 @@ type = "float"
 description = "Time in seconds since the last mux change on this reads channel"
 
 [fields.num_minknow_events]
-type = "int8"
+type = "uint64"
 description = "Number of minknow events that the read contains"
 
 [fields.end_reason]
