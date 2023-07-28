@@ -131,7 +131,7 @@ class ReadRecord:
         return self._batch.columns.median_before[self._row].as_py()  # type: ignore
 
     @property
-    def num_minknow_events(self) -> float:
+    def num_minknow_events(self) -> int:
         """
         Find the number of minknow events in the read.
         """
