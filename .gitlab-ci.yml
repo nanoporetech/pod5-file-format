@@ -15,7 +15,6 @@ variables:
   STABLE_BRANCH_NAME: master
   EXTRA_CREATE_ARGS: -opod5_file_format:nanopore_internal_build=True # For conan builds
   DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
-  EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
 
 
 before_script:
@@ -700,6 +699,8 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
+  variables:
+      EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
 
 .tarball-package-without-macos: &tarball-package-without-macos
     # This is a copy of tarball-package in conan-config, except it removes macos packages first.
@@ -778,6 +779,8 @@ build-conan:ios-aarch64-appleclang-13.1:
 upload-conan:ios-aarch64-appleclang-13.1:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-13.1" ]
+    variables:
+        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends:
@@ -791,6 +794,8 @@ build-conan:iOSSimulator-aarch64-appleclang-13.1:
 upload-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-13.1" ]
+    variables:
+        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:iOSSimulator-x86_64-appleclang-13.1:
     extends:
@@ -804,6 +809,8 @@ build-conan:iOSSimulator-x86_64-appleclang-13.1:
 upload-conan:iOSSimulator-x86_64-appleclang-13.1:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:iOSSimulator-x86_64-appleclang-13.1" ]
+    variables:
+        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:linux-x86_64-gcc9:
     extends:
