@@ -131,11 +131,13 @@ SignalTableWriter::SignalTableWriter(
     std::shared_ptr<arrow::Schema> && schema,
     SignalBuilderVariant && signal_builder,
     SignalTableSchemaDescription const & field_locations,
+    std::shared_ptr<arrow::io::OutputStream> const & output_stream,
     std::size_t table_batch_size,
     arrow::MemoryPool * pool)
 : m_pool(pool)
 , m_schema(schema)
 , m_field_locations(field_locations)
+, m_output_stream{output_stream}
 , m_table_batch_size(table_batch_size)
 , m_writer(std::move(writer))
 , m_signal_builder(std::move(signal_builder))
@@ -229,7 +231,8 @@ SignalType SignalTableWriter::signal_type() const { return m_field_locations.sig
 
 Status SignalTableWriter::write_batch(arrow::RecordBatch const & record_batch)
 {
-    return m_writer->WriteRecordBatch(record_batch);
+    ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(record_batch));
+    return m_output_stream->Flush();
 }
 
 Status SignalTableWriter::write_batch()
@@ -257,6 +260,7 @@ Status SignalTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
+    ARROW_RETURN_NOT_OK(m_output_stream->Flush());
 
     // Reserve space for next batch:
     return reserve_rows();
@@ -307,6 +311,7 @@ Result<SignalTableWriter> make_signal_table_writer(
         std::move(schema),
         std::move(signal_builder),
         field_locations,
+        sink,
         table_batch_size,
         pool);
 

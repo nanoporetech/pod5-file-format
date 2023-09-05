@@ -43,6 +43,7 @@ public:
         std::shared_ptr<arrow::Schema> && schema,
         SignalBuilderVariant && signal_builder,
         SignalTableSchemaDescription const & field_locations,
+        std::shared_ptr<arrow::io::OutputStream> const & output_stream,
         std::size_t table_batch_size,
         arrow::MemoryPool * pool);
     SignalTableWriter(SignalTableWriter &&);
@@ -95,6 +96,7 @@ private:
     arrow::MemoryPool * m_pool = nullptr;
     std::shared_ptr<arrow::Schema> m_schema;
     SignalTableSchemaDescription m_field_locations;
+    std::shared_ptr<arrow::io::OutputStream> m_output_stream;
     std::size_t m_table_batch_size;
 
     std::shared_ptr<arrow::ipc::RecordBatchWriter> m_writer;

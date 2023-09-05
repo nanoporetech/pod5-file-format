@@ -14,12 +14,65 @@
 
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
+#include <arrow/result.h>
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
 
 #include <iostream>
+
+#ifdef __linux__
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
+namespace {
+/// Open a file using the specified path and return it
+std::shared_ptr<arrow::io::OutputStream>
+Open(std::string const & path, bool append, bool use_directio = true)
+{
+#ifdef __linux__
+    auto flags = use_directio ? O_RDWR | O_DIRECT : O_RDWR;
+
+    flags |= (append == true ? O_APPEND : O_CREAT);
+
+    int fd = open(path.c_str(), flags, 0644);
+
+    if (fd < 0) {
+        // add logging
+        throw std::runtime_error{"Failed to open file"};
+    }
+
+    auto res = arrow::io::FileOutputStream::Open(fd);
+
+    if (!res.ok()) {
+        throw std::runtime_error{"Failed to open arrow file"};
+    }
+
+    return res.ValueUnsafe();
+#else
+    auto res = arrow::io::FileOutputStream::Open(path, append);
+    return res.ValueUnsafe();
+#endif
+}
+
+std::shared_ptr<arrow::io::OutputStream> makeAsyncStream(
+    std::shared_ptr<arrow::io::OutputStream> const & io_stream,
+    std::shared_ptr<pod5::ThreadPool> thread_pool,
+    bool use_directio = true)
+{
+#ifdef __linux__
+    if (use_directio) {
+        return std::make_shared<pod5::AsyncOutputStreamDirectIO>(io_stream, thread_pool);
+    } else {
+        return std::make_shared<pod5::AsyncOutputStream>(io_stream, thread_pool);
+    }
+#else
+    return std::make_shared<pod5::AsyncOutputStream>(io_stream, thread_pool);
+#endif
+}
+}  // namespace
 
 namespace pod5 {
 
@@ -30,6 +83,7 @@ FileWriterOptions::FileWriterOptions()
 , m_signal_table_batch_size(DEFAULT_SIGNAL_TABLE_BATCH_SIZE)
 , m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE)
 , m_run_info_table_batch_size(DEFAULT_RUN_INFO_TABLE_BATCH_SIZE)
+, m_use_directio{DEFAULT_USE_DIRECTIO}
 {
 }
 
@@ -449,7 +503,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         return Status::Invalid("Unable to create new file '", path, "', already exists");
     }
 
-    // Open dictionary writrs:
+    // Open dictionary writers:
     ARROW_ASSIGN_OR_RAISE(auto dict_writers, make_dictionary_writers(pool));
 
     // Prep file metadata:
@@ -465,10 +519,11 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
     auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
 
+    bool const use_directio = options.use_directio();
+
     // Prepare the temporary reads file:
-    ARROW_ASSIGN_OR_RAISE(
-        auto read_table_file, arrow::io::FileOutputStream::Open(reads_tmp_path, false));
-    auto read_table_file_async = std::make_shared<AsyncOutputStream>(read_table_file, thread_pool);
+    auto read_table_file_async =
+        ::makeAsyncStream(::Open(reads_tmp_path, false, use_directio), thread_pool, use_directio);
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_tmp_writer,
         make_read_table_writer(
@@ -481,10 +536,9 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
             pool));
 
     // Prepare the temporary run_info file:
-    ARROW_ASSIGN_OR_RAISE(
-        auto run_info_table_file, arrow::io::FileOutputStream::Open(run_info_tmp_path, false));
-    auto run_info_table_file_async =
-        std::make_shared<AsyncOutputStream>(run_info_table_file, thread_pool);
+    auto run_info_table_file_async = ::makeAsyncStream(
+        ::Open(run_info_tmp_path, false, use_directio), thread_pool, use_directio);
+
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_tmp_writer,
         make_run_info_table_writer(
@@ -494,14 +548,17 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
             pool));
 
     // Prepare the main file - and set up the signal table to write here:
-    ARROW_ASSIGN_OR_RAISE(auto main_file, arrow::io::FileOutputStream::Open(path, false));
+    auto signal_file =
+        ::makeAsyncStream(::Open(path, false, use_directio), thread_pool, use_directio);
 
     // Write the initial header to the combined file:
-    ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(main_file, section_marker));
+    ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(signal_file, section_marker));
+
+    ARROW_ASSIGN_OR_RAISE(size_t const signal_table_start, signal_file->Tell());
+
+    static_cast<AsyncOutputStream *>(signal_file.get())->set_file_start_offset(signal_table_start);
 
     // Then place the signal file directly after that:
-    ARROW_ASSIGN_OR_RAISE(auto const signal_table_start, main_file->Tell());
-    auto signal_file = std::make_shared<AsyncOutputStream>(main_file, thread_pool);
     ARROW_ASSIGN_OR_RAISE(
         auto signal_table_writer,
         make_signal_table_writer(

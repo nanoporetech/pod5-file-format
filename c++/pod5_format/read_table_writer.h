@@ -34,6 +34,7 @@ public:
         std::shared_ptr<PoreWriter> const & pore_writer,
         std::shared_ptr<EndReasonWriter> const & end_reason_writer,
         std::shared_ptr<RunInfoWriter> const & run_info_writer,
+        std::shared_ptr<arrow::io::OutputStream> const & output_stream,
         arrow::MemoryPool * pool);
     ReadTableWriter(ReadTableWriter &&);
     ReadTableWriter & operator=(ReadTableWriter &&);
@@ -77,6 +78,7 @@ private:
 
     std::size_t m_written_batched_row_count = 0;
     std::size_t m_current_batch_row_count = 0;
+    std::shared_ptr<arrow::io::OutputStream> m_output_stream;
 };
 
 /// \brief Make a new writer for a read table.
