@@ -24,6 +24,7 @@ public:
     static constexpr std::uint32_t DEFAULT_READ_TABLE_BATCH_SIZE = 1000;
     static constexpr std::uint32_t DEFAULT_RUN_INFO_TABLE_BATCH_SIZE = 1;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
+    static constexpr bool DEFAULT_USE_DIRECTIO = false;
 
     FileWriterOptions();
 
@@ -67,6 +68,10 @@ public:
 
     std::shared_ptr<ThreadPool> thread_pool() const { return m_writer_thread_pool; }
 
+    void set_use_directio(bool use_directio) { m_use_directio = use_directio; }
+
+    bool use_directio() const { return m_use_directio; }
+
 private:
     std::shared_ptr<ThreadPool> m_writer_thread_pool;
     std::uint32_t m_max_signal_chunk_size;
@@ -75,6 +80,7 @@ private:
     std::size_t m_signal_table_batch_size;
     std::size_t m_read_table_batch_size;
     std::size_t m_run_info_table_batch_size;
+    bool m_use_directio;
 };
 
 class FileWriterImpl;

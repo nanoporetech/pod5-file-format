@@ -39,6 +39,7 @@ if (BUILD_SHARED_LIB)
 endif()
 
 add_library(pod5_format ${pod5_library_type}
+    pod5_format/file_recovery.h
     pod5_format/file_writer.cpp
     pod5_format/file_writer.h
     pod5_format/file_reader.cpp

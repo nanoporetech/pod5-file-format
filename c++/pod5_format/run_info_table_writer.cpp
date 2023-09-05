@@ -16,10 +16,12 @@ RunInfoTableWriter::RunInfoTableWriter(
     std::shared_ptr<arrow::ipc::RecordBatchWriter> && writer,
     std::shared_ptr<arrow::Schema> && schema,
     std::shared_ptr<RunInfoTableSchemaDescription> const & field_locations,
+    std::shared_ptr<arrow::io::OutputStream> const & output_stream,
     std::size_t table_batch_size,
     arrow::MemoryPool * pool)
 : m_schema(schema)
 , m_field_locations(field_locations)
+, m_output_stream{output_stream}
 , m_table_batch_size(table_batch_size)
 , m_writer(std::move(writer))
 , m_field_builders(m_field_locations, pool)
@@ -90,7 +92,8 @@ Status RunInfoTableWriter::close()
 
 Status RunInfoTableWriter::write_batch(arrow::RecordBatch const & record_batch)
 {
-    return m_writer->WriteRecordBatch(record_batch);
+    ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(record_batch));
+    return m_output_stream->Flush();
 }
 
 Status RunInfoTableWriter::write_batch()
@@ -113,6 +116,8 @@ Status RunInfoTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
+    ARROW_RETURN_NOT_OK(m_output_stream->Flush());
+
     return reserve_rows();
 }
 
@@ -133,7 +138,7 @@ Result<RunInfoTableWriter> make_run_info_table_writer(
     ARROW_ASSIGN_OR_RAISE(auto writer, arrow::ipc::MakeFileWriter(sink, schema, options, metadata));
 
     auto run_info_table_writer = RunInfoTableWriter(
-        std::move(writer), std::move(schema), field_locations, table_batch_size, pool);
+        std::move(writer), std::move(schema), field_locations, sink, table_batch_size, pool);
 
     ARROW_RETURN_NOT_OK(run_info_table_writer.reserve_rows());
 

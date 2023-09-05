@@ -8,6 +8,19 @@ set(CMAKE_PROJECT_VERSION ${POD5_NUMERIC_VERSION})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
+# use compiler cache if available
+option(DISABLE_CCACHE "Do not try to use ccache to speed compilation" NO)
+if (NOT DISABLE_CCACHE)
+    find_program(CCACHE_EXECUTABLE ccache
+        HINTS "C:/Program\ Files/ccache/"
+        )
+    if (CCACHE_EXECUTABLE)
+        message(STATUS "Using ccache: ${CCACHE_EXECUTABLE}")
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}")
+        set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}")
+    endif()
+endif()
+
 if (NOT DEFINED ENABLE_CONAN)
     option(ENABLE_CONAN "Enable conan for dependency installation" OFF)
 endif()
