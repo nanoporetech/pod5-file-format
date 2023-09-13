@@ -4,6 +4,7 @@ Utility functions for pod5 tools
 
 import datetime
 import functools
+import glob
 import logging
 import multiprocessing as mp
 from multiprocessing.context import SpawnProcess
@@ -20,7 +21,7 @@ DEFAULT_THREADS = min(os.cpu_count() or 4, 4)
 
 def limit_threads(requested: int) -> int:
     """
-    Santise and limit the number of `requested` threads to the number of logical cores
+    Santise and limit the number of ``requested`` threads to the number of logical cores
     """
     if requested < 1:
         return os.cpu_count() or 4
@@ -92,10 +93,11 @@ def search_path(path: Path, recursive: bool, patterns: Collection[str]) -> Set[P
         return any(path.match(p) for p in patterns)
 
     # Get the recursive or non-recursive glob function.
-    glob_fn = Path.rglob if recursive else Path.glob
     matching_files = set()
     if path.is_dir():
-        for matching_path in glob_fn(path, "*"):
+        pattern = str(path / "**" / "*") if recursive else str(path / "*")
+        for matching_pathname in glob.glob(pattern, recursive=recursive):
+            matching_path = Path(matching_pathname)
             if matching_path.is_file() and _any_match(matching_path):
                 matching_files.add(matching_path)
 

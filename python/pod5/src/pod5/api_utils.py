@@ -1,5 +1,5 @@
 """
-Utility functions for the pod5-format API
+Utility functions for the pod5 API
 """
 
 

@@ -30,6 +30,7 @@ from .pod5_types import (
     RunInfo,
 )
 from .reader import Reader, ReadRecord, ReadRecordBatch
+from .dataset import DatasetReader
 from .signal_tools import (
     vbz_compress_signal,
     vbz_decompress_signal,
@@ -44,6 +45,7 @@ __all__ = (
     "format_read_ids",
     "load_read_id_iterable",
     "pack_read_ids",
+    "DatasetReader",
     "Calibration",
     "CompressedRead",
     "EndReason",

@@ -2,6 +2,7 @@
 Tools for accessing POD5 data from PyArrow files
 """
 
+
 import mmap
 from collections import namedtuple
 from dataclasses import fields
@@ -39,6 +40,7 @@ from pod5.pod5_types import (
 
 from .api_utils import Pod5ApiException, format_read_ids, pack_read_ids, safe_close
 from .signal_tools import vbz_decompress_signal, vbz_decompress_signal_into
+
 
 ReadRecordV3Columns = namedtuple(
     "ReadRecordV3Columns",
