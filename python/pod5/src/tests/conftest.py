@@ -1,9 +1,12 @@
 """
 Pod5 test fixtures
 """
+from contextlib import contextmanager
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+import psutil
+import shutil
 import sys
 from typing import Generator, Optional, Set
 from uuid import UUID, uuid4, uuid5
@@ -38,17 +41,35 @@ def pytest_addoption(parser):
     )
 
 
+@contextmanager
+def assert_no_leaked_handles() -> Generator[None, None, None]:
+    proc = psutil.Process()
+    before = set(proc.open_files())
+    yield
+    after = set(proc.open_files())
+    leaked_handles = after - before
+    leaked_handles = set(h for h in leaked_handles if ".log" not in str(h.path).lower())
+    if leaked_handles:
+        raise AssertionError(f"Leaked handles: {leaked_handles}")
+
+
+def assert_no_leaked_handles_win(path: Path) -> None:
+    """Attempt to rename the file at `path` this shows up leaked handles on windows"""
+    if sys.platform.lower().startswith("win"):
+        try:
+            os.rename(POD5_PATH, POD5_PATH.with_suffix(".TEMP"))
+            os.rename(POD5_PATH.with_suffix(".TEMP"), POD5_PATH)
+        except OSError:
+            raise AssertionError(f"File handle to {path} still open")
+
+
 @pytest.fixture(scope="function")
 def reader() -> Generator[p5.Reader, None, None]:
     """Create a Reader from a pod5 file"""
-    with p5.Reader(path=POD5_PATH) as reader:
-        yield reader
-
-    try:
-        os.rename(POD5_PATH, POD5_PATH.with_suffix(".TEMP"))
-        os.rename(POD5_PATH.with_suffix(".TEMP"), POD5_PATH)
-    except OSError:
-        assert False, "File handle still open"
+    with assert_no_leaked_handles():
+        with p5.Reader(path=POD5_PATH) as reader:
+            yield reader
+    assert_no_leaked_handles_win(POD5_PATH)
 
 
 @pytest.fixture(scope="function")
@@ -285,3 +306,65 @@ def pod5_factory(request, tmp_path_factory: pytest.TempPathFactory, pytestconfig
     capmanager = request.config.pluginmanager.getplugin("capturemanager")
     with capmanager.global_and_fixture_disabled():
         print(f"\n\nPOD5_TEST_SEED: {POD5_TEST_SEED}")
+
+
+@pytest.fixture(scope="session")
+def nested_dataset(tmp_path_factory: pytest.TempPathFactory, pod5_factory) -> Path:
+    """
+    Creates a nested directory structure with temporary pod5 files.
+
+    Symbolic links are only created when not running on windows systems.
+
+    ./root/root_10.pod5
+    ./root/subdir/subdir_11.pod5
+    ./root/subdir/symbolic_9.pod5 --> ../../outer/symbolic_9.pod5
+    ./root/subdir/subsubdir/subsubdir_12.pod5
+    ./root/subdir/subsubdir/empty.txt
+    ./root/linked/ --> ../linked/
+
+    ./outer/symbolic_9.pod5
+    ./linked/linked_8.pod5
+
+    Returns path to root/
+    """
+    tmp_path = tmp_path_factory.mktemp("pod5_nested_directory")
+    root = tmp_path / "root"
+    sub_dir = root / "subdir"
+    subsub_dir = sub_dir / "subsubdir"
+    Path.mkdir(subsub_dir, parents=True)
+
+    root_pod5: Path = pod5_factory(10)
+    subdir_pod5: Path = pod5_factory(11)
+    subsubdir_pod5: Path = pod5_factory(12)
+
+    shutil.copyfile(str(root_pod5), str(root / "root_10.pod5"))
+    shutil.copyfile(str(subdir_pod5), str(sub_dir / "subdir_11.pod5"))
+    shutil.copyfile(str(subsubdir_pod5), str(subsub_dir / "subsubdir_12.pod5"))
+
+    (subsub_dir / "empty.txt").touch()
+
+    # Linked file
+    outer_dir = tmp_path / "outer"
+    Path.mkdir(outer_dir, parents=True)
+    symbolic_pod5: Path = pod5_factory(9)
+    symb_path = outer_dir / "symbolic_9.pod5"
+
+    if not sys.platform.startswith("win"):
+        shutil.copyfile(str(symbolic_pod5), str(symb_path))
+        (sub_dir / "symbolic_9.pod5").symlink_to(symb_path)
+    else:
+        shutil.copyfile(str(symbolic_pod5), str((sub_dir / "symbolic_9.pod5")))
+
+    # Linked directory
+    linked_src_dir = tmp_path / "linked"
+    Path.mkdir(linked_src_dir, parents=True)
+    linked_pod5: Path = pod5_factory(8)
+    shutil.copyfile(str(linked_pod5), str(linked_src_dir / "linked_8.pod5"))
+
+    if not sys.platform.startswith("win"):
+        (root / "linked").symlink_to(linked_src_dir)
+    else:
+        (root / "linked").mkdir(parents=True)
+        shutil.copyfile(str(linked_pod5), str(root / "linked" / "linked_8.pod5"))
+
+    return root

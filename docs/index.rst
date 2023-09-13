@@ -37,8 +37,8 @@ See the :ref:`Installation Documentation <docs/install:Install>` for further det
 
    docs/install.rst
    docs/api.rst
+   docs/dataset.rst
    docs/tools.rst
-
 
 .. toctree::
    :caption: Reference Documentation

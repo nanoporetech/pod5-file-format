@@ -499,7 +499,7 @@ tools-linux-x64:
     - source .venv/bin/activate
   script:
     - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
-    - pip install pytest pytest-cov pytest-mock
+    - pip install pytest pytest-cov pytest-mock psutil
     - pytest
 
 pytest-linux-x64:

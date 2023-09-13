@@ -316,14 +316,14 @@ class TestUtils:
         expected = [
             tmp_path / "a.pod5",
             tmp_path / "longer-name.pod5",
-            tmp_path / ".pod5",
             tmp_path / "sub/a.pod5",
             tmp_path / "sub/sub2/xx.pod5",
         ]
         not_expected = [
+            tmp_path / ".pod5",  # Exclude hidden files
             tmp_path / "other.txt",
             tmp_path / "pod5.p5",
-            tmp_path / ".pod5.p5",
+            tmp_path / "a.pod5.p5",
             tmp_path / "sub/other.png",
             tmp_path / "sub/sub3/bad.pods",
         ]
@@ -336,13 +336,13 @@ class TestUtils:
 
         # Expect all pod5s recursively
         recurse = collect_inputs([tmp_path], recursive=True, pattern="*.pod5")
-        assert set(expected) == set(tmp_path.rglob("*.pod5"))
+        assert set(expected) == set(tmp_path.rglob("*[a-z0-9].pod5"))
         assert recurse == set(expected)
         assert set(not_expected).isdisjoint(recurse)
 
         # Expect all pod5s in top level
         top = collect_inputs([tmp_path], recursive=False, pattern="*.pod5")
-        assert set(tmp_path.glob("*.pod5")) == top
+        assert set(tmp_path.glob("*[a-z0-9].pod5")) == top
         assert set(top).isdisjoint(not_expected)
 
         # Files aren't duplicated in similar patterns

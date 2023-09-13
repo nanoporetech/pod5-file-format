@@ -11,3 +11,5 @@ _version.py
 *egg-info/
 POD5Version.cmake
 *.swp
+.vscode/
+__pycache__

@@ -1,6 +1,7 @@
 """
 Testing Pod5Reader
 """
+import random
 from typing import Type
 from unittest import mock
 from uuid import UUID, uuid4
@@ -164,6 +165,16 @@ class TestPod5Reader:
 
         # Clean reader resources
         del pod5_file_reader
+
+    def test_iter_selection_in_file_order(self, reader: p5.Reader) -> None:
+        """Tests iteration order is on-disk order"""
+        shuffled = reader.read_ids
+        random.shuffle(shuffled)
+        observed_count = 0
+        for record, read_id in zip(reader.reads(selection=shuffled), reader.read_ids):
+            assert str(record.read_id) == read_id
+            observed_count += 1
+        assert observed_count == len(reader.read_ids)
 
 
 class TestRecordBatch:
