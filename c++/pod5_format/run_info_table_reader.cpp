@@ -160,7 +160,7 @@ Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::get_run_info(std:
 {
     ARROW_RETURN_NOT_OK(prepare_run_infos_vector());
 
-    if (index >= m_run_infos.size()) {
+    if (index < 0 || index >= m_run_infos.size()) {
         return arrow::Status::IndexError(
             "Invalid index into run infos (expected ", index, " < ", m_run_infos.size(), ")");
     }
