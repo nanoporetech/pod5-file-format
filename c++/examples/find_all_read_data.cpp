@@ -55,7 +55,8 @@ int main(int argc, char ** argv)
                     batch, row, READ_BATCH_ROW_INFO_VERSION, &read_data, &read_table_version)
                 != POD5_OK)
             {
-                std::cerr << "Failed to get read " << row << "\n";
+                std::cerr << "Failed to get read " << row << ": " << pod5_get_error_string()
+                          << "\n";
                 return EXIT_FAILURE;
             }
 
@@ -71,9 +72,10 @@ int main(int argc, char ** argv)
             // Run info
             RunInfoDictData_t * run_info = nullptr;
             if (pod5_get_run_info(batch, read_data.run_info, &run_info) != POD5_OK) {
-                throw std::runtime_error(
-                    "Failed to get run info " + std::to_string(read_data.run_info) + " : "
-                    + pod5_get_error_string());
+                std::cerr << "Failed to get run info " + std::to_string(read_data.run_info) + " : "
+                                 + pod5_get_error_string()
+                          << "\n";
+                return EXIT_FAILURE;
             }
 
             pod5_free_run_info(run_info);

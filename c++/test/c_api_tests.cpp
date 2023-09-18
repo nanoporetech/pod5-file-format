@@ -277,6 +277,27 @@ SCENARIO("C API Reads")
         CHECK_POD5_OK(pod5_get_read_batch(&batch_0, file, 0));
         REQUIRE(!!batch_0);
 
+        // Check out of bounds accesses get errors
+        {
+            ReadBatchRowInfoV3 v3_struct;
+            uint16_t input_version = 0;
+            CHECK(
+                pod5_get_read_batch_row_info_data(
+                    batch_0, read_count, READ_BATCH_ROW_INFO_VERSION, &v3_struct, &input_version)
+                == POD5_ERROR_INDEXERROR);
+
+            std::vector<uint64_t> signal_row_indices{1};
+            CHECK(
+                pod5_get_signal_row_indices(
+                    batch_0, read_count, signal_row_indices.size(), signal_row_indices.data())
+                == POD5_ERROR_INDEXERROR);
+
+            CalibrationExtraData calibration_extra_data{};
+            CHECK(
+                pod5_get_calibration_extra_info(batch_0, read_count, &calibration_extra_data)
+                == POD5_ERROR_INDEXERROR);
+        }
+
         for (std::size_t row = 0; row < read_count; ++row) {
             auto signal = signal_1;
             if (row == 1) {
@@ -370,6 +391,13 @@ SCENARIO("C API Reads")
                 CHECK(returned_size == expected_pore_type.size() + 1);
                 CHECK(std::string{char_buffer.data()} == expected_pore_type);
             }
+            {
+                returned_size = char_buffer.size();
+                CHECK(
+                    pod5_get_pore_type(batch_0, -1, char_buffer.data(), &returned_size)
+                    == POD5_ERROR_INDEXERROR);
+                CHECK(returned_size == char_buffer.size());
+            }
 
             std::string expected_end_reason{"mux_change"};
             {
@@ -398,6 +426,21 @@ SCENARIO("C API Reads")
                 CHECK(end_reason == POD5_END_REASON_MUX_CHANGE);
                 CHECK(std::string{char_buffer.data()} == expected_end_reason);
             }
+            // Check getting with an invalid input end reason index:
+            {
+                returned_size = char_buffer.size();
+                pod5_end_reason end_reason = POD5_END_REASON_UNKNOWN;
+                CHECK(
+                    pod5_get_end_reason(
+                        batch_0,
+                        v3_struct.end_reason + 100,
+                        &end_reason,
+                        char_buffer.data(),
+                        &returned_size)
+                    == POD5_ERROR_INDEXERROR);
+                CHECK(returned_size == char_buffer.size());
+                CHECK(end_reason == POD5_END_REASON_UNKNOWN);
+            }
 
             CalibrationExtraData calibration_extra_data{};
             CHECK_POD5_OK(pod5_get_calibration_extra_info(batch_0, row, &calibration_extra_data));
@@ -408,6 +451,18 @@ SCENARIO("C API Reads")
         run_info_index_t run_info_count = 0;
         CHECK_POD5_OK(pod5_get_file_run_info_count(file, &run_info_count));
         REQUIRE(run_info_count == 1);
+
+        // Check getting invalid run info indexes fails correctly.
+        RunInfoDictData * run_info_error = nullptr;
+        CHECK(pod5_get_run_info(batch_0, -1, &run_info_error) == POD5_ERROR_INDEXERROR);
+        CHECK(!run_info_error);
+        CHECK(pod5_get_run_info(batch_0, run_info_count, &run_info_error) == POD5_ERROR_INDEXERROR);
+        CHECK(!run_info_error);
+        CHECK(pod5_get_file_run_info(file, -1, &run_info_error) == POD5_ERROR_INDEXERROR);
+        CHECK(!run_info_error);
+        CHECK(
+            pod5_get_file_run_info(file, run_info_count, &run_info_error) == POD5_ERROR_INDEXERROR);
+        CHECK(!run_info_error);
 
         auto check_run_info = [](RunInfoDictData * run_info) {
             REQUIRE(!!run_info);

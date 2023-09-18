@@ -128,7 +128,7 @@ Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index)
 
     auto pore_column = find_column(batch(), m_field_locations->pore_type);
     auto pore_data = std::static_pointer_cast<arrow::StringArray>(pore_column->dictionary());
-    if (pore_index >= pore_data->length()) {
+    if (pore_index < 0 || pore_index >= pore_data->length()) {
         return arrow::Status::IndexError(
             "Invalid index ", pore_index, " for pore array of length ", pore_data->length());
     }
@@ -172,7 +172,7 @@ Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_ind
     auto run_info_column = find_column(batch(), m_field_locations->run_info);
     auto run_info_data =
         std::static_pointer_cast<arrow::StringArray>(run_info_column->dictionary());
-    if (run_info_index >= run_info_data->length()) {
+    if (run_info_index < 0 || run_info_index >= run_info_data->length()) {
         return arrow::Status::IndexError(
             "Invalid index ",
             run_info_index,

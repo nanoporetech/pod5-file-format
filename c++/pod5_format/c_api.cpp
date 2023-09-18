@@ -433,6 +433,17 @@ pod5_error_t pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch *
     return POD5_OK;
 }
 
+pod5_error_t check_row_index_and_set_error(size_t row, size_t batch_size)
+{
+    if (row >= batch_size) {
+        pod5_set_error(arrow::Status::IndexError(
+            "Invalid index into batch. Index ", row, " with batch size ", batch_size));
+        return g_pod5_error_no;
+    }
+
+    return POD5_OK;
+}
+
 pod5_error_t pod5_get_read_batch_row_info_data(
     Pod5ReadRecordBatch_t * batch,
     size_t row,
@@ -455,6 +466,10 @@ pod5_error_t pod5_get_read_batch_row_info_data(
 
         // Inform the caller of the version of the input table.
         *read_table_version = cols.table_version.as_int();
+
+        if (check_row_index_and_set_error(row, cols.read_id->length()) != POD5_OK) {
+            return g_pod5_error_no;
+        }
 
         auto read_id_val = cols.read_id->Value(row);
         std::copy(read_id_val.begin(), read_id_val.end(), typed_row_data->read_id);
@@ -506,6 +521,10 @@ pod5_error_t pod5_get_signal_row_indices(
     }
 
     auto const signal_col = batch->batch.signal_column();
+    if (check_row_index_and_set_error(row, signal_col->length()) != POD5_OK) {
+        return g_pod5_error_no;
+    }
+
     auto const & row_data =
         std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
 
@@ -537,6 +556,10 @@ pod5_error_t pod5_get_calibration_extra_info(
     }
 
     POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
+
+    if (check_row_index_and_set_error(row, cols.calibration_scale->length()) != POD5_OK) {
+        return g_pod5_error_no;
+    }
 
     auto scale = cols.calibration_scale->Value(row);
     auto const run_info_dict_index =

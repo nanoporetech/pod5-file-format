@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - `DatasetReader` class for reading collections of pod5 files
+- Return index errors when querying invalid errors from API's
 
 ## Changed
 
