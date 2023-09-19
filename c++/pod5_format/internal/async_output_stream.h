@@ -18,10 +18,11 @@
 #endif
 
 namespace {
-constexpr size_t alignment = 4096;                   // buffer alignment (for block devices)
-constexpr size_t megabyte = 256 * alignment;         // 1MB
-constexpr size_t fallocate_chunk = 50 * megabyte;    // 50MB
-constexpr size_t write_buffer_size = 3 * alignment;  // 12k
+constexpr size_t alignment = 4096;                 // buffer alignment (for block devices)
+constexpr size_t megabyte = 256 * alignment;       // 1MB
+constexpr size_t fallocate_chunk = 50 * megabyte;  // 50MB
+constexpr size_t write_buffer_size = megabyte;     // Arbitrary limit. Seems a good trade-off
+                                                   // between memory usage and disk activities
 
 }  // namespace
 
