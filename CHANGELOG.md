@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
 
 - Recursive search for files now traverses symbolic links and ignores hidden files
+- Tweak block size of directio writes to 1MB.
 
 ## [0.2.6] 2023-09-04
 
