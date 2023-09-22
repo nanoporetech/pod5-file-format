@@ -67,8 +67,6 @@ if (ENABLE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
     add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 endif()
 
-# Enable finding conan modules:
-set(CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}")
 include_directories("third_party/include")
 
 foreach (config "Release" "Debug")

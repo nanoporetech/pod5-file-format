@@ -1,0 +1,437 @@
+variables:
+    CONAN_USER: nanopore
+    CONAN_CHANNEL: stable
+    CONAN_REFERENCE: '.'
+    CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v41.zip
+    # Location of the .conan dir: having it in $CI_PROJECT_DIR makes it easy to grab the packages as
+    # artifacts, and putting it in a job-specific subdir allows multiple packages to be unpacked
+    # into a single upload job (otherwise the metadata.json files would overwrite each other)
+    CONAN_USER_HOME: '${CI_PROJECT_DIR}/${CI_JOB_ID}'
+    PACKAGES_PER_VERSION: 2
+    # can set this instead for the total number:
+    #EXPECTED_PACKAGE_COUNT: 2
+
+stages:
+    - build
+    - upload
+
+before_script:
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+
+#
+# use the extends keyword to inherit the job templates defined below
+#
+
+.tarball-package: &tarball-package
+    # gitlab-runner on Windows silently fails to archive files whose full path is longer than 260
+    # characters; the MSYS `tar` command is not subject to this limitation (providing Windows has
+    # been configured to allow long paths), so we tar up packages in the build job and untar them in
+    # the upload job.
+    #
+    # This also allows us to only archive the package we just built, and not any of its dependencies
+    # (because we can use `conan inspect` to find the name of the right packages).
+    - PACKAGE_DIR="${CONAN_USER_HOME#${PWD}/}/.conan/data/$(conan inspect --raw name ${CONAN_REFERENCE})"
+    - echo "Packing from $PACKAGE_DIR"
+    - tar -czvf "conan-${CI_JOB_ID}.tar.gz" "$PACKAGE_DIR"/*/${CONAN_USER}/${CONAN_CHANNEL}/{package,metadata.json}
+    - rm -rf "${CONAN_USER_HOME}/.conan"
+
+.profile-variables: &profile-variables
+    # The caller (an individual package) should have set up either PROFILE_BASE or PROFILE_BASE_HOST
+    # and PROFILE_BASE_BUILD. We set variables so that both PROFILE_BASE_HOST and PROFILE_BASE_BUILD
+    # are defined correctly after this call, or exit.
+    - if [[ -n ${PROFILE_BASE} && ( -n ${PROFILE_BASE_HOST} || -n ${PROFILE_BASE_BUILD} ) ]]; then
+    -     echo "Only one of PROFILE_BASE or (PROFILE_BASE_HOST and PROFILE_BASE_BUILD) should be defined"
+    -     exit 1
+    - fi
+    - if [[ -n ${PROFILE_BASE} ]]; then
+    -     PROFILE_BASE_HOST=${PROFILE_BASE}
+    -     PROFILE_BASE_BUILD=${PROFILE_BASE}
+    - fi
+    - if [[ -z ${PROFILE_BASE_HOST} || -z ${PROFILE_BASE_BUILD} ]]; then
+    -     echo "Both PROFILE_BASE_HOST and PROFILE_BASE_BUILD variables need to be defined"
+    -     exit 1
+    - fi
+
+.build-package:
+    # The script builds all required conan packages. The caller needs to set up:
+    #     Either PROFILE_BASE or both PROFILE_BASE_HOST and PROFILE_BASE_BUILD
+    #     VERSIONS as an array if one or more version numbers are wanted.
+    #     EXTRA_CREATE_ARGS is passed to conan unchanged, if present.
+    #
+    # EXTRA_CREATE_ARGS is only used by libcurl, which builds the libcurl in parallel with c_ares
+    # set to True and to False.
+    #
+    #
+    # The after_script removes unneeded builds and sources and packages everything into a tarball,
+    # artifacts defines the name and path for build artifacts.
+    stage: build
+    script:
+        - *profile-variables
+        - |
+            if [[ -n ${VERSIONS} ]]; then
+                for version in ${VERSIONS}; do
+                    export CONAN_PROFILE_BUILD_TYPE=Debug
+                    conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
+                    export CONAN_PROFILE_BUILD_TYPE=Release
+                    conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
+                done
+            else
+                export CONAN_PROFILE_BUILD_TYPE=Debug
+                conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST}  ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
+                export CONAN_PROFILE_BUILD_TYPE=Release
+                conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
+            fi
+    after_script:
+        # Avoid storing things on the CI node unnecessarily
+        - conan remove "*" --builds --src --force
+        - *tarball-package
+    artifacts:
+        name: "${CI_PROJECT_NAME}-${CI_JOB_ID}"
+        paths:
+            - 'conan-*.tar.gz'
+
+.build-package-header-only:
+    # Exactly the same as .build-package, but only a release version will be built, no debug.
+    extends: .build-package
+    script:
+        - *profile-variables
+        - if [[ -n ${VERSIONS} ]]; then
+        -     for version in ${VERSIONS}; do
+        -         conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
+        -     done
+        - else
+        -     conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
+        - fi
+
+.build-package-win:
+    # Almost the same as build-package. Sets two additional variables CONAN_USER_HOME_SHORT and
+    # CONAN_USE_ALWAYS_SHORT_PATHS. "script" is exactly the same as for build-package. "after_script"
+    # does some additional processing needed for Windows between removing conan builds and sources,
+    # and creating tarballs.
+    extends: .build-package
+    variables:
+        # avoid interfering with the standard conan short-path directory
+        CONAN_USER_HOME_SHORT: 'c:\.conan-tmp'
+        # we're nesting conan's data dir pretty deep, so build systems that would normally be ok can
+        # fail if we don't use short paths
+        CONAN_USE_ALWAYS_SHORT_PATHS: '1'
+    after_script:
+        # Avoid storing things on the CI node unnecessarily
+        - conan remove "*" --builds --src --force
+        # CONAN_USE_ALWAYS_SHORT_PATHS links paths deep in the data dir to dirs in c:\.conan
+        # Resolve package links (so they can be gathered into artifacts):
+        - shopt -s nullglob # allow there to be nothing, eg: if CONAN_USE_ALWAYS_SHORT_PATHS is off
+        # MOVE_COMMAND can be set to, say, "cp -r" if necessary. Moving has been seen to fail for
+        # packages with executables (especially if those executables are run as part of the test
+        # package), such as protobuf.
+        - for link in ${CONAN_USER_HOME}/.conan/data/*/*/$CONAN_USER/$CONAN_CHANNEL/package/*/.conan_link; do
+            source=$(cat $link) && ${MOVE_COMMAND:-mv} $(cygpath "$source")/* $(dirname $link) && rm $link;
+          done
+        # Clean up the short_paths folder (even on failure):
+        - rm -rf "/c/.conan-tmp"
+        - *tarball-package
+
+# This can be used to override the script stage to build both static and shared versions of a
+# library. The "conan create" commands are duplicates with either -o ${PACKAGE}:shared=False or
+# -o ${PACKAGE}:shared=True added. Since this doesn't use "extends" the caller has to extend
+# either build-package or build-package-win as well.
+.build-shared-and-static:
+    script:
+        - *profile-variables
+        - PACKAGE="$(conan inspect --raw name .)"
+        - if [[ -n ${VERSIONS} ]]; then
+        -   for version in ${VERSIONS}; do
+        -     export CONAN_PROFILE_BUILD_TYPE=Debug
+        -     conan create --profile:build ${PROFILE_BASE_BUILD}
+                --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+                ${version}@${CONAN_USER}/${CONAN_CHANNEL}
+                -o ${PACKAGE}:shared=False
+                ${EXTRA_CREATE_ARGS}
+        -     conan create --profile:build ${PROFILE_BASE_BUILD}
+                --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+                ${version}@${CONAN_USER}/${CONAN_CHANNEL}
+                -o ${PACKAGE}:shared=True
+                ${EXTRA_CREATE_ARGS}
+        -     export CONAN_PROFILE_BUILD_TYPE=Release
+        -     conan create --profile:build ${PROFILE_BASE_BUILD}
+                --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+                ${version}@${CONAN_USER}/${CONAN_CHANNEL}
+                -o ${PACKAGE}:shared=False
+                ${EXTRA_CREATE_ARGS}
+        -     conan create --profile:build ${PROFILE_BASE_BUILD}
+                --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+                ${version}@${CONAN_USER}/${CONAN_CHANNEL}
+                -o ${PACKAGE}:shared=True
+                ${EXTRA_CREATE_ARGS}
+        -   done
+        - else
+        -   export CONAN_PROFILE_BUILD_TYPE=Debug
+        -   conan create --profile:build ${PROFILE_BASE_BUILD}
+              --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+              ${CONAN_USER}/${CONAN_CHANNEL}
+              -o ${PACKAGE}:shared=False
+              ${EXTRA_CREATE_ARGS}
+        -   conan create --profile:build ${PROFILE_BASE_BUILD}
+              --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+              ${CONAN_USER}/${CONAN_CHANNEL}
+              -o ${PACKAGE}:shared=True
+              ${EXTRA_CREATE_ARGS}
+        -   export CONAN_PROFILE_BUILD_TYPE=Release
+        -   conan create --profile:build ${PROFILE_BASE_BUILD}
+              --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+              ${CONAN_USER}/${CONAN_CHANNEL}
+              -o ${PACKAGE}:shared=False
+              ${EXTRA_CREATE_ARGS}
+        -   conan create --profile:build ${PROFILE_BASE_BUILD}
+              --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
+              ${CONAN_USER}/${CONAN_CHANNEL}
+              -o ${PACKAGE}:shared=True
+              ${EXTRA_CREATE_ARGS}
+        - fi
+
+.upload-package:
+    stage: upload
+    image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.8
+    tags:
+        - linux
+        - docker
+    before_script:
+        - echo -e "\e[0Ksection_start:`date +%s`:install_conan[collapsed=true]\r\e[0KInstalling conan"
+        - pip install 'conan<2'
+        - echo -e "\e[0Ksection_end:`date +%s`:install_conan\r\e[0K"
+    script:
+        # BSD tar (on macOS) puts some extra optional information into the tarballs that GNU tar
+        # complains about. --warning=no-unknown-keyword suppresses this.
+        - for tarball in conan-*.tar.gz; do tar --warning=no-unknown-keyword -xf "$tarball"; done
+        - for conan_dir in ./*/.conan; do
+        - job_dir="$(dirname "$conan_dir")"
+        - echo -e "\e[0Ksection_start:`date +%s`:upload_package\r\e[0KUploading from $job_dir"
+        - export CONAN_USER_HOME="$PWD/$job_dir"
+        - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+        - if [[ -n ${VERSIONS} ]]; then
+        -     expected_recipe_count=$(echo ${VERSIONS} | wc -w)
+        -     for version in ${VERSIONS}; do
+        -         conan export ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL}
+        -     done
+        - else
+        -     expected_recipe_count=1
+        -     conan export ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL}
+        - fi
+        - PACKAGE="$(conan inspect --raw name ${CONAN_REFERENCE})"
+        - recipes="$(conan search --raw "${PACKAGE}/*@${CONAN_USER}/${CONAN_CHANNEL}")"
+        - recipe_count="$(echo $recipes | wc -w)"
+        - package_count=0
+        - for recipe in $recipes; do
+        -   echo "${recipe}:"
+        -   conan search "$recipe"
+        -   package_count=$(($package_count + $(conan search "$recipe" | grep "Package_ID:" | wc -l)))
+        - done
+        - if [[ -z $EXPECTED_PACKAGE_COUNT ]]; then
+        -   EXPECTED_PACKAGE_COUNT=$((PACKAGES_PER_VERSION * expected_recipe_count))
+        - fi
+        - if [[ $recipe_count -ne $expected_recipe_count ]] || [[ $package_count -ne $EXPECTED_PACKAGE_COUNT ]]; then
+        -     echo "Expected $expected_recipe_count recipe(s) with $EXPECTED_PACKAGE_COUNT package(s), got $recipe_count recipe(s) with $package_count package(s)"
+        -     exit 1
+        - fi
+        # conan claims it should pick this information up automatically, given the variable names,
+        # but it doesn't seem to work if you don't do this:
+        - conan user -r ont-artifactory -p "${CONAN_PASSWORD_ONT_ARTIFACTORY}" "${CONAN_LOGIN_USERNAME_ONT_ARTIFACTORY}"
+        - EXTRA_ARGS=
+        - if [[ -z $DO_UPLOAD ]]; then
+        -   DO_UPLOAD=no
+        -   if [[ $CI_COMMIT_REF_NAME == stable/* ]] || [[ $CI_COMMIT_REF_NAME == release/* ]] || [[ $CI_COMMIT_REF_NAME == $STABLE_BRANCH_NAME ]]; then
+        -     DO_UPLOAD=yes
+        -   fi
+        - fi
+        - if [[ $DO_UPLOAD == "yes" ]]; then
+        -   EXTRA_ARGS=--force
+        - else
+        -   'echo "WARNING: NOT uploading to artifactory for this branch"'
+        -   EXTRA_ARGS=--skip-upload
+        - fi
+        - for recipe in $recipes; do
+        -   conan upload -r ont-artifactory --all --check --confirm ${EXTRA_ARGS} "$recipe"
+        - done
+        - echo -e "\e[0Ksection_end:`date +%s`:upload_package\r\e[0K"
+        - done # for conan_dir
+
+#
+# Various setup methods. Each sets a number of relevant tags, and one or two variables: For
+# non-cross compiling one variable PROFILE_BASE is set with the name of a profile which will be
+# adapted by adding "" or "". For cross compiling two variables PROFILE_BASE_BUILD
+# for the profile of the build machine and PROFILE_BASE_HOST for the host machine are set.
+#
+
+#
+# Set up for Windows versions
+#
+.profile-windows-x86_64-vs2019:
+    # Set up for Windows x86 using VS 2019, using conan and the profile windows-x86_64-vs2019,
+    # adapted for debug and release. To be called from individual packages by using "extends".
+    tags:
+        - windows
+        - VS2019
+        - conan
+    variables:
+        PROFILE_BASE: windows-x86_64-vs2019.jinja
+
+.profile-windows-x86_64-vs2017:
+    # Set up for Windows x86 using VS 2017, using conan and the profile windows-x86_64-vs2017,
+    # adapted for debug and release. To be called from individual packages by using "extends".
+    tags:
+        - windows
+        - VS2017
+        - conan
+    variables:
+        PROFILE_BASE: windows-x86_64-vs2017.jinja
+
+#
+# Set up for MacOS versions
+#
+.profile-macos-x86_64-appleclang-12.0:
+    # Set up for MacOS x86 using clang 12.0, using conan and the profile
+    # macos-x86_64-appleclang-12.0, adapted for debug and release. To be called from individual
+    # packages by using "extends". ##### Still in use, because a 13.1 version is not available yet.
+    tags:
+        - osx
+        - appleclang-12.0
+        - conan
+    variables:
+        PROFILE_BASE: macos-x86_64-appleclang-12.0.jinja
+
+.profile-macos-x86_64-appleclang-13.1:
+    # Set up for MacOS x86 using clang 13.1, using conan and the profile
+    # macos-x86_64-appleclang-13.1 adapted for debug and release. To be called from individual
+    # packages by using "extends". ##### Not in use yet, because this version has been just added.
+    tags:
+        - osx
+        - appleclang-13.1
+        - conan
+    variables:
+        PROFILE_BASE: macos-x86_64-appleclang-13.1.jinja
+
+.profile-macos-aarch64-appleclang-13.1:
+    # Set up for MacOS arm 64 using clang 13.1, using conan and the profile
+    # macos-aarch64-appleclang-13.1, adapted for debug and release. To be called from individual
+    # packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-13.1
+        - conan
+    variables:
+        PROFILE_BASE: macos-aarch64-appleclang-13.1.jinja
+
+#
+# Set up for iOS versions
+#
+.profile-iOS-aarch64-appleclang-13.1:
+    # Set up for iOS build using clang 13.1, and cross-compiling using conan and build / host
+    # profiles macos-aarch64-appleclang-13.1 and iOS-aarch64-appleclang-13.1, adapted for debug and
+    # release. To be called from individual packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-13.1
+        - conan
+    variables:
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
+        PROFILE_BASE_HOST: iOS-aarch64-appleclang-13.1.jinja
+
+.profile-iOSSimulator-aarch64-appleclang-13.1:
+    # Set up for iOS arm64 simulator and cross-compiling using clang 13.1, using conan and build /
+    # host profiles macos-aarch64-appleclang-13.1 and iOSSimulator-aarch64-appleclang-13.1, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-13.1
+        - conan
+    variables:
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
+        PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-13.1.jinja
+
+
+.profile-iOSSimulator-x86_64-appleclang-13.1:
+    # Set up for iOS x86 simulator and cross-compiling using clang 13.1, using conan and build /
+    # host profiles macos-aarch64-appleclang-13.1 and iOSSimulator-x86_64-appleclang-13.1, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-13.1
+        - conan
+    variables:
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
+        PROFILE_BASE_HOST: iOSSimulator-x86_64-appleclang-13.1.jinja
+
+#
+# Set up for linux versions
+#
+.profile-linux-x86_64-gcc9:
+    # Set up for linux x86 using gcc9, using docker and the profile linux-x86_64-gcc9, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    #
+    # The docker image builds on CentOS 7 using devtoolset-9, for maximum compatibility. This means
+    # the compiled code will work on any Ubuntu distro from Xenial onwards (and most other
+    # still-supported Linux distros). Differences between GCC 9's libstdc++ and GCC 4.8's libstdc++
+    # are handled by a static library, so no special handling of libstdc++ is required.
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc9:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc9.jinja
+
+.profile-linux-x86_64-gcc11:
+    # Set up for linux x86 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    #
+    # Note that the docker image uses a GCC 11 backport to Ubuntu Bionic. Compiled artifacts will
+    # be mostly compatible with Ubuntu Bionic and later, except that they will need the correct
+    # libstdc++ to be available. This can be achieved by installing libstdc++6 from the GCC 11
+    # backport (available in the ~ubuntu-toolchain-r/test PPA), or by otherwise shipping that
+    # version of libstdc++6 in a way that the software can find it.
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc11.jinja
+
+.profile-linux-aarch64-gcc7:
+    # Set up for linux arm64 using gcc7, using docker and the profile linux-aarch64-gcc7, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    image: git.oxfordnanolabs.local:4567/ofan/ofan-docker-base/arm64v8/conan:18.04
+    tags:
+        - linux_aarch64
+        - docker
+    variables:
+        PROFILE_BASE: linux-aarch64-gcc7.jinja
+
+.profile-linux-aarch64-gcc9:
+    # Set up for linux arm64 using gcc9, using docker and the profile linux-aarch64-gcc9, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    #
+    # The docker image builds on CentOS 7 using devtoolset-9, for maximum compatibility. This means
+    # the compiled code will work on any Ubuntu distro from Xenial onwards (and most other
+    # still-supported Linux distros). Differences between GCC 9's libstdc++ and GCC 4.8's libstdc++
+    # are handled by a static library, so no special handling of libstdc++ is required.
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc9:latest
+    tags:
+        - linux_aarch64
+        - docker
+    variables:
+        PROFILE_BASE: linux-aarch64-gcc9.jinja
+
+.profile-linux-aarch64-gcc11:
+    # Set up for linux arm64 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    #
+    # Note that the docker image uses a GCC 11 backport to Ubuntu Bionic. Compiled artifacts will
+    # be mostly compatible with Ubuntu Bionic and later, except that they will need the correct
+    # libstdc++ to be available. This can be achieved by installing libstdc++6 from the GCC 11
+    # backport (available in the ~ubuntu-toolchain-r/test PPA), or by otherwise shipping that
+    # version of libstdc++6 in a way that the software can find it.
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc11:latest
+    tags:
+        - linux_aarch64
+        - docker
+    variables:
+        PROFILE_BASE: linux-aarch64-gcc11.jinja
