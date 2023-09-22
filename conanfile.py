@@ -1,6 +1,9 @@
 import os
 
-from conans import CMake, ConanFile, tools
+from conan import ConanFile
+from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps
+from conan.tools.files import collect_libs
+from conan.tools.build import cross_building
 
 
 class Pod5Conan(ConanFile):
@@ -8,18 +11,10 @@ class Pod5Conan(ConanFile):
     license = "MPL 2.0"
     url = "https://github.com/nanoporetech/pod5-file-format"
     description = "POD5 File format"
-    topics = "arrow"
+    topics = "nanopore", "sequencing", "genomic", "dna", "arrow"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False], "nanopore_internal_build": [True, False]}
-
-    _cmake = None
-
-    default_options = {
-        "shared": False,
-        "nanopore_internal_build": False,
-        "boost:header_only": True,
-    }
-    generators = "cmake_find_package_multi"
+    options = {"shared": [True, False]}
+    default_options = {"shared": False}
     exports_sources = [
         "c++/*",
         "cmake/*",
@@ -29,107 +24,88 @@ class Pod5Conan(ConanFile):
         "LICENSE.md",
     ]
 
-    def setVersionsAndSuffixes(self):
-        self.package_suffix = ""
-        self.arrow_version = "8.0.0"
-        self.boost_version = "1.78.0"
-        if self.options.nanopore_internal_build:
-            self.output.info("Using internal dependencies")
-            self.package_suffix = "@nanopore/stable"
-            self.arrow_version = f"{self.arrow_version}.4"
-            self.boost_version = f"{self.boost_version}.1"
+    """
+    When cross building, we cannot build the "examples". Change a file in the build directory
+    for this version, file CMakeLists.txt at the top level. Note there are several
+    CMakeLists.txt in various places, it's the one at the top level. Change line from:
+
+        option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)
+     to
+        option(POD5_BUILD_EXAMPLES "Disable building all examples" OFF)
+
+    Note that the comment is misleading: ON turns buildin examples on, OFF turns building
+    examples off. And note that this must be done before calling _configure_cmake() otherwise
+    it will have no effect anymore.
+    """
+
+    def _toggle_tests_flag_for_cross_build(self):
+        fileToPatchName = os.path.join(self.source_folder, "CMakeLists.txt")
+        oldString = 'option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)'
+        newString = 'option(POD5_BUILD_EXAMPLES "Disable building all examples" OFF)'
+        with open(fileToPatchName, "r+") as text_file:
+            file_content = text_file.read()
+            new_content = file_content.replace(oldString, newString)
+            text_file.seek(0)
+            text_file.truncate(0)
+            text_file.write(new_content)
 
     def requirements(self):
-        self.setVersionsAndSuffixes()
-
-        self.requires(f"arrow/{self.arrow_version}{self.package_suffix}")
-        self.requires(f"boost/{self.boost_version}{self.package_suffix}")
-        self.requires(f"flatbuffers/2.0.0{self.package_suffix}")
-        self.requires(f"zstd/1.5.4{self.package_suffix}")
-        self.requires(f"zlib/1.2.13{self.package_suffix}")
+        self.requires("arrow/8.0.0@")
+        self.requires("boost/1.78.0@")
+        # We are using an older version of flatbuffers not available on CCI.
+        # @TODO: Update to a version that exists in CCI
+        self.requires("flatbuffers/2.0.0@nanopore/testing")
+        self.requires("zstd/1.5.4@")
+        self.requires("zlib/1.2.13@")
 
         if not (
             self.settings.os == "Windows"
             or self.settings.os == "Macos"
             or self.settings.os == "iOS"
         ):
-            self.requires(f"jemalloc/5.2.1{self.package_suffix}")
+            self.requires("jemalloc/5.2.1@")
 
-    def package_id(self):
-        # Windows configurations do not specify a C++ standard version.
-        if self.settings.os == "Windows":
-            del self.info.settings.compiler.cppstd
-        return super().package_id()
-
-    def compatibility(self):
-        # Packages that are built with C++14 should be compatible with clients that use C++17 & 20.
-        if self.settings.compiler.cppstd in ["17", "20"]:
-            return [{"settings": [("compiler.cppstd", "14")]}]
+    """
+    When cross compiling we need pre compiled flatbuffers for flatc to run on the build machine
+    which is not the target.
+    The flatbuffers version is most likely available already; it is on the master branch and
+    quite likely already built on the development branch. However, it seems that conan
+    doesn't realise this since it is the same package that it tries to build, even though it
+    is a different revision, flatbuffers on the other hand is downloaded.
+    """
 
     def build_requirements(self):
-        # When cross compiling we need pre compiled flatbuffers for flatc to run on the build machine
-        # which is not the target.
-        #
-        # The flatbuffers version is most likely available already; it is on the master branch and
-        # quite likely already built on the development branch. However, it seems that conan
-        # doesn't realise this since it is the same package that it tries to build, even though it
-        # is a different revision, flatbuffers on the other hand is downloaded.
+        if hasattr(self, "settings_build") and cross_building(self):
+            # We are using an older version of flatbuffers not available on CCI.
+            # @TODO: Update to a version that exists in CCI
+            self.build_requires("flatbuffers/2.0.0@nanopore/testing")
 
-        self.setVersionsAndSuffixes()
-        if hasattr(self, "settings_build") and tools.cross_building(self):
-            self.build_requires(f"flatbuffers/2.0.0{self.package_suffix}")
+    def generate(self):
+        if cross_building(self):
+            self._toggle_tests_flag_for_cross_build()
+        tc = CMakeToolchain(self)
+        tc.variables["ENABLE_CONAN"] = "ON"
+        tc.variables["BUILD_PYTHON_WHEEL"] = "OFF"
+        tc.variables["INSTALL_THIRD_PARTY"] = "OFF"
+        tc.variables["POD5_DISABLE_TESTS"] = "ON"
+        tc.variables["POD5_BUILD_EXAMPLES"] = "OFF"
+        tc.variables["BUILD_SHARED_LIB"] = "ON" if self.options.shared else "OFF"
+        tc.generate()
 
-    def _configure_cmake(self):
-        if self._cmake:
-            return self._cmake
-        self._cmake = CMake(self)
-        self._cmake.definitions["ENABLE_CONAN"] = "ON"
-        self._cmake.definitions["BUILD_PYTHON_WHEEL"] = "OFF"
-        self._cmake.definitions["INSTALL_THIRD_PARTY"] = "OFF"
-        self._cmake.definitions["POD5_DISABLE_TESTS"] = "ON"
-        self._cmake.definitions["POD5_BUILD_EXAMPLES"] = "OFF"
-        self._cmake.definitions["BUILD_SHARED_LIB"] = (
-            "ON" if self.options.shared else "OFF"
-        )
-        self._cmake.configure()
-        return self._cmake
+        deps = CMakeDeps(self)
+        deps.check_components_exist = True
 
-    def configure(self):
-        if self.options.nanopore_internal_build:
-            self.options["boost"].header_only = False
-            # ensure that linking against pod5 doesn't override the global allocator
-            self.options["jemalloc"].prefix = "je_"
+        # This ensures that target names in cmake would be in the form of libname::libname
+        deps.set_property("zstd", "cmake_target_name", None)
+        deps.generate()
 
     def build(self):
-        # When cross building, we cannot build the "examples". Change a file in the build directory
-        # for this version, file CMakeLists.txt at the top level. Note there are several
-        # CMakeLists.txt in various places, it's the one at the top level. Change line from
-        #
-        #     option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)
-        # to
-        #     option(POD5_BUILD_EXAMPLES "Disable building all examples" OFF)
-        #
-        # Note that the comment is misleading: ON turns buildin examples on, OFF turns building
-        # examples off. And note that this must be done before calling _configure_cmake() otherwise
-        # it will have no effect anymore.
-        if tools.cross_building(self):
-            fileToPatchName = os.path.join(self.source_folder, "CMakeLists.txt")
-            oldString = 'option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)'
-            newString = (
-                'option(POD5_BUILD_EXAMPLES "Disable building all examples" OFF)'
-            )
-            with open(fileToPatchName, "r+") as text_file:
-                file_content = text_file.read()
-                new_content = file_content.replace(oldString, newString)
-                text_file.seek(0)
-                text_file.truncate(0)
-                text_file.write(new_content)
-
-        cmake = self._configure_cmake()
+        cmake = CMake(self)
+        cmake.configure()
         cmake.build()
 
     def package(self):
-        cmake = self._configure_cmake()
+        cmake = CMake(self)
         cmake.install()
 
         # Copy the license files
@@ -150,7 +126,7 @@ class Pod5Conan(ConanFile):
 
         # Additions for this package. Note that everything in requirements needs to be mentioned
         # here. Except for Windows and Macos, jemalloc is also needed.
-        self.cpp_info.libs = tools.collect_libs(self)
+        self.cpp_info.libs = collect_libs(self)
         self.cpp_info.requires = [
             "arrow::arrow",
             "boost::headers",
@@ -158,45 +134,11 @@ class Pod5Conan(ConanFile):
             "zstd::zstd",
             "zlib::zlib",
         ]
+
+        # self.cpp
         if not (
             self.settings.os == "Windows"
             or self.settings.os == "Macos"
             or self.settings.os == "iOS"
         ):
             self.cpp_info.requires.append("jemalloc::jemalloc")
-
-        super().package_info()
-
-    def run(
-        self,
-        command,
-        output=True,
-        cwd=None,
-        win_bash=False,
-        subsystem=None,
-        msys_mingw=True,
-        ignore_errors=False,
-        run_environment=False,
-        with_login=True,
-        env="conanbuild",
-    ):
-        super().run(
-            command=command,
-            output=output,
-            cwd=cwd,
-            win_bash=win_bash,
-            subsystem=subsystem,
-            msys_mingw=msys_mingw,
-            ignore_errors=ignore_errors,
-            run_environment=run_environment,
-            with_login=with_login,
-            env=env,
-        )
-
-    def test(self):
-        if tools.cross_building(self):
-            self.output.warn(
-                "Pod5Conan: self.test not performed because cross_building"
-            )
-            return
-        return super().test()

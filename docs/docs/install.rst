@@ -57,7 +57,7 @@ You will also need the python ``setuptools_scm`` package to manage pod5 versioni
    # Note the build=missing, will build any libs not available on your current platform as binaries:
    $ mkdir build
    $ cd build
-   $ conan install --build=missing -s build_type=Release .. && cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release .. && make -j
+   $ conan install --build=missing -s build_type=Release .. && cmake -DENABLE_CONAN=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake .. && make -j
 
 Arm 64 MacOS Builds
 +++++++++++++++++++

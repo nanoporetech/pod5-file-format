@@ -11,5 +11,6 @@ _version.py
 *egg-info/
 POD5Version.cmake
 *.swp
+test_package/CMakeUserPresets.json
 .vscode/
 __pycache__
