@@ -13,7 +13,6 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
   DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
-  CONAN_CONFIG_V41_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v41.zip
   CONAN_PROFILE_BUILD_TYPE: Release
 
 before_script:
@@ -199,7 +198,7 @@ build-standalone-ubu20:
     - /opt/python/cp310-cp310/bin/pip install -U pip 'conan<2' auditwheel build
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
-    - conan config install --verify-ssl=no ${CONAN_CONFIG_V41_URL}
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   script:
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir -p build
@@ -224,7 +223,7 @@ linux-aarch64-gcc7-release-build:
   image: ${CI_REGISTRY}/ofan/ofan-docker-base/arm64v8/conan:18.04
   extends: [".build-linux"]
   before_script:
-    - conan config install --verify-ssl=no ${CONAN_CONFIG_V41_URL}
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   tags:
     - linux_aarch64
     - high-cpu
@@ -276,7 +275,7 @@ linux-aarch64-gcc9-release-build:
     - "prepare_version"
   retry: 1
   before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_V41_URL}"
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
     - export PATH="$(pwd)/python/Python.framework/Versions/Current/bin/:${PATH}"
     - python3 -m venv .venv/
@@ -360,7 +359,7 @@ osx-arm64-clang13-release-build:
     - "prepare_version"
   retry: 1
   before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_V41_URL}"
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - export PYENV="${HOME}/.pyenv/pyenv-win"
     - export PYENV_ROOT="${PYENV}"
     - export PYENV_HOME="${PYENV}"
@@ -681,7 +680,7 @@ benchmark-linux-aarch64:
   dependencies:
     - "prepare_version"
   before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_V41_URL}"
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install 'conan<2'
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
