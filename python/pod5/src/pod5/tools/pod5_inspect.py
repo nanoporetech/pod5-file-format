@@ -175,6 +175,10 @@ def do_summary_command(reader: p5.Reader, **kwargs):
         f"File version in memory {reader.file_version}, read table version {reader.reads_table_version}."
     )
     print(f"File version on disk {reader.file_version_pre_migration}.")
+    if reader.is_vbz_compressed:
+        print("File uses VBZ compression.")
+    else:
+        print("File is uncompressed.")
 
     for batch in reader.read_batches():
         batch_count += 1
