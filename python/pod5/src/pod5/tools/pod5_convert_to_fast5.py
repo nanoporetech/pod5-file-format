@@ -162,7 +162,7 @@ def write_pod5_record_to_fast5(read: p5.ReadRecord, fast5: h5py.File) -> None:
     raw_group.attrs.create("duration", read.sample_count, dtype=numpy.uint32)
     raw_group.attrs.create("read_number", read.read_number, dtype=numpy.int32)
     raw_group.attrs.create("start_mux", read.pore.well, dtype=numpy.uint8)
-    raw_group.attrs["read_id"] = str(read.read_id)
+    raw_group.attrs["read_id"] = str(read.read_id).encode("utf-8")
     raw_group.attrs.create("median_before", read.median_before, dtype=numpy.float64)
 
     # Lookup the fast5 enumeration values, which should include "partial: 1"

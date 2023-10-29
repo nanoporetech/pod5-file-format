@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Remove exposed artifactory URL env var from gitlab ci config.
+- `convert to_fast5` writes byte encoded read_ids to match Minkow (was `str`)
 
 ## [0.2.7] 2023-09-11
 
