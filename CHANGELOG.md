@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - Added compression status to `pod5 inspect summary <file>`
+- Added environment override "POD5_DISABLE_MMAP_OPEN" to force non-mmapped opening of files.
 
 ### Fixed
 

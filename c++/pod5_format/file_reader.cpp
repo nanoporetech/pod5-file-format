@@ -174,7 +174,7 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
     }
 
     std::shared_ptr<arrow::io::RandomAccessFile> file;
-    if (!options.force_disable_file_mapping()) {
+    if (!options.force_disable_file_mapping() && getenv("POD5_DISABLE_MMAP_OPEN") == nullptr) {
         // Try to open the file with mmap, if we fail fall back to a traditional open.
         auto file_opt = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
         if (file_opt.ok()) {

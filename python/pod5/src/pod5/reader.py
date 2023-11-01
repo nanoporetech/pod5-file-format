@@ -7,6 +7,7 @@ import mmap
 from collections import namedtuple
 from dataclasses import fields
 from io import IOBase
+import os
 from pathlib import Path
 from typing import (
     Collection,
@@ -561,12 +562,15 @@ class ArrowTableHandle:
         # Open the file
         self._fh = self._path.open("rb")
 
-        # Create a memory view of the file and select the region for the table
-        try:
-            self._reader = self._open_with_mmap()
-        except OSError:
-            # If we fail fall back to a traditional open.
+        if "POD5_DISABLE_MMAP_OPEN" in os.environ:
             self._reader = self._open_without_mmap()
+        else:
+            # Create a memory view of the file and select the region for the table
+            try:
+                self._reader = self._open_with_mmap()
+            except OSError:
+                # If we fail fall back to a traditional open.
+                self._reader = self._open_without_mmap()
 
     def _open_without_mmap(self):
         class File(IOBase):
