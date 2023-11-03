@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [0.2.10] 2023-11-03
+
+### Fixed
+
+- Fixed a bug in the build scripts that prevented iOS Conan packages from being uploaded.
+
 ## [0.2.9] 2023-11-02
 
 ### Fixed

@@ -717,7 +717,7 @@ benchmark-linux-aarch64:
     - conan remove "*" --builds --src --force
     # Remove unneeded MacOS packages
     - echo "Remove MacOS packages"
-    - conan remove flatbuffers/2.0.0@nanopore/stable -q "os=Macos" --force
+    - conan remove "flatbuffers/2.0.0@nanopore/*" -q "os=Macos" --force
     # Move required packages to a tarball
     - PACKAGE_DIR="${CONAN_USER_HOME#${PWD}/}/.conan/data/$(conan inspect --raw name ${CONAN_REFERENCE})"
     - echo "Packing from $PACKAGE_DIR"

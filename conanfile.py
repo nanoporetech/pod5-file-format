@@ -54,6 +54,8 @@ class Pod5Conan(ConanFile):
         self.requires("boost/1.78.0@")
         # We are using an older version of flatbuffers not available on CCI.
         # @TODO: Update to a version that exists in CCI
+        # When this line changes a corresponding change in .gitlab-ci.yml is required where this
+        # package is uninstalled.
         self.requires("flatbuffers/2.0.0@nanopore/testing")
         self.requires("zstd/1.5.4@")
         self.requires("zlib/1.2.13@")
@@ -78,6 +80,8 @@ class Pod5Conan(ConanFile):
         if hasattr(self, "settings_build") and cross_building(self):
             # We are using an older version of flatbuffers not available on CCI.
             # @TODO: Update to a version that exists in CCI
+            # When this line changes a corresponding change in .gitlab-ci.yml is required where this
+            # package is uninstalled.
             self.build_requires("flatbuffers/2.0.0@nanopore/testing")
 
     def generate(self):
