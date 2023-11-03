@@ -5,6 +5,7 @@ if (ENABLE_CONAN)
     find_package(Boost REQUIRED CONFIG)
     find_package(Flatbuffers REQUIRED CONFIG)
     find_package(zstd REQUIRED CONFIG)
+    find_package(ZLIB REQUIRED CONFIG)
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
         find_package(jemalloc REQUIRED CONFIG)
@@ -18,6 +19,7 @@ else()
     )
     find_package(Flatbuffers REQUIRED)
     find_package(zstd REQUIRED)
+    find_package(ZLIB REQUIRED)
 endif()
 
 find_package(Threads REQUIRED)
@@ -167,14 +169,23 @@ set_target_properties(pod5_format
         PUBLIC_HEADER "${public_headers}"
 )
 
+# Link these libraries publicly when doing a static lib build
+set(maybe_public_libs
+    arrow::arrow
+    flatbuffers::flatbuffers
+    Boost::headers
+)
+if (BUILD_SHARED_LIB)
+    target_link_libraries(pod5_format PRIVATE ${maybe_public_libs})
+else()
+    target_link_libraries(pod5_format PUBLIC ${maybe_public_libs})
+endif()
+
 target_link_libraries(pod5_format
-    PUBLIC
-        arrow::arrow
-        flatbuffers::flatbuffers
-        Boost::headers
     PRIVATE
         pod5_flatbuffers
         zstd::zstd
+        ZLIB::ZLIB
         Threads::Threads
 )
 

@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## Added
+### Added
+
+### Fixed
+
+## [0.2.9] 2023-11-02
+
+### Fixed
+
+- Corrected the visibility of dependencies when building pod5 as a shared library.
+
+## [0.2.8] 2023-11-01
+
+### Added
 
 - Added compression status to `pod5 inspect summary <file>`
 - Added environment override "POD5_DISABLE_MMAP_OPEN" to force non-mmapped opening of files.
@@ -21,20 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.7] 2023-09-11
 
-
-## Added
+### Added
 
 - `DatasetReader` class for reading collections of pod5 files
 - Return index errors when querying invalid errors from API's
 
-## Changed
+### Changed
 
 - Recursive search for files now traverses symbolic links and ignores hidden files
 - Tweak block size of directio writes to 1MB.
 
 ## [0.2.6] 2023-09-04
 
-## Changed
+### Changed
 
 - Write pod5 files using DirectIO on Linux platforms (performance)
 
