@@ -74,6 +74,8 @@ public:
         std::string const & serialized_data) const override;
 };
 
+std::unique_ptr<arrow::FixedSizeBinaryBuilder> make_read_id_builder(arrow::MemoryPool * pool);
+
 std::shared_ptr<VbzSignalType> vbz_signal();
 std::shared_ptr<UuidType> uuid();
 

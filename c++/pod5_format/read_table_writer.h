@@ -5,6 +5,7 @@
 #include "pod5_format/read_table_writer_utils.h"
 #include "pod5_format/result.h"
 #include "pod5_format/schema_field_builder.h"
+#include "pod5_format/signal_table_utils.h"
 
 #include <arrow/array/builder_dict.h>
 #include <arrow/io/type_fwd.h>

@@ -210,7 +210,7 @@ public:
         return signal_rows;
     }
 
-    pod5::Result<std::uint64_t> add_pre_compressed_signal(
+    pod5::Result<SignalTableRowIndex> add_pre_compressed_signal(
         boost::uuids::uuid const & read_id,
         gsl::span<std::uint8_t const> const & signal_bytes,
         std::uint32_t sample_count)
@@ -223,7 +223,24 @@ public:
             read_id, signal_bytes, sample_count);
     }
 
+    pod5::Result<std::pair<SignalTableRowIndex, SignalTableRowIndex>> add_signal_batch(
+        std::size_t row_count,
+        std::vector<std::shared_ptr<arrow::Array>> && columns,
+        bool final_batch)
+    {
+        if (!m_signal_table_writer || !m_read_table_writer) {
+            return arrow::Status::Invalid("File writer closed, cannot write further data");
+        }
+
+        return m_signal_table_writer->add_signal_batch(row_count, std::move(columns), final_batch);
+    }
+
     SignalType signal_type() const { return m_signal_table_writer->signal_type(); }
+
+    std::size_t signal_table_batch_size() const
+    {
+        return m_signal_table_writer->table_batch_size();
+    }
 
     pod5::Status close_run_info_table_writer()
     {
@@ -438,6 +455,14 @@ pod5::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
     return m_impl->add_pre_compressed_signal(read_id, signal_bytes, sample_count);
 }
 
+pod5::Result<std::pair<SignalTableRowIndex, SignalTableRowIndex>> FileWriter::add_signal_batch(
+    std::size_t row_count,
+    std::vector<std::shared_ptr<arrow::Array>> && columns,
+    bool final_batch)
+{
+    return m_impl->add_signal_batch(row_count, std::move(columns), final_batch);
+}
+
 pod5::Result<EndReasonDictionaryIndex> FileWriter::lookup_end_reason(ReadEndReason end_reason) const
 {
     return m_impl->lookup_end_reason(end_reason);
@@ -454,6 +479,11 @@ pod5::Result<RunInfoDictionaryIndex> FileWriter::add_run_info(RunInfoData const 
 }
 
 SignalType FileWriter::signal_type() const { return m_impl->signal_type(); }
+
+std::size_t FileWriter::signal_table_batch_size() const
+{
+    return m_impl->signal_table_batch_size();
+}
 
 pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::MemoryPool * pool)
 {

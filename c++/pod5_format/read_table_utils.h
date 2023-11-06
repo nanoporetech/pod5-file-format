@@ -13,8 +13,6 @@
 
 namespace pod5 {
 
-using SignalTableRowIndex = std::uint64_t;
-
 using PoreDictionaryIndex = std::int16_t;
 using EndReasonDictionaryIndex = std::int16_t;
 using RunInfoDictionaryIndex = std::int16_t;

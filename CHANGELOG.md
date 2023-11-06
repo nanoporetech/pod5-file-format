@@ -9,9 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### Added
+### Changed
+
+- Transfers dataframes used in subsetting / filter use categorical fields to reduce memory consumption
+- Polars version increased to `~=0.19`
 
 ### Fixed
+
+- Remove exposed artifactory URL env var from gitlab ci config.
+- `convert to_fast5` writes byte encoded read_ids to match Minkow (was `str`)
+
+### Removed
+
+- Removed python3.7 support
 
 ## [0.2.10] 2023-11-03
 

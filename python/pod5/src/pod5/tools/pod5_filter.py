@@ -4,6 +4,7 @@ Tool for subsetting pod5 files into one or more outputs using a list of read ids
 
 
 from pathlib import Path
+from time import sleep
 from typing import List
 from pod5.tools.polars_utils import PL_DEST_FNAME, PL_READ_ID, PL_UUID_REGEX
 from pod5.tools.utils import (
@@ -33,6 +34,8 @@ from pod5.tools.utils import logged
 
 logger = init_logging()
 
+pl.enable_string_cache()
+
 
 @logged_all
 def parse_read_id_targets(ids: Path, output: Path) -> pl.LazyFrame:
@@ -49,7 +52,7 @@ def parse_read_id_targets(ids: Path, output: Path) -> pl.LazyFrame:
         .unique()
         .with_columns(
             [
-                pl.lit(str(output.resolve())).alias(PL_DEST_FNAME),
+                pl.lit(str(output.resolve())).cast(pl.Categorical).alias(PL_DEST_FNAME),
                 pl.col(PL_READ_ID).str.contains(PL_UUID_REGEX).alias("is_uuid"),
             ]
         )
@@ -64,12 +67,11 @@ def parse_read_id_targets(ids: Path, output: Path) -> pl.LazyFrame:
 
 
 @logged(log_time=True)
-def filter_reads(dest: Path, sources: pl.DataFrame) -> None:
+def filter_reads(dest: Path, sources: pl.DataFrame, duplicate_ok: bool) -> None:
     """Copy the reads in `sources` into a new pod5 file at `dest`"""
-    prev = 0
     repacker = Repacker()
     with p5.Writer(dest) as writer:
-        output = repacker.add_output(writer)
+        output = repacker.add_output(writer, not duplicate_ok)
 
         # Count the total number of reads expected
         total_reads = 0
@@ -84,6 +86,8 @@ def filter_reads(dest: Path, sources: pl.DataFrame) -> None:
             **PBAR_DEFAULTS,
         )
 
+        active_limit = 5
+
         # Copy selected reads from one file at a time
         for source, reads in sources.groupby(PL_SRC_FNAME):
             src = Path(source)
@@ -94,16 +98,21 @@ def filter_reads(dest: Path, sources: pl.DataFrame) -> None:
                 logger.debug(f"Skipping: {src}")
                 continue
 
+            while repacker.currently_open_file_reader_count >= active_limit:
+                pbar.update(repacker.reads_completed - pbar.n)
+                sleep(0.05)
+
             with p5.Reader(src) as reader:
                 repacker.add_selected_reads_to_output(output, reader, read_ids)
-                for n_written in repacker.waiter():
-                    pbar.update(n_written - prev)
-                    prev = n_written
+                continue
 
-        pbar.update(total_reads - prev)
-        pbar.close()
-        # Finish the pod5 file and close source handles
+        repacker.set_output_finished(output)
+        while repacker.currently_open_file_reader_count > 0:
+            pbar.update(repacker.reads_completed - pbar.n)
+            sleep(0.05)
+
         repacker.finish()
+        pbar.close()
 
     return
 
@@ -139,7 +148,7 @@ def filter_pod5(
     threads = limit_threads(threads)
 
     _inputs = collect_inputs(inputs, recursive, "*.pod5", threads=threads)
-    sources = parse_sources(_inputs, duplicate_ok=duplicate_ok, threads=threads)
+    sources = parse_sources(_inputs, threads=threads)
     print(f"Found {len(sources.collect())} read_ids from {len(_inputs)} inputs")
 
     # Map the target outputs to which source read ids they're comprised of
@@ -153,7 +162,7 @@ def filter_pod5(
     # There will only one output from this
     groupby_dest = transfers.collect().groupby(PL_DEST_FNAME)
     for dest, sources in groupby_dest:
-        filter_reads(dest=dest, sources=sources)
+        filter_reads(dest=dest, sources=sources, duplicate_ok=duplicate_ok)
 
     return
 

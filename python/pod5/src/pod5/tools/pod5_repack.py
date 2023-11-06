@@ -33,13 +33,13 @@ def resolve_overwrite(src: Path, dest: Path, force: bool) -> None:
 def repack_pod5_file(src: Path, dest: Path):
     """Repack the source pod5 file into dest"""
     repacker = pod5.repack.Repacker()
-    with p5.Reader(src) as reader:
-        with p5.Writer(dest) as writer:
+    with p5.Writer(dest) as writer:
+        repacker_output = repacker.add_output(writer, False)
+        with p5.Reader(src) as reader:
             # Add all reads to the repacker
-            repacker_output = repacker.add_output(writer)
             repacker.add_all_reads_to_output(repacker_output, reader)
-            for _ in repacker.waiter():
-                pass
+        repacker.set_output_finished(repacker_output)
+        repacker.finish()
 
 
 def repack_pod5(

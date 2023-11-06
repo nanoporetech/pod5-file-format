@@ -2,7 +2,8 @@
 Tool for merging pod5 files
 """
 
-from typing import Iterable, Set
+from time import sleep
+from typing import Iterable
 from pathlib import Path
 from tqdm.auto import tqdm
 
@@ -10,6 +11,7 @@ import pod5 as p5
 import pod5.repack as p5_repack
 from pod5.tools.parsers import prepare_pod5_merge_argparser, run_tool
 from pod5.tools.utils import (
+    DEFAULT_THREADS,
     PBAR_DEFAULTS,
     collect_inputs,
     init_logging,
@@ -20,37 +22,14 @@ logger = init_logging()
 
 
 @logged_all
-def assert_no_duplicate_reads(paths: Iterable[Path]) -> int:
-    """
-    Raise AssertionError if we detect any duplicate read_ids in the pod5 files given.
-    """
-
-    read_ids: Set[str] = set()
-    for path in paths:
-        msg = f"Duplicate read_ids detected in {path.name} but --duplicate-ok not set"
-
-        with p5.Reader(path) as reader:
-            ids = reader.read_ids
-            set_ids = set(ids)
-
-            if len(ids) != len(set_ids):
-                raise AssertionError(msg)
-
-            if not read_ids.isdisjoint(set_ids):
-                raise AssertionError(msg)
-
-            read_ids.update(set_ids)
-
-    return len(read_ids)
-
-
-@logged_all
 def merge_pod5(
     inputs: Iterable[Path],
     output: Path,
     duplicate_ok: bool = False,
     force_overwrite: bool = False,
     recursive: bool = False,
+    threads: int = DEFAULT_THREADS,
+    readers: int = 5,
 ) -> None:
     """
     Merge the an iterable of input pod5 paths into the specified output path
@@ -68,27 +47,20 @@ def merge_pod5(
     if not output.parent.exists():
         output.parent.mkdir(parents=True, exist_ok=True)
 
-    inputs = collect_inputs(inputs, recursive=recursive, pattern="*.pod5")
+    _inputs = collect_inputs(
+        inputs, recursive=recursive, pattern="*.pod5", threads=threads
+    )
 
-    if not duplicate_ok:
-        total_reads = assert_no_duplicate_reads(inputs)
-    else:
-        total_reads = 0
-        for path in inputs:
-            with p5.Reader(path) as reader:
-                total_reads += reader.num_reads
-
-    print(f"Merging {total_reads} reads from {len(inputs)} files")
+    print(f"Merging reads from {len(_inputs)} files")
 
     # Open the output file writer
     with p5.Writer(output.absolute()) as writer:
         # Attach the writer to the repacker
         repacker = p5_repack.Repacker()
-        repacker_output = repacker.add_output(writer)
-        prev = 0
+        repacker_output = repacker.add_output(writer, not duplicate_ok)
 
         pbar = tqdm(
-            total=len(inputs),
+            total=len(_inputs),
             desc="Merging",
             unit="Files",
             leave=True,
@@ -96,29 +68,29 @@ def merge_pod5(
             **PBAR_DEFAULTS,
         )
 
-        # Copy all reads from each input
-        for path in inputs:
-            with p5.Reader(path) as reader:
-                pbar2 = tqdm(
-                    total=reader.num_reads,
-                    desc=reader.path.name,
-                    unit="Reads",
-                    leave=False,
-                    position=1,
-                    delay=10,
-                    **PBAR_DEFAULTS,
-                )
+        active_limit = max(readers, 1)
+        opened_readers = 0
+        active = 0
 
-                repacker.add_all_reads_to_output(repacker_output, reader)
-                for n_written in repacker.waiter():
-                    pbar2.update(n_written - prev)
-                    prev = n_written
+        while _inputs or active > 0:
+            pbar.update(opened_readers - active - pbar.n)
 
-                pbar2.close()
-                pbar.update()
+            active = repacker.currently_open_file_reader_count
+            if active < active_limit:
+                if _inputs:
+                    with p5.Reader(_inputs.pop()) as reader:
+                        opened_readers += 1
+                        repacker.add_all_reads_to_output(repacker_output, reader)
+                        continue
+                else:
+                    repacker.set_output_finished(repacker_output)
+                    continue
+
+            sleep(0.05)
 
         repacker.finish()
         del repacker
+        pbar.update(opened_readers - active - pbar.n)
         pbar.close()
 
     return

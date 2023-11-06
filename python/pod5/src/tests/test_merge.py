@@ -38,5 +38,5 @@ class TestMerge:
         inputs = list(TEST_DATA_PATH.glob("*pod5"))
         output = tmp_path / "test.pod5"
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(RuntimeError, match="Duplicate read id"):
             merge_pod5(inputs, output)

@@ -1,6 +1,7 @@
 #include "api.h"
 #include "pod5_format/c_api.h"
-#include "repacker.h"
+#include "repack/repack_output.h"
+#include "repack/repacker.h"
 
 PYBIND11_MODULE(pod5_format_pybind, m)
 {
@@ -105,21 +106,21 @@ PYBIND11_MODULE(pod5_format_pybind, m)
     m.def("vbz_compressed_signal_max_size", &vbz_compressed_signal_max_size);
 
     // Repacker API
-    py::class_<Pod5RepackerOutput, std::shared_ptr<Pod5RepackerOutput>>(m, "Pod5RepackerOutput");
+    py::class_<repack::Pod5RepackerOutput, std::shared_ptr<repack::Pod5RepackerOutput>>(
+        m, "Pod5RepackerOutput");
 
-    py::class_<Pod5Repacker, std::shared_ptr<Pod5Repacker>>(m, "Repacker")
+    py::class_<repack::Pod5Repacker, std::shared_ptr<repack::Pod5Repacker>>(m, "Repacker")
         .def(py::init<>())
-        .def("add_output", &Pod5Repacker::add_output)
-        .def("add_all_reads_to_output", &Pod5Repacker::add_all_reads_to_output)
-        .def("add_selected_reads_to_output", &Pod5Repacker::add_selected_reads_to_output)
-        .def("finish", &Pod5Repacker::finish)
-        .def_property_readonly("is_complete", &Pod5Repacker::is_complete)
-        .def_property_readonly("pending_batch_writes", &Pod5Repacker::pending_batch_writes)
-        .def_property_readonly("reads_completed", &Pod5Repacker::reads_completed)
+        .def("add_output", &repack::Pod5Repacker::add_output)
+        .def("set_output_finished", &repack::Pod5Repacker::set_output_finished)
+        .def("add_all_reads_to_output", &repack::Pod5Repacker::add_all_reads_to_output)
+        .def("add_selected_reads_to_output", &repack::Pod5Repacker::add_selected_reads_to_output)
+        .def("finish", &repack::Pod5Repacker::finish)
+        .def_property_readonly("is_complete", &repack::Pod5Repacker::is_complete)
         .def_property_readonly(
-            "reads_sample_bytes_completed", &Pod5Repacker::reads_sample_bytes_completed)
-        .def_property_readonly("batches_requested", &Pod5Repacker::batches_requested)
-        .def_property_readonly("batches_completed", &Pod5Repacker::batches_completed);
+            "currently_open_file_reader_count",
+            &repack::Pod5Repacker::currently_open_file_reader_count)
+        .def_property_readonly("reads_completed", &repack::Pod5Repacker::reads_completed);
 
     // Util API
     m.def(
