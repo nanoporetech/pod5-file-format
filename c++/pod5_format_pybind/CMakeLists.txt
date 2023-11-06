@@ -2,8 +2,15 @@
 pybind11_add_module(pod5_format_pybind
     api.h
     bindings.cpp
-    repacker.h
     utils.h
+
+    repack/repack_functions.h
+    repack/repack_states.h
+    repack/repack_utils.h
+    repack/repack_output.cpp
+    repack/repack_output.h
+    repack/repacker.cpp
+    repack/repacker.h
 )
 
 target_link_libraries(pod5_format_pybind

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "pod5"
 authors = [{name="Oxford Nanopore Technologies plc", email="support@nanoporetech.com"}]
 readme = "README.md"
-requires-python = "~= 3.7"
+requires-python = "~= 3.8"
 description="Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
 dynamic = ["version"]
 keywords = ['nanopore']
@@ -22,7 +22,7 @@ classifiers=[
 ]
 
 dependencies = [
-    "lib_pod5 == 0.2.10",
+    "lib_pod5 == 0.2.11",
     "iso8601",
     'importlib-metadata; python_version<"3.8"',
     "more_itertools",
@@ -31,7 +31,7 @@ dependencies = [
     "pyarrow ~= 11.0.0",
     "pytz",
     "packaging",
-    "polars~=0.17.12",
+    "polars~=0.19",
     "h5py~=3.8.0",
     "vbz_h5py_plugin",
     "tqdm"

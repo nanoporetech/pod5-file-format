@@ -392,6 +392,20 @@ def prepare_pod5_merge_argparser(
     add_recursive_argument(parser)
     add_force_overwrite_argument(parser)
     parser.add_argument(
+        "-t",
+        "--threads",
+        type=int,
+        default=DEFAULT_THREADS,
+        help="Number of workers",
+    )
+    parser.add_argument(
+        "-R",
+        "--readers",
+        type=int,
+        default=20,
+        help="number of merge readers TESTING ONLY",
+    )
+    parser.add_argument(
         "-D",
         "--duplicate-ok",
         action="store_true",

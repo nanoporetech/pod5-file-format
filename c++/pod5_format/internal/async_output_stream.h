@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pod5_format/internal/tracing/tracing.h"
 #include "pod5_format/thread_pool.h"
 
 #include <arrow/buffer.h>
@@ -82,6 +83,7 @@ public:
 
     arrow::Status Write(void const * data, int64_t nbytes) override
     {
+        POD5_TRACE_FUNCTION();
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> buffer, arrow::AllocateBuffer(nbytes));
         auto const char_data = static_cast<std::uint8_t const *>(data);
         std::copy(char_data, char_data + nbytes, buffer->mutable_data());
@@ -90,6 +92,7 @@ public:
 
     arrow::Status Write(std::shared_ptr<arrow::Buffer> const & data) override
     {
+        POD5_TRACE_FUNCTION();
         if (m_has_error) {
             return *m_error;
         }
@@ -104,6 +107,7 @@ public:
 
         m_submitted_writes += 1;
         m_strand->post([&, data] {
+            POD5_TRACE_FUNCTION();
             if (m_has_error) {
                 return;
             }
@@ -126,6 +130,7 @@ public:
 
     arrow::Status Flush() override
     {
+        POD5_TRACE_FUNCTION();
         // Wait for our completed writes to match our submitted writes,
         // this guarantees our async operations are finished.
         auto wait_for_write_count = m_submitted_writes.load();

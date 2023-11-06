@@ -1,6 +1,7 @@
 #include "pod5_format/types.h"
 
 #include <arrow/array/array_binary.h>
+#include <arrow/array/builder_binary.h>
 #include <arrow/util/logging.h>
 
 namespace pod5 {
@@ -95,6 +96,17 @@ arrow::Result<std::shared_ptr<arrow::DataType>> VbzSignalType::Deserialize(
             "Incorrect storage for VbzSignalType: '", storage_type->ToString(), "'");
     }
     return std::make_shared<VbzSignalType>();
+}
+
+std::unique_ptr<arrow::FixedSizeBinaryBuilder> make_read_id_builder(arrow::MemoryPool * pool)
+{
+    auto uuid_type = uuid();
+    assert(uuid_type->id() == arrow::Type::EXTENSION);
+    auto uuid_extension = std::static_pointer_cast<arrow::ExtensionType>(uuid_type);
+    auto result =
+        std::make_unique<arrow::FixedSizeBinaryBuilder>(uuid_extension->storage_type(), pool);
+    assert(result->byte_width() == 16);
+    return result;
 }
 
 std::shared_ptr<VbzSignalType> vbz_signal()

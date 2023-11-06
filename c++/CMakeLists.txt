@@ -83,6 +83,7 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/signal_table_writer.cpp
     pod5_format/signal_table_writer.h
     pod5_format/signal_table_utils.h
+    pod5_format/signal_builder.h
 
     pod5_format/c_api.cpp
     pod5_format/c_api.h
@@ -145,6 +146,7 @@ list(APPEND public_headers
     pod5_format/signal_table_schema.h
     pod5_format/signal_table_writer.h
     pod5_format/signal_table_utils.h
+    pod5_format/signal_builder.h
 
     pod5_format/c_api.h
 

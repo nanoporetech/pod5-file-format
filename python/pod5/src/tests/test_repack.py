@@ -110,33 +110,22 @@ class TestRepacker:
         dest = tmp_path / "dest.pod5"
         repacker = Repacker()
         with p5.Writer(dest) as writer:
-            output = repacker.add_output(writer)
+            output = repacker.add_output(writer, check_duplicate_read_ids=True)
 
             assert repacker.reads_requested == 0
             assert repacker.reads_completed == 0
-            assert repacker.reads_sample_bytes_completed == 0
-            assert repacker.batches_requested == 0
-            assert repacker.batches_completed == 0
-            assert repacker.pending_batch_writes == 0
-            assert repacker.is_complete
+            assert (
+                not repacker.is_complete
+            )  # Output not marked finished, so not complete
 
             with p5.Reader(path) as reader:
                 repacker.add_all_reads_to_output(output, reader)
-                for reads_complete in repacker.waiter():
-                    assert isinstance(reads_complete, int)
-
-                total_bytes = sum(r.byte_count for r in reader)
-                batch_count = reader.batch_count
+            repacker.set_output_finished(output)
+            repacker.finish()
 
             assert repacker.reads_requested == 10
             assert repacker.reads_completed == 10
-            assert repacker.reads_sample_bytes_completed == total_bytes
-            assert repacker.batches_requested == batch_count
-            assert repacker.batches_completed == batch_count
-            assert repacker.pending_batch_writes == 0
             assert repacker.is_complete
-
-            repacker.finish()
 
     def test_add_selection(self, tmp_path: Path, pod5_factory) -> None:
         path = pod5_factory(1100)
@@ -149,20 +138,18 @@ class TestRepacker:
             with p5.Reader(path) as reader:
                 selection = set(random.sample(reader.read_ids, 50))
                 repacker.add_selected_reads_to_output(output, reader, selection)
-                repacker.wait(finish=False)
-                total_bytes = sum(
-                    r.byte_count for r in reader if str(r.read_id) in selection
-                )
+
+            repacker.set_output_finished(output)
+            repacker.finish()
 
             assert repacker.reads_requested == len(selection)
-            # assert repacker.reads_completed == len(selection)
-            assert repacker.reads_sample_bytes_completed == total_bytes
+            assert repacker.reads_completed == len(selection)
             assert repacker.is_complete
-
-            repacker.finish()
 
         with p5.Reader(dest) as confirm:
             assert set(confirm.read_ids) == set(selection)
+
+        repacker.finish()
 
     def test_missing_selection(self, tmp_path: Path, pod5_factory) -> None:
         path = pod5_factory(10)
@@ -176,3 +163,6 @@ class TestRepacker:
                 selection = set([str(uuid4())])
                 with pytest.raises(RuntimeError, match="Failed to find"):
                     repacker.add_selected_reads_to_output(output, reader, selection)
+
+            repacker.set_output_finished(output)
+            repacker.finish()

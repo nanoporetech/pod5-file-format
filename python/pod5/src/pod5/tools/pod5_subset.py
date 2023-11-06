@@ -9,6 +9,7 @@ from pathlib import Path
 from queue import Empty
 from string import Formatter
 import sys
+from time import sleep
 from typing import Any, List, Optional, Set, Tuple
 
 import polars as pl
@@ -38,6 +39,8 @@ from pod5.tools.parsers import prepare_pod5_subset_argparser, run_tool
 DEFAULT_READ_ID_COLUMN = "read_id"
 
 logger = init_logging()
+
+pl.enable_string_cache()
 
 
 @logged_all
@@ -122,8 +125,10 @@ def parse_table_mapping(
         )
         .lazy()
         .with_columns(
-            pl.format(pl_template, *keys).alias(PL_DEST_FNAME),
-            pl.col(read_id_column).alias(PL_READ_ID),
+            [
+                pl.format(pl_template, *keys).cast(pl.Categorical).alias(PL_DEST_FNAME),
+                pl.col(read_id_column).alias(PL_READ_ID),
+            ]
         )
     )
     return targets
@@ -179,6 +184,7 @@ def parse_csv_mapping(csv_path: Path) -> pl.LazyFrame:
         .drop_nulls()
         .with_columns(
             [
+                pl.col(PL_DEST_FNAME).cast(pl.Categorical),
                 pl.col(PL_READ_ID).str.contains(PL_UUID_REGEX).alias("is_uuid"),
             ]
         )
@@ -196,16 +202,18 @@ def parse_csv_mapping(csv_path: Path) -> pl.LazyFrame:
 def resolve_output_targets(targets: pl.LazyFrame, output: Path) -> pl.LazyFrame:
     """Prepend the output path to the target filename and resolve the complete string"""
     # Add output directory column
-    PL_O_DIR = "__output_dir"
-    targets = targets.with_columns(
-        pl.lit(str(output.resolve())).alias(PL_O_DIR),
-    )
     # Concatenate output directory to the output filenmae, drop temporary column
     targets = targets.with_columns(
-        pl.concat_str([pl.col(PL_O_DIR), pl.col(PL_DEST_FNAME)], separator="/").alias(
-            PL_DEST_FNAME
-        ),
-    ).drop(PL_O_DIR)
+        pl.concat_str(
+            [
+                pl.lit(str(output.resolve())).cast(pl.Categorical),
+                pl.col(PL_DEST_FNAME).cast(pl.Categorical),
+            ],
+            separator="/",
+        )
+        .cast(pl.Categorical)
+        .alias(PL_DEST_FNAME),
+    )
 
     return targets
 
@@ -282,9 +290,7 @@ def parse_source(path: Path) -> pl.LazyFrame:
 
 
 @logged_all
-def parse_sources(
-    paths: Set[Path], duplicate_ok: bool, threads: int = DEFAULT_THREADS
-) -> pl.LazyFrame:
+def parse_sources(paths: Set[Path], threads: int = DEFAULT_THREADS) -> pl.LazyFrame:
     """Reads all inputs and return formatted lazy dataframe"""
 
     threads = limit_threads(threads)
@@ -334,17 +340,6 @@ def parse_sources(
     for proc in active_processes:
         proc.join()
         proc.close()
-
-    if not duplicate_ok:
-        if (
-            not sources.select(pl.col(PL_READ_ID))
-            .collect(streaming=True)
-            .is_unique()
-            .all()
-        ):
-            raise AssertionError(
-                "Found duplicate read_ids in input files and --duplicate-ok not set"
-            )
 
     return sources
 
@@ -450,7 +445,9 @@ def overall_progress(queue: WorkQueue):
 
 
 @logged_all
-def launch_subsetting(transfers: pl.LazyFrame, threads: int = DEFAULT_THREADS) -> None:
+def launch_subsetting(
+    transfers: pl.LazyFrame, duplicate_ok: bool, threads: int = DEFAULT_THREADS
+) -> None:
     """
     Iterate over the transfers dataframe subsetting reads from sources to destinations
     """
@@ -466,7 +463,7 @@ def launch_subsetting(transfers: pl.LazyFrame, threads: int = DEFAULT_THREADS) -
         for idx in range(min(threads, work.size)):
             process = ctx.Process(
                 target=process_subset_tasks,
-                args=(work, idx + 1),
+                args=(work, idx + 1, duplicate_ok),
                 daemon=True,
             )
             # Enqueue a sentinel for each process to stop
@@ -498,7 +495,7 @@ def launch_subsetting(transfers: pl.LazyFrame, threads: int = DEFAULT_THREADS) -
 
 
 @logged(log_time=True)
-def process_subset_tasks(queue: WorkQueue, process: int):
+def process_subset_tasks(queue: WorkQueue, process: int, duplicate_ok: bool):
     """Consumes work from the queue and launches subsetting tasks"""
     while True:
         task = queue.work.get(timeout=60)
@@ -508,48 +505,55 @@ def process_subset_tasks(queue: WorkQueue, process: int):
 
         target, sources = task
         try:
-            subset_reads(target, sources, process)
+            subset_reads(target, sources, process, duplicate_ok)
         finally:
             queue.work.task_done()
             queue.progress.put(True)
 
 
 @logged(log_time=True)
-def subset_reads(dest: Path, sources: pl.DataFrame, process: int) -> None:
+def subset_reads(
+    dest: Path, sources: pl.DataFrame, process: int, duplicate_ok: bool
+) -> None:
     """Copy the reads in `sources` into a new pod5 file at `dest`"""
+    # Count the total number of reads expected
+    total_reads = 0
+    for source, reads in sources.groupby(PL_SRC_FNAME):
+        total_reads += len(reads.get_column(PL_READ_ID))
+
+    pbar = tqdm(
+        total=total_reads,
+        desc=dest.name,
+        unit="Reads",
+        leave=False,
+        position=process,
+        delay=2,
+        **PBAR_DEFAULTS,
+    )
+
     repacker = p5_repack.Repacker()
     with p5.Writer(dest) as writer:
-        output = repacker.add_output(writer)
+        output = repacker.add_output(writer, not duplicate_ok)
 
-        # Count the total number of reads expected
-        total_reads = 0
-        for source, reads in sources.groupby(PL_SRC_FNAME):
-            total_reads += len(reads.get_column(PL_READ_ID))
-
-        pbar = tqdm(
-            total=total_reads,
-            desc=dest.name,
-            unit="Reads",
-            leave=False,
-            position=process,
-            delay=2,
-            **PBAR_DEFAULTS,
-        )
-
-        prev = 0
+        active_limit = 5
         # Copy selected reads from one file at a time
         for source, reads in sources.groupby(PL_SRC_FNAME):
-            with p5.Reader(Path(source)) as reader:
-                read_ids = reads.get_column(PL_READ_ID).unique().to_list()
+            while repacker.currently_open_file_reader_count >= active_limit:
+                pbar.update(repacker.reads_completed - pbar.n)
+                sleep(0.05)
 
-                logger.debug(f"Subsetting: {source} - n_reads: {len(read_ids)}")
+            read_ids = reads.get_column(PL_READ_ID).unique().to_list()
+            logger.debug(f"Subsetting: {source} - n_reads: {len(read_ids)}")
+
+            with p5.Reader(Path(source)) as reader:
                 repacker.add_selected_reads_to_output(output, reader, read_ids)
 
-                for n_written in repacker.waiter():
-                    pbar.update(n_written - prev)
-                    prev = n_written
+        repacker.set_output_finished(output)
+        while repacker.currently_open_file_reader_count > 0:
+            pbar.update(repacker.reads_completed - pbar.n)
+            sleep(0.1)
 
-        pbar.update(total_reads - prev)
+        pbar.update(total_reads - pbar.n)
 
         # Finish the pod5 file and close source handles
         repacker.finish()
@@ -582,7 +586,7 @@ def subset_pod5s_with_mapping(
     assert_overwrite_ok(targets, force_overwrite)
 
     print(f"Parsed {len(targets.collect())} targets")
-    sources_df = parse_sources(inputs, duplicate_ok, threads)
+    sources_df = parse_sources(inputs, threads)
 
     transfers = calculate_transfers(
         sources=sources_df,
@@ -591,7 +595,7 @@ def subset_pod5s_with_mapping(
     )
 
     print(f"Calculated {len(transfers.collect())} transfers")
-    launch_subsetting(transfers=transfers, threads=threads)
+    launch_subsetting(transfers=transfers, duplicate_ok=duplicate_ok, threads=threads)
 
     print("Done")
     return None

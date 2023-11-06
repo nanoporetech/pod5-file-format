@@ -90,10 +90,10 @@ class TestSubset:
     def _test_subset(self, tmp: Path, csv: Path, mapping: Dict[str, Set[str]]) -> None:
         # Known good mapping
 
-        sources = parse_sources(set([POD5_PATH]), duplicate_ok=False, threads=1)
+        sources = parse_sources(set([POD5_PATH]), threads=1)
         targets = parse_csv_mapping(csv)
         transfers = calculate_transfers(sources, targets, missing_ok=False)
-        launch_subsetting(transfers, threads=1)
+        launch_subsetting(transfers, duplicate_ok=False, threads=1)
 
         # Assert only the expected files are output
         expected_outnames = list(mapping.keys())
@@ -314,8 +314,10 @@ class TestParse:
         for fname, rids in expected_mapping.items():
             records.append([fname, list(rids)])
 
-        expected = pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID]).explode(
-            PL_READ_ID
+        expected = (
+            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID])
+            .explode(PL_READ_ID)
+            .with_columns(pl.col(PL_DEST_FNAME).cast(pl.Categorical))
         )
 
         assert_series_equal(
@@ -366,8 +368,10 @@ class TestParse:
         for fname, rids in expected_mapping.items():
             records.append([fname, list(rids)])
 
-        expected = pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID]).explode(
-            PL_READ_ID
+        expected = (
+            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID])
+            .explode(PL_READ_ID)
+            .with_columns(pl.col(PL_DEST_FNAME).cast(pl.Categorical))
         )
 
         assert_series_equal(

@@ -9,8 +9,9 @@
 #include <memory>
 
 namespace arrow {
+class Array;
 class MemoryPool;
-}
+}  // namespace arrow
 
 namespace pod5 {
 
@@ -111,12 +112,18 @@ public:
         gsl::span<std::uint8_t const> const & signal_bytes,
         std::uint32_t sample_count);
 
+    pod5::Result<std::pair<SignalTableRowIndex, SignalTableRowIndex>> add_signal_batch(
+        std::size_t row_count,
+        std::vector<std::shared_ptr<arrow::Array>> && columns,
+        bool final_batch);
+
     // Find or create an end reason index representing this read end reason.
     pod5::Result<EndReasonDictionaryIndex> lookup_end_reason(ReadEndReason end_reason) const;
     pod5::Result<PoreDictionaryIndex> add_pore_type(std::string const & pore_type_data);
     pod5::Result<RunInfoDictionaryIndex> add_run_info(RunInfoData const & run_info_data);
 
     SignalType signal_type() const;
+    std::size_t signal_table_batch_size() const;
 
     FileWriterImpl * impl() const { return m_impl.get(); };
 

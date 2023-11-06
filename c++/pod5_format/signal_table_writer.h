@@ -1,8 +1,8 @@
 #pragma once
 
-#include "pod5_format/expandable_buffer.h"
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/result.h"
+#include "pod5_format/signal_builder.h"
 #include "pod5_format/signal_table_schema.h"
 
 #include <arrow/io/type_fwd.h>
@@ -24,20 +24,8 @@ class RecordBatchWriter;
 
 namespace pod5 {
 
-struct UncompressedSignalBuilder {
-    std::shared_ptr<arrow::Int16Builder> signal_data_builder;
-    std::unique_ptr<arrow::LargeListBuilder> signal_builder;
-};
-
-struct VbzSignalBuilder {
-    ExpandableBuffer<std::int64_t> offset_values;
-    ExpandableBuffer<std::uint8_t> data_values;
-};
-
 class POD5_FORMAT_EXPORT SignalTableWriter {
 public:
-    using SignalBuilderVariant = boost::variant<UncompressedSignalBuilder, VbzSignalBuilder>;
-
     SignalTableWriter(
         std::shared_ptr<arrow::ipc::RecordBatchWriter> && writer,
         std::shared_ptr<arrow::Schema> && schema,
@@ -52,11 +40,14 @@ public:
     SignalTableWriter & operator=(SignalTableWriter const &) = delete;
     ~SignalTableWriter();
 
+    /// \brief Find the size of table batches for the signal table writer.
+    std::size_t table_batch_size() const { return m_table_batch_size; }
+
     /// \brief Add a read to the signal table, adding to the current batch.
     /// \param read_id The read id for the read entry
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.
-    Result<std::size_t> add_signal(
+    Result<SignalTableRowIndex> add_signal(
         boost::uuids::uuid const & read_id,
         gsl::span<std::int16_t const> const & signal);
 
@@ -69,10 +60,15 @@ public:
     /// \param read_id The read id for the read entry
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.
-    Result<std::size_t> add_pre_compressed_signal(
+    Result<SignalTableRowIndex> add_pre_compressed_signal(
         boost::uuids::uuid const & read_id,
         gsl::span<std::uint8_t const> const & signal,
         std::uint32_t sample_count);
+
+    pod5::Result<std::pair<SignalTableRowIndex, SignalTableRowIndex>> add_signal_batch(
+        std::size_t row_count,
+        std::vector<std::shared_ptr<arrow::Array>> && columns,
+        bool final_batch);
 
     /// \brief Close this writer, signaling no further data will be written to the writer.
     Status close();
