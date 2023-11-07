@@ -714,7 +714,7 @@ benchmark-linux-aarch64:
     - conan remove "*" --builds --src --force
     # Remove unneeded MacOS packages
     - echo "Remove MacOS packages"
-    - conan remove "flatbuffers/2.0.0@nanopore/*" -q "os=Macos" --force
+    - conan remove "flatbuffers/2.0.0@nanopore/testing" -q "os=Macos" --force
     # Move required packages to a tarball
     - PACKAGE_DIR="${CONAN_USER_HOME#${PWD}/}/.conan/data/$(conan inspect --raw name ${CONAN_REFERENCE})"
     - echo "Packing from $PACKAGE_DIR"
@@ -731,6 +731,10 @@ build-conan:windows-x86_64-vs2017:
 upload-conan:windows-x86_64-vs2017:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2017" ]
+    variables:
+      # This works around an issue on Windows where Conan revisions breaks the uploading script.
+      # When INSTX-2787 is resolved this can be removed.
+      CONAN_REVISIONS_ENABLED: 0
 
 build-conan:windows-x86_64-vs2019:
     extends:
@@ -741,6 +745,10 @@ build-conan:windows-x86_64-vs2019:
 upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
+    variables:
+      # This works around an issue on Windows where Conan revisions breaks the uploading script.
+      # When INSTX-2787 is resolved this can be removed.
+      CONAN_REVISIONS_ENABLED: 0
 
 build-conan:macos-x86_64-appleclang-12.0:
     extends:

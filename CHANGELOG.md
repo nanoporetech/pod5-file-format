@@ -16,18 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed a bug in the build scripts that prevented iOS and Windows Conan packages from being uploaded.
 - Remove exposed artifactory URL env var from gitlab ci config.
 - `convert to_fast5` writes byte encoded read_ids to match Minkow (was `str`)
 
 ### Removed
 
 - Removed python3.7 support
-
-## [0.2.10] 2023-11-03
-
-### Fixed
-
-- Fixed a bug in the build scripts that prevented iOS Conan packages from being uploaded.
 
 ## [0.2.9] 2023-11-02
 
