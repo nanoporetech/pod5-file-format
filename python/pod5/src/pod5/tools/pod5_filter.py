@@ -75,7 +75,7 @@ def filter_reads(dest: Path, sources: pl.DataFrame, duplicate_ok: bool) -> None:
 
         # Count the total number of reads expected
         total_reads = 0
-        for source, reads in sources.groupby(PL_SRC_FNAME):
+        for source, reads in sources.group_by(PL_SRC_FNAME):
             total_reads += len(reads.get_column(PL_READ_ID))
 
         pbar = tqdm(
@@ -89,7 +89,7 @@ def filter_reads(dest: Path, sources: pl.DataFrame, duplicate_ok: bool) -> None:
         active_limit = 5
 
         # Copy selected reads from one file at a time
-        for source, reads in sources.groupby(PL_SRC_FNAME):
+        for source, reads in sources.group_by(PL_SRC_FNAME):
             src = Path(source)
             read_ids = reads.get_column(PL_READ_ID).unique().to_list()
             logger.debug(f"Filtering: {src} - n_reads: {len(read_ids)}")
@@ -160,7 +160,7 @@ def filter_pod5(
     print(f"Calculated {len(transfers.collect())} transfers")
 
     # There will only one output from this
-    groupby_dest = transfers.collect().groupby(PL_DEST_FNAME)
+    groupby_dest = transfers.collect().group_by(PL_DEST_FNAME)
     for dest, sources in groupby_dest:
         filter_reads(dest=dest, sources=sources, duplicate_ok=duplicate_ok)
 

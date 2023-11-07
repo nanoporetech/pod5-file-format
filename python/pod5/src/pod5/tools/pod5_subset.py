@@ -378,11 +378,9 @@ class WorkQueue:
         context: SpawnContext,
         transfers: pl.LazyFrame,
     ) -> None:
-        pass
-
         self.work: mp.JoinableQueue = context.JoinableQueue()
         self.size = 0
-        groupby_dest = transfers.collect().groupby(PL_DEST_FNAME)
+        groupby_dest = transfers.collect().group_by(PL_DEST_FNAME)
         for dest, sources in groupby_dest:
             self.work.put((Path(dest), sources))
             self.size += 1
@@ -518,7 +516,7 @@ def subset_reads(
     """Copy the reads in `sources` into a new pod5 file at `dest`"""
     # Count the total number of reads expected
     total_reads = 0
-    for source, reads in sources.groupby(PL_SRC_FNAME):
+    for source, reads in sources.group_by(PL_SRC_FNAME):
         total_reads += len(reads.get_column(PL_READ_ID))
 
     pbar = tqdm(
@@ -537,7 +535,7 @@ def subset_reads(
 
         active_limit = 5
         # Copy selected reads from one file at a time
-        for source, reads in sources.groupby(PL_SRC_FNAME):
+        for source, reads in sources.group_by(PL_SRC_FNAME):
             while repacker.currently_open_file_reader_count >= active_limit:
                 pbar.update(repacker.reads_completed - pbar.n)
                 sleep(0.05)

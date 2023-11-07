@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Transfers dataframes used in subsetting / filter use categorical fields to reduce memory consumption
 - Polars version increased to `~=0.19`
+- Renamed deprecated `polars.groupby` to `polars.group_by`
 
 ### Fixed
 

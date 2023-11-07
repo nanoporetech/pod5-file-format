@@ -364,7 +364,7 @@ based on a text file containing a table (csv or tsv) parsible by ``polars``.
 This table file could be the output from ``pod5 view`` or from a sequencing summary.
 The table must contain a header row and a series of columns on which to group unique
 collections of values. Internally this process uses the
-`polars.Dataframe.groupby <https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/api/polars.DataFrame.groupby.html>`_
+`polars.Dataframe.group_by <https://pola-rs.github.io/polars/py-polars/html/reference/dataframe/api/polars.DataFrame.group_by.html>`_
 function where the ``by`` parameter is the sequence of column names specified with
 the ``--columns`` argument.
 

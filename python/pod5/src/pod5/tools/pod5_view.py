@@ -265,7 +265,7 @@ def assert_unique_acquisition_id(run_info: pl.LazyFrame, path: Path) -> None:
     """
     Perform a check that the acquisition ids are unique raising AssertionError otherwise
     """
-    groups = run_info.collect().groupby(pl.col("acquisition_id"))
+    groups = run_info.collect().group_by(pl.col("acquisition_id"))
     common_acq_ids = [acq_id for acq_id, frame in groups if frame.n_unique() != 1]
     if common_acq_ids:
         raise AssertionError(
