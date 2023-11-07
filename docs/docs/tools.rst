@@ -239,7 +239,7 @@ then ``pod5 filter`` might be a more appropriate tool as the only input is a lis
     $ pod5 subset example_1.pod5 --csv mapping.csv
 
     # Subset input(s) using a dynamic mapping created at runtime
-    $ pod5 subset example_1.pod5 --table table.txt --columns barcode
+    $ pod5 subset example_1.pod5 --columns barcode --table table.txt
 
 .. important::
 
@@ -247,6 +247,18 @@ then ``pod5 filter`` might be a more appropriate tool as the only input is a lis
     that there are no read_id UUID clashes. If a duplicate read_id is detected an exception
     will be raised unless the ``--duplicate-ok`` argument is set. If ``--duplicate-ok`` is
     set then both reads will be written to the output, although this is not recommended.
+
+.. warning::
+
+    The ``--columns`` argument will greedily consume values and as such, care should be taken
+    with the placement of any positional arguments. The following line will result in an error
+    as the input pod5 file is consumed by ``--columns`` resulting in no input file being set.
+
+    .. code-block:: console
+
+        # Invalid placement of positional argument example.pod5
+        $ pod5 subset --table table.txt --columns barcode example.pod5
+
 
 Creating a Subset Mapping
 ------------------------------
