@@ -340,6 +340,17 @@ then ``pod5 filter`` might be a more appropriate tool as the only input is a lis
 > will be raised unless the ``--duplicate-ok`` argument is set. If ``--duplicate-ok`` is
 > set then both reads will be written to the output, although this is not recommended.
 
+#### Note on positional arguments
+
+> The ``--columns`` argument will greedily consume values and as such, care should be taken
+> with the placement of any positional arguments. The following line will result in an error
+> as the input pod5 file is consumed by ``--columns`` resulting in no input file being set.
+
+```bash
+# Invalid placement of positional argument example.pod5
+$ pod5 subset --table table.txt --columns barcode example.pod5
+```
+
 #### Creating a Subset Mapping
 
 ##### Target Mapping (.csv)
