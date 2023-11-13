@@ -100,7 +100,7 @@ def filter_reads(dest: Path, sources: pl.DataFrame, duplicate_ok: bool) -> None:
 
             while repacker.currently_open_file_reader_count >= active_limit:
                 pbar.update(repacker.reads_completed - pbar.n)
-                sleep(0.05)
+                sleep(0.2)
 
             with p5.Reader(src) as reader:
                 repacker.add_selected_reads_to_output(output, reader, read_ids)
@@ -109,7 +109,7 @@ def filter_reads(dest: Path, sources: pl.DataFrame, duplicate_ok: bool) -> None:
         repacker.set_output_finished(output)
         while repacker.currently_open_file_reader_count > 0:
             pbar.update(repacker.reads_completed - pbar.n)
-            sleep(0.05)
+            sleep(0.1)
 
         repacker.finish()
         pbar.close()

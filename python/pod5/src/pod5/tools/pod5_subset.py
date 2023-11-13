@@ -525,7 +525,6 @@ def subset_reads(
         unit="Reads",
         leave=False,
         position=process,
-        delay=2,
         **PBAR_DEFAULTS,
     )
 
@@ -538,7 +537,7 @@ def subset_reads(
         for source, reads in sources.group_by(PL_SRC_FNAME):
             while repacker.currently_open_file_reader_count >= active_limit:
                 pbar.update(repacker.reads_completed - pbar.n)
-                sleep(0.05)
+                sleep(0.2)
 
             read_ids = reads.get_column(PL_READ_ID).unique().to_list()
             logger.debug(f"Subsetting: {source} - n_reads: {len(read_ids)}")

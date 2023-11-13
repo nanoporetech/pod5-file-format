@@ -28,7 +28,7 @@ Developing with Conan
 
 For this development process you will need `conan <https://conan.io/>`_ installed.
 You can install ``conan<2`` using ``pip`` or your platforms' package manager (e.g. ``brew``)
-You will also need the python ``setuptools_scm`` package to manage pod5 versioning:
+You will also need the python ``setuptools_scm==7.1.0`` package to manage pod5 versioning:
 
 .. code-block:: console
 
@@ -47,7 +47,7 @@ You will also need the python ``setuptools_scm`` package to manage pod5 versioni
 .. code-block:: console
 
    # Creates _version.py and cmake/POD5Version.cmake which are ignored by git
-   $ pip install setuptools_scm
+   $ pip install setuptools_scm==7.1.0
    $ python -m setuptools_scm
    $ python -m pod5_make_version
 

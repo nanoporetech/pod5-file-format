@@ -24,44 +24,48 @@ def init_logging():
     if not is_pod5_debug():
         logger = logging.getLogger("pod5")
         logger.addHandler(logging.NullHandler())
+        return logger
+
+    datetime_now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+    if mp.current_process().name == "MainProcess":
+        pid = "main"
     else:
-        datetime_now = datetime.datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
-        if mp.current_process().name == "MainProcess":
-            pid = "main"
-        else:
-            pid = f"p-{os.getpid()}"
-        logging.basicConfig(
-            level=logging.DEBUG,
-            filename=f"{datetime_now}-{pid}-pod5.log",
-            format="%(asctime)s %(levelname)s %(message)s",
-        )
-        logger = logging.getLogger("pod5")
+        pid = f"p-{os.getpid()}"
+
+    logger = logging.getLogger("pod5")
+    logger.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(filename=f"{datetime_now}-{pid}-pod5.log")
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    )
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
     return logger
 
 
 def logged(log_return: bool = False, log_args: bool = False, log_time: bool = False):
     """Logging parameterised decorator"""
-    log_fn = logging.debug
 
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            logger = logging.getLogger("pod5")
             uid = f"{str(uuid.uuid4())[:2]}:'{func.__name__}'"
             if log_args:
-                log_fn("{0}:{1}, {2}".format(uid, args, kwargs))
+                logger.debug("{0}:{1}, {2}".format(uid, args, kwargs))
             else:
-                log_fn("{0}".format(uid))
+                logger.debug("{0}".format(uid))
             try:
                 started = perf_counter()
                 ret = func(*args, **kwargs)
             except Exception as exc:
-                log_fn("{0}:Exception:{1}".format(uid, exc))
+                logger.debug("{0}:Exception:{1}".format(uid, exc))
                 raise exc
             if log_time:
                 duration_s = perf_counter() - started
-                log_fn("{0}:Done:{1:.3f}s".format(uid, duration_s))
+                logger.debug("{0}:Done:{1:.3f}s".format(uid, duration_s))
             if log_return:
-                log_fn("{0}:Returned:{1}".format(uid, ret))
+                logger.debug("{0}:Returned:{1}".format(uid, ret))
             return ret
 
         return wrapper
