@@ -22,6 +22,8 @@ public:
         bool check_duplicate_read_ids);
     ~Pod5RepackerOutput();
 
+    std::string path() const { return m_output->path(); }
+
     std::shared_ptr<Pod5Repacker> const & repacker() const { return m_repacker; }
 
     bool has_tasks() const;
