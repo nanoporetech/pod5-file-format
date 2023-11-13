@@ -115,6 +115,8 @@ public:
 
     virtual ~FileWriterImpl() = default;
 
+    virtual std::string path() const = 0;
+
     pod5::Result<EndReasonDictionaryIndex> lookup_end_reason(ReadEndReason end_reason)
     {
         return m_read_table_dict_writers.end_reason_writer->lookup(end_reason);
@@ -345,6 +347,8 @@ public:
     {
     }
 
+    std::string path() const override { return m_path; }
+
     arrow::Status close() override
     {
         if (is_closed()) {
@@ -422,6 +426,8 @@ private:
 FileWriter::FileWriter(std::unique_ptr<FileWriterImpl> && impl) : m_impl(std::move(impl)) {}
 
 FileWriter::~FileWriter() { (void)close(); }
+
+std::string FileWriter::path() const { return m_impl->path(); }
 
 arrow::Status FileWriter::close() { return m_impl->close(); }
 

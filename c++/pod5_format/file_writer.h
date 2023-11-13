@@ -91,6 +91,8 @@ public:
     FileWriter(std::unique_ptr<FileWriterImpl> && impl);
     ~FileWriter();
 
+    std::string path() const;
+
     pod5::Status close();
 
     pod5::Status add_complete_read(

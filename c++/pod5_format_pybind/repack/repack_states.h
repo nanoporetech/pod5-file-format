@@ -1,7 +1,10 @@
 #pragma once
 
 #include "pod5_format/file_reader.h"
+#include "pod5_format/signal_builder.h"
 
+#include <arrow/array/builder_binary.h>
+#include <arrow/array/builder_primitive.h>
 #include <boost/asio/io_context.hpp>
 #include <boost/variant.hpp>
 
@@ -38,39 +41,45 @@ public:
     std::vector<pod5::SignalTableRowIndex> signal_row_indices;
 };
 
-class unread_split_signal_table_batch_rows {
+class read_split_signal_table_batch_rows {
 public:
-    struct RowToRead {
-        RowToRead(
-            std::shared_ptr<pod5::FileReader> const & _source_file,
-            std::shared_ptr<states::read_read_table_rows_no_signal> const & _dest_read_table,
-            boost::uuids::uuid _read_id,
-            std::uint64_t _source_signal_row_index,
-            std::uint64_t _batch_row_index)
-        : read_id(_read_id)
-        , source_file(_source_file)
-        , dest_read_table(_dest_read_table)
-        , source_signal_row_index(_source_signal_row_index)
-        , batch_row_index(_batch_row_index)
+    struct PatchRecord {
+        PatchRecord(
+            std::shared_ptr<states::read_read_table_rows_no_signal> dest_read_table,
+            std::uint64_t dest_batch_row_index)
+        : dest_read_table(dest_read_table)
+        , dest_batch_row_index(dest_batch_row_index)
         {
         }
 
-        boost::uuids::uuid read_id;
-        std::shared_ptr<pod5::FileReader> source_file;
         std::shared_ptr<states::read_read_table_rows_no_signal> dest_read_table;
-        std::uint64_t source_signal_row_index;
-        std::uint64_t batch_row_index;
+        std::uint64_t dest_batch_row_index;
     };
 
-    std::vector<RowToRead> rows;
+    read_split_signal_table_batch_rows(
+        pod5::SignalBuilderVariant && signal_builder,
+        arrow::MemoryPool * pool)
+    : read_id_builder(pod5::make_read_id_builder(pool))
+    , signal_builder(std::move(signal_builder))
+    , samples_builder(pool)
+    {
+    }
+
+    std::unique_ptr<arrow::FixedSizeBinaryBuilder> read_id_builder;
+    pod5::SignalBuilderVariant signal_builder;
+    arrow::UInt32Builder samples_builder;
+
+    std::vector<PatchRecord> patch_rows;
     bool final_batch = false;
+
+    std::size_t row_count() const { return patch_rows.size(); }
 };
 
 struct finished {};
 
 using shared_variant = boost::variant<
     std::shared_ptr<unread_read_table_rows>,
-    std::shared_ptr<unread_split_signal_table_batch_rows>,
+    std::shared_ptr<read_split_signal_table_batch_rows>,
     std::shared_ptr<read_read_table_rows_no_signal>,
     std::shared_ptr<finished>>;
 

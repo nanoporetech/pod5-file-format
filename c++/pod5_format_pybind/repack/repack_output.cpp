@@ -67,9 +67,10 @@ struct Pod5RepackerOutputState {
 
     Pod5RepackerOutputThreadState * get_thread_state()
     {
-        auto it = thread_states.find(std::this_thread::get_id());
-        if (it == thread_states.end()) {
-            it = thread_states.emplace(std::this_thread::get_id(), dict_manager).first;
+        auto ts = thread_states.synchronize();
+        auto it = ts->find(std::this_thread::get_id());
+        if (it == ts->end()) {
+            it = ts->emplace(std::this_thread::get_id(), dict_manager).first;
         }
         return &it->second;
     }
@@ -80,11 +81,12 @@ struct Pod5RepackerOutputState {
     std::mutex read_table_writer_mutex;
     std::mutex signal_table_writer_mutex;
     std::shared_ptr<ReadsTableDictionaryManager> dict_manager;
-    boost::synchronized_value<std::shared_ptr<states::unread_split_signal_table_batch_rows>>
+    boost::synchronized_value<std::shared_ptr<states::read_split_signal_table_batch_rows>>
         partial_signal_batch;
     std::atomic<std::size_t> reads_completed{0};
 
-    std::unordered_map<std::thread::id, Pod5RepackerOutputThreadState> thread_states;
+    boost::synchronized_value<std::unordered_map<std::thread::id, Pod5RepackerOutputThreadState>>
+        thread_states;
 
     boost::synchronized_value<std::unordered_set<boost::uuids::uuid>> output_read_ids;
 };
@@ -134,11 +136,13 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
                 auto signal_request_result,
                 request_signal_reads(
                     read_result.input,
+                    progress_state->output_file->signal_type(),
                     progress_state->output_file->signal_table_batch_size(),
                     read_result.signal_rows_read_ids,
                     read_result.signal_rows,
                     *partial_signal_batch,
-                    read_table_rows));
+                    read_table_rows,
+                    progress_state->memory_pool));
 
             *partial_signal_batch = signal_request_result.partial_request;
             return StateProgressResult{std::move(signal_request_result.complete_requests)};
@@ -146,14 +150,11 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
     }
 
     arrow::Result<StateProgressResult> operator()(
-        std::shared_ptr<states::unread_split_signal_table_batch_rows> & batch) const
+        std::shared_ptr<states::read_split_signal_table_batch_rows> & batch) const
     {
         POD5_TRACE_FUNCTION();
 
-        ARROW_ASSIGN_OR_RAISE(
-            auto read_signal_result,
-            read_signal_data(
-                *batch, progress_state->output_file->signal_type(), progress_state->memory_pool));
+        ARROW_ASSIGN_OR_RAISE(auto read_signal_result, read_signal_data(*batch));
 
         std::pair<pod5::SignalTableRowIndex, pod5::SignalTableRowIndex> inserted_signal_rows;
         {
@@ -168,13 +169,13 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
 
         std::vector<states::shared_variant> result_new_states;
 
-        for (std::size_t i = 0; i < batch->rows.size(); ++i) {
-            auto const & row = batch->rows[i];
+        for (std::size_t i = 0; i < batch->patch_rows.size(); ++i) {
+            auto const & row = batch->patch_rows[i];
 
             auto const & dest_read_table = row.dest_read_table;
             assert(dest_read_table);
-            assert(row.batch_row_index < dest_read_table->signal_row_indices.size());
-            dest_read_table->signal_row_indices[row.batch_row_index] =
+            assert(row.dest_batch_row_index < dest_read_table->signal_row_indices.size());
+            dest_read_table->signal_row_indices[row.dest_batch_row_index] =
                 inserted_signal_rows.first + i;
             dest_read_table->written_row_indices += 1;
 
