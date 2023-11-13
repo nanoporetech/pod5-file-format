@@ -52,6 +52,7 @@ def merge_pod5(
     )
 
     print(f"Merging reads from {len(_inputs)} files")
+    logger.debug(f"Merging reads from {len(_inputs)} files into {output.absolute()}")
 
     # Open the output file writer
     with p5.Writer(output.absolute()) as writer:
@@ -62,31 +63,36 @@ def merge_pod5(
         pbar = tqdm(
             total=len(_inputs),
             desc="Merging",
-            unit="Files",
+            unit="File",
             leave=True,
             position=0,
             **PBAR_DEFAULTS,
         )
 
         active_limit = max(readers, 1)
+        logger.debug(f"{active_limit=}")
+
         opened_readers = 0
         active = 0
-
         while _inputs or active > 0:
             pbar.update(opened_readers - active - pbar.n)
 
             active = repacker.currently_open_file_reader_count
-            if active < active_limit:
-                if _inputs:
-                    with p5.Reader(_inputs.pop()) as reader:
-                        opened_readers += 1
-                        repacker.add_all_reads_to_output(repacker_output, reader)
-                        continue
-                else:
-                    repacker.set_output_finished(repacker_output)
+            if _inputs and (active < active_limit):
+                next_input = _inputs.pop()
+                logger.debug(f"submitting: {next_input=}")
+                with p5.Reader(next_input) as reader:
+                    opened_readers += 1
+                    repacker.add_all_reads_to_output(repacker_output, reader)
                     continue
 
-            sleep(0.05)
+            if not _inputs:
+                logger.debug("no inputs remaining - finishing")
+                repacker.set_output_finished(repacker_output)
+                break
+
+            sleep(0.2)
+            logger.debug(f"{len(_inputs)=}, {active=}, {active>0=}")
 
         repacker.finish()
         del repacker
