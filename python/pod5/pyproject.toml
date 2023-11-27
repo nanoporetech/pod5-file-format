@@ -22,17 +22,17 @@ classifiers=[
 ]
 
 dependencies = [
-    "lib_pod5 == 0.3.1",
+    "lib_pod5 == 0.3.2",
     "iso8601",
     'importlib-metadata; python_version<"3.8"',
     "more_itertools",
     "numpy >= 1.21.0",
     'typing-extensions; python_version<"3.8"',
-    "pyarrow ~= 11.0.0",
+    "pyarrow ~= 14.0.0",
     "pytz",
     "packaging",
     "polars~=0.19",
-    "h5py~=3.8.0",
+    "h5py~=3.10.0",
     "vbz_h5py_plugin",
     "tqdm"
 ]
