@@ -2,7 +2,6 @@ variables:
     CONAN_USER: nanopore
     CONAN_CHANNEL: stable
     CONAN_REFERENCE: '.'
-    CONAN_CONFIG_URL: https://artifactory.oxfordnanolabs.local/artifactory/ONT-Conan/configs/config-v41.zip
     # Location of the .conan dir: having it in $CI_PROJECT_DIR makes it easy to grab the packages as
     # artifacts, and putting it in a job-specific subdir allows multiple packages to be unpacked
     # into a single upload job (otherwise the metadata.json files would overwrite each other)
@@ -21,6 +20,13 @@ before_script:
 #
 # use the extends keyword to inherit the job templates defined below
 #
+
+
+.parallel-cppstd:
+    # A matrix definition to allow conan builds with different cppstd
+    parallel:
+        matrix:
+        - CONAN_PROFILE_CPPSTD: [17, 20]
 
 .tarball-package: &tarball-package
     # gitlab-runner on Windows silently fails to archive files whose full path is longer than 260
@@ -274,6 +280,7 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: windows-x86_64-vs2019.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-windows-x86_64-vs2017:
     # Set up for Windows x86 using VS 2017, using conan and the profile windows-x86_64-vs2017,
@@ -284,6 +291,7 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: windows-x86_64-vs2017.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 #
 # Set up for MacOS versions
@@ -298,6 +306,7 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: macos-x86_64-appleclang-12.0.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-macos-x86_64-appleclang-13.1:
     # Set up for MacOS x86 using clang 13.1, using conan and the profile
@@ -309,6 +318,19 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: macos-x86_64-appleclang-13.1.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
+.profile-macos-x86_64-appleclang-14.0:
+    # Set up for MacOS x86 using clang 14.0, using conan and the profile
+    # macos-x86_64-appleclang-14.0, adapted for debug and release. To be called from individual
+    # packages by using "extends".
+    tags:
+        - osx
+        - appleclang-14.0
+        - conan
+    variables:
+        PROFILE_BASE: macos-x86_64-appleclang-14.0.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-macos-aarch64-appleclang-13.1:
     # Set up for MacOS arm 64 using clang 13.1, using conan and the profile
@@ -320,6 +342,19 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: macos-aarch64-appleclang-13.1.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
+.profile-macos-aarch64-appleclang-14.0:
+    # Set up for MacOS arm 64 using clang 14.0, using conan and the profile
+    # macos-aarch64-appleclang-14.0, adapted for debug and release. To be called from individual
+    # packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-14.0
+        - conan
+    variables:
+        PROFILE_BASE: macos-aarch64-appleclang-14.0.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 #
 # Set up for iOS versions
@@ -333,8 +368,22 @@ before_script:
         - appleclang-13.1
         - conan
     variables:
+        CONAN_PROFILE_CPPSTD: 20
         PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
         PROFILE_BASE_HOST: iOS-aarch64-appleclang-13.1.jinja
+
+.profile-iOS-aarch64-appleclang-14.0:
+    # Set up for iOS build using clang 14.0, and cross-compiling using conan and build / host
+    # profiles macos-aarch64-appleclang-14.0 and iOS-aarch64-appleclang-14.0, adapted for debug and
+    # release. To be called from individual packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-14.0
+        - conan
+    variables:
+        CONAN_PROFILE_CPPSTD: 20
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-14.0.jinja
+        PROFILE_BASE_HOST: iOS-aarch64-appleclang-14.0.jinja
 
 .profile-iOSSimulator-aarch64-appleclang-13.1:
     # Set up for iOS arm64 simulator and cross-compiling using clang 13.1, using conan and build /
@@ -345,8 +394,22 @@ before_script:
         - appleclang-13.1
         - conan
     variables:
+        CONAN_PROFILE_CPPSTD: 20
         PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
         PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-13.1.jinja
+
+.profile-iOSSimulator-aarch64-appleclang-14.0:
+    # Set up for iOS arm64 simulator and cross-compiling using clang 14.0, using conan and build /
+    # host profiles macos-aarch64-appleclang-14.0 and iOSSimulator-aarch64-appleclang-14.0, adapted
+    # for debug and release. To be called from individual packages by using "extends".
+    tags:
+        - osx_arm64
+        - appleclang-14.0
+        - conan
+    variables:
+        CONAN_PROFILE_CPPSTD: 20
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-14.0.jinja
+        PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-14.0.jinja
 
 
 .profile-iOSSimulator-x86_64-appleclang-13.1:
@@ -358,6 +421,7 @@ before_script:
         - appleclang-13.1
         - conan
     variables:
+        CONAN_PROFILE_CPPSTD: 20
         PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
         PROFILE_BASE_HOST: iOSSimulator-x86_64-appleclang-13.1.jinja
 
@@ -378,6 +442,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc9.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-x86_64-gcc11:
     # Set up for linux x86 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
@@ -394,6 +459,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-aarch64-gcc7:
     # Set up for linux arm64 using gcc7, using docker and the profile linux-aarch64-gcc7, adapted
@@ -404,6 +470,8 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc7.jinja
+        CONAN_PROFILE_CPPSTD: 17
+
 
 .profile-linux-aarch64-gcc9:
     # Set up for linux arm64 using gcc9, using docker and the profile linux-aarch64-gcc9, adapted
@@ -419,6 +487,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc9.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-aarch64-gcc11:
     # Set up for linux arm64 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
@@ -435,3 +504,4 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc11.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
