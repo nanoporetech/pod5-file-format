@@ -14,7 +14,6 @@ variables:
   STABLE_BRANCH_NAME: master
   DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
   CONAN_PROFILE_BUILD_TYPE: Release
-
 before_script:
   - ""
 
@@ -254,6 +253,7 @@ linux-aarch64-gcc7-release-build:
     - high-cpu
   variables:
     CONAN_PROFILE: "linux-aarch64-gcc7.jinja"
+    CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-gcc7-arm64"
     PYTHON_ENABLED: "OFF"
 
@@ -264,6 +264,7 @@ linux-x64-gcc9-release-build:
     - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9.jinja"
+    CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
     PYTHON_ENABLED: "ON"
@@ -279,6 +280,7 @@ linux-aarch64-gcc9-release-build:
     - high-cpu
   variables:
     CONAN_PROFILE: "linux-aarch64-gcc9.jinja"
+    CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
     PYTHON_ENABLED: "ON"
@@ -338,6 +340,7 @@ osx-x64-clang12-release-build:
     - conan
   variables:
     CONAN_PROFILE: "macos-x86_64-appleclang-12.0.jinja"
+    CONAN_PROFILE_CPPSTD: 20
     BUILD_PYTHON_WHEEL: "ON"
   parallel:
     matrix:
@@ -357,6 +360,7 @@ osx-arm64-clang13-release-build:
     - conan
   variables:
     CONAN_PROFILE: "macos-aarch64-appleclang-13.1.jinja"
+    CONAN_PROFILE_CPPSTD: 20
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
     BUILD_PYTHON_WHEEL: "ON"
   parallel:
@@ -412,6 +416,7 @@ win-x64-msvc2017-release-build:
     - conan
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2017.jinja"
+    CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "win-x64"
   parallel:
     matrix:
@@ -691,6 +696,7 @@ benchmark-linux-aarch64:
   dependencies:
     - "prepare_version"
   before_script:
+    - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install 'conan<2'
     - cat cmake/POD5Version.cmake
@@ -728,7 +734,7 @@ benchmark-linux-aarch64:
     - conan remove "*" --builds --src --force
     # Remove unneeded MacOS packages
     - echo "Remove MacOS packages"
-    - conan remove "flatbuffers/2.0.0@nanopore/testing" -q "os=Macos" --force
+    - conan remove "flatbuffers/2.0.0@" -q "os=Macos" --force
     # Move required packages to a tarball
     - PACKAGE_DIR="${CONAN_USER_HOME#${PWD}/}/.conan/data/$(conan inspect --raw name ${CONAN_REFERENCE})"
     - echo "Packing from $PACKAGE_DIR"
@@ -770,9 +776,21 @@ build-conan:macos-x86_64-appleclang-12.0:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
+
 upload-conan:macos-x86_64-appleclang-12.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-12.0" ]
+
+build-conan:macos-x86_64-appleclang-14.0:
+    extends:
+        - .profile-macos-x86_64-appleclang-14.0
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+
+upload-conan:macos-x86_64-appleclang-14.0:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-14.0" ]
 
 build-conan:macos-aarch64-appleclang-13.1:
     extends:
@@ -783,6 +801,16 @@ build-conan:macos-aarch64-appleclang-13.1:
 upload-conan:macos-aarch64-appleclang-13.1:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-13.1" ]
+
+build-conan:macos-aarch64-appleclang-14.0:
+    extends:
+        - .profile-macos-aarch64-appleclang-14.0
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+upload-conan:macos-aarch64-appleclang-14.0:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-14.0" ]
 
 build-conan:ios-aarch64-appleclang-13.1:
     extends:
@@ -797,6 +825,19 @@ upload-conan:ios-aarch64-appleclang-13.1:
     variables:
         EXPECTED_PACKAGE_COUNT: "2"
 
+build-conan:ios-aarch64-appleclang-14.0:
+    extends:
+        - .profile-iOS-aarch64-appleclang-14.0
+        - .build-package
+        - .conan-build-common
+    after_script:
+        - *tarball-package-without-macos
+upload-conan:ios-aarch64-appleclang-14.0:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-14.0" ]
+    variables:
+        EXPECTED_PACKAGE_COUNT: "2"
+
 build-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends:
         - .profile-iOSSimulator-aarch64-appleclang-13.1
@@ -807,6 +848,19 @@ build-conan:iOSSimulator-aarch64-appleclang-13.1:
 upload-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-13.1" ]
+    variables:
+        EXPECTED_PACKAGE_COUNT: "2"
+
+build-conan:iOSSimulator-aarch64-appleclang-14.0:
+    extends:
+        - .profile-iOSSimulator-aarch64-appleclang-14.0
+        - .build-package
+        - .conan-build-common
+    after_script:
+        - *tarball-package-without-macos
+upload-conan:iOSSimulator-aarch64-appleclang-14.0:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-14.0" ]
     variables:
         EXPECTED_PACKAGE_COUNT: "2"
 

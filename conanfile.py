@@ -14,7 +14,10 @@ class Pod5Conan(ConanFile):
     topics = "nanopore", "sequencing", "genomic", "dna", "arrow"
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False]}
-    default_options = {"shared": False}
+    default_options = {
+        "shared": False,
+        "arrow:with_zstd": True,
+    }
     exports_sources = [
         "c++/*",
         "cmake/*",
@@ -52,14 +55,9 @@ class Pod5Conan(ConanFile):
     def requirements(self):
         self.requires("arrow/8.0.0@")
         self.requires("boost/1.78.0@")
-        # We are using an older version of flatbuffers not available on CCI.
-        # @TODO: Update to a version that exists in CCI
-        # When this line changes a corresponding change in .gitlab-ci.yml is required where this
-        # package is uninstalled.
-        self.requires("flatbuffers/2.0.0@nanopore/testing")
-        self.requires("zstd/1.5.4@")
+        self.requires("flatbuffers/2.0.0@")
+        self.requires("zstd/1.5.2@")
         self.requires("zlib/1.2.13@")
-
         if not (
             self.settings.os == "Windows"
             or self.settings.os == "Macos"
@@ -82,7 +80,7 @@ class Pod5Conan(ConanFile):
             # @TODO: Update to a version that exists in CCI
             # When this line changes a corresponding change in .gitlab-ci.yml is required where this
             # package is uninstalled.
-            self.build_requires("flatbuffers/2.0.0@nanopore/testing")
+            self.build_requires("flatbuffers/2.0.0@")
 
     def generate(self):
         if cross_building(self):
@@ -107,6 +105,10 @@ class Pod5Conan(ConanFile):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
+
+    def configure(self):
+        if self.settings.os == "Windows":
+            self.options["arrow"].with_zstd = False
 
     def package(self):
         cmake = CMake(self)
