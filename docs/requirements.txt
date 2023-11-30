@@ -2,4 +2,4 @@ sphinx-rtd-theme
 sphinx==v5.3.0
 myst-parser
 # Paths are relative to project root for ReadTheDocs and docs/Makefile
-pod5==0.3.3
+pod5==0.3.4
