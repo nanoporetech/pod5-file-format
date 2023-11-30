@@ -830,13 +830,12 @@ build-conan:ios-aarch64-appleclang-14.0:
         - .profile-iOS-aarch64-appleclang-14.0
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
     after_script:
         - *tarball-package-without-macos
 upload-conan:ios-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-14.0" ]
-    variables:
-        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:iOSSimulator-aarch64-appleclang-13.1:
     extends:
@@ -856,13 +855,13 @@ build-conan:iOSSimulator-aarch64-appleclang-14.0:
         - .profile-iOSSimulator-aarch64-appleclang-14.0
         - .build-package
         - .conan-build-common
+        - .build-shared-and-static
+
     after_script:
         - *tarball-package-without-macos
 upload-conan:iOSSimulator-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-14.0" ]
-    variables:
-        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:iOSSimulator-x86_64-appleclang-13.1:
     extends:
