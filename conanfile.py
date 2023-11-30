@@ -13,9 +13,10 @@ class Pod5Conan(ConanFile):
     description = "POD5 File format"
     topics = "nanopore", "sequencing", "genomic", "dna", "arrow"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False]}
+    options = {"shared": [True, False], "ont_internal_boost": [True, False]}
     default_options = {
         "shared": False,
+        "ont_internal_boost": False,
         "arrow:with_zstd": True,
     }
     exports_sources = [
@@ -54,7 +55,10 @@ class Pod5Conan(ConanFile):
 
     def requirements(self):
         self.requires("arrow/8.0.0@")
-        self.requires("boost/1.78.0@")
+        if self.options.ont_internal_boost:
+            self.requires("boost/1.78.0@nanopore/testing")
+        else:
+            self.requires("boost/1.78.0@")
         self.requires("flatbuffers/2.0.0@")
         self.requires("zstd/1.5.2@")
         self.requires("zlib/1.2.13@")
