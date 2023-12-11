@@ -17,7 +17,6 @@ class Pod5Conan(ConanFile):
     default_options = {
         "shared": False,
         "ont_internal_boost": False,
-        "arrow:with_zstd": True,
     }
     exports_sources = [
         "c++/*",
@@ -113,6 +112,8 @@ class Pod5Conan(ConanFile):
     def configure(self):
         if self.settings.os == "Windows":
             self.options["arrow"].with_zstd = False
+        else:
+            self.options["arrow"].with_zstd = True
 
     def package(self):
         cmake = CMake(self)
