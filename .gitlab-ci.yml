@@ -996,7 +996,7 @@ external_wheel_upload:
 mlhub:
   stage: deploy
   image: ${MLHUB_TRIGGER_IMAGE}
-  needs: ["internal_wheel_upload"]
+  needs: ["build-archive"]
   variables:
     GIT_STRATEGY: none
   script:
@@ -1007,18 +1007,17 @@ mlhub:
           "key": "'${MLHUB_TRIGGER_KEY}'",
           "job_name": "POD5-CI '${CI_COMMIT_REF_NAME}' - '"$CI_COMMIT_TITLE"' ",
           "script_parameters": {
-                "tag":"'${CI_COMMIT_TAG}'",
+                "mode":"artifact",
+                "source":"'${CI_COMMIT_SHA}'"
                 "python_ver":"'${PYTHON_VERSION}'"
               }
       }' \
       ${MLHUB_TRIGGER_URL}
-  only: ["tags"]
   when: manual
   parallel:
     matrix:
       - PYTHON_VERSION:
         - "3.8"
-        - "3.11"
         - "3.12"
 
 
