@@ -980,9 +980,10 @@ external_wheel_upload:
   script:
     - ls -lh .
     - pip install twine
-    - export TWINE_REPOSITORY_URL=
-    - export TWINE_CERT=
-    - twine upload *.whl pod5*.tar.gz -u"${EXTERNAL_TWINE_USERNAME}" -p"${EXTERNAL_TWINE_PASSWORD}"
+    - unset TWINE_REPOSITORY_URL
+    - unset TWINE_CERT
+    - twine upload lib-*.whl -u __token__ -p"${EXTERNAL_LIB_POD5_PYPI_KEY}"
+    - twine upload pod5-*.whl pod5*.tar.gz -u __token__ -p"${EXTERNAL_POD5_PYPI_KEY}"
   only: ["tags"]
   when: manual
 
