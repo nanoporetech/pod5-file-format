@@ -675,6 +675,40 @@ benchmark-linux-aarch64:
 
 # ======================================
 #
+#     Fuzz tests
+#
+# ======================================
+
+
+linux-x64-gcc9-fuzz:
+  stage: build
+  image: "ubuntu:jammy"
+  tags:
+    - linux
+  variables:
+    CONAN_PROFILE: "linux-x86_64-gcc9.jinja"
+    CONAN_PROFILE_CPPSTD: 17
+    CC: clang
+    CXX: clang++
+  needs:
+    - "prepare_version"
+  before_script:
+    # TODO: is there a better image we can use that has these pre-installed
+    - apt update && apt install -y clang pip cmake
+    - pip install -U pip 'conan<2' auditwheel build
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+  script:
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - mkdir -p build
+    - cd build
+    - conan install --profile ${CONAN_PROFILE} -s compiler.libcxx=libstdc++ -s compiler.cppstd=17 -s build_type=Release ..
+    - cmake -D ENABLE_CONAN=ON -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -D POD5_DISABLE_TESTS=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FUZZERS=ON -D BUILD_PYTHON_WHEEL=OFF ..
+    - cmake --build . --config Release
+    - ctest -C Release -VV
+
+
+# ======================================
+#
 #     Conan
 #
 # ======================================
