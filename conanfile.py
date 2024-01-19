@@ -31,7 +31,7 @@ class Pod5Conan(ConanFile):
     When building a static library, we need to pack arrow, zstd and if on linux jemalloc,
     alongside pod5 static lib to avoid linking errors. This function copies those libs to
     a folder called third_party in the build directory. The ci/install.sh ensures they end
-    up in the correct location to be deployed.
+    up in the correct location to be deployed, if install is done via cmake.
     """
 
     def _setup_third_party_deps_packaging(self):
@@ -152,7 +152,7 @@ class Pod5Conan(ConanFile):
         # Copy the license files
         copy(self, "LICENSE.md", ".", "licenses")
 
-        # Package the required third party libs after install pod5 static
+        # Package the required third party libs after installing pod5 static
         if not self.options.shared:
             src = f"{self.build_folder}/third_party/libs/"
             dst = f"{self.build_folder}/{self.settings.build_type}/lib/"
