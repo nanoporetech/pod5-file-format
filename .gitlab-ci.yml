@@ -235,7 +235,7 @@ build-standalone-ubu20:
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${PYTHON_ENABLED} -DPYTHON_VERSION=${PYTHON_VERSION} -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
     - cmake --build . --config Release
     - ctest -C Release -VV
-    - ../ci/install.sh
+    - ../ci/install.sh STATIC_BUILD
     - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"

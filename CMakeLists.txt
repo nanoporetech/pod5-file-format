@@ -25,7 +25,6 @@ if (NOT DEFINED ENABLE_CONAN)
     option(ENABLE_CONAN "Enable conan for dependency installation" OFF)
 endif()
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
-option(INSTALL_THIRD_PARTY "Install third party libraries" ON)
 
 option(POD5_DISABLE_TESTS "Disable building all tests" OFF)
 option(POD5_BUILD_EXAMPLES "Enable building all examples" ON)

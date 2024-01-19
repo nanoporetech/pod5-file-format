@@ -2,7 +2,7 @@ import os
 
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps
-from conan.tools.files import collect_libs
+from conan.tools.files import collect_libs, copy
 from conan.tools.build import cross_building
 
 
@@ -26,6 +26,33 @@ class Pod5Conan(ConanFile):
         "CMakeLists.txt",
         "LICENSE.md",
     ]
+
+    """
+    When building a static library, we need to pack arrow, zstd and if on linux jemalloc,
+    alongside pod5 static lib to avoid linking errors. This function copies those libs to
+    a folder called third_party in the build directory. The ci/install.sh ensures they end
+    up in the correct location to be deployed.
+    """
+
+    def _setup_third_party_deps_packaging(self):
+        deps_to_pack = (
+            ["arrow", "zstd", "jemalloc"]
+            if self.settings.os == "Linux"
+            else ["arrow", "zstd"]
+        )
+        static_lib_ext_wildcard = "*.a" if self.settings.os != "Windows" else "*.lib"
+        for dep in deps_to_pack:
+            if dep == "jemalloc":
+                static_lib_ext_wildcard = (
+                    "*_pic.a" if self.settings.os != "Windows" else "*_pic.lib"
+                )
+            dep_object = self.dependencies[dep]
+            copy(
+                self,
+                static_lib_ext_wildcard,
+                dep_object.cpp_info.libdir,
+                f"{self.build_folder}/third_party/libs",
+            )
 
     """
     When cross building, we cannot build the "examples". Change a file in the build directory
@@ -86,12 +113,15 @@ class Pod5Conan(ConanFile):
             self.build_requires("flatbuffers/2.0.0@")
 
     def generate(self):
+        if not self.options.shared:
+            self._setup_third_party_deps_packaging()
+
         if cross_building(self):
             self._toggle_tests_flag_for_cross_build()
+
         tc = CMakeToolchain(self)
         tc.variables["ENABLE_CONAN"] = "ON"
         tc.variables["BUILD_PYTHON_WHEEL"] = "OFF"
-        tc.variables["INSTALL_THIRD_PARTY"] = "OFF"
         tc.variables["POD5_DISABLE_TESTS"] = "ON"
         tc.variables["POD5_BUILD_EXAMPLES"] = "OFF"
         tc.variables["BUILD_SHARED_LIB"] = "ON" if self.options.shared else "OFF"
@@ -120,7 +150,13 @@ class Pod5Conan(ConanFile):
         cmake.install()
 
         # Copy the license files
-        self.copy("LICENSE.md", src=".", dst="licenses")
+        copy(self, "LICENSE.md", ".", "licenses")
+
+        # Package the required third party libs after install pod5 static
+        if not self.options.shared:
+            src = f"{self.build_folder}/third_party/libs/"
+            dst = f"{self.build_folder}/{self.settings.build_type}/lib/"
+            copy(self, "*", src, dst)
 
     def package_info(self):
         # Note: package_info collects information in self.cpp_info. It is called from the Conan
@@ -137,6 +173,7 @@ class Pod5Conan(ConanFile):
 
         # Additions for this package. Note that everything in requirements needs to be mentioned
         # here. Except for Windows and Macos, jemalloc is also needed.
+
         self.cpp_info.libs = collect_libs(self)
         self.cpp_info.requires = [
             "arrow::arrow",
@@ -147,9 +184,5 @@ class Pod5Conan(ConanFile):
         ]
 
         # self.cpp
-        if not (
-            self.settings.os == "Windows"
-            or self.settings.os == "Macos"
-            or self.settings.os == "iOS"
-        ):
+        if self.settings.os == "Linux":
             self.cpp_info.requires.append("jemalloc::jemalloc")

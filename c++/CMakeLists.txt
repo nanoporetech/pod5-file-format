@@ -191,18 +191,6 @@ target_link_libraries(pod5_format
         Threads::Threads
 )
 
-if (NOT BUILD_SHARED_LIB AND INSTALL_THIRD_PARTY)
-    set(pod5_libs arrow zstd jemalloc)
-    foreach (lib ${pod5_libs})
-
-        install(
-            FILES $<IF:$<CONFIG:Debug>,${${lib}_LIBS_DEBUG},${${lib}_LIBS_RELEASE}>
-            TYPE LIB
-            COMPONENT third_party
-        )
-    endforeach()
-endif()
-
 target_include_directories(pod5_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
