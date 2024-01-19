@@ -243,20 +243,6 @@ build-standalone-ubu20:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
-linux-aarch64-gcc7-release-build:
-  image: ${CI_REGISTRY}/ofan/ofan-docker-base/arm64v8/conan:18.04
-  extends: [".build-linux"]
-  before_script:
-    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
-  tags:
-    - linux_aarch64
-    - high-cpu
-  variables:
-    CONAN_PROFILE: "linux-aarch64-gcc7.jinja"
-    CONAN_PROFILE_CPPSTD: 17
-    OUTPUT_SKU: "linux-gcc7-arm64"
-    PYTHON_ENABLED: "OFF"
-
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
   extends: [".build-linux"]
@@ -323,7 +309,7 @@ linux-aarch64-gcc9-release-build:
     - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL} -DPYTHON_VERSION=${PYTHON_VERSION} -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
     - cmake --build . --config Release
     - ctest -C Release -VV
-    - ../ci/install.sh
+    - ../ci/install.sh STATIC_BUILD
     - ../ci/package.sh ${OUTPUT_SKU}
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
@@ -404,7 +390,7 @@ osx-arm64-clang13-release-build:
     - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
     - cmake --build . --config Release
     - ctest -C Release -VV
-    - ../ci/install.sh
+    - ../ci/install.sh STATIC_BUILD
     - ../ci/package.sh ${OUTPUT_SKU}
 
 win-x64-msvc2017-release-build:
@@ -896,16 +882,6 @@ upload-conan:linux-x86_64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
 
-build-conan:linux-aarch64-gcc7:
-    extends:
-        - .build-package
-        - .profile-linux-aarch64-gcc7
-        - .conan-build-common
-        - .build-shared-and-static
-upload-conan:linux-aarch64-gcc7:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc7" ]
-
 build-conan:linux-aarch64-gcc9:
     extends:
         - .profile-linux-aarch64-gcc9
@@ -939,7 +915,6 @@ build-archive:
   needs:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
-    - linux-aarch64-gcc7-release-build
     - osx-x64-clang12-release-build
     - osx-arm64-clang13-release-build
     - win-x64-msvc2017-release-build
