@@ -125,7 +125,7 @@ Status RunInfoTableWriter::reserve_rows() { return m_field_builders.reserve(m_ta
 
 Result<RunInfoTableWriter> make_run_info_table_writer(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     arrow::MemoryPool * pool)
 {

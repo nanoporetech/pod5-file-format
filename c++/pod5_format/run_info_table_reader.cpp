@@ -129,7 +129,7 @@ Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::find_run_info(
 
     ARROW_RETURN_NOT_OK(prepare_run_infos_vector());
 
-    std::shared_ptr<const RunInfoData> run_info = nullptr;
+    std::shared_ptr<RunInfoData const> run_info = nullptr;
     std::size_t glb_run_info_index = 0;
     for (std::size_t i = 0; i < num_record_batches(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto batch, read_record_batch(i));

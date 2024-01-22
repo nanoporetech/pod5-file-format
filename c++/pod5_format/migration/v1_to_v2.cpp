@@ -84,7 +84,8 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
                 pool, v2_reads_table_path.ToString(), v2_schema, new_metadata));
 
         for (std::int64_t batch_idx = 0; batch_idx < v1_reader.reader->num_record_batches();
-             ++batch_idx) {
+             ++batch_idx)
+        {
             // Read V1 data:
             ARROW_ASSIGN_OR_RAISE(auto v1_batch, v1_reader.reader->ReadRecordBatch(batch_idx));
             auto const num_rows = v1_batch->num_rows();

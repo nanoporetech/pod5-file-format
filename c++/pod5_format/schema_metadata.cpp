@@ -60,7 +60,7 @@ Version current_build_version_number()
     return Version(Pod5MajorVersion, Pod5MinorVersion, Pod5RevVersion);
 }
 
-Result<std::shared_ptr<const arrow::KeyValueMetadata>> make_schema_key_value_metadata(
+Result<std::shared_ptr<arrow::KeyValueMetadata const>> make_schema_key_value_metadata(
     SchemaMetadataDescription const & schema_metadata)
 {
     if (schema_metadata.writing_software.empty()) {
@@ -83,7 +83,7 @@ Result<std::shared_ptr<const arrow::KeyValueMetadata>> make_schema_key_value_met
 }
 
 Result<SchemaMetadataDescription> read_schema_key_value_metadata(
-    std::shared_ptr<const arrow::KeyValueMetadata> const & key_value_metadata)
+    std::shared_ptr<arrow::KeyValueMetadata const> const & key_value_metadata)
 {
     ARROW_ASSIGN_OR_RAISE(
         auto file_identifier_str, key_value_metadata->Get("MINKNOW:file_identifier"));

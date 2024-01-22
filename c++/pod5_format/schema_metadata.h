@@ -61,10 +61,10 @@ struct SchemaMetadataDescription {
     Version writing_pod5_version;
 };
 
-POD5_FORMAT_EXPORT Result<std::shared_ptr<const arrow::KeyValueMetadata>>
+POD5_FORMAT_EXPORT Result<std::shared_ptr<arrow::KeyValueMetadata const>>
 make_schema_key_value_metadata(SchemaMetadataDescription const & schema_metadata);
 
 POD5_FORMAT_EXPORT Result<SchemaMetadataDescription> read_schema_key_value_metadata(
-    std::shared_ptr<const arrow::KeyValueMetadata> const & key_value_metadata);
+    std::shared_ptr<arrow::KeyValueMetadata const> const & key_value_metadata);
 
 }  // namespace pod5

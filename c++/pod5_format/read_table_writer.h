@@ -90,7 +90,7 @@ private:
 /// \returns The writer for the new table.
 POD5_FORMAT_EXPORT Result<ReadTableWriter> make_read_table_writer(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     std::shared_ptr<PoreWriter> const & pore_writer,
     std::shared_ptr<EndReasonWriter> const & end_reason_writer,

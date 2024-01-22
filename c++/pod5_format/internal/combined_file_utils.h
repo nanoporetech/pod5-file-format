@@ -113,7 +113,7 @@ inline pod5::Result<std::int64_t> write_footer_flatbuffer(
         Minknow::ReadsFormat::Format_FeatherV2,
         Minknow::ReadsFormat::ContentType_ReadsTable);
 
-    const std::vector<flatbuffers::Offset<Minknow::ReadsFormat::EmbeddedFile>> files{
+    std::vector<flatbuffers::Offset<Minknow::ReadsFormat::EmbeddedFile>> const files{
         signal_file, run_info_file, reads_file};
     auto footer = Minknow::ReadsFormat::CreateFooterDirect(
         builder,

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CI package uploading to PyPi following [API token migration](https://pypi.org/help/#apitoken).
 
+## Changed
+
+- Updated `pre-commit` to `clang-format-17`.
+
 ## [0.3.6]
 
 ## Fixed

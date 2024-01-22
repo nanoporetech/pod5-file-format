@@ -2,7 +2,7 @@
 
 namespace pod5 {
 
-const std::size_t AsyncSignalLoader::MINIMUM_JOB_SIZE = 50;
+std::size_t const AsyncSignalLoader::MINIMUM_JOB_SIZE = 50;
 
 AsyncSignalLoader::AsyncSignalLoader(
     std::shared_ptr<pod5::FileReader> const & reader,

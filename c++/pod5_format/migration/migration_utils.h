@@ -66,7 +66,7 @@ inline arrow::Status copy_column(
 struct Pod5BatchRecordReader {
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
     std::shared_ptr<arrow::Schema> schema;
-    std::shared_ptr<const arrow::KeyValueMetadata> metadata;
+    std::shared_ptr<arrow::KeyValueMetadata const> metadata;
 };
 
 struct Pod5BatchRecordWriter {
@@ -103,8 +103,8 @@ inline pod5::Result<Pod5BatchRecordReader> open_record_batch_reader(
     return result;
 }
 
-inline pod5::Result<std::shared_ptr<const arrow::KeyValueMetadata>> update_metadata(
-    std::shared_ptr<const arrow::KeyValueMetadata> original_metadata,
+inline pod5::Result<std::shared_ptr<arrow::KeyValueMetadata const>> update_metadata(
+    std::shared_ptr<arrow::KeyValueMetadata const> original_metadata,
     Version version_to_write)
 {
     auto result = original_metadata->Copy();
@@ -117,7 +117,7 @@ inline pod5::Result<Pod5BatchRecordWriter> make_record_batch_writer(
     arrow::MemoryPool * pool,
     std::string path,
     std::shared_ptr<arrow::Schema> schema,
-    std::shared_ptr<const arrow::KeyValueMetadata> metadata)
+    std::shared_ptr<arrow::KeyValueMetadata const> metadata)
 {
     ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(path, false));
     arrow::ipc::IpcWriteOptions write_options;

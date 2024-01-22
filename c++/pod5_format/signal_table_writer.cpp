@@ -192,7 +192,7 @@ Status SignalTableWriter::reserve_rows()
 
 Result<SignalTableWriter> make_signal_table_writer(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     SignalType compression_type,
     arrow::MemoryPool * pool)
