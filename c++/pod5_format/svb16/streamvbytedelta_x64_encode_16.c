@@ -37,7 +37,7 @@ size_t streamvbyte_zigzag_delta_encode_SSSE3_d1_init(
     uint8_t * restrict keyPtr = &out[0];
     uint8_t * restrict dataPtr = &out[keyLen];  // variable length data after keys
 
-    const __m128i mask_01 = _mm_set1_epi8(0x01);
+    __m128i const mask_01 = _mm_set1_epi8(0x01);
 
     for (uint16_t const * end = &in [(count & ~15)]; in != end; in += 16) {
         __m128i rawr0, r0, rawr1, r1, r2, r3;

@@ -199,7 +199,8 @@ public:
 
         // Chunk and write each piece of signal to the file:
         for (std::size_t chunk_start = 0; chunk_start < signal.size();
-             chunk_start += m_signal_chunk_size) {
+             chunk_start += m_signal_chunk_size)
+        {
             std::size_t chunk_size =
                 std::min<std::size_t>(signal.size() - chunk_start, m_signal_chunk_size);
 

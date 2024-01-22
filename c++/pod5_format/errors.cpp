@@ -51,7 +51,7 @@ public:
 
 std::error_category const & error_category()
 {
-    static const ErrorCategory category;
+    static ErrorCategory const category;
     return category;
 }
 

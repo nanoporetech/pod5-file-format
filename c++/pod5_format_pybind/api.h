@@ -466,7 +466,8 @@ inline void FileWriter_add_reads_pre_compressed(
         std::uint64_t signal_duration_count = 0;
         std::vector<std::uint64_t> signal_rows(signal_chunk_count);
         for (std::size_t signal_chunk_idx = 0; signal_chunk_idx < signal_chunk_count;
-             ++signal_chunk_idx) {
+             ++signal_chunk_idx)
+        {
             if (compressed_signal_it == compressed_signal_ptrs.end()) {
                 throw std::runtime_error("Missing signal data");
             }

@@ -39,7 +39,8 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
                 pool, v1_reads_table_path.ToString(), v1_schema, new_metadata));
 
         for (std::int64_t batch_idx = 0; batch_idx < v0_reader.reader->num_record_batches();
-             ++batch_idx) {
+             ++batch_idx)
+        {
             // Read V0 data:
             ARROW_ASSIGN_OR_RAISE(auto v0_batch, v0_reader.reader->ReadRecordBatch(batch_idx));
             auto const num_rows = v0_batch->num_rows();

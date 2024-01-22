@@ -136,7 +136,7 @@ public:
     /// \param metadata Metadata to be applied to the schema.
     /// \returns The schema for a read table.
     std::shared_ptr<arrow::Schema> make_writer_schema(
-        std::shared_ptr<const arrow::KeyValueMetadata> const & metadata) const;
+        std::shared_ptr<arrow::KeyValueMetadata const> const & metadata) const;
 
     static Status read_schema(
         std::shared_ptr<SchemaDescriptionBase> dest_schema,

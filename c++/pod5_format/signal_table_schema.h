@@ -28,7 +28,7 @@ struct SignalTableSchemaDescription {
 /// \returns The schema for a signal table.
 POD5_FORMAT_EXPORT std::shared_ptr<arrow::Schema> make_signal_table_schema(
     SignalType signal_type,
-    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     SignalTableSchemaDescription * field_locations);
 
 POD5_FORMAT_EXPORT Result<SignalTableSchemaDescription> read_signal_table_schema(

@@ -177,7 +177,8 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
             StringDictBuilder end_reason;
             StringDictBuilder run_info;
             for (std::int64_t batch_idx = 0; batch_idx < v2_reader.reader->num_record_batches();
-                 ++batch_idx) {
+                 ++batch_idx)
+            {
                 // Read V2 data:
                 ARROW_ASSIGN_OR_RAISE(auto v2_batch, v2_reader.reader->ReadRecordBatch(batch_idx));
                 auto const num_rows = v2_batch->num_rows();

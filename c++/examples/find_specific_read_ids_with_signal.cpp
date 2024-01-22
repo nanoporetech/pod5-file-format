@@ -88,7 +88,8 @@ int main(int argc, char ** argv)
 
         std::cout << "Processing batch " << (batch_index + 1) << " of " << batch_count << "\n";
         for (std::size_t row_index = 0; row_index < traversal_batch_counts[batch_index];
-             ++row_index) {
+             ++row_index)
+        {
             std::uint32_t batch_row = traversal_row_indices[row_index + row_offset];
 
             uint16_t read_table_version = 0;

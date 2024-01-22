@@ -29,7 +29,7 @@ arrow::Result<RecoveredData> recover_arrow_file(
     DestFileType const & destination_file)
 {
     // Check for arrow start file:
-    const int32_t magic_size = static_cast<int>(::strlen(kArrowMagicBytes));
+    int32_t const magic_size = static_cast<int>(::strlen(kArrowMagicBytes));
     ARROW_ASSIGN_OR_RAISE(auto buffer, file_to_recover->ReadAt(0, magic_size));
     if (buffer->size() < magic_size || memcmp(buffer->data(), kArrowMagicBytes, magic_size)) {
         return arrow::Status::Invalid("Not an Arrow file");

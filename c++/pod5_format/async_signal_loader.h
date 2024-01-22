@@ -113,7 +113,7 @@ private:
 class POD5_FORMAT_EXPORT AsyncSignalLoader {
 public:
     // Minimum number of tasks one thread will do in a batch.
-    static const std::size_t MINIMUM_JOB_SIZE;
+    static std::size_t const MINIMUM_JOB_SIZE;
     enum class SamplesMode {
         NoSamples,
         Samples,

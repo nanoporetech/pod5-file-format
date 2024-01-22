@@ -6,7 +6,7 @@ namespace pod5 {
 /// \param metadata Metadata to be applied to the schema.
 /// \returns The schema for a read table.
 std::shared_ptr<arrow::Schema> SchemaDescriptionBase::make_writer_schema(
-    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata) const
+    std::shared_ptr<arrow::KeyValueMetadata const> const & metadata) const
 {
     auto const latest_version = latest_table_version();
     arrow::FieldVector writer_fields;

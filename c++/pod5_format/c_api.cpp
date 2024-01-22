@@ -1169,7 +1169,8 @@ pod5_error_t pod5_add_reads_data(
     for (std::uint32_t read = 0; read < read_count; ++read) {
         pod5::ReadData read_data;
         if (!load_struct_row_into_read_data(
-                file->writer, read_data, struct_version, row_data, read)) {
+                file->writer, read_data, struct_version, row_data, read))
+        {
             return g_pod5_error_no;
         }
 
@@ -1199,7 +1200,8 @@ pod5_error_t pod5_add_reads_data_pre_compressed(
     for (std::uint32_t read = 0; read < read_count; ++read) {
         pod5::ReadData read_data;
         if (!load_struct_row_into_read_data(
-                file->writer, read_data, struct_version, row_data, read)) {
+                file->writer, read_data, struct_version, row_data, read))
+        {
             return g_pod5_error_no;
         }
 

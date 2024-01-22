@@ -9,7 +9,7 @@ namespace pod5 {
 
 std::shared_ptr<arrow::Schema> make_signal_table_schema(
     SignalType signal_type,
-    std::shared_ptr<const arrow::KeyValueMetadata> const & metadata,
+    std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     SignalTableSchemaDescription * field_locations)
 {
     auto const uuid_type = uuid();
