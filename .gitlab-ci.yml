@@ -202,8 +202,7 @@ build-standalone-ubu20:
     - mkdir -p build
     - cd build
     - cmake -DBUILD_PYTHON_WHEEL=OFF ..
-    - make -j
-  allow_failure: true
+    - cmake --build .
 
 
 # ======================================
