@@ -1269,7 +1269,7 @@ pod5_error_t pod5_vbz_decompress_signal(
     char const * compressed_signal,
     size_t compressed_signal_size,
     size_t sample_count,
-    short * signal_out)
+    int16_t * signal_out)
 {
     pod5_reset_error();
 

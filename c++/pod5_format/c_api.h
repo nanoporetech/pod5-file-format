@@ -93,7 +93,7 @@ struct ReadBatchRowInfoV3 {
 
     // Channel for the read.
     uint16_t channel;
-    // Channel for the read.
+    // Well for the read.
     uint8_t well;
     // Dictionary index for the pore type.
     int16_t pore_type;
@@ -268,7 +268,7 @@ pod5_get_file_run_info_table_location(Pod5FileReader_t * reader, EmbeddedFileDat
 /// \param[out] count   The number of reads in the file
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_count(Pod5FileReader_t * reader, size_t * count);
 
-/// \brief Find the number of reads in the file.
+/// \brief Grab the read_id's from the file.
 /// \param        reader        The file reader to read from.
 /// \param        count         The number of read_id's allocated in [read_ids], an error is raised if the count is not greater or equal to pod5_get_read_count.
 /// \param[out]   read_ids      The read id's written in a contiguous array.
@@ -703,15 +703,15 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_vbz_compress_signal(
     size_t * compressed_signal_size);
 
 /// \brief VBZ decompress an array of samples.
-/// \param          compressed_signal           The signal to compress.
-/// \param          compressed_signal_size      The number of compressed bytes, should be set to the size of compressed_signal_out on call.
-/// \param          sample_count                The number of samples to decompress.
-/// \param[out]     signal_out                  The compressed signal.
+/// \param          compressed_signal           The signal to decompress.
+/// \param          compressed_signal_size      The number of compressed bytes, ie the size of compressed_signal in bytes.
+/// \param          sample_count                The number of samples to decompress, ie the size of signal_out in samples.
+/// \param[out]     signal_out                  The decompressed signal.
 POD5_FORMAT_EXPORT pod5_error_t pod5_vbz_decompress_signal(
     char const * compressed_signal,
     size_t compressed_signal_size,
     size_t sample_count,
-    short * signal_out);
+    int16_t * signal_out);
 
 //---------------------------------------------------------------------------------------------------------------------
 // Global state
