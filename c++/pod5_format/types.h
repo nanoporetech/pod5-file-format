@@ -26,7 +26,7 @@ public:
     //     to be configurable via the ValueAccessor template parameter)
     boost::uuids::uuid GetView(int64_t i) const { return Value(i); }
 
-    arrow::util::optional<boost::uuids::uuid> operator[](int64_t i) const
+    std::optional<boost::uuids::uuid> operator[](int64_t i) const
     {
         return *IteratorType(*this, i);
     }

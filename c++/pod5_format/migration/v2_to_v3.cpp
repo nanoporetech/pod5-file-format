@@ -101,7 +101,7 @@ arrow::Status append_struct_row_to_dict(
         return Status::Invalid("Dictionary index is out of range");
     }
 
-    auto str_value = typed_field_array->Value(struct_row.dict_item_index).to_string();
+    auto str_value = typed_field_array->GetString(struct_row.dict_item_index);
     auto it = builder.lookup.find(str_value);
     if (it != builder.lookup.end()) {
         return builder.indices.Append(it->second);

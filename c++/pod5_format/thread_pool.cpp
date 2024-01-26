@@ -3,6 +3,8 @@
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
 
+#include <thread>
+
 namespace pod5 {
 
 class StrandImpl : public ThreadPoolStrand {

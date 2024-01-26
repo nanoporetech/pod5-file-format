@@ -22,7 +22,7 @@ target_link_libraries(pod5_format_pybind
 set_target_properties(pod5_format_pybind
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
-        CXX_STANDARD 14
+        CXX_STANDARD 17
 )
 
 set(python_project_root "${CMAKE_SOURCE_DIR}/python/lib_pod5/")

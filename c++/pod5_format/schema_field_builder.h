@@ -184,28 +184,28 @@ class ListBuilderHelper<arrow::ListArray, ElementArrayType> {
 public:
     ListBuilderHelper(std::shared_ptr<arrow::DataType> const &, arrow::MemoryPool * pool)
     : m_array_builder(std::make_shared<BuilderHelper<ElementArrayType>>(nullptr, pool))
-    , m_builder(pool, m_array_builder)
+    , m_builder(std::make_unique<arrow::ListBuilder>(pool, m_array_builder))
     {
     }
 
     arrow::Status Reserve(std::size_t rows)
     {
-        ARROW_RETURN_NOT_OK(m_builder.Reserve(rows));
+        ARROW_RETURN_NOT_OK(m_builder->Reserve(rows));
         return m_array_builder->Reserve(rows);
     }
 
-    arrow::Status Finish(std::shared_ptr<arrow::Array> * dest) { return m_builder.Finish(dest); }
+    arrow::Status Finish(std::shared_ptr<arrow::Array> * dest) { return m_builder->Finish(dest); }
 
     template <typename Items>
     arrow::Status Append(Items const & items)
     {
-        ARROW_RETURN_NOT_OK(m_builder.Append());  // start new slot
+        ARROW_RETURN_NOT_OK(m_builder->Append());  // start new slot
         return m_array_builder->AppendValues(items.data(), items.size());
     }
 
 private:
     std::shared_ptr<BuilderHelper<ElementArrayType>> m_array_builder;
-    arrow::ListBuilder m_builder;
+    std::unique_ptr<arrow::ListBuilder> m_builder;
 };
 
 }  // namespace detail

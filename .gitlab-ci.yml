@@ -198,7 +198,7 @@ build-standalone-ubu20:
     - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt update
-    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev=8.0.0-1
+    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev=12.0.1-1
     - mkdir -p build
     - cd build
     - cmake
@@ -347,11 +347,11 @@ osx-x64-clang12-release-build:
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.8.9", "3.9.13"]
-        MACOSX_DEPLOYMENT_TARGET: "10.9"
-        OUTPUT_SKU: "osx-10.9-x64"
+        MACOSX_DEPLOYMENT_TARGET: "10.15"
+        OUTPUT_SKU: "osx-10.15-x64"
       - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0"]
-        MACOSX_DEPLOYMENT_TARGET: "10.9"
-        OUTPUT_SKU: "osx-10.9-x64"
+        MACOSX_DEPLOYMENT_TARGET: "10.15"
+        OUTPUT_SKU: "osx-10.15-x64"
 
 osx-arm64-clang13-release-build:
   extends: [".build-osx-common"]
@@ -367,8 +367,8 @@ osx-arm64-clang13-release-build:
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.8.9", "3.9.13"]
-        MACOSX_DEPLOYMENT_TARGET: "10.9"
-        OUTPUT_SKU: "osx-10.9-arm64"
+        MACOSX_DEPLOYMENT_TARGET: "10.15"
+        OUTPUT_SKU: "osx-10.15-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
       - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0"]
         MACOSX_DEPLOYMENT_TARGET: "11.0"
