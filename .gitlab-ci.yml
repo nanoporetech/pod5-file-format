@@ -201,8 +201,52 @@ build-standalone-ubu20:
     - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev=8.0.0-1
     - mkdir -p build
     - cd build
-    - cmake -DBUILD_PYTHON_WHEEL=OFF ..
+    - cmake
+      -D POD5_DISABLE_TESTS=OFF
+      -D POD5_BUILD_EXAMPLES=ON
+      -D BUILD_PYTHON_WHEEL=OFF
+      ..
     - cmake --build .
+    - ctest -C Release -VV
+
+
+# ======================================
+#
+#     Build helpers
+#
+# ======================================
+
+
+# Takes CMAKE_ARGS, AUDITWHEEL_PLATFORM, and PYTHON_VERSION
+.conan-build-and-test:
+  - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+  - mkdir -p build
+  - cd build
+  - conan install --profile ${CONAN_PROFILE} ..
+  - cmake ${CMAKE_ARGS}
+    -D BUILD_SHARED_LIB=ON
+    -D CMAKE_BUILD_TYPE=Release
+    -D POD5_DISABLE_TESTS=OFF
+    -D POD5_BUILD_EXAMPLES=ON
+    -D BUILD_PYTHON_WHEEL=OFF
+    -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+    ..
+  - cmake --build . --config Release
+  - ctest -C Release -VV
+  - ../ci/install.sh
+  - cmake ${CMAKE_ARGS}
+    -D BUILD_SHARED_LIB=OFF
+    -D CMAKE_BUILD_TYPE=Release
+    -D POD5_DISABLE_TESTS=OFF
+    -D POD5_BUILD_EXAMPLES=ON
+    -D BUILD_PYTHON_WHEEL=ON
+    -D PYTHON_VERSION=${PYTHON_VERSION}
+    -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+    ..
+  - cmake --build . --config Release
+  - ctest -C Release -VV
+  - ../ci/install.sh STATIC_BUILD
+  - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
 
 
 # ======================================
@@ -223,19 +267,7 @@ build-standalone-ubu20:
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   script:
-    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - mkdir -p build
-    - cd build
-    - conan install --profile ${CONAN_PROFILE} ..
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
-    - cmake --build . --config Release
-    - ctest -C Release -VV
-    - ../ci/install.sh
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${PYTHON_ENABLED} -DPYTHON_VERSION=${PYTHON_VERSION} -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
-    - cmake --build . --config Release
-    - ctest -C Release -VV
-    - ../ci/install.sh STATIC_BUILD
-    - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
+    - !reference [".conan-build-and-test"]
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -252,7 +284,6 @@ linux-x64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
-    PYTHON_ENABLED: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12"]
@@ -268,7 +299,6 @@ linux-aarch64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
-    PYTHON_ENABLED: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12"]
@@ -297,19 +327,7 @@ linux-aarch64-gcc9-release-build:
     - python --version
   script:
     - python3 -c "import sysconfig; print(sysconfig.get_platform())"
-    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - mkdir build
-    - cd build
-    - conan install --profile ${CONAN_PROFILE} ..
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
-    - cmake --build . --config Release
-    - ctest -C Release -VV
-    - ../ci/install.sh
-    - cmake ${CMAKE_ARGS} -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL} -DPYTHON_VERSION=${PYTHON_VERSION} -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
-    - cmake --build . --config Release
-    - ctest -C Release -VV
-    - ../ci/install.sh STATIC_BUILD
-    - ../ci/package.sh ${OUTPUT_SKU}
+    - !reference [".conan-build-and-test"]
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -326,7 +344,6 @@ osx-x64-clang12-release-build:
   variables:
     CONAN_PROFILE: "macos-x86_64-appleclang-12.0.jinja"
     CONAN_PROFILE_CPPSTD: 20
-    BUILD_PYTHON_WHEEL: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.8.9", "3.9.13"]
@@ -347,7 +364,6 @@ osx-arm64-clang13-release-build:
     CONAN_PROFILE: "macos-aarch64-appleclang-13.1.jinja"
     CONAN_PROFILE_CPPSTD: 20
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
-    BUILD_PYTHON_WHEEL: "ON"
   parallel:
     matrix:
       - PYTHON_VERSION: ["3.8.9", "3.9.13"]
@@ -377,20 +393,8 @@ osx-arm64-clang13-release-build:
     - c:/Python${PYTHON_VERSION}/python -m venv .venv
     - source .venv/Scripts/activate
   script:
-    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - pip install build
-    - mkdir build
-    - cd build
-    - conan install --profile ${CONAN_PROFILE} ..
-    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=ON -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=OFF -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
-    - cmake --build . --config Release
-    - ctest -C Release -VV
-    - ../ci/install.sh
-    - cmake -A x64 -G "Visual Studio 15 2017" -DBUILD_SHARED_LIB=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_CONAN=ON -DBUILD_PYTHON_WHEEL=ON -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake ..
-    - cmake --build . --config Release
-    - ctest -C Release -VV
-    - ../ci/install.sh STATIC_BUILD
-    - ../ci/package.sh ${OUTPUT_SKU}
+    - !reference [".conan-build-and-test"]
 
 win-x64-msvc2017-release-build:
   extends: [".build-win-common"]
@@ -403,6 +407,8 @@ win-x64-msvc2017-release-build:
     CONAN_PROFILE: "windows-x86_64-vs2017.jinja"
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "win-x64"
+    CMAKE_ARGS: "-A x64"
+    CMAKE_GENERATOR: "Visual Studio 15 2017"
   parallel:
     matrix:
       - PYTHON_VERSION: ["38", "39", "310", "311", "312"]

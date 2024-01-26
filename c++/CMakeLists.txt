@@ -206,7 +206,8 @@ flatbuffers_generate_headers(
 )
 
 if (NOT MSVC)
-    target_compile_options(pod5_format PRIVATE -Werror -Wall -Wno-comment)
+    set(pod5_warning_options -Werror -Wall -Wno-comment)
+    target_compile_options(pod5_format PRIVATE ${pod5_warning_options})
 endif()
 generate_export_header(pod5_format EXPORT_FILE_NAME pod5_format/pod5_format_export.h)
 

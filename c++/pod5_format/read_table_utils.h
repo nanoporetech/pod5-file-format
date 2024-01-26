@@ -2,7 +2,6 @@
 
 #include "pod5_format/pod5_format_export.h"
 
-#include <boost/functional/hash_fwd.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 

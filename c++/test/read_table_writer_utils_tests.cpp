@@ -109,7 +109,7 @@ void check_field(
     auto items = std::dynamic_pointer_cast<arrow::StringArray>(field->items());
 
     pod5::RunInfoData::MapType extracted_data;
-    for (std::size_t i = start_data; i < end_data; ++i) {
+    for (std::int32_t i = start_data; i < end_data; ++i) {
         std::string key = nonstd::sv_lite::to_string(*((*keys)[i]));
         std::string item = nonstd::sv_lite::to_string(*((*items)[i]));
         extracted_data.emplace_back(key, item);

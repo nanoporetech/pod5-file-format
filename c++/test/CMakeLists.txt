@@ -19,10 +19,13 @@ add_executable(pod5_unit_tests
 target_link_libraries(pod5_unit_tests
     PUBLIC
         pod5_format
+        ${maybe_public_libs}
 )
 
 set_property(TARGET pod5_unit_tests PROPERTY CXX_STANDARD 14)
-#target_compile_options(pod5_unit_tests PRIVATE -Wall -Werror)
+if (NOT MSVC)
+    target_compile_options(pod5_unit_tests PRIVATE ${pod5_warning_options})
+endif()
 
 add_test(
     NAME pod5_unit_tests

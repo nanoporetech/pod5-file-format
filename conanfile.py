@@ -1,5 +1,3 @@
-import os
-
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps
 from conan.tools.files import collect_libs, copy
@@ -54,31 +52,6 @@ class Pod5Conan(ConanFile):
                 f"{self.build_folder}/third_party/libs",
             )
 
-    """
-    When cross building, we cannot build the "examples". Change a file in the build directory
-    for this version, file CMakeLists.txt at the top level. Note there are several
-    CMakeLists.txt in various places, it's the one at the top level. Change line from:
-
-        option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)
-     to
-        option(POD5_BUILD_EXAMPLES "Disable building all examples" OFF)
-
-    Note that the comment is misleading: ON turns buildin examples on, OFF turns building
-    examples off. And note that this must be done before calling _configure_cmake() otherwise
-    it will have no effect anymore.
-    """
-
-    def _toggle_tests_flag_for_cross_build(self):
-        fileToPatchName = os.path.join(self.source_folder, "CMakeLists.txt")
-        oldString = 'option(POD5_BUILD_EXAMPLES "Disable building all examples" ON)'
-        newString = 'option(POD5_BUILD_EXAMPLES "Disable building all examples" OFF)'
-        with open(fileToPatchName, "r+") as text_file:
-            file_content = text_file.read()
-            new_content = file_content.replace(oldString, newString)
-            text_file.seek(0)
-            text_file.truncate(0)
-            text_file.write(new_content)
-
     def requirements(self):
         self.requires("arrow/8.0.0@")
         if self.options.ont_internal_boost:
@@ -115,9 +88,6 @@ class Pod5Conan(ConanFile):
     def generate(self):
         if not self.options.shared:
             self._setup_third_party_deps_packaging()
-
-        if cross_building(self):
-            self._toggle_tests_flag_for_cross_build()
 
         tc = CMakeToolchain(self)
         tc.variables["ENABLE_CONAN"] = "ON"
