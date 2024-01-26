@@ -196,7 +196,7 @@ public:
         reserve_space(m_fallocate_offset);
     }
 
-    ~AsyncOutputStreamDirectIO() { Close(); }
+    ~AsyncOutputStreamDirectIO() { (void)Close(); }
 
     arrow::Status Write(void const * data, int64_t nbytes) override
     {
@@ -248,7 +248,7 @@ public:
 
     arrow::Status Flush() override
     {
-        write_final_chunk();
+        ARROW_RETURN_NOT_OK(write_final_chunk());
 
         return AsyncOutputStream::Flush();
     }

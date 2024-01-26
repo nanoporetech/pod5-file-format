@@ -4,6 +4,8 @@
 #include <arrow/result.h>
 #include <gsl/gsl-lite.hpp>
 
+#include <cassert>
+
 namespace pod5 {
 
 template <typename T>

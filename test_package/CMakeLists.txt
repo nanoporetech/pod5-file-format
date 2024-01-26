@@ -12,7 +12,7 @@ target_include_directories(${PROJECT_NAME}
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
-        CXX_STANDARD 14
+        CXX_STANDARD 17
 )
 
 target_link_libraries(${PROJECT_NAME} pod5_file_format::pod5_file_format)

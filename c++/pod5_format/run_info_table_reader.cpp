@@ -25,7 +25,7 @@ inline std::vector<std::pair<std::string, std::string>> value_for_map(
 
     std::vector<std::pair<std::string, std::string>> result;
     for (std::size_t i = offset; i < offset + length; ++i) {
-        result.push_back(std::make_pair(keys->Value(i).to_string(), items->Value(i).to_string()));
+        result.push_back(std::make_pair(keys->GetString(i), items->GetString(i)));
     }
     return result;
 }
@@ -204,27 +204,27 @@ Result<std::shared_ptr<RunInfoData const>> RunInfoTableReader::load_run_info_fro
 {
     ARROW_ASSIGN_OR_RAISE(auto columns, batch.columns());
 
-    auto acquisition_id = columns.acquisition_id->Value(batch_index).to_string();
+    auto acquisition_id = columns.acquisition_id->GetString(batch_index);
     auto run_info = std::make_shared<RunInfoData>(
         acquisition_id,
         columns.acquisition_start_time->Value(batch_index),
         columns.adc_max->Value(batch_index),
         columns.adc_min->Value(batch_index),
         value_for_map(columns.context_tags, batch_index),
-        columns.experiment_name->Value(batch_index).to_string(),
-        columns.flow_cell_id->Value(batch_index).to_string(),
-        columns.flow_cell_product_code->Value(batch_index).to_string(),
-        columns.protocol_name->Value(batch_index).to_string(),
-        columns.protocol_run_id->Value(batch_index).to_string(),
+        columns.experiment_name->GetString(batch_index),
+        columns.flow_cell_id->GetString(batch_index),
+        columns.flow_cell_product_code->GetString(batch_index),
+        columns.protocol_name->GetString(batch_index),
+        columns.protocol_run_id->GetString(batch_index),
         columns.protocol_start_time->Value(batch_index),
-        columns.sample_id->Value(batch_index).to_string(),
+        columns.sample_id->GetString(batch_index),
         columns.sample_rate->Value(batch_index),
-        columns.sequencing_kit->Value(batch_index).to_string(),
-        columns.sequencer_position->Value(batch_index).to_string(),
-        columns.sequencer_position_type->Value(batch_index).to_string(),
-        columns.software->Value(batch_index).to_string(),
-        columns.system_name->Value(batch_index).to_string(),
-        columns.system_type->Value(batch_index).to_string(),
+        columns.sequencing_kit->GetString(batch_index),
+        columns.sequencer_position->GetString(batch_index),
+        columns.sequencer_position_type->GetString(batch_index),
+        columns.software->GetString(batch_index),
+        columns.system_name->GetString(batch_index),
+        columns.system_type->GetString(batch_index),
         value_for_map(columns.tracking_id, batch_index));
 
     // Cache run info for later retrieval by index:

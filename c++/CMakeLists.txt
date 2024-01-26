@@ -20,6 +20,10 @@ else()
     find_package(Flatbuffers REQUIRED)
     find_package(zstd REQUIRED)
     find_package(ZLIB REQUIRED)
+
+    # Our non-conan ubuntu CI build has a different name for this target
+    add_library(arrow::arrow INTERFACE IMPORTED)
+    target_link_libraries(arrow::arrow INTERFACE Arrow::arrow_shared)
 endif()
 
 find_package(Threads REQUIRED)
@@ -167,7 +171,7 @@ list(APPEND public_headers
 set_target_properties(pod5_format
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
-        CXX_STANDARD 14
+        CXX_STANDARD 17
         PUBLIC_HEADER "${public_headers}"
 )
 

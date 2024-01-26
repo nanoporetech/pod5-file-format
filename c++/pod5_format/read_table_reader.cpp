@@ -133,7 +133,7 @@ Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index)
             "Invalid index ", pore_index, " for pore array of length ", pore_data->length());
     }
 
-    return pore_data->Value(pore_index).to_string();
+    return pore_data->GetString(pore_index);
 }
 
 Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reason(
@@ -156,7 +156,7 @@ Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reas
             end_reason_data->length());
     }
 
-    auto str_value = end_reason_data->Value(end_reason_index).to_string();
+    auto str_value = end_reason_data->GetString(end_reason_index);
 
     return std::make_pair(end_reason_from_string(str_value), str_value);
 }
@@ -180,7 +180,7 @@ Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_ind
             run_info_data->length());
     }
 
-    return run_info_data->Value(run_info_index).to_string();
+    return run_info_data->GetString(run_info_index);
 }
 
 //---------------------------------------------------------------------------------------------------------------------
