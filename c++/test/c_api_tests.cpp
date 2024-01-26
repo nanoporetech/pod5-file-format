@@ -86,8 +86,6 @@ SCENARIO("C API Reads")
     std::vector<int16_t> signal_2(20);
     std::iota(signal_2.begin(), signal_2.end(), 0);
 
-    std::size_t read_count = 0;
-
     std::int16_t adc_min = -4096;
     std::int16_t adc_max = 4095;
 
@@ -200,7 +198,6 @@ SCENARIO("C API Reads")
         {
             CHECK_POD5_OK(pod5_add_reads_data(
                 file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data, signal_arr, signal_size));
-            read_count += 1;
         }
 
         {
@@ -229,7 +226,6 @@ SCENARIO("C API Reads")
                 &compressed_size_ptr,
                 &signal_size_ptr,
                 &signal_counts));
-            read_count += 1;
         }
 
         CHECK_POD5_OK(pod5_close_and_free_writer(file));
@@ -504,7 +500,6 @@ SCENARIO("C API Many Reads")
 
     auto uuid_gen = boost::uuids::random_generator_mt19937();
     auto input_read_id = uuid_gen();
-    auto input_read_id_2 = uuid_gen();
     std::vector<int16_t> signal_1(10);
     std::iota(signal_1.begin(), signal_1.end(), -20000);
 
@@ -728,7 +723,7 @@ SCENARIO("C API Run Info")
                 tracking_id_keys.size(),
                 tracking_id_keys.data(),
                 tracking_id_values.data()));
-            CHECK(run_info_id == i);
+            CHECK(run_info_id == static_cast<std::int16_t>(i));
         }
         CHECK_POD5_OK(pod5_close_and_free_writer(file));
     }

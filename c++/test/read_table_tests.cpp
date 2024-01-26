@@ -19,11 +19,12 @@ bool operator==(
     std::shared_ptr<arrow::UInt64Array> const & array,
     std::vector<std::uint64_t> const & vec)
 {
-    if (array->length() != vec.size()) {
+    auto const length = static_cast<std::size_t>(array->length());
+    if (length != vec.size()) {
         return false;
     }
 
-    for (std::size_t i = 0; i < array->length(); ++i) {
+    for (std::size_t i = 0; i < length; ++i) {
         if ((*array)[i] != vec[i]) {
             return false;
         }
@@ -82,7 +83,7 @@ SCENARIO("Read table Tests")
 
         auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
 
-        auto const record_batch_count = GENERATE(1, 2, 5, 10);
+        auto const record_batch_count = GENERATE(as<std::size_t>{}, 1, 2, 5, 10);
         auto const read_count = GENERATE(1, 2);
 
         {
@@ -118,7 +119,7 @@ SCENARIO("Read table Tests")
             REQUIRE_ARROW_STATUS_OK(run_info_2);
 
             for (std::size_t i = 0; i < record_batch_count; ++i) {
-                for (std::size_t j = 0; j < read_count; ++j) {
+                for (std::size_t j = 0; j < static_cast<std::size_t>(read_count); ++j) {
                     auto const idx = j + i * read_count;
 
                     pod5::ReadData read_data;
@@ -149,7 +150,7 @@ SCENARIO("Read table Tests")
             for (std::size_t i = 0; i < record_batch_count; ++i) {
                 auto const record_batch = reader->read_record_batch(i);
                 REQUIRE_ARROW_STATUS_OK(record_batch);
-                REQUIRE(record_batch->num_rows() == read_count);
+                REQUIRE(record_batch->num_rows() == static_cast<std::size_t>(read_count));
 
                 auto columns = record_batch->columns();
 

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI package uploading to PyPi following [API token migration](https://pypi.org/help/#apitoken).
 - Documentation for some functions.
 - Explicitly sized type in `pod5_vbz_decompress_signal()`.
+- CI execution of tests.
 
 ## Changed
 

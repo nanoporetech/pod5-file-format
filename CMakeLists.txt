@@ -26,14 +26,14 @@ if (NOT DEFINED ENABLE_CONAN)
 endif()
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
 
-option(POD5_DISABLE_TESTS "Disable building all tests" OFF)
-option(POD5_BUILD_EXAMPLES "Enable building all examples" ON)
+option(POD5_DISABLE_TESTS "Disable building all tests" ON)
+option(POD5_BUILD_EXAMPLES "Enable building all examples" OFF)
 
 if (NOT DEFINED ENABLE_POD5_PACKAGING)
     option(ENABLE_POD5_PACKAGING "Enable packaging support" ON)
 endif()
 
-option(BUILD_PYTHON_WHEEL "Build a python wheel for pod5" ON)
+option(BUILD_PYTHON_WHEEL "Build a python wheel for pod5" OFF)
 
 # debug symbols don't depend on the build type, only on this option
 option(DISABLE_DEBUG_SYMBOLS "Force debug symbols to be disabled" OFF)
@@ -82,6 +82,10 @@ include(GenerateExportHeader)
 enable_testing()
 
 if (BUILD_PYTHON_WHEEL)
+    if (WIN32)
+        # Windows builds fail with 'FindPython: INTERNAL ERROR' if this is set
+        set(PYTHON_VERSION "")
+    endif()
     find_package (Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
     add_subdirectory(third_party/pybind11)
 endif()
