@@ -7,48 +7,55 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## unreleased
+## Unreleased
 
-## Fixed
+### Fixed
+
+### Changed
+
+## [0.3.7]
+
+### Fixed
 
 - CI package uploading to PyPi following [API token migration](https://pypi.org/help/#apitoken).
 - Documentation for some functions.
 - Explicitly sized type in `pod5_vbz_decompress_signal()`.
 - CI execution of tests.
 
-## Changed
+### Changed
 
 - Updated `pre-commit` to `clang-format-17`.
+- Updated Arrow to 12.0.0.
 
 ## [0.3.6]
 
-## Fixed
+### Fixed
 
 - Polars `ColumnNotFoundError: not_set` introduced by `polars==0.20.0`
 
 ## [0.3.5]
 
-## Fixed
+### Fixed
 
 - Arrow build flags in conanfile are now configured in the configure() fnc rather than being default options.
 
 ## [0.3.4]
 
-## Added
+### Added
 
 - boost_internal_build flag in conanfile.
 - CI now builds with the above flag turned on.
 
 ## [0.3.3]
 
-## Added
+### Added
 
 - CI for appleclang 14
 - cppstd builds
 
 ## [0.3.2]
 
-## Added
+### Added
 
 - Support for Python 3.12
 
