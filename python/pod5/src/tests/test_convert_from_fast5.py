@@ -545,6 +545,8 @@ class TestQueueManager:
                 # OSError changed to ValueError in py3.8
                 getter()
 
+        queues.shutdown()
+
     def test_shutdown_with_work(self, monkeypatch, caplog: pytest.LogCaptureFixture):
         logger.disabled = False
         monkeypatch.setenv("POD5_DEBUG", "1")
@@ -572,6 +574,8 @@ class TestQueueManager:
                 # OSError changed to ValueError in py3.8
                 getter()
 
+        queues.shutdown()
+
     def test_blocked_by_requests(self) -> None:
         threads, timeout = 3, 0.05
         ctx = mp.get_context("spawn")
@@ -588,6 +592,8 @@ class TestQueueManager:
 
         with pytest.raises(TimeoutError, match="No progress"):
             queues.await_data()
+
+        queues.shutdown()
 
     def test_data_queue(self) -> None:
         threads, timeout = 5, 0.05
@@ -652,6 +658,8 @@ class TestConvertLoop:
         assert exception is not None
         path, exc, _ = exception
         assert path == nf5
+
+        queues.shutdown()
         with pytest.raises(TypeError, match="not a multi-read fast5"):
             raise exc
 
@@ -668,6 +676,8 @@ class TestConvertLoop:
         path, data = qm.await_data()
         assert path is None
         assert data is None
+
+        qm.shutdown()
 
     @patch("pod5.tools.pod5_convert_from_fast5.convert_fast5_file")
     def test_convert_fast5_file_exception(self, mock: Mock) -> None:
@@ -686,6 +696,8 @@ class TestConvertLoop:
         path, data = qm.await_data()
         assert path is None
         assert data is None
+
+        qm.shutdown()
 
     def test_handle_exception(self) -> None:
         hndlr = MagicMock()
