@@ -306,14 +306,14 @@ class OutputHandler:
     def close_all(self):
         """Close all open writers"""
         for path, writer in self._open_writers.items():
-            writer.close()
-            del writer
-            # Keep track of closed writers to ensure we don't overwrite our own work
-            self._closed_writers[path] = False
+            try:
+                writer.close()
+                del writer
+                # Keep track of closed writers to ensure we don't overwrite our own work
+                self._closed_writers[path] = False
+            except Exception as exc:
+                logger.debug(f"Failed to cleanly close writer to {path} - {exc}")
         self._open_writers = {}
-
-    def __del__(self) -> None:
-        self.close_all()
 
 
 class StatusMonitor:
