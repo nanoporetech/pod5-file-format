@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+## [0.3.8]
+
+### Fixed
+
+- Conan windows upload jobs failure due to using different line endings.
+
 ## [0.3.7]
 
 ### Fixed
