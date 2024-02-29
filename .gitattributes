@@ -1,7 +1,7 @@
 # Based on https://github.com/alexkaratarakis/gitattributes
 
-# Auto detect text files and perform LF normalization
-*     text=auto
+# Auto detect text files and force linux-style line endings
+*     text=auto eol=lf
 
 # Documents
 *.bibtex   text diff=bibtex
@@ -39,11 +39,10 @@
 *.svg      binary
 *.eps      binary
 
-# Force scripts to have the right line endings regardless of operating system
-*.bash     text eol=lf
-*.fish     text eol=lf
-*.sh       text eol=lf
-*.zsh      text eol=lf
+*.bash     text
+*.fish     text
+*.sh       text
+*.zsh      text
 # These are explicitly windows files and should use crlf
 *.bat      text eol=crlf
 *.cmd      text eol=crlf

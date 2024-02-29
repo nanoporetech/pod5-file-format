@@ -693,6 +693,9 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
+    # This is needed to enforce lf line-endings in the pybind submodule
+    # otherwise conan generates different revisions for windows and unix
+    - git rm -r :/ && git checkout HEAD -- :/
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -705,6 +708,10 @@ benchmark-linux-aarch64:
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
+    # This is needed to enforce lf line-endings in the pybind submodule
+    # otherwise conan generates different revisions for windows and unix
+    - git rm -r :/ && git checkout HEAD -- :/
+
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
 
@@ -742,10 +749,6 @@ build-conan:windows-x86_64-vs2017:
 upload-conan:windows-x86_64-vs2017:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2017" ]
-    variables:
-      # This works around an issue on Windows where Conan revisions breaks the uploading script.
-      # When INSTX-2787 is resolved this can be removed.
-      CONAN_REVISIONS_ENABLED: 0
 
 build-conan:windows-x86_64-vs2019:
     extends:
@@ -756,10 +759,6 @@ build-conan:windows-x86_64-vs2019:
 upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
-    variables:
-      # This works around an issue on Windows where Conan revisions breaks the uploading script.
-      # When INSTX-2787 is resolved this can be removed.
-      CONAN_REVISIONS_ENABLED: 0
 
 build-conan:macos-x86_64-appleclang-12.0:
     extends:
