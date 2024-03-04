@@ -695,7 +695,7 @@ benchmark-linux-aarch64:
     - echo "Found versions ${VERSIONS}"
     # This is needed to enforce lf line-endings in the pybind submodule
     # otherwise conan generates different revisions for windows and unix
-    - git rm -r :/ && git checkout HEAD -- :/
+    - git rm -rf :/ && git checkout HEAD -- :/
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -710,7 +710,7 @@ benchmark-linux-aarch64:
     - echo "Found versions ${VERSIONS}"
     # This is needed to enforce lf line-endings in the pybind submodule
     # otherwise conan generates different revisions for windows and unix
-    - git rm -r :/ && git checkout HEAD -- :/
+    - git rm -rf :/ && git checkout HEAD -- :/
 
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
