@@ -3,6 +3,7 @@ Container class for a pod5 Read object
 """
 import datetime
 import enum
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Union
@@ -232,6 +233,15 @@ class ShiftScalePair:
 
     shift: float = field(default=float("nan"))
     scale: float = field(default=float("nan"))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+        if all(
+            math.isnan(x) for x in (self.shift, self.scale, other.shift, other.scale)
+        ):
+            return True
+        return self.shift == other.shift and self.scale == other.scale
 
 
 @dataclass()
