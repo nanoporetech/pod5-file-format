@@ -27,7 +27,7 @@ public:
     /// \param median_before The median of the read chunk prior to the start of this read.
     /// \param end_reason The dictionary index of the end reason name which caused this read to complete.
     /// \param end_reason_forced Boolean value indicating if the read end was forced.
-    /// \param run_info_id The dictionary index of the run info for this read.
+    /// \param run_info The dictionary index of the run info for this read.
     /// \param num_minknow_events The number of minknow events in the read.
     ReadData(
         boost::uuids::uuid const & read_id,
