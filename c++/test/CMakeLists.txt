@@ -16,6 +16,10 @@ add_executable(pod5_unit_tests
     utils.h
 )
 
+if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+    set_source_files_properties(c_api_build_test.c PROPERTIES COMPILE_OPTIONS "-Wdocumentation")
+endif()
+
 target_link_libraries(pod5_unit_tests
     PUBLIC
         pod5_format

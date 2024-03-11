@@ -4,6 +4,7 @@ from uuid import uuid4
 from pathlib import Path
 
 import pytest
+import warnings
 
 import pod5 as p5
 from pod5.api_utils import Pod5ApiException
@@ -363,11 +364,10 @@ class TestDatasetReader:
             dataset.get_read(next(dataset.read_ids))
 
         dataset.warn_duplicate_indexing = False
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             dataset.get_path(next(dataset.read_ids))
             dataset.get_read(next(dataset.read_ids))
-
-        assert len(record) == 0
 
     def test_iter_missing(self, nested_dataset: Path) -> None:
         """Missing read_ids are not found"""

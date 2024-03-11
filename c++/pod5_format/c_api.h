@@ -231,11 +231,10 @@ struct FileInfo {
 };
 typedef struct FileInfo FileInfo_t;
 
-/// \brief Find the number of read batches in the file.
+/// \brief Find info about a file.
 /// \param[out] file        The file to be queried.
 /// \param      file_info   The info read from the file.
-POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_file_info(Pod5FileReader_t * reader, FileInfo_t * file_info);
+POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_info(Pod5FileReader_t * file, FileInfo_t * file_info);
 
 struct EmbeddedFileData {
     // The file name to open - note this may not be the original file name, if the file has been migrated.
@@ -249,19 +248,19 @@ typedef struct EmbeddedFileData EmbeddedFileData_t;
 /// \param[out] file        The file to be queried.
 /// \param      file_data   The output read table file data.
 POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_file_read_table_location(Pod5FileReader_t * reader, EmbeddedFileData_t * file_data);
+pod5_get_file_read_table_location(Pod5FileReader_t * file, EmbeddedFileData_t * file_data);
 
 /// \brief Find the location of the signal table data
 /// \param[out] file        The file to be queried.
 /// \param      file_data   The output signal table file data.
 POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_file_signal_table_location(Pod5FileReader_t * reader, EmbeddedFileData_t * file_data);
+pod5_get_file_signal_table_location(Pod5FileReader_t * file, EmbeddedFileData_t * file_data);
 
 /// \brief Find the location of the run info table data
 /// \param[out] file        The file to be queried.
 /// \param      file_data   The output signal table file data.
 POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_file_run_info_table_location(Pod5FileReader_t * reader, EmbeddedFileData_t * file_data);
+pod5_get_file_run_info_table_location(Pod5FileReader_t * file, EmbeddedFileData_t * file_data);
 
 /// \brief Find the number of reads in the file.
 /// \param      reader  The file reader to read from
@@ -290,7 +289,7 @@ pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_t * read_ids)
 ///       Failed finds are all sorted to the back of the [steps] array, and are marked with an
 ///       invalid batch and batch_row value.
 POD5_FORMAT_EXPORT pod5_error_t pod5_plan_traversal(
-    Pod5FileReader_t * reader,
+    Pod5FileReader_t * file,
     uint8_t const * read_id_array,
     size_t read_id_count,
     uint32_t * batch_counts,
@@ -316,9 +315,10 @@ pod5_get_read_batch(Pod5ReadRecordBatch_t ** batch, Pod5FileReader_t * reader, s
 POD5_FORMAT_EXPORT pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch_t * batch);
 
 /// \brief Find the number of rows in a batch.
-/// \param batch    The batch to query the number of rows for.
+/// \param[out] count   The number of rows in the batch.
+/// \param      batch   The batch to query the number of rows for.
 POD5_FORMAT_EXPORT pod5_error_t
-pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch_t *);
+pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch_t * batch);
 
 /// \brief Find the info for a row in a read batch.
 /// \param      batch               The read batch to query.
@@ -335,12 +335,12 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_batch_row_info_data(
     void * row_data,
     uint16_t * read_table_version);
 
-/// \brief Find the info for a row in a read batch.
+/// \brief Find the signal indices for a row in a read batch.
 /// \param      batch                       The read batch to query.
 /// \param      row                         The row index to query.
 /// \param      signal_row_indices_count    Number of entries in the signal_row_indices array.
 /// \param[out] signal_row_indices          The signal row indices read out of the read row.
-/// \note signal_row_indices_count Must equal signal_row_count returned from pod5_get_read_batch_row_info
+/// \note signal_row_indices_count Must equal signal_row_count returned from pod5_get_read_batch_row_info_data
 ///       or an error is generated.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal_row_indices(
     Pod5ReadRecordBatch_t * batch,
@@ -433,11 +433,11 @@ POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_file_run_info_count(Pod5FileReader_t * file, run_info_index_t * run_info_count);
 
 /// \brief Find the end reason for a row in a read batch.
-/// \param        batch                           The read batch to query.
-/// \param        end_reason                      The end reason index to query from the passed batch.
-/// \param        end_reason_value                The enum value for end reason.
-/// \param[out]   end_reason_string_value         Output location for the string value for the end reason.
-/// \param[inout] end_reason_string_value_size    Size of [end_reason_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
+/// \param          batch                           The read batch to query.
+/// \param          end_reason                      The end reason index to query from the passed batch.
+/// \param          end_reason_value                The enum value for end reason.
+/// \param[out]     end_reason_string_value         Output location for the string value for the end reason.
+/// \param[in,out]  end_reason_string_value_size    Size of [end_reason_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
 /// \note If the string input is not long enough POD5_ERROR_STRING_NOT_LONG_ENOUGH is returned.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_end_reason(
     Pod5ReadRecordBatch_t * batch,
@@ -447,10 +447,10 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_end_reason(
     size_t * end_reason_string_value_size);
 
 /// \brief Find the pore type for a row in a read batch.
-/// \param        batch                           The read batch to query.
-/// \param        pore_type                       The pore type index to query from the passed batch.
-/// \param[out]   pore_type_string_value          Output location for the string value for the pore type.
-/// \param[inout] pore_type_string_value_size     Size of [pore_type_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
+/// \param          batch                           The read batch to query.
+/// \param          pore_type                       The pore type index to query from the passed batch.
+/// \param[out]     pore_type_string_value          Output location for the string value for the pore type.
+/// \param[in,out]  pore_type_string_value_size     Size of [pore_type_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
 /// \note If the string input is not long enough POD5_ERROR_STRING_NOT_LONG_ENOUGH is returned.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_pore_type(
     Pod5ReadRecordBatch_t * batch,
@@ -512,9 +512,9 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_complete_sample_count(
 /// \param      reader          The reader to query.
 /// \param      batch           The read batch to query.
 /// \param      batch_row       The read row to query data for.
-/// \param      sample_count    The number of samples allocated in [sample_data] (must equal the length of signal data in the queryied read row).
-/// \param[out] sample_data     The output location for the queried samples.
-/// \note The signal data is allocated by pod5 and should be released as appropriate by the caller.
+/// \param      sample_count    The number of samples allocated in [signal] (must equal the length of signal data in the queryied read row).
+/// \param[out] signal          The output location for the queried samples.
+/// \note The signal data is allocated by the caller and should be released as appropriate by the caller.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_complete_signal(
     Pod5FileReader_t * reader,
     Pod5ReadRecordBatch_t * batch,
@@ -695,7 +695,7 @@ POD5_FORMAT_EXPORT size_t pod5_vbz_compressed_signal_max_size(size_t sample_coun
 /// \param          signal                      The signal to compress.
 /// \param          signal_size                 The number of samples to compress.
 /// \param[out]     compressed_signal_out       The compressed signal.
-/// \param[inout]   compressed_signal_size      The number of compressed bytes, should be set to the size of compressed_signal_out on call.
+/// \param[in,out]  compressed_signal_size      The number of compressed bytes, should be set to the size of compressed_signal_out on call.
 POD5_FORMAT_EXPORT pod5_error_t pod5_vbz_compress_signal(
     int16_t const * signal,
     size_t signal_size,
