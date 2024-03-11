@@ -422,6 +422,11 @@ class ReadRecord:
             read_number=self.read_number,
             run_info=self.run_info,
             start_sample=self.start_sample,
+            num_minknow_events=self.num_minknow_events,
+            tracked_scaling=self.tracked_scaling,
+            predicted_scaling=self.predicted_scaling,
+            num_reads_since_mux_change=self.num_reads_since_mux_change,
+            time_since_mux_change=self.time_since_mux_change,
             signal=self.signal,
         )
 
