@@ -334,15 +334,15 @@ linux-aarch64-gcc9-release-build:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
-osx-x64-clang12-release-build:
+osx-x64-clang14-release-build:
   extends: [".build-osx-common"]
   tags:
     - osx_x86
-    - xcode-12.4
+    - xcode-14.2
     - high-cpu
     - conan
   variables:
-    CONAN_PROFILE: "macos-x86_64-appleclang-12.0.jinja"
+    CONAN_PROFILE: "macos-x86_64-appleclang-14.0.jinja"
     CONAN_PROFILE_CPPSTD: 20
   parallel:
     matrix:
@@ -353,15 +353,15 @@ osx-x64-clang12-release-build:
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-x64"
 
-osx-arm64-clang13-release-build:
+osx-arm64-clang14-release-build:
   extends: [".build-osx-common"]
   tags:
     - osx_arm64
-    - xcode-13.3.1
+    - xcode-14.2
     - high-cpu
     - conan
   variables:
-    CONAN_PROFILE: "macos-aarch64-appleclang-13.1.jinja"
+    CONAN_PROFILE: "macos-aarch64-appleclang-14.0.jinja"
     CONAN_PROFILE_CPPSTD: 20
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
   parallel:
@@ -555,11 +555,10 @@ pytest-osx-x64:
   extends: [".pytest"]
   tags:
     - osx_x86
-    - xcode-12.4
     - high-cpu
     - conan
   needs:
-    - osx-x64-clang12-release-build
+    - osx-x64-clang14-release-build
     - build-python-api
   before_script:
       # make sure pyenv's shims are on the path
@@ -760,17 +759,6 @@ upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
 
-build-conan:macos-x86_64-appleclang-12.0:
-    extends:
-        - .profile-macos-x86_64-appleclang-12.0
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-
-upload-conan:macos-x86_64-appleclang-12.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-12.0" ]
-
 build-conan:macos-x86_64-appleclang-14.0:
     extends:
         - .profile-macos-x86_64-appleclang-14.0
@@ -782,16 +770,6 @@ upload-conan:macos-x86_64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-14.0" ]
 
-build-conan:macos-aarch64-appleclang-13.1:
-    extends:
-        - .profile-macos-aarch64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-upload-conan:macos-aarch64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-13.1" ]
-
 build-conan:macos-aarch64-appleclang-14.0:
     extends:
         - .profile-macos-aarch64-appleclang-14.0
@@ -801,19 +779,6 @@ build-conan:macos-aarch64-appleclang-14.0:
 upload-conan:macos-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-14.0" ]
-
-build-conan:ios-aarch64-appleclang-13.1:
-    extends:
-        - .profile-iOS-aarch64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-    after_script:
-        - *tarball-package-without-macos
-upload-conan:ios-aarch64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-13.1" ]
-    variables:
-        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:ios-aarch64-appleclang-14.0:
     extends:
@@ -827,19 +792,6 @@ upload-conan:ios-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-14.0" ]
 
-build-conan:iOSSimulator-aarch64-appleclang-13.1:
-    extends:
-        - .profile-iOSSimulator-aarch64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-    after_script:
-        - *tarball-package-without-macos
-upload-conan:iOSSimulator-aarch64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-13.1" ]
-    variables:
-        EXPECTED_PACKAGE_COUNT: "2"
-
 build-conan:iOSSimulator-aarch64-appleclang-14.0:
     extends:
         - .profile-iOSSimulator-aarch64-appleclang-14.0
@@ -852,19 +804,6 @@ build-conan:iOSSimulator-aarch64-appleclang-14.0:
 upload-conan:iOSSimulator-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-14.0" ]
-
-build-conan:iOSSimulator-x86_64-appleclang-13.1:
-    extends:
-        - .profile-iOSSimulator-x86_64-appleclang-13.1
-        - .build-package
-        - .conan-build-common
-    after_script:
-        - *tarball-package-without-macos
-upload-conan:iOSSimulator-x86_64-appleclang-13.1:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:iOSSimulator-x86_64-appleclang-13.1" ]
-    variables:
-        EXPECTED_PACKAGE_COUNT: "2"
 
 build-conan:linux-x86_64-gcc9:
     extends:
@@ -919,8 +858,8 @@ build-archive:
   needs:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
-    - osx-x64-clang12-release-build
-    - osx-arm64-clang13-release-build
+    - osx-x64-clang14-release-build
+    - osx-arm64-clang14-release-build
     - win-x64-msvc2017-release-build
     - build-python-api
   script:
