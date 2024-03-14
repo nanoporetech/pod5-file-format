@@ -60,7 +60,7 @@ class Pod5Conan(ConanFile):
         else:
             self.requires("boost/1.78.0@")
         self.requires("flatbuffers/2.0.0@")
-        self.requires("zstd/1.5.2@")
+        self.requires("zstd/1.5.5@")
         self.requires("zlib/1.2.13@")
         if not (
             self.settings.os == "Windows"
