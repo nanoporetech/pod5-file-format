@@ -29,6 +29,11 @@ dev = [
     "pytest ~= 7.3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/nanoporetech/pod5-file-format"
+Issues = "https://github.com/nanoporetech/pod5-file-format/issues"
+Documentation = "https://pod5-file-format.readthedocs.io/en/latest/"
+
 [tool.setuptools.dynamic]
 version = {attr = "lib_pod5._version.__version__"}
 
