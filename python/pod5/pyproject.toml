@@ -53,6 +53,11 @@ dev = [
 [project.scripts]
 pod5 = "pod5.tools.main:main"
 
+[project.urls]
+Homepage = "https://github.com/nanoporetech/pod5-file-format"
+Issues = "https://github.com/nanoporetech/pod5-file-format/issues"
+Documentation = "https://pod5-file-format.readthedocs.io/en/latest/"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["test*"]
