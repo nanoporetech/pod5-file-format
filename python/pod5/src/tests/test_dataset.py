@@ -393,3 +393,15 @@ class TestDatasetReader:
         for path in dataset.paths:
             read_id = dataset.get_reader(path).read_ids[0]
             assert dataset.get_path(read_id) == path
+
+    def test_collect_paths(self, nested_dataset: Path) -> None:
+        """Pass various inputs to DatasetReader._collect_dataset"""
+        collect = p5.DatasetReader._collect_dataset
+
+        expected = {nested_dataset / "root_10.pod5"}
+        kwargs = dict(recursive=False, pattern="*.pod5", threads=1)
+        assert expected == collect(nested_dataset, **kwargs)  # type: ignore
+        assert expected == collect(str(nested_dataset), **kwargs)  # type: ignore
+
+        with pytest.raises(TypeError, match="paths must be a Collection"):
+            collect(1, **kwargs)  # type: ignore

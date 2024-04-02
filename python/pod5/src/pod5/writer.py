@@ -1,6 +1,7 @@
 """
 Tools for writing POD5 data
 """
+
 import datetime
 import itertools
 from pathlib import Path
@@ -19,6 +20,7 @@ from typing import (
 
 import lib_pod5 as p5b
 import numpy as np
+from pod5.reader import ReadRecord
 import pytz
 
 from pod5.api_utils import Pod5ApiException, safe_close
@@ -296,6 +298,11 @@ class Writer:
                 np.concatenate(signal_chunk_lengths).astype(np.uint32),  # type: ignore [no-untyped-call]
                 signal_chunk_counts,
             )
+        elif isinstance(reads[0], ReadRecord):
+            raise TypeError(
+                "Writer.add_reads(reads) does not take ReadRecords - see ReadRecord.to_read()"
+            )
+        raise TypeError(f"Writer.add_reads(reads) - unexpected type: {type(reads[0])=}")
 
     def _prepare_add_reads_args(self, reads: Sequence[BaseRead]) -> List[Any]:
         """

@@ -290,13 +290,18 @@ class DatasetReader:
         threads: int,
     ) -> Set[Path]:
         if isinstance(paths, (str, Path, os.PathLike)):
-            paths = [Path(paths)]
+            paths = [paths]
 
-        _paths = list(paths)
+        if not isinstance(paths, Collection):
+            raise TypeError(
+                f"paths must be a Collection[PathOrStr] but found {type(paths)=}"
+            )
+
+        paths = [Path(p) for p in paths]
         collected: Set[Path] = set()
         with ThreadPoolExecutor(max_workers=threads) as executor:
             search = partial(search_path, recursive=recursive, patterns=[pattern])
-            for coll in executor.map(search, _paths):
+            for coll in executor.map(search, paths):
                 collected.update(coll)
         return collected
 
