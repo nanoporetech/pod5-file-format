@@ -7,6 +7,16 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.11]
+
+## Added
+
+- Typechecking on `Writer.add_reads` to inform users incorrectly passing `ReadRecords`
+
+## Fixed
+
+- `DatasetReader` correctly handles string paths
+
 ## [0.3.10]
 
 ## Added
@@ -100,7 +110,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed python3.7 support
 
-
 ## [0.2.9] 2023-11-02
 
 ### Fixed
@@ -118,7 +127,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove exposed artifactory URL env var from gitlab ci config.
 - `convert to_fast5` writes byte encoded read_ids to match Minkow (was `str`)
-
 
 ## [0.2.7] 2023-09-11
 
