@@ -1,6 +1,7 @@
 """
 Testing Pod5Writer
 """
+
 import math
 import lib_pod5 as p5b
 import numpy as np
@@ -113,3 +114,17 @@ class TestPod5Writer:
             assert before.has_cached_signal == after.has_cached_signal
             assert np.array_equal(before.signal, after.signal)
             assert np.array_equal(before.signal_pa, after.signal_pa)
+
+    def test_read_record_type_check(self, reader: p5.Reader, writer: p5.Writer) -> None:
+        """Check type errors raised when passing ReadRecords to writer"""
+        with pytest.raises(TypeError, match="ReadRecord.to_read"):
+            for record in reader:
+                writer.add_read(record)  # type: ignore
+
+        with pytest.raises(TypeError, match="ReadRecord.to_read"):
+            writer.add_reads([r for r in reader])  # type: ignore
+
+        with pytest.raises(TypeError, match="unexpected type"):
+            writer.add_read([1])  # type: ignore
+
+        writer.close()
