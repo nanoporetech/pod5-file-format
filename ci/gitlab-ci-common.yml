@@ -284,17 +284,6 @@ before_script:
         PROFILE_BASE: windows-x86_64-vs2019.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-windows-x86_64-vs2017:
-    # Set up for Windows x86 using VS 2017, using conan and the profile windows-x86_64-vs2017,
-    # adapted for debug and release. To be called from individual packages by using "extends".
-    tags:
-        - windows
-        - VS2017
-        - conan
-    variables:
-        PROFILE_BASE: windows-x86_64-vs2017.jinja
-    parallel: !reference [.parallel-cppstd,parallel]
-
 #
 # Set up for MacOS versions
 #
