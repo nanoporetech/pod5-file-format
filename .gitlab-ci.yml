@@ -396,19 +396,19 @@ osx-arm64-clang14-release-build:
     - pip install build
     - !reference [".conan-build-and-test"]
 
-win-x64-msvc2017-release-build:
+win-x64-msvc2019-release-build:
   extends: [".build-win-common"]
   tags:
     - windows
     - cmake
-    - VS2017
+    - VS2019
     - conan
   variables:
-    CONAN_PROFILE: "windows-x86_64-vs2017.jinja"
+    CONAN_PROFILE: "windows-x86_64-vs2019.jinja"
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "win-x64"
     CMAKE_ARGS: "-A x64"
-    CMAKE_GENERATOR: "Visual Studio 15 2017"
+    CMAKE_GENERATOR: "Visual Studio 16 2019"
   parallel:
     matrix:
       - PYTHON_VERSION: ["38", "39", "310", "311", "312"]
@@ -417,7 +417,6 @@ win-x64-msvc2017-release-build:
     paths:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
-
 
 # ======================================
 #
@@ -579,7 +578,7 @@ pytest-win-x64:
   tags:
     - windows
   needs:
-    - win-x64-msvc2017-release-build
+    - win-x64-msvc2019-release-build
     - build-python-api
   before_script:
     - c:/Python3${PY_MINOR_VER}/python -m venv .venv
@@ -739,16 +738,6 @@ benchmark-linux-aarch64:
     - rm -rf "${CONAN_USER_HOME}/.conan"
 
 # Conan: build and upload packages:
-build-conan:windows-x86_64-vs2017:
-    extends:
-        - .profile-windows-x86_64-vs2017
-        - .build-package-win
-        - .conan-build-common
-        - .build-shared-and-static
-upload-conan:windows-x86_64-vs2017:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2017" ]
-
 build-conan:windows-x86_64-vs2019:
     extends:
         - .profile-windows-x86_64-vs2019
@@ -860,7 +849,7 @@ build-archive:
     - linux-aarch64-gcc9-release-build
     - osx-x64-clang14-release-build
     - osx-arm64-clang14-release-build
-    - win-x64-msvc2017-release-build
+    - win-x64-msvc2019-release-build
     - build-python-api
   script:
     - find .
