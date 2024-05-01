@@ -465,12 +465,13 @@ build-python-api:
 # ======================================
 
 
-.parallel-py-minor-ver: &parallel-py-minor-ver
+.parallel-py-minor-ver:
   parallel:
     matrix:
       - PY_MINOR_VER: ["8", "9", "10", "11", "12"]
 
 tools-linux-x64:
+  extends: [".parallel-py-minor-ver"]
   stage: test
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
@@ -492,7 +493,6 @@ tools-linux-x64:
     - pod5 convert to_fast5 ./output_files/ --output ./output_files
     - pod5 convert fast5 ./output_files/*.fast5 --output ./output_files_2 --one-to-one ./output_files/
     - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
-  <<: *parallel-py-minor-ver
 
 
 # ======================================
@@ -503,11 +503,14 @@ tools-linux-x64:
 
 
 .pytest:
+  extends: [".parallel-py-minor-ver"]
   stage: test
   retry: 1
   before_script:
-    - python3 -m venv .venv/
-    - source .venv/bin/activate
+    - python3.${PY_MINOR_VER} -m venv .venv/
+    - source .venv/*/activate
+    - python --version
+    - python -m pip install --upgrade pip
   script:
     - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
     - pip install pytest pytest-cov pytest-mock psutil
@@ -521,7 +524,6 @@ pytest-linux-x64:
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
-  <<: *parallel-py-minor-ver
 
 pytest-linux-aarch64:
   extends: [".pytest"]
@@ -536,20 +538,6 @@ pytest-linux-aarch64:
     matrix:
       - PY_MINOR_VER: ["8", "9", "10", "11"] # TODO: Missing 12 as h5py doenst have binaries for 3.12 aarch64 yet
 
-.versions-matrix-pyenv-and-venv: &versions-matrix-pyenv-and-venv
-  parallel:
-    matrix:
-      - PY_MINOR_VER: "8"
-        PYTHON_VERSION: "3.8.9"
-      - PY_MINOR_VER: "9"
-        PYTHON_VERSION: "3.9.13"
-      - PY_MINOR_VER: "10"
-        PYTHON_VERSION: "3.10.10"
-      - PY_MINOR_VER: "11"
-        PYTHON_VERSION: "3.11.2"
-      - PY_MINOR_VER: "12"
-        PYTHON_VERSION: "3.12.0"
-
 pytest-osx-x64:
   extends: [".pytest"]
   tags:
@@ -559,19 +547,6 @@ pytest-osx-x64:
   needs:
     - osx-x64-clang14-release-build
     - build-python-api
-  before_script:
-      # make sure pyenv's shims are on the path
-    - eval "$(pyenv init -)"
-    - if [[ -z $( pyenv install --list | grep "${PYTHON_VERSION}" ) ]]; then brew update && brew upgrade pyenv; fi
-    - pyenv install --skip-existing ${PYTHON_VERSION}
-    - pyenv global ${PYTHON_VERSION}
-    - python --version
-      # with pyenv, we don't have to use `python3` (and `python` also works on Windows)
-    - python -m venv .venv/
-    - source .venv/bin/activate
-    - python -m pip install --upgrade pip
-    - python --version
-  <<: *versions-matrix-pyenv-and-venv
 
 pytest-win-x64:
   extends: [".pytest"]
@@ -580,12 +555,6 @@ pytest-win-x64:
   needs:
     - win-x64-msvc2019-release-build
     - build-python-api
-  before_script:
-    - c:/Python3${PY_MINOR_VER}/python -m venv .venv
-    - source .venv/Scripts/activate
-    - python --version
-    - python -m pip install --upgrade pip
-  <<: *versions-matrix-pyenv-and-venv
 
 
 # ======================================
@@ -596,7 +565,9 @@ pytest-win-x64:
 
 
 conda_pytest:
-  extends: [".pytest"]
+  extends:
+    - .pytest
+    - .parallel-py-minor-ver
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
   tags:
     - linux
@@ -624,7 +595,6 @@ conda_pytest:
     # This is a work around for conda init in gitlab
     - eval "$(conda shell.bash hook)"
     - conda activate pod5_conda_test
-  <<: *parallel-py-minor-ver
 
 
 # ======================================
