@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - Typechecking on `Writer.add_reads` to inform users incorrectly passing `ReadRecords`
+- Compatibility with numpy 2.0.
 
 ## Fixed
 

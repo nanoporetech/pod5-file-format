@@ -65,7 +65,8 @@ public:
             return py_samples;
         }
         for (auto const & row_samples : m_cached_data.samples()) {
-            py_samples.append(py::array_t<std::int16_t>(row_samples.size(), row_samples.data()));
+            py_samples.append(py::array_t<std::int16_t>(
+                {row_samples.size()}, {sizeof(std::int16_t)}, row_samples.data()));
         }
 
         return py_samples;
