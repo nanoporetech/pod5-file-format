@@ -28,11 +28,12 @@ dependencies = [
     "more_itertools",
     "numpy >= 1.21.0",
     'typing-extensions; python_version<"3.8"',
-    "pyarrow ~= 14.0.0",
+    "pyarrow ~= 16.1.0",
     "pytz",
     "packaging",
     "polars~=0.19",
-    "h5py~=3.10.0",
+    'h5py~=3.11.0; python_version>"3.8"',
+    'h5py~=3.10.0; python_version<="3.8"',
     "vbz_h5py_plugin",
     "tqdm"
 ]
