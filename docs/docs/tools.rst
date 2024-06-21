@@ -17,10 +17,6 @@ POD5 files as well as converting between ``.pod5`` and ``.fast5`` file formats.
     the tools where necessary. The default value for ``--threads`` is 4 unless
     the number of available cpu cores is fewer in which case this lower value is used.
 
-    Specifying a ``--threads`` value less than 1 will use the number of available cpu
-    cores. The ``--help`` text shown for all tools should show the default value on
-    your system.
-
     If you experience errors which mention threading or spawning processes. Please
     reduce the ``--threads`` value.
 
