@@ -37,7 +37,7 @@ from .signal_tools import (
     vbz_decompress_signal_chunked,
     vbz_decompress_signal_into,
 )
-from .writer import Writer
+from .writer import SignalType, Writer
 
 __all__ = (
     "__version__",
@@ -56,6 +56,7 @@ __all__ = (
     "Reader",
     "ReadRecord",
     "ReadRecordBatch",
+    "SignalType",
     "vbz_compress_signal",
     "vbz_decompress_signal",
     "vbz_decompress_signal_chunked",
