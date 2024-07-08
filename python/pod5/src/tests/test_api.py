@@ -85,11 +85,13 @@ def gen_test_read(seed, compressed=False) -> Union[p5.Read, p5.CompressedRead]:
 
 
 def run_writer_test(f: Writer):
+    writer_supports_compressed = f.signal_compression_type == p5.SignalType.VbzSignal
+
     test_read = gen_test_read(0, compressed=False)
     print("read", test_read.read_id, test_read.run_info.adc_max)
     f.add_read(test_read)
 
-    test_read = gen_test_read(1, compressed=True)
+    test_read = gen_test_read(1, compressed=writer_supports_compressed)
     print("read", test_read.read_id, test_read.run_info.adc_max)
     f.add_read(test_read)
 
@@ -103,10 +105,10 @@ def run_writer_test(f: Writer):
     f.add_reads(test_reads)
 
     test_reads = [
-        gen_test_read(6, compressed=True),
-        gen_test_read(7, compressed=True),
-        gen_test_read(8, compressed=True),
-        gen_test_read(9, compressed=True),
+        gen_test_read(6, compressed=writer_supports_compressed),
+        gen_test_read(7, compressed=writer_supports_compressed),
+        gen_test_read(8, compressed=writer_supports_compressed),
+        gen_test_read(9, compressed=writer_supports_compressed),
     ]
     f.add_reads(test_reads)
     assert test_reads[0].sample_count > 0
@@ -241,6 +243,19 @@ def test_pyarrow_from_str():
     with tempfile.TemporaryDirectory() as temp:
         path = str(Path(temp) / "example.pod5")
         with p5.Writer(path) as _fh:
+            run_writer_test(_fh)
+
+        with p5.Reader(path) as _fh:
+            run_reader_test(_fh)
+
+
+@pytest.mark.filterwarnings("ignore: pod5.")
+def test_pyarrow_from_pathlib_uncompressed():
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / "example.pod5"
+        with p5.Writer(
+            path, signal_compression_type=p5.SignalType.UncompressedSignal
+        ) as _fh:
             run_writer_test(_fh)
 
         with p5.Reader(path) as _fh:

@@ -10,12 +10,14 @@ PYBIND11_MODULE(pod5_format_pybind, m)
 
     m.doc() = "POD5 Format Raw Bindings";
 
-    auto thread_pool = pod5::make_thread_pool(std::thread::hardware_concurrency());
+    py::enum_<SignalType>(m, "SignalType", py::arithmetic(), "SignalType enum")
+        .value("UncompressedSignal", SignalType::UncompressedSignal, "Signal is not compressed")
+        .value("VbzSignal", SignalType::VbzSignal, "Signal is compressed using vbz")
+        .export_values();
 
     py::class_<FileWriterOptions>(m, "FileWriterOptions")
-        .def(py::init([thread_pool]() {
+        .def(py::init([]() {
             FileWriterOptions options;
-            options.set_thread_pool(thread_pool);
             return options;
         }))
         .def_property(

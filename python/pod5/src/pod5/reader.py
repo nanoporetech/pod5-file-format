@@ -303,7 +303,7 @@ class ReadRecord:
                     memoryview(signal[batch_row_index].as_buffer()), output_slice
                 )
             else:
-                output_slice[:] = signal.to_numpy()
+                output_slice[:] = signal[batch_row_index].values
             current_sample_index += current_row_count
         return output
 
@@ -347,11 +347,16 @@ class ReadRecord:
             sig_row = sig_row.as_py()
 
             batch, batch_index, batch_row_index = self._find_signal_row_index(sig_row)
+            batch_length = 0
+            if isinstance(batch.signal, pa.lib.LargeListArray):
+                batch_length = len(batch.signal[batch_row_index])
+            else:
+                batch_length = len(batch.signal[batch_row_index].as_buffer())
             return SignalRowInfo(
                 batch_index,
                 batch_row_index,
                 batch.samples[batch_row_index].as_py(),
-                len(batch.signal[batch_row_index].as_buffer()),
+                batch_length,
             )
 
         return [map_signal_row(r) for r in self._batch.columns.signal[self._row]]
@@ -402,7 +407,9 @@ class ReadRecord:
                 memoryview(signal[batch_row_index].as_buffer()), sample_count
             )
 
-        return signal.to_numpy()
+            return signal.to_numpy()
+        else:
+            return np.array(signal[batch_row_index].values, dtype="int16")
 
     def to_read(self) -> Read:
         """

@@ -17,11 +17,17 @@ from typing import (
     TypeVar,
     Union,
 )
+import sys
 
 import lib_pod5 as p5b
 import numpy as np
 from pod5.reader import ReadRecord
 import pytz
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
 
 from pod5.api_utils import Pod5ApiException, safe_close
 from pod5.pod5_types import (
@@ -35,6 +41,7 @@ from pod5.pod5_types import (
 
 DEFAULT_SOFTWARE_NAME = "Python API"
 
+SignalType: TypeAlias = p5b.SignalType
 PoreType = str
 T = TypeVar("T", bound=Union[EndReason, PoreType, RunInfo])
 
@@ -68,7 +75,12 @@ def timestamp_to_int(time_stamp: Union[datetime.datetime, int]) -> int:
 class Writer:
     """Pod5 File Writer"""
 
-    def __init__(self, path: PathOrStr, software_name: str = DEFAULT_SOFTWARE_NAME):
+    def __init__(
+        self,
+        path: PathOrStr,
+        software_name: str = DEFAULT_SOFTWARE_NAME,
+        signal_compression_type: SignalType = SignalType.VbzSignal,
+    ):
         """
         Open a pod5 file for Writing.
 
@@ -78,17 +90,23 @@ class Writer:
             The path to the pod5 file to create
         software_name : str
             The name of the application used to create this pod5 file
+        signal_compression_type : SignalType
+            The type of compression to use in the file. Defaults to Vbz.
         """
         self._path = Path(path).absolute()
         self._software_name = software_name
+        self._signal_compression_type = signal_compression_type
 
         if self._path.is_file():
             raise FileExistsError(
                 f"Input path already exists. Refusing to overwrite: {self._path}"
             )
 
+        options = p5b.FileWriterOptions()
+        options.signal_compression_type = signal_compression_type
+
         self._writer: Optional[p5b.FileWriter] = p5b.create_file(
-            str(self._path), software_name, None
+            str(self._path), software_name, options
         )
         if not self._writer:
             raise Pod5ApiException(
@@ -133,6 +151,11 @@ class Writer:
     def software_name(self) -> str:
         """Return the software name used to open this file"""
         return self._software_name
+
+    @property
+    def signal_compression_type(self) -> SignalType:
+        """Return the signal compression type used by this file"""
+        return self._signal_compression_type
 
     def add(self, obj: Union[EndReason, PoreType, RunInfo]) -> int:
         """
