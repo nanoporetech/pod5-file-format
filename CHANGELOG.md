@@ -7,12 +7,17 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.13]
+
+## Fixed
+
+- Instability when creating a pod5 writer fails.
+
 ## [0.3.12]
 
 ## Fixed
 
 - Fixed issues reading signal from uncompressed pod5 files.
-
 
 ## [0.3.11]
 
