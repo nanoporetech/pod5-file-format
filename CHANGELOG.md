@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Fixed
 
 - Instability when creating a pod5 writer fails.
+- Issue with directio mode where space is over reserved.
 
 ## [0.3.12]
 
