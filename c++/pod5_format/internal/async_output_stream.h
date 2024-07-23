@@ -397,7 +397,7 @@ private:
 
     void resize(std::size_t data_size)
     {
-        if (m_submitted_byte_writes + data_size > fallocate_chunk) {
+        if (m_submitted_byte_writes + data_size > m_fallocate_offset) {
             // reserve more space before continuing
             m_fallocate_offset += fallocate_chunk;
 
