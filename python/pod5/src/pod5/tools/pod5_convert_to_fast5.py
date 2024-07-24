@@ -24,6 +24,8 @@ FAST5_END_REASONS = {
     "data_service_unblock_mux_change": 4,
     "signal_positive": 5,
     "signal_negative": 6,
+    "api_request": 7,
+    "signal_negative": 6,
 }
 
 # Fast5 types

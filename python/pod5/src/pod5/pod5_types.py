@@ -26,6 +26,8 @@ class EndReasonEnum(enum.Enum):
     DATA_SERVICE_UNBLOCK_MUX_CHANGE = 3
     SIGNAL_POSITIVE = 4
     SIGNAL_NEGATIVE = 5
+    API_REQUEST = 6
+    DEVICE_DATA_ERROR = 7
 
 
 _END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
@@ -35,6 +37,8 @@ _END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
     EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE: True,
     EndReasonEnum.SIGNAL_POSITIVE: False,
     EndReasonEnum.SIGNAL_NEGATIVE: False,
+    EndReasonEnum.API_REQUEST: True,
+    EndReasonEnum.DEVICE_DATA_ERROR: True,
 }
 
 

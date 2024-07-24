@@ -7,6 +7,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.14]
+
+## Added
+
+- Added new end reasons "api_request" and "device_data_error" to allow for new read end reasons future minknow versions will generate.
+
 ## [0.3.13]
 
 ## Fixed
