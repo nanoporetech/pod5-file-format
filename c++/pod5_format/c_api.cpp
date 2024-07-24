@@ -735,6 +735,12 @@ pod5_error_t pod5_get_end_reason(
     case pod5::ReadEndReason::signal_negative:
         *end_reason_value = POD5_END_REASON_SIGNAL_NEGATIVE;
         break;
+    case pod5::ReadEndReason::api_request:
+        *end_reason_value = POD5_END_REASON_API_REQUEST;
+        break;
+    case pod5::ReadEndReason::device_data_error:
+        *end_reason_value = POD5_END_REASON_DEVICE_DATA_ERROR;
+        break;
     default:
     case pod5::ReadEndReason::unknown:
         *end_reason_value = POD5_END_REASON_UNKNOWN;
