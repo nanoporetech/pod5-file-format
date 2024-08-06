@@ -22,8 +22,6 @@ namespace {
 constexpr size_t alignment = 4096;                 // buffer alignment (for block devices)
 constexpr size_t megabyte = 256 * alignment;       // 1MB
 constexpr size_t fallocate_chunk = 50 * megabyte;  // 50MB
-constexpr size_t write_buffer_size = megabyte;     // Arbitrary limit. Seems a good trade-off
-                                                   // between memory usage and disk activities
 
 }  // namespace
 
@@ -182,10 +180,12 @@ class AsyncOutputStreamDirectIO : public AsyncOutputStream {
 public:
     AsyncOutputStreamDirectIO(
         std::shared_ptr<OutputStream> const & main_stream,
-        std::shared_ptr<ThreadPool> const & thread_pool)
+        std::shared_ptr<ThreadPool> const & thread_pool,
+        std::size_t write_chunk_size)
     : AsyncOutputStream(main_stream, thread_pool)
+    , m_write_chunk_size(write_chunk_size)
     , m_fallocate_offset{0}
-    , m_buffer(write_buffer_size, alignment)
+    , m_buffer(m_write_chunk_size, alignment)
     , m_flushed_buffer_copy(alignment, 0)
     , m_buffer_offset{0}
     , m_num_blocks_written{0}
@@ -240,7 +240,7 @@ public:
                 ARROW_RETURN_NOT_OK(write_cache());
 
                 // adjust accounting
-                m_num_blocks_written += (write_buffer_size / alignment);
+                m_num_blocks_written += (m_write_chunk_size / alignment);
             }
         }
         return arrow::Status::OK();
@@ -421,6 +421,7 @@ private:
         return arrow::Status::OK();
     }
 
+    std::size_t const m_write_chunk_size;
     std::size_t m_fallocate_offset;
     AlignedBuffer m_buffer;
     // copy of buffer (unaligned) which has been flushed to the output stream already,
