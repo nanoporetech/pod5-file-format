@@ -9,7 +9,7 @@ set -o nounset
 (
     cmake -DCMAKE_INSTALL_PREFIX="archive" -DBUILD_TYPE="Release" -DCOMPONENT="archive" -P "cmake_install.cmake"
     if [ "$#" -ge 1 ] && [ "$1" == "STATIC_BUILD" ]; then
-        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        if [[ "$OSTYPE" == "linux-gnu"* ]] && [[ -e "archive/lib64" ]]; then
             cp "../build/third_party/libs"/* "archive/lib64"
         else
             cp "../build/third_party/libs"/* "archive/lib"

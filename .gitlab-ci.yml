@@ -217,7 +217,8 @@ build-standalone-ubu20:
 # ======================================
 
 
-# Takes CMAKE_ARGS, AUDITWHEEL_PLATFORM, and PYTHON_VERSION
+# Takes CMAKE_ARGS, AUDITWHEEL_PLATFORM, and PYTHON_VERSION.
+# BUILD_PYTHON_WHEEL can optionally be disabled.
 .conan-build-and-test:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
@@ -239,7 +240,7 @@ build-standalone-ubu20:
     -D CMAKE_BUILD_TYPE=Release
     -D POD5_DISABLE_TESTS=OFF
     -D POD5_BUILD_EXAMPLES=ON
-    -D BUILD_PYTHON_WHEEL=ON
+    -D BUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL:=ON}
     -D PYTHON_VERSION=${PYTHON_VERSION}
     -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
     ..
@@ -273,6 +274,20 @@ build-standalone-ubu20:
     paths:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
+
+linux-aarch64-gcc8-release-build:
+  image: ${CI_REGISTRY}/ofan/ofan-docker-base/dorado/dorado-l4t-r32.4.3-deps:1.2
+  extends: [".build-linux"]
+  before_script:
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+  tags:
+    - linux_aarch64
+    - high-cpu
+  variables:
+    CONAN_PROFILE: "linux-aarch64-gcc8.jinja"
+    CONAN_PROFILE_CPPSTD: 17
+    OUTPUT_SKU: "linux-gcc8-arm64"
+    BUILD_PYTHON_WHEEL: OFF
 
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
@@ -817,6 +832,7 @@ build-archive:
   needs:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
+    - linux-aarch64-gcc8-release-build
     - osx-x64-clang14-release-build
     - osx-arm64-clang14-release-build
     - win-x64-msvc2019-release-build
