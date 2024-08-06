@@ -452,17 +452,6 @@ before_script:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-linux-aarch64-gcc7:
-    # Set up for linux arm64 using gcc7, using docker and the profile linux-aarch64-gcc7, adapted
-    # for debug and release. To be called from individual packages by using "extends".
-    image: git.oxfordnanolabs.local:4567/ofan/ofan-docker-base/arm64v8/conan:18.04
-    tags:
-        - linux_aarch64
-        - docker
-    variables:
-        PROFILE_BASE: linux-aarch64-gcc7.jinja
-        CONAN_PROFILE_CPPSTD: 17
-
 
 .profile-linux-aarch64-gcc9:
     # Set up for linux arm64 using gcc9, using docker and the profile linux-aarch64-gcc9, adapted
