@@ -26,6 +26,8 @@ public:
     static constexpr std::uint32_t DEFAULT_RUN_INFO_TABLE_BATCH_SIZE = 1;
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
     static constexpr bool DEFAULT_USE_DIRECTIO = false;
+    static constexpr bool DEFAULT_USE_SYNC_IO = false;
+    static constexpr std::size_t DEFAULT_DIRECTIO_CHUNK_SIZE = 2 * 1024 * 1024;
 
     FileWriterOptions();
 
@@ -73,6 +75,14 @@ public:
 
     bool use_directio() const { return m_use_directio; }
 
+    void set_directio_chunk_size(std::size_t chunk_size) { m_directio_chunk_size = chunk_size; }
+
+    std::size_t directio_chunk_size() const { return m_directio_chunk_size; }
+
+    void set_use_sync_io(bool use_sync_io) { m_use_sync_io = use_sync_io; }
+
+    bool use_sync_io() const { return m_use_sync_io; }
+
 private:
     std::shared_ptr<ThreadPool> m_writer_thread_pool;
     std::uint32_t m_max_signal_chunk_size;
@@ -82,6 +92,8 @@ private:
     std::size_t m_read_table_batch_size;
     std::size_t m_run_info_table_batch_size;
     bool m_use_directio;
+    std::size_t m_directio_chunk_size;
+    bool m_use_sync_io;
 };
 
 class FileWriterImpl;

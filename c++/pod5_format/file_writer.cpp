@@ -29,13 +29,19 @@
 
 namespace {
 /// Open a file using the specified path and return it
-arrow::Result<std::shared_ptr<arrow::io::OutputStream>>
-open_file_output_stream(std::string const & path, bool append, bool use_directio = true)
+arrow::Result<std::shared_ptr<arrow::io::OutputStream>> open_file_output_stream(
+    std::string const & path,
+    bool append,
+    bool use_directio = true,
+    bool use_sync_io = false)
 {
 #ifdef __linux__
     auto flags = use_directio ? O_RDWR | O_DIRECT : O_RDWR;
 
     flags |= (append == true ? O_APPEND : O_CREAT);
+    if (use_sync_io) {
+        flags |= O_SYNC;
+    }
 
     int fd = open(path.c_str(), flags, 0644);
 
@@ -55,11 +61,13 @@ open_file_output_stream(std::string const & path, bool append, bool use_directio
 std::shared_ptr<arrow::io::OutputStream> make_async_stream(
     std::shared_ptr<arrow::io::OutputStream> const & io_stream,
     std::shared_ptr<pod5::ThreadPool> thread_pool,
-    bool use_directio = true)
+    bool use_directio,
+    std::size_t directio_chunk_size)
 {
 #ifdef __linux__
     if (use_directio) {
-        return std::make_shared<pod5::AsyncOutputStreamDirectIO>(io_stream, thread_pool);
+        return std::make_shared<pod5::AsyncOutputStreamDirectIO>(
+            io_stream, thread_pool, directio_chunk_size);
     } else {
         return std::make_shared<pod5::AsyncOutputStream>(io_stream, thread_pool);
     }
@@ -79,6 +87,8 @@ FileWriterOptions::FileWriterOptions()
 , m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE)
 , m_run_info_table_batch_size(DEFAULT_RUN_INFO_TABLE_BATCH_SIZE)
 , m_use_directio{DEFAULT_USE_DIRECTIO}
+, m_directio_chunk_size(DEFAULT_DIRECTIO_CHUNK_SIZE)
+, m_use_sync_io(DEFAULT_USE_SYNC_IO)
 {
 }
 
@@ -552,13 +562,14 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
 
     bool const use_directio = options.use_directio();
+    bool const use_sync_io = options.use_sync_io();
 
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_file_stream,
-        ::open_file_output_stream(reads_tmp_path, false, use_directio));
-    auto read_table_file_async =
-        ::make_async_stream(read_table_file_stream, thread_pool, use_directio);
+        ::open_file_output_stream(reads_tmp_path, false, use_directio, use_sync_io));
+    auto read_table_file_async = ::make_async_stream(
+        read_table_file_stream, thread_pool, use_directio, options.directio_chunk_size());
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_tmp_writer,
         make_read_table_writer(
@@ -573,9 +584,9 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     // Prepare the temporary run_info file:
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_file_stream,
-        ::open_file_output_stream(run_info_tmp_path, false, use_directio));
-    auto run_info_table_file_async =
-        ::make_async_stream(run_info_table_file_stream, thread_pool, use_directio);
+        ::open_file_output_stream(run_info_tmp_path, false, use_directio, use_sync_io));
+    auto run_info_table_file_async = ::make_async_stream(
+        run_info_table_file_stream, thread_pool, use_directio, options.directio_chunk_size());
 
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_tmp_writer,
@@ -587,8 +598,10 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
 
     // Prepare the main file - and set up the signal table to write here:
     ARROW_ASSIGN_OR_RAISE(
-        auto signal_table_file_stream, ::open_file_output_stream(path, false, use_directio));
-    auto signal_file = ::make_async_stream(signal_table_file_stream, thread_pool, use_directio);
+        auto signal_table_file_stream,
+        ::open_file_output_stream(path, false, use_directio, use_sync_io));
+    auto signal_file = ::make_async_stream(
+        signal_table_file_stream, thread_pool, use_directio, options.directio_chunk_size());
 
     // Write the initial header to the combined file:
     ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(signal_file, section_marker));
