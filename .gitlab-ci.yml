@@ -680,14 +680,14 @@ benchmark-linux-aarch64:
 # ======================================
 
 
-linux-x64-gcc9-fuzz:
+linux-x64-gcc11-fuzz:
   stage: build
   image: "ubuntu:jammy"
   tags:
     - linux
   variables:
-    CONAN_PROFILE: "linux-x86_64-gcc9.jinja"
-    CONAN_PROFILE_CPPSTD: 17
+    CONAN_PROFILE: "linux-x86_64-gcc11.jinja"
+    CONAN_PROFILE_CPPSTD: 20
     CC: clang
     CXX: clang++
   needs:
@@ -701,8 +701,20 @@ linux-x64-gcc9-fuzz:
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir -p build
     - cd build
-    - conan install --profile ${CONAN_PROFILE} -s compiler.libcxx=libstdc++ -s compiler.cppstd=17 -s build_type=Release ..
-    - cmake -D ENABLE_CONAN=ON -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -D POD5_DISABLE_TESTS=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FUZZERS=ON -D BUILD_PYTHON_WHEEL=OFF ..
+    # Tell conan that it's OK to use libstdc++ settings.
+    - conan install
+      --profile ${CONAN_PROFILE}
+      -s compiler.libcxx=libstdc++11
+      -s compiler.cppstd=${CONAN_PROFILE_CPPSTD}
+      -s build_type=Release
+      ..
+    - cmake
+      -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+      -D POD5_DISABLE_TESTS=ON
+      -D CMAKE_BUILD_TYPE=Release
+      -D ENABLE_FUZZERS=ON
+      -D BUILD_PYTHON_WHEEL=OFF
+      ..
     - cmake --build . --config Release
     - ctest -C Release -VV
 
