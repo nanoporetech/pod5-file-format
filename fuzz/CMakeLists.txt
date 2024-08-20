@@ -6,9 +6,11 @@ function(make_fuzzer TYPE)
     target_link_libraries(${NAME} PUBLIC pod5_format)
     target_link_options(${NAME} PUBLIC -fsanitize=fuzzer)
 
-    # Add a quick smoke test
-    # TODO: where's the best place to store the corpus?
+    # Extract the corpus.
     set(CORPUS ${CMAKE_CURRENT_SOURCE_DIR}/corpus_${TYPE})
+    file(ARCHIVE_EXTRACT INPUT ${CORPUS}.zip DESTINATION ${CORPUS})
+
+    # Add a quick smoke test
     set(TEST_NAME ${NAME}_quick_check)
     add_test(
         NAME ${TEST_NAME}
