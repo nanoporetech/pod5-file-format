@@ -14,7 +14,7 @@ function(make_fuzzer TYPE)
     set(TEST_NAME ${NAME}_quick_check)
     add_test(
         NAME ${TEST_NAME}
-        COMMAND ${NAME} -max_total_time=300 ${CORPUS}
+        COMMAND ${NAME} -max_total_time=300 -timeout=60 ${CORPUS}
         # Run in the current working directory so that failing cases are dumped there.
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
