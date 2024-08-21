@@ -15,6 +15,8 @@ function(make_fuzzer TYPE)
     add_test(
         NAME ${TEST_NAME}
         COMMAND ${NAME} -max_total_time=300 ${CORPUS}
+        # Run in the current working directory so that failing cases are dumped there.
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
     # Make sure that all issues get picked up

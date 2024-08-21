@@ -717,6 +717,12 @@ linux-x64-gcc11-fuzz:
       ..
     - cmake --build . --config Release
     - ctest -C Release -VV
+  artifacts:
+    # Artifact everything in /fuzz so that we can get to any new/failing corpora.
+    when: always
+    paths:
+      - ./fuzz
+    untracked: true
 
 
 # ======================================
