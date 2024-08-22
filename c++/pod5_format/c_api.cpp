@@ -1315,13 +1315,3 @@ pod5_error_t pod5_format_read_id(read_id_t const read_id, char * read_id_string)
     return POD5_OK;
 }
 }
-
-//---------------------------------------------------------------------------------------------------------------------
-/*
-std::shared_ptr<arrow::Schema> pyarrow_test() {
-    return arrow::schema({
-            arrow::field("signal", arrow::large_list(arrow::int16())),
-            arrow::field("samples", arrow::uint32()),
-    });
-}
-*/
