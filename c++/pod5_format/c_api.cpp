@@ -47,15 +47,12 @@ namespace {
 //---------------------------------------------------------------------------------------------------------------------
 pod5_error_t g_pod5_error_no;
 std::string g_pod5_error_string;
-}  // namespace
 
-extern "C" void pod5_set_error(arrow::Status status)
+void pod5_set_error(arrow::Status status)
 {
     g_pod5_error_no = (pod5_error_t)status.code();
     g_pod5_error_string = status.ToString();
 }
-
-namespace {
 
 void pod5_reset_error()
 {
