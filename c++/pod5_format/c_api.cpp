@@ -448,6 +448,8 @@ pod5_error_t pod5_get_read_batch_row_info_data(
     void * row_data,
     uint16_t * read_table_version)
 {
+    pod5_reset_error();
+
     if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)) {
         return g_pod5_error_no;
     }
@@ -827,6 +829,8 @@ pod5_error_t pod5_get_signal_row_info(
 
 pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t ** signal_row_info)
 {
+    pod5_reset_error();
+
     for (std::size_t i = 0; i < signal_rows_count; ++i) {
         std::unique_ptr<SignalRowInfoCHelper> helper(
             static_cast<SignalRowInfoCHelper *>(signal_row_info[i]));
