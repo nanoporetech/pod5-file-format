@@ -47,15 +47,12 @@ namespace {
 //---------------------------------------------------------------------------------------------------------------------
 pod5_error_t g_pod5_error_no;
 std::string g_pod5_error_string;
-}  // namespace
 
-extern "C" void pod5_set_error(arrow::Status status)
+void pod5_set_error(arrow::Status status)
 {
     g_pod5_error_no = (pod5_error_t)status.code();
     g_pod5_error_string = status.ToString();
 }
-
-namespace {
 
 void pod5_reset_error()
 {
@@ -433,7 +430,7 @@ pod5_error_t pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch *
     return POD5_OK;
 }
 
-pod5_error_t check_row_index_and_set_error(size_t row, size_t batch_size)
+static pod5_error_t check_row_index_and_set_error(size_t row, size_t batch_size)
 {
     if (row >= batch_size) {
         pod5_set_error(arrow::Status::IndexError(
@@ -451,6 +448,8 @@ pod5_error_t pod5_get_read_batch_row_info_data(
     void * row_data,
     uint16_t * read_table_version)
 {
+    pod5_reset_error();
+
     if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)) {
         return g_pod5_error_no;
     }
@@ -830,6 +829,8 @@ pod5_error_t pod5_get_signal_row_info(
 
 pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t ** signal_row_info)
 {
+    pod5_reset_error();
+
     for (std::size_t i = 0; i < signal_rows_count; ++i) {
         std::unique_ptr<SignalRowInfoCHelper> helper(
             static_cast<SignalRowInfoCHelper *>(signal_row_info[i]));
@@ -1032,7 +1033,7 @@ pod5_error_t pod5_add_run_info(
     return POD5_OK;
 }
 
-inline bool check_read_data_struct(std::uint16_t struct_version, void const * row_data)
+static bool check_read_data_struct(std::uint16_t struct_version, void const * row_data)
 {
     static_assert(
         READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
@@ -1074,7 +1075,7 @@ inline bool check_read_data_struct(std::uint16_t struct_version, void const * ro
     return true;
 }
 
-inline bool load_struct_row_into_read_data(
+static bool load_struct_row_into_read_data(
     std::unique_ptr<pod5::FileWriter> const & writer,
     pod5::ReadData & read_data,
     std::uint16_t struct_version,
@@ -1314,13 +1315,3 @@ pod5_error_t pod5_format_read_id(read_id_t const read_id, char * read_id_string)
     return POD5_OK;
 }
 }
-
-//---------------------------------------------------------------------------------------------------------------------
-/*
-std::shared_ptr<arrow::Schema> pyarrow_test() {
-    return arrow::schema({
-            arrow::field("signal", arrow::large_list(arrow::int16())),
-            arrow::field("samples", arrow::uint32()),
-    });
-}
-*/

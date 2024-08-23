@@ -727,5 +727,3 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_format_read_id(read_id_t const read_id, cha
 #ifdef __cplusplus
 }
 #endif
-
-//std::shared_ptr<arrow::Schema> pyarrow_test();
