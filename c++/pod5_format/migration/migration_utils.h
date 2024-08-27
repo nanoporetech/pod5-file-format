@@ -132,4 +132,78 @@ inline pod5::Result<Pod5BatchRecordWriter> make_record_batch_writer(
     return result;
 }
 
+inline pod5::Status check_columns(
+    std::shared_ptr<arrow::Schema> const & schema,
+    std::vector<std::shared_ptr<arrow::Array>> const & columns)
+{
+    for (std::size_t i = 0; i < columns.size(); ++i) {
+        auto const & column = columns[i];
+        auto const & schema_field = schema->field(i);
+
+        if (auto list = std::dynamic_pointer_cast<arrow::ListArray>(column)) {
+            auto last_value = list->value_offset(0);
+            for (int i = 1; i <= list->length(); ++i) {
+                if (list->value_offset(i) < last_value) {
+                    return arrow::Status::Invalid(
+                        "Field content for field `",
+                        schema_field->name(),
+                        "`, list offsets are invalid"
+                        " at row index ",
+                        i,
+                        " (",
+                        list->value_offset(i),
+                        " < ",
+                        last_value,
+                        ")");
+                }
+                last_value = list->value_offset(i);
+            }
+        } else if (auto dict = std::dynamic_pointer_cast<arrow::DictionaryArray>(column)) {
+            auto dict_values = dict->dictionary();
+            auto string_dictionary_values =
+                std::dynamic_pointer_cast<arrow::StringArray>(dict_values);
+            if (string_dictionary_values) {
+                auto const value_offsets = string_dictionary_values->value_offsets();
+                std::int64_t const value_offsets_length =
+                    value_offsets->size() / sizeof(arrow::StringArray::offset_type);
+                if (value_offsets_length != (1 + dict_values->length()))
+                {  // We expect N+1 offsets for the final element length
+                    return arrow::Status::Invalid(
+                        "Dictionary length for field `",
+                        schema_field->name(),
+                        "`, dictionary length is ",
+                        dict_values->length(),
+                        " but value offsets is length ",
+                        value_offsets_length);
+                }
+            }
+
+            auto indices = std::dynamic_pointer_cast<arrow::Int16Array>(dict->indices());
+            if (!indices) {
+                return arrow::Status::Invalid(
+                    "Field content for field `",
+                    schema_field->name(),
+                    "`, dictionary indexes are missing");
+            }
+            for (int i = 0; i < indices->length(); ++i) {
+                if (indices->Value(i) >= dict_values->length()) {
+                    return arrow::Status::Invalid(
+                        "Field content for field `",
+                        schema_field->name(),
+                        "`, dictionary indexes are invalid"
+                        " at row index ",
+                        i,
+                        " (",
+                        indices->Value(i),
+                        " >= ",
+                        dict_values->length(),
+                        ")");
+                }
+            }
+        }
+    }
+
+    return {};
+}
+
 }  // namespace pod5

@@ -47,6 +47,7 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
 
             // Extend with V1 data:
             std::vector<std::shared_ptr<arrow::Array>> columns = v0_batch->columns();
+            ARROW_RETURN_NOT_OK(check_columns(v0_reader.schema, columns));
             ARROW_RETURN_NOT_OK(set_column(
                 v1_schema,
                 columns,
