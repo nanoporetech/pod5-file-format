@@ -71,11 +71,10 @@ TableSpecVersion ReadTableSchemaDescription::table_version_from_file_version(
 Result<std::shared_ptr<arrow::StructType>> read_dict_value_struct_type(
     std::shared_ptr<arrow::DataType> const & datatype)
 {
-    if (datatype->id() != arrow::Type::DICTIONARY) {
+    auto const dict_type = std::dynamic_pointer_cast<arrow::DictionaryType>(datatype);
+    if (!dict_type) {
         return arrow::Status::Invalid("Dictionary type is not a dictionary");
     }
-
-    auto const dict_type = std::static_pointer_cast<arrow::DictionaryType>(datatype);
     auto const value_type = std::dynamic_pointer_cast<arrow::StructType>(dict_type->value_type());
     if (!value_type) {
         return arrow::Status::Invalid("Dictionary value type is not a struct");

@@ -22,11 +22,18 @@ arrow::Result<std::size_t> get_num_samples(
     std::size_t signal_batch_size = signal_batches[0]->num_rows();
     std::size_t num_samples = 0;
 
-    auto values = std::static_pointer_cast<arrow::UInt64Array>(signal_col->values());
+    auto values = std::dynamic_pointer_cast<arrow::UInt64Array>(signal_col->values());
+    if (!values) {
+        return arrow::Status::Invalid("Invalid signal column, potentially corrupt file.");
+    }
 
     auto offset = signal_col->value_offset(row_idx);
     for (std::int64_t index = 0; index < signal_col->value_length(row_idx); ++index) {
         auto const abs_index = offset + index;
+        if (abs_index >= values->length()) {
+            return arrow::Status::Invalid("Invalid signal column, potentially corrupt file.");
+        }
+
         auto const abs_row = values->Value(abs_index);
 
         auto const batch_idx = abs_row / signal_batch_size;
@@ -40,7 +47,10 @@ arrow::Result<std::size_t> get_num_samples(
         auto batch = signal_batches[batch_idx];
 
         auto samples_column =
-            std::static_pointer_cast<arrow::UInt32Array>(batch->GetColumnByName("samples"));
+            std::dynamic_pointer_cast<arrow::UInt32Array>(batch->GetColumnByName("samples"));
+        if (!samples_column) {
+            return arrow::Status::Invalid("`samples` column is missing from file");
+        }
         if (batch_row >= (std::size_t)samples_column->length()) {
             return arrow::Status::Invalid(
                 "Invalid signal batch row ", batch_row, ", length is ", samples_column->length());
@@ -94,7 +104,10 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
             std::vector<std::shared_ptr<arrow::Array>> columns = v1_batch->columns();
 
             auto signal_column =
-                std::static_pointer_cast<arrow::ListArray>(v1_batch->GetColumnByName("signal"));
+                std::dynamic_pointer_cast<arrow::ListArray>(v1_batch->GetColumnByName("signal"));
+            if (!signal_column) {
+                return arrow::Status::Invalid("`signal` column is missing from file");
+            }
             arrow::UInt64Builder num_samples_builder;
             for (std::int64_t row = 0; row < num_rows; ++row) {
                 ARROW_ASSIGN_OR_RAISE(
