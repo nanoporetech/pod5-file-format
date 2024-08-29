@@ -121,7 +121,7 @@ def parse_table_mapping(
             summary_path,
             columns=columns,
             separator=get_separator(summary_path),
-            comment_char="#",
+            comment_prefix="#",
         )
         .lazy()
         .with_columns(
