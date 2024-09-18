@@ -729,6 +729,7 @@ build-conan:windows-x86_64-vs2019:
         - .build-package-win
         - .conan-build-common
         - .build-shared-and-static
+    needs: ["prepare_version", "win-x64-msvc2019-release-build"]
 upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
@@ -739,7 +740,7 @@ build-conan:macos-x86_64-appleclang-14.0:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
-
+    needs: ["prepare_version", "osx-x64-clang14-release-build"]
 upload-conan:macos-x86_64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-14.0" ]
@@ -750,6 +751,7 @@ build-conan:macos-aarch64-appleclang-14.0:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
+    needs: ["prepare_version", "osx-arm64-clang14-release-build"]
 upload-conan:macos-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-14.0" ]
@@ -762,6 +764,7 @@ build-conan:ios-aarch64-appleclang-14.0:
         - .build-shared-and-static
     after_script:
         - *tarball-package-without-macos
+    needs: ["prepare_version", "osx-arm64-clang14-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
 upload-conan:ios-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-14.0" ]
@@ -772,9 +775,9 @@ build-conan:iOSSimulator-aarch64-appleclang-14.0:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
-
     after_script:
         - *tarball-package-without-macos
+    needs: ["prepare_version", "osx-arm64-clang14-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
 upload-conan:iOSSimulator-aarch64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-14.0" ]
@@ -785,6 +788,7 @@ build-conan:linux-x86_64-gcc9:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
+    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
 upload-conan:linux-x86_64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
@@ -795,6 +799,7 @@ build-conan:linux-x86_64-gcc11:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
+    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
 upload-conan:linux-x86_64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
@@ -805,6 +810,7 @@ build-conan:linux-aarch64-gcc9:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
+    needs: ["prepare_version", "linux-aarch64-gcc9-release-build"]
 upload-conan:linux-aarch64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc9" ]
@@ -815,6 +821,7 @@ build-conan:linux-aarch64-gcc11:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
+    needs: ["prepare_version", "linux-aarch64-gcc9-release-build"]
 upload-conan:linux-aarch64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]
