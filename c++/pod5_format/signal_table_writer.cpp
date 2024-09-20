@@ -1,6 +1,7 @@
 #include "pod5_format/signal_table_writer.h"
 
 #include "pod5_format/errors.h"
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/tracing/tracing.h"
 #include "pod5_format/types.h"
 
@@ -20,7 +21,7 @@ SignalTableWriter::SignalTableWriter(
     std::shared_ptr<arrow::Schema> && schema,
     SignalBuilderVariant && signal_builder,
     SignalTableSchemaDescription const & field_locations,
-    std::shared_ptr<arrow::io::OutputStream> const & output_stream,
+    std::shared_ptr<FileOutputStream> const & output_stream,
     std::size_t table_batch_size,
     arrow::MemoryPool * pool)
 : m_pool(pool)
@@ -145,7 +146,7 @@ SignalType SignalTableWriter::signal_type() const { return m_field_locations.sig
 Status SignalTableWriter::write_batch(arrow::RecordBatch const & record_batch)
 {
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(record_batch));
-    return m_output_stream->Flush();
+    return m_output_stream->batch_complete();
 }
 
 Status SignalTableWriter::write_batch()
@@ -173,7 +174,7 @@ Status SignalTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    ARROW_RETURN_NOT_OK(m_output_stream->Flush());
+    ARROW_RETURN_NOT_OK(m_output_stream->batch_complete());
 
     // Reserve space for next batch:
     return reserve_rows();
@@ -191,7 +192,7 @@ Status SignalTableWriter::reserve_rows()
 }
 
 Result<SignalTableWriter> make_signal_table_writer(
-    std::shared_ptr<arrow::io::OutputStream> const & sink,
+    std::shared_ptr<FileOutputStream> const & sink,
     std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     SignalType compression_type,

@@ -7,6 +7,7 @@
 #include <arrow/io/file.h>
 #include <arrow/util/future.h>
 #include <boost/thread/synchronized_value.hpp>
+#include <gsl/gsl-lite.hpp>
 
 #include <condition_variable>
 #include <deque>
@@ -27,7 +28,14 @@ constexpr size_t fallocate_chunk = 50 * megabyte;  // 50MB
 
 namespace pod5 {
 
-class AsyncOutputStream : public arrow::io::OutputStream {
+class FileOutputStream : public arrow::io::OutputStream {
+public:
+    virtual arrow::Status batch_complete() { return arrow::Status::OK(); }
+
+    virtual void set_file_start_offset(std::size_t val) {}
+};
+
+class AsyncOutputStream : public FileOutputStream {
 public:
     AsyncOutputStream(
         std::shared_ptr<OutputStream> const & main_stream,
@@ -148,7 +156,7 @@ public:
         return static_cast<arrow::io::FileOutputStream *>(m_main_stream.get())->file_descriptor();
     }
 
-    void set_file_start_offset(std::size_t val) { m_file_start_offset = val; }
+    void set_file_start_offset(std::size_t val) override { m_file_start_offset = val; }
 
 protected:
     virtual arrow::Status write_final_chunk() { return arrow::Status::OK(); }
@@ -245,6 +253,8 @@ public:
         }
         return arrow::Status::OK();
     }
+
+    virtual arrow::Status batch_complete() { return write_final_chunk(); }
 
     arrow::Status Flush() override
     {
@@ -434,4 +444,5 @@ private:
     std::size_t m_num_blocks_written;
 };
 #endif
+
 }  // namespace pod5

@@ -14,16 +14,14 @@
 namespace arrow {
 class Schema;
 
-namespace io {
-class OutputStream;
-}
-
 namespace ipc {
 class RecordBatchWriter;
 }
 }  // namespace arrow
 
 namespace pod5 {
+
+class FileOutputStream;
 
 class POD5_FORMAT_EXPORT ReadTableWriter {
 public:
@@ -35,7 +33,7 @@ public:
         std::shared_ptr<PoreWriter> const & pore_writer,
         std::shared_ptr<EndReasonWriter> const & end_reason_writer,
         std::shared_ptr<RunInfoWriter> const & run_info_writer,
-        std::shared_ptr<arrow::io::OutputStream> const & output_stream,
+        std::shared_ptr<FileOutputStream> const & output_stream,
         arrow::MemoryPool * pool);
     ReadTableWriter(ReadTableWriter &&);
     ReadTableWriter & operator=(ReadTableWriter &&);
@@ -79,7 +77,7 @@ private:
 
     std::size_t m_written_batched_row_count = 0;
     std::size_t m_current_batch_row_count = 0;
-    std::shared_ptr<arrow::io::OutputStream> m_output_stream;
+    std::shared_ptr<FileOutputStream> m_output_stream;
 };
 
 /// \brief Make a new writer for a read table.
@@ -89,7 +87,7 @@ private:
 /// \param pool Pool to be used for building table in memory.
 /// \returns The writer for the new table.
 POD5_FORMAT_EXPORT Result<ReadTableWriter> make_read_table_writer(
-    std::shared_ptr<arrow::io::OutputStream> const & sink,
+    std::shared_ptr<FileOutputStream> const & sink,
     std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     std::shared_ptr<PoreWriter> const & pore_writer,

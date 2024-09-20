@@ -58,7 +58,7 @@ arrow::Result<std::shared_ptr<arrow::io::OutputStream>> open_file_output_stream(
 #endif
 }
 
-std::shared_ptr<arrow::io::OutputStream> make_async_stream(
+std::shared_ptr<pod5::FileOutputStream> make_async_stream(
     std::shared_ptr<arrow::io::OutputStream> const & io_stream,
     std::shared_ptr<pod5::ThreadPool> thread_pool,
     bool use_directio,

@@ -1,6 +1,7 @@
 #include "pod5_format/run_info_table_writer.h"
 
 #include "pod5_format/errors.h"
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/tracing/tracing.h"
 #include "pod5_format/read_table_utils.h"
 
@@ -16,7 +17,7 @@ RunInfoTableWriter::RunInfoTableWriter(
     std::shared_ptr<arrow::ipc::RecordBatchWriter> && writer,
     std::shared_ptr<arrow::Schema> && schema,
     std::shared_ptr<RunInfoTableSchemaDescription> const & field_locations,
-    std::shared_ptr<arrow::io::OutputStream> const & output_stream,
+    std::shared_ptr<FileOutputStream> const & output_stream,
     std::size_t table_batch_size,
     arrow::MemoryPool * pool)
 : m_schema(schema)
@@ -93,7 +94,7 @@ Status RunInfoTableWriter::close()
 Status RunInfoTableWriter::write_batch(arrow::RecordBatch const & record_batch)
 {
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(record_batch));
-    return m_output_stream->Flush();
+    return m_output_stream->batch_complete();
 }
 
 Status RunInfoTableWriter::write_batch()
@@ -116,7 +117,7 @@ Status RunInfoTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    ARROW_RETURN_NOT_OK(m_output_stream->Flush());
+    ARROW_RETURN_NOT_OK(m_output_stream->batch_complete());
 
     return reserve_rows();
 }
@@ -124,7 +125,7 @@ Status RunInfoTableWriter::write_batch()
 Status RunInfoTableWriter::reserve_rows() { return m_field_builders.reserve(m_table_batch_size); }
 
 Result<RunInfoTableWriter> make_run_info_table_writer(
-    std::shared_ptr<arrow::io::OutputStream> const & sink,
+    std::shared_ptr<FileOutputStream> const & sink,
     std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     arrow::MemoryPool * pool)

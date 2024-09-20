@@ -1,3 +1,4 @@
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_reader.h"
@@ -39,18 +40,17 @@ SCENARIO("Signal table Tests")
         auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
-        auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
-
         auto signal_type = GENERATE(SignalType::UncompressedSignal, SignalType::VbzSignal);
 
         {
+            auto file_out = std::make_shared<pod5::AsyncOutputStream>(
+                *arrow::io::FileOutputStream::Open(filename), pod5::make_thread_pool(1));
             auto schema_metadata = make_schema_key_value_metadata(
                 {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE_ARROW_STATUS_OK(schema_metadata);
-            REQUIRE_ARROW_STATUS_OK(file_out);
 
             auto writer =
-                pod5::make_signal_table_writer(*file_out, *schema_metadata, 100, signal_type, pool);
+                pod5::make_signal_table_writer(file_out, *schema_metadata, 100, signal_type, pool);
             REQUIRE_ARROW_STATUS_OK(writer);
 
             WHEN("Writing a read")
