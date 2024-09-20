@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - svb16 headers packaged with pod5
 
+## Changed
+
+- Directio output now writes on batch complete without flushing explicitly.
+
 
 ## [0.3.15]
 

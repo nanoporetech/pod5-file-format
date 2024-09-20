@@ -1,6 +1,7 @@
 #include "pod5_format/read_table_writer.h"
 
 #include "pod5_format/errors.h"
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/tracing/tracing.h"
 
 #include <arrow/extension_type.h>
@@ -19,7 +20,7 @@ ReadTableWriter::ReadTableWriter(
     std::shared_ptr<PoreWriter> const & pore_writer,
     std::shared_ptr<EndReasonWriter> const & end_reason_writer,
     std::shared_ptr<RunInfoWriter> const & run_info_writer,
-    std::shared_ptr<arrow::io::OutputStream> const & output_stream,
+    std::shared_ptr<FileOutputStream> const & output_stream,
     arrow::MemoryPool * pool)
 : m_schema(schema)
 , m_field_locations(field_locations)
@@ -108,7 +109,7 @@ Status ReadTableWriter::close()
 Status ReadTableWriter::write_batch(arrow::RecordBatch const & record_batch)
 {
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(record_batch));
-    return m_output_stream->Flush();
+    return m_output_stream->batch_complete();
 }
 
 Status ReadTableWriter::write_batch()
@@ -131,7 +132,7 @@ Status ReadTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    ARROW_RETURN_NOT_OK(m_output_stream->Flush());
+    ARROW_RETURN_NOT_OK(m_output_stream->batch_complete());
 
     return reserve_rows();
 }
@@ -139,7 +140,7 @@ Status ReadTableWriter::write_batch()
 Status ReadTableWriter::reserve_rows() { return m_field_builders.reserve(m_table_batch_size); }
 
 Result<ReadTableWriter> make_read_table_writer(
-    std::shared_ptr<arrow::io::OutputStream> const & sink,
+    std::shared_ptr<FileOutputStream> const & sink,
     std::shared_ptr<arrow::KeyValueMetadata const> const & metadata,
     std::size_t table_batch_size,
     std::shared_ptr<PoreWriter> const & pore_writer,

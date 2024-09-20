@@ -1,3 +1,4 @@
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/read_table_writer.h"
 #include "pod5_format/schema_metadata.h"
@@ -81,16 +82,15 @@ SCENARIO("Read table Tests")
         auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
-        auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
-
         auto const record_batch_count = GENERATE(as<std::size_t>{}, 1, 2, 5, 10);
         auto const read_count = GENERATE(1, 2);
 
         {
+            auto file_out = std::make_shared<pod5::AsyncOutputStream>(
+                *arrow::io::FileOutputStream::Open(filename), pod5::make_thread_pool(1));
             auto schema_metadata = make_schema_key_value_metadata(
                 {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE_ARROW_STATUS_OK(schema_metadata);
-            REQUIRE_ARROW_STATUS_OK(file_out);
 
             auto pore_writer = pod5::make_pore_writer(pool);
             REQUIRE_ARROW_STATUS_OK(pore_writer);
@@ -100,7 +100,7 @@ SCENARIO("Read table Tests")
             REQUIRE_ARROW_STATUS_OK(run_info_writer);
 
             auto writer = pod5::make_read_table_writer(
-                *file_out,
+                file_out,
                 *schema_metadata,
                 read_count,
                 *pore_writer,

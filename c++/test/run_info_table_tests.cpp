@@ -1,3 +1,4 @@
+#include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/run_info_table_reader.h"
 #include "pod5_format/run_info_table_writer.h"
 #include "pod5_format/schema_metadata.h"
@@ -31,21 +32,20 @@ SCENARIO("Run Info table Tests")
         auto filename = "./foo.pod5";
         auto pool = arrow::system_memory_pool();
 
-        auto file_out = arrow::io::FileOutputStream::Open(filename, pool);
-
         auto run_info_data_0 = get_test_run_info_data();
         auto run_info_data_1 = get_test_run_info_data("_2");
 
         {
+            auto file_out = std::make_shared<pod5::AsyncOutputStream>(
+                *arrow::io::FileOutputStream::Open(filename), pod5::make_thread_pool(1));
             auto schema_metadata = make_schema_key_value_metadata(
                 {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE_ARROW_STATUS_OK(schema_metadata);
-            REQUIRE_ARROW_STATUS_OK(file_out);
 
             std::size_t run_info_per_batch = 2;
 
             auto writer = pod5::make_run_info_table_writer(
-                *file_out, *schema_metadata, run_info_per_batch, pool);
+                file_out, *schema_metadata, run_info_per_batch, pool);
             REQUIRE_ARROW_STATUS_OK(writer);
 
             REQUIRE_ARROW_STATUS_OK(writer->add_run_info(run_info_data_0));
