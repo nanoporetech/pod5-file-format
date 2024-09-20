@@ -165,6 +165,12 @@ list(APPEND public_headers
     pod5_format/tuple_utils.h
     pod5_format/types.h
 
+
+    ${CMAKE_CURRENT_BINARY_DIR}/pod5_format/pod5_format_export.h
+)
+
+set(svb16_headers
+    pod5_format/svb16/svb16.h
     pod5_format/svb16/common.hpp
     pod5_format/svb16/decode.hpp
     pod5_format/svb16/decode_scalar.hpp
@@ -175,8 +181,6 @@ list(APPEND public_headers
     pod5_format/svb16/intrinsics.hpp
     pod5_format/svb16/shuffle_tables.hpp
     pod5_format/svb16/simd_detect_x64.hpp
-
-    ${CMAKE_CURRENT_BINARY_DIR}/pod5_format/pod5_format_export.h
 )
 
 set_target_properties(pod5_format
@@ -229,6 +233,11 @@ generate_export_header(pod5_format EXPORT_FILE_NAME pod5_format/pod5_format_expo
 install(
     TARGETS pod5_format
     PUBLIC_HEADER DESTINATION "include/pod5_format"
+)
+
+install(
+    FILES ${svb16_headers}
+    DESTINATION "include/pod5_format/svb16"
 )
 
 if (POD5_BUILD_EXAMPLES)
