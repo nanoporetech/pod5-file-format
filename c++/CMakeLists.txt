@@ -165,6 +165,17 @@ list(APPEND public_headers
     pod5_format/tuple_utils.h
     pod5_format/types.h
 
+    pod5_format/svb16/common.hpp
+    pod5_format/svb16/decode.hpp
+    pod5_format/svb16/decode_scalar.hpp
+    pod5_format/svb16/decode_x64.hpp
+    pod5_format/svb16/encode.hpp
+    pod5_format/svb16/encode_scalar.hpp
+    pod5_format/svb16/encode_x64.hpp
+    pod5_format/svb16/intrinsics.hpp
+    pod5_format/svb16/shuffle_tables.hpp
+    pod5_format/svb16/simd_detect_x64.hpp
+
     ${CMAKE_CURRENT_BINARY_DIR}/pod5_format/pod5_format_export.h
 )
 
