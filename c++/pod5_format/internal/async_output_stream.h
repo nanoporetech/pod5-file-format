@@ -189,7 +189,8 @@ public:
     AsyncOutputStreamDirectIO(
         std::shared_ptr<OutputStream> const & main_stream,
         std::shared_ptr<ThreadPool> const & thread_pool,
-        std::size_t write_chunk_size)
+        std::size_t write_chunk_size,
+        bool flush_on_batch_complete)
     : AsyncOutputStream(main_stream, thread_pool)
     , m_write_chunk_size(write_chunk_size)
     , m_fallocate_offset{0}
@@ -197,6 +198,7 @@ public:
     , m_flushed_buffer_copy(alignment, 0)
     , m_buffer_offset{0}
     , m_num_blocks_written{0}
+    , m_flush_on_batch_complete(flush_on_batch_complete)
     {
         // pre-allocate file in chunks of [fallocate_chunk] size.
         // NOTE: we will need to reserve more space once we exhaust that limit
@@ -254,7 +256,14 @@ public:
         return arrow::Status::OK();
     }
 
-    virtual arrow::Status batch_complete() { return write_final_chunk(); }
+    virtual arrow::Status batch_complete()
+    {
+        if (m_flush_on_batch_complete) {
+            return write_final_chunk();
+        }
+
+        return arrow::Status::OK();
+    }
 
     arrow::Status Flush() override
     {
@@ -442,6 +451,7 @@ private:
     // we always write into the buffer from that offset
     std::size_t m_buffer_offset;
     std::size_t m_num_blocks_written;
+    bool m_flush_on_batch_complete;
 };
 #endif
 
