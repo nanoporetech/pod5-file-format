@@ -27,6 +27,7 @@ public:
     static constexpr SignalType DEFAULT_SIGNAL_TYPE = SignalType::VbzSignal;
     static constexpr bool DEFAULT_USE_DIRECTIO = false;
     static constexpr bool DEFAULT_USE_SYNC_IO = false;
+    static constexpr bool DEFAULT_FLUSH_ON_BATCH_COMPLETE = true;
     static constexpr std::size_t DEFAULT_DIRECTIO_CHUNK_SIZE = 2 * 1024 * 1024;
 
     FileWriterOptions();
@@ -83,6 +84,13 @@ public:
 
     bool use_sync_io() const { return m_use_sync_io; }
 
+    void set_flush_on_batch_complete(bool flush_on_batch_complete)
+    {
+        m_flush_on_batch_complete = flush_on_batch_complete;
+    }
+
+    bool flush_on_batch_complete() const { return m_flush_on_batch_complete; }
+
 private:
     std::shared_ptr<ThreadPool> m_writer_thread_pool;
     std::uint32_t m_max_signal_chunk_size;
@@ -94,6 +102,7 @@ private:
     bool m_use_directio;
     std::size_t m_directio_chunk_size;
     bool m_use_sync_io;
+    bool m_flush_on_batch_complete;
 };
 
 class FileWriterImpl;

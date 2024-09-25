@@ -7,12 +7,17 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.18]
+
+## Added
+
+- Ability to disable flushing on batch complete
+
 ## [0.3.17]
 
 ## Changed
 
-- Move svb headers to correct subdirectory in installed files.
-
+- Move svb headers to correct subdirectory in
 
 ## [0.3.16]
 

@@ -61,13 +61,15 @@ arrow::Result<std::shared_ptr<arrow::io::OutputStream>> open_file_output_stream(
 std::shared_ptr<pod5::FileOutputStream> make_async_stream(
     std::shared_ptr<arrow::io::OutputStream> const & io_stream,
     std::shared_ptr<pod5::ThreadPool> thread_pool,
-    bool use_directio,
-    std::size_t directio_chunk_size)
+    pod5::FileWriterOptions const & options)
 {
 #ifdef __linux__
-    if (use_directio) {
+    if (options.use_directio()) {
         return std::make_shared<pod5::AsyncOutputStreamDirectIO>(
-            io_stream, thread_pool, directio_chunk_size);
+            io_stream,
+            thread_pool,
+            options.directio_chunk_size(),
+            options.flush_on_batch_complete());
     } else {
         return std::make_shared<pod5::AsyncOutputStream>(io_stream, thread_pool);
     }
@@ -89,6 +91,7 @@ FileWriterOptions::FileWriterOptions()
 , m_use_directio{DEFAULT_USE_DIRECTIO}
 , m_directio_chunk_size(DEFAULT_DIRECTIO_CHUNK_SIZE)
 , m_use_sync_io(DEFAULT_USE_SYNC_IO)
+, m_flush_on_batch_complete(DEFAULT_FLUSH_ON_BATCH_COMPLETE)
 {
 }
 
@@ -568,8 +571,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_file_stream,
         ::open_file_output_stream(reads_tmp_path, false, use_directio, use_sync_io));
-    auto read_table_file_async = ::make_async_stream(
-        read_table_file_stream, thread_pool, use_directio, options.directio_chunk_size());
+    auto read_table_file_async = ::make_async_stream(read_table_file_stream, thread_pool, options);
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_tmp_writer,
         make_read_table_writer(
@@ -585,8 +587,8 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_file_stream,
         ::open_file_output_stream(run_info_tmp_path, false, use_directio, use_sync_io));
-    auto run_info_table_file_async = ::make_async_stream(
-        run_info_table_file_stream, thread_pool, use_directio, options.directio_chunk_size());
+    auto run_info_table_file_async =
+        ::make_async_stream(run_info_table_file_stream, thread_pool, options);
 
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_tmp_writer,
@@ -600,8 +602,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     ARROW_ASSIGN_OR_RAISE(
         auto signal_table_file_stream,
         ::open_file_output_stream(path, false, use_directio, use_sync_io));
-    auto signal_file = ::make_async_stream(
-        signal_table_file_stream, thread_pool, use_directio, options.directio_chunk_size());
+    auto signal_file = ::make_async_stream(signal_table_file_stream, thread_pool, options);
 
     // Write the initial header to the combined file:
     ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(signal_file, section_marker));
