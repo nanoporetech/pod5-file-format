@@ -105,11 +105,15 @@ public:
 
     Status operator()(VbzSignalBuilder & builder) const
     {
-        ARROW_ASSIGN_OR_RAISE(auto compressed_signal, compress_signal(m_signal, m_pool));
-
         ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
-        return builder.data_values.append_array(
-            gsl::make_span(compressed_signal->data(), compressed_signal->size()));
+
+        auto const max_size = compressed_signal_max_size(m_signal.size());
+
+        // Compress the signal in place into our buffer.
+        return builder.data_values.append(
+            max_size, [&](gsl::span<std::uint8_t> buffer) -> arrow::Result<std::size_t> {
+                return compress_signal(m_signal, m_pool, buffer);
+            });
     }
 
     gsl::span<std::int16_t const> m_signal;
