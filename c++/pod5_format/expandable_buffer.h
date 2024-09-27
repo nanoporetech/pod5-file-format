@@ -39,7 +39,7 @@ public:
             ARROW_ASSIGN_OR_RAISE(m_buffer, arrow::AllocateResizableBuffer(0, m_pool));
             return arrow::Status::OK();
         } else {
-            return m_buffer->Resize(0);
+            return m_buffer->Resize(0, false);
         }
     }
 
@@ -50,6 +50,20 @@ public:
         }
 
         return gsl::make_span(m_buffer->data(), m_buffer->size()).template as_span<T const>();
+    }
+
+    /// \brief Append an object where you don't know the size up front.
+    /// \param max_size The maximum possible size of the object to append.
+    /// \param append_fn A function that appends the object to the buffer.
+    template <typename Callable>
+    arrow::Status append(std::size_t max_size, Callable append_fn)
+    {
+        auto const old_size = m_buffer->size();
+        ARROW_RETURN_NOT_OK(reserve(old_size + max_size));
+        auto const potential_buffer = gsl::make_span(m_buffer->mutable_data() + old_size, max_size);
+        ARROW_ASSIGN_OR_RAISE(auto final_size, append_fn(potential_buffer));
+        assert(final_size < max_size);
+        return resize(old_size + final_size);
     }
 
     arrow::Status append(T const & new_value)
@@ -70,7 +84,7 @@ public:
     arrow::Status resize(std::int64_t new_size)
     {
         ARROW_RETURN_NOT_OK(reserve(new_size));
-        return m_buffer->Resize(new_size);
+        return m_buffer->Resize(new_size, false);
     }
 
     arrow::Status reserve(std::int64_t new_capacity)
@@ -104,7 +118,7 @@ private:
         auto const new_size = old_size + bytes_span.size();
         ARROW_RETURN_NOT_OK(reserve(new_size));
 
-        ARROW_RETURN_NOT_OK(m_buffer->Resize(new_size));
+        ARROW_RETURN_NOT_OK(m_buffer->Resize(new_size, false));
         std::copy(bytes_span.begin(), bytes_span.end(), m_buffer->mutable_data() + old_size);
         return arrow::Status::OK();
     }

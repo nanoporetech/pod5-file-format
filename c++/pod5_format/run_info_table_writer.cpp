@@ -46,6 +46,8 @@ Result<std::size_t> RunInfoTableWriter::add_run_info(RunInfoData const & run_inf
         return Status::IOError("Writer terminated");
     }
 
+    ARROW_RETURN_NOT_OK(reserve_rows());
+
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_field_builders.append(
         // V0 Fields
@@ -117,12 +119,18 @@ Status RunInfoTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    ARROW_RETURN_NOT_OK(m_output_stream->batch_complete());
-
-    return reserve_rows();
+    return m_output_stream->batch_complete();
 }
 
-Status RunInfoTableWriter::reserve_rows() { return m_field_builders.reserve(m_table_batch_size); }
+Status RunInfoTableWriter::reserve_rows()
+{
+    // Only reserve if we have not already reserved (at the start of a batch)
+    if (m_current_batch_row_count > 0) {
+        return arrow::Status::OK();
+    }
+
+    return m_field_builders.reserve(m_table_batch_size);
+}
 
 Result<RunInfoTableWriter> make_run_info_table_writer(
     std::shared_ptr<FileOutputStream> const & sink,
@@ -140,8 +148,6 @@ Result<RunInfoTableWriter> make_run_info_table_writer(
 
     auto run_info_table_writer = RunInfoTableWriter(
         std::move(writer), std::move(schema), field_locations, sink, table_batch_size, pool);
-
-    ARROW_RETURN_NOT_OK(run_info_table_writer.reserve_rows());
 
     return run_info_table_writer;
 }

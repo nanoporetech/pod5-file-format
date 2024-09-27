@@ -55,6 +55,8 @@ Result<SignalTableRowIndex> SignalTableWriter::add_signal(
         return Status::IOError("Writer terminated");
     }
 
+    ARROW_RETURN_NOT_OK(reserve_rows());
+
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
 
@@ -80,6 +82,8 @@ Result<SignalTableRowIndex> SignalTableWriter::add_pre_compressed_signal(
     if (!m_writer) {
         return Status::IOError("Writer terminated");
     }
+
+    ARROW_RETURN_NOT_OK(reserve_rows());
 
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
@@ -174,14 +178,16 @@ Status SignalTableWriter::write_batch()
     m_current_batch_row_count = 0;
 
     ARROW_RETURN_NOT_OK(m_writer->WriteRecordBatch(*record_batch));
-    ARROW_RETURN_NOT_OK(m_output_stream->batch_complete());
-
-    // Reserve space for next batch:
-    return reserve_rows();
+    return m_output_stream->batch_complete();
 }
 
 Status SignalTableWriter::reserve_rows()
 {
+    // Only reserve if we have not already reserved (at the start of a batch)
+    if (m_current_batch_row_count > 0) {
+        return arrow::Status::OK();
+    }
+
     ARROW_RETURN_NOT_OK(m_read_id_builder->Reserve(m_table_batch_size));
     ARROW_RETURN_NOT_OK(m_samples_builder->Reserve(m_table_batch_size));
 
@@ -217,7 +223,6 @@ Result<SignalTableWriter> make_signal_table_writer(
         table_batch_size,
         pool);
 
-    ARROW_RETURN_NOT_OK(signal_table_writer.reserve_rows());
     return signal_table_writer;
 }
 
