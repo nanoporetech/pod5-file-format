@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reduced allocations when compressing signal.
 
+## Fixed
+
+- Crash when searching empty file for reads.
+
 ## [0.3.18]
 
 ## Added

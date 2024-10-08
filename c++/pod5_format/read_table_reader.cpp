@@ -270,6 +270,10 @@ Result<std::size_t> ReadTableReader::search_for_read_ids(
 {
     ARROW_RETURN_NOT_OK(build_read_id_lookup());
 
+    if (m_sorted_file_read_ids.empty()) {
+        return 0;
+    }
+
     std::size_t successes = 0;
 
     std::vector<std::vector<std::uint32_t>> batch_data(batch_counts.size());
