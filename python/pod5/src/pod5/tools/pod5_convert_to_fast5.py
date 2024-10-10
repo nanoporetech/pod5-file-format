@@ -26,6 +26,7 @@ FAST5_END_REASONS = {
     "signal_negative": 6,
     "api_request": 7,
     "device_data_error": 8,
+    "analysis_config_change": 9,
 }
 
 # Fast5 types

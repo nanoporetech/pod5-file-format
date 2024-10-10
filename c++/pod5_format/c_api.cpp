@@ -740,6 +740,9 @@ pod5_error_t pod5_get_end_reason(
     case pod5::ReadEndReason::device_data_error:
         *end_reason_value = POD5_END_REASON_DEVICE_DATA_ERROR;
         break;
+    case pod5::ReadEndReason::analysis_config_change:
+        *end_reason_value = POD5_END_REASON_ANALYSIS_CONFIG_CHANGE;
+        break;
     default:
     case pod5::ReadEndReason::unknown:
         *end_reason_value = POD5_END_REASON_UNKNOWN;

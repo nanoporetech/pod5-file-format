@@ -28,6 +28,7 @@ class EndReasonEnum(enum.Enum):
     SIGNAL_NEGATIVE = 5
     API_REQUEST = 6
     DEVICE_DATA_ERROR = 7
+    ANALYSIS_CONFIG_CHANGE = 8
 
 
 _END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
@@ -39,6 +40,7 @@ _END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
     EndReasonEnum.SIGNAL_NEGATIVE: False,
     EndReasonEnum.API_REQUEST: True,
     EndReasonEnum.DEVICE_DATA_ERROR: True,
+    EndReasonEnum.ANALYSIS_CONFIG_CHANGE: True,
 }
 
 

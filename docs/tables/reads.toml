@@ -68,7 +68,7 @@ description = "Number of minknow events that the read contains"
 
 [fields.end_reason]
 type = "dictionary(string)"
-description = "The end reason, currently one of: unknown, mux_change, unblock_mux_change, data_service_unblock_mux_change, signal_positive, signal_negative, api_request or device_data_error."
+description = "The end reason, currently one of: unknown, mux_change, unblock_mux_change, data_service_unblock_mux_change, signal_positive, signal_negative, api_request, device_data_error or analysis_config_change."
 
 [fields.end_reason_forced]
 type = "bool"
