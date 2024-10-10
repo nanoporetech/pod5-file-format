@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.19]
 
+## Added
+
+- New end reason for reads terminated due to an analysis configuration change.
+
 ## Changed
 
 - Reduced allocations when compressing signal.
