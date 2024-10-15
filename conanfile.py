@@ -56,7 +56,7 @@ class Pod5Conan(ConanFile):
     def requirements(self):
         self.requires("arrow/12.0.0@")
         if self.options.ont_internal_boost:
-            self.requires("boost/1.78.0@nanopore/testing")
+            self.requires("boost/1.86.0@nanopore/testing")
         else:
             self.requires("boost/1.78.0@")
         self.requires("flatbuffers/2.0.0@")
