@@ -15,6 +15,7 @@ class MemoryPool;
 
 namespace pod5 {
 
+class IOManager;
 class ThreadPool;
 
 class POD5_FORMAT_EXPORT FileWriterOptions {
@@ -28,7 +29,7 @@ public:
     static constexpr bool DEFAULT_USE_DIRECTIO = false;
     static constexpr bool DEFAULT_USE_SYNC_IO = false;
     static constexpr bool DEFAULT_FLUSH_ON_BATCH_COMPLETE = true;
-    static constexpr std::size_t DEFAULT_DIRECTIO_CHUNK_SIZE = 2 * 1024 * 1024;
+    static constexpr std::size_t DEFAULT_WRITE_CHUNK_SIZE = 2 * 1024 * 1024;
 
     FileWriterOptions();
 
@@ -39,7 +40,7 @@ public:
 
     std::uint32_t max_signal_chunk_size() const { return m_max_signal_chunk_size; }
 
-    void memory_pool(arrow::MemoryPool * memory_pool) { m_memory_pool = memory_pool; }
+    void set_memory_pool(arrow::MemoryPool * memory_pool) { m_memory_pool = memory_pool; }
 
     arrow::MemoryPool * memory_pool() const { return m_memory_pool; }
 
@@ -65,6 +66,13 @@ public:
 
     std::size_t run_info_table_batch_size() const { return m_run_info_table_batch_size; }
 
+    void set_io_manager(std::shared_ptr<IOManager> const & io_manager)
+    {
+        m_io_manager = io_manager;
+    }
+
+    std::shared_ptr<IOManager> io_manager() const { return m_io_manager; }
+
     void set_thread_pool(std::shared_ptr<ThreadPool> const & writer_thread_pool)
     {
         m_writer_thread_pool = writer_thread_pool;
@@ -76,9 +84,9 @@ public:
 
     bool use_directio() const { return m_use_directio; }
 
-    void set_directio_chunk_size(std::size_t chunk_size) { m_directio_chunk_size = chunk_size; }
+    void set_write_chunk_size(std::size_t chunk_size) { m_write_chunk_size = chunk_size; }
 
-    std::size_t directio_chunk_size() const { return m_directio_chunk_size; }
+    std::size_t write_chunk_size() const { return m_write_chunk_size; }
 
     void set_use_sync_io(bool use_sync_io) { m_use_sync_io = use_sync_io; }
 
@@ -93,6 +101,7 @@ public:
 
 private:
     std::shared_ptr<ThreadPool> m_writer_thread_pool;
+    std::shared_ptr<IOManager> m_io_manager;
     std::uint32_t m_max_signal_chunk_size;
     arrow::MemoryPool * m_memory_pool;
     SignalType m_signal_type;
@@ -100,7 +109,7 @@ private:
     std::size_t m_read_table_batch_size;
     std::size_t m_run_info_table_batch_size;
     bool m_use_directio;
-    std::size_t m_directio_chunk_size;
+    std::size_t m_write_chunk_size;
     bool m_use_sync_io;
     bool m_flush_on_batch_complete;
 };
