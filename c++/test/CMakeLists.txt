@@ -4,6 +4,7 @@ add_executable(pod5_unit_tests
     c_api_tests.cpp
     c_api_build_test.c
     file_reader_writer_tests.cpp
+    output_stream_tests.cpp
     read_table_writer_utils_tests.cpp
     read_table_tests.cpp
     run_info_table_tests.cpp

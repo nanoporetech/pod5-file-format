@@ -3,6 +3,7 @@
 #include "pod5_format/file_recovery.h"
 #include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/combined_file_utils.h"
+#include "pod5_format/io_manager.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/read_table_writer.h"
 #include "pod5_format/read_table_writer_utils.h"
@@ -20,62 +21,56 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
 
-#include <iostream>
-
 #ifdef __linux__
-#include <fcntl.h>
-#include <unistd.h>
+#include "pod5_format/internal/linux_output_stream.h"
 #endif
 
 namespace {
-/// Open a file using the specified path and return it
-arrow::Result<std::shared_ptr<arrow::io::OutputStream>> open_file_output_stream(
+struct CachedFileValues {
+    std::shared_ptr<pod5::IOManager> io_manager;
+    std::shared_ptr<pod5::ThreadPool> thread_pool;
+};
+
+enum class FlushMode { Default, ForceFlushOnBatchComplete };
+
+arrow::Result<std::shared_ptr<pod5::FileOutputStream>> make_file_stream(
     std::string const & path,
-    bool append,
-    bool use_directio = true,
-    bool use_sync_io = false)
+    pod5::FileWriterOptions const & options,
+    CachedFileValues & cached_values,
+    FlushMode flush_mode = FlushMode::Default)
 {
 #ifdef __linux__
-    auto flags = use_directio ? O_RDWR | O_DIRECT : O_RDWR;
-
-    flags |= (append == true ? O_APPEND : O_CREAT);
-    if (use_sync_io) {
-        flags |= O_SYNC;
+    if (options.use_directio() || options.use_sync_io()) {
+        if (!cached_values.io_manager) {
+            if (options.io_manager()) {
+                cached_values.io_manager = options.io_manager();
+            } else {
+                ARROW_ASSIGN_OR_RAISE(
+                    cached_values.io_manager, pod5::make_sync_io_manager(options.memory_pool()));
+            }
+        }
+        return pod5::LinuxOutputStream::make(
+            path,
+            cached_values.io_manager,
+            options.write_chunk_size(),
+            options.use_directio(),
+            options.use_sync_io(),
+            flush_mode == FlushMode::ForceFlushOnBatchComplete ? true
+                                                               : options.flush_on_batch_complete());
     }
 
-    int fd = open(path.c_str(), flags, 0644);
-
-    if (fd < 0) {
-        // add logging
-        throw std::runtime_error{"Failed to open file"};
-    }
-
-    auto res = arrow::io::FileOutputStream::Open(fd);
-
-    return res;
-#else
-    return arrow::io::FileOutputStream::Open(path, append);
 #endif
-}
-
-std::shared_ptr<pod5::FileOutputStream> make_async_stream(
-    std::shared_ptr<arrow::io::OutputStream> const & io_stream,
-    std::shared_ptr<pod5::ThreadPool> thread_pool,
-    pod5::FileWriterOptions const & options)
-{
-#ifdef __linux__
-    if (options.use_directio()) {
-        return std::make_shared<pod5::AsyncOutputStreamDirectIO>(
-            io_stream,
-            thread_pool,
-            options.directio_chunk_size(),
-            options.flush_on_batch_complete());
-    } else {
-        return std::make_shared<pod5::AsyncOutputStream>(io_stream, thread_pool);
+    if (!cached_values.thread_pool) {
+        if (options.thread_pool()) {
+            cached_values.thread_pool = options.thread_pool();
+        } else {
+            cached_values.thread_pool = pod5::make_thread_pool(1);
+        }
     }
-#else
-    return std::make_shared<pod5::AsyncOutputStream>(io_stream, thread_pool);
-#endif
+
+    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(path, false));
+
+    return pod5::AsyncOutputStream::make(file, cached_values.thread_pool, options.memory_pool());
 }
 }  // namespace
 
@@ -89,7 +84,7 @@ FileWriterOptions::FileWriterOptions()
 , m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE)
 , m_run_info_table_batch_size(DEFAULT_RUN_INFO_TABLE_BATCH_SIZE)
 , m_use_directio{DEFAULT_USE_DIRECTIO}
-, m_directio_chunk_size(DEFAULT_DIRECTIO_CHUNK_SIZE)
+, m_write_chunk_size(DEFAULT_WRITE_CHUNK_SIZE)
 , m_use_sync_io(DEFAULT_USE_SYNC_IO)
 , m_flush_on_batch_complete(DEFAULT_FLUSH_ON_BATCH_COMPLETE)
 {
@@ -564,14 +559,11 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
     auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
 
-    bool const use_directio = options.use_directio();
-    bool const use_sync_io = options.use_sync_io();
+    CachedFileValues cached_values;
 
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(
-        auto read_table_file_stream,
-        ::open_file_output_stream(reads_tmp_path, false, use_directio, use_sync_io));
-    auto read_table_file_async = ::make_async_stream(read_table_file_stream, thread_pool, options);
+        auto read_table_file_async, make_file_stream(reads_tmp_path, options, cached_values));
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_tmp_writer,
         make_read_table_writer(
@@ -584,11 +576,13 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
             pool));
 
     // Prepare the temporary run_info file:
+    //
+    // Run info is normally global, if we don't flush on batch complete we can
+    // lose a large number of reads in a crash.
     ARROW_ASSIGN_OR_RAISE(
-        auto run_info_table_file_stream,
-        ::open_file_output_stream(run_info_tmp_path, false, use_directio, use_sync_io));
-    auto run_info_table_file_async =
-        ::make_async_stream(run_info_table_file_stream, thread_pool, options);
+        auto run_info_table_file_async,
+        make_file_stream(
+            run_info_tmp_path, options, cached_values, FlushMode::ForceFlushOnBatchComplete));
 
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_tmp_writer,
@@ -599,10 +593,7 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
             pool));
 
     // Prepare the main file - and set up the signal table to write here:
-    ARROW_ASSIGN_OR_RAISE(
-        auto signal_table_file_stream,
-        ::open_file_output_stream(path, false, use_directio, use_sync_io));
-    auto signal_file = ::make_async_stream(signal_table_file_stream, thread_pool, options);
+    ARROW_ASSIGN_OR_RAISE(auto signal_file, make_file_stream(path, options, cached_values));
 
     // Write the initial header to the combined file:
     ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(signal_file, section_marker));

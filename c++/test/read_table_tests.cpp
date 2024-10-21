@@ -86,7 +86,7 @@ SCENARIO("Read table Tests")
         auto const read_count = GENERATE(1, 2);
 
         {
-            auto file_out = std::make_shared<pod5::AsyncOutputStream>(
+            auto file_out = *pod5::AsyncOutputStream::make(
                 *arrow::io::FileOutputStream::Open(filename), pod5::make_thread_pool(1));
             auto schema_metadata = make_schema_key_value_metadata(
                 {file_identifier, "test_software", *parse_version_number(Pod5Version)});

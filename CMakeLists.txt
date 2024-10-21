@@ -29,6 +29,8 @@ option(BUILD_SHARED_LIB "Build a shared library" OFF)
 option(POD5_DISABLE_TESTS "Disable building all tests" ON)
 option(POD5_BUILD_EXAMPLES "Enable building all examples" OFF)
 
+option(ENABLE_ADDRESS_SANITIZER "Enable address sanitizer" OFF)
+
 if (NOT DEFINED ENABLE_POD5_PACKAGING)
     option(ENABLE_POD5_PACKAGING "Enable packaging support" ON)
 endif()
@@ -64,6 +66,11 @@ if (ENABLE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
     # This forces GCC 9 on other platforms (eg: Ubuntu Focal) to use the same ABI.
     # The main gain here is being able to use the same conan packages.
     add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+endif()
+
+if(ENABLE_ADDRESS_SANITIZER)
+    add_compile_options("-fsanitize=address")
+    add_link_options("-fsanitize=address")
 endif()
 
 include_directories("third_party/include")
