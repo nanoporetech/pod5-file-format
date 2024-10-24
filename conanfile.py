@@ -123,6 +123,13 @@ class Pod5Conan(ConanFile):
             dst = f"{self.build_folder}/{self.settings.build_type}/lib/"
             copy(self, "*", src, dst)
 
+    def package_id(self):
+        boost = self.info.requires["boost"]
+
+        # Changes in major and minor versions will change the Package ID
+        # (1.85.0 isn't compatible with 1.86.0, but 1.86.0 and 1.86.1 are compatible)
+        boost.version = boost.full_version.minor()
+
     def package_info(self):
         # Note: package_info collects information in self.cpp_info. It is called from the Conan
         # application.

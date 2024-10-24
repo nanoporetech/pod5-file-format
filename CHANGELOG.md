@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
 
 - Refactored directio writing engine to open up async io support.
+- Fixed Boost version compatibility checking in Conan packages.
 
 ## [0.3.19]
 
