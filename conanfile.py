@@ -56,7 +56,7 @@ class Pod5Conan(ConanFile):
     def requirements(self):
         self.requires("arrow/12.0.0@")
         if self.options.ont_internal_boost:
-            self.requires("boost/1.78.0@nanopore/testing")
+            self.requires("boost/1.86.0@nanopore/testing")
         else:
             self.requires("boost/1.78.0@")
         self.requires("flatbuffers/2.0.0@")
@@ -122,6 +122,13 @@ class Pod5Conan(ConanFile):
             src = f"{self.build_folder}/third_party/libs/"
             dst = f"{self.build_folder}/{self.settings.build_type}/lib/"
             copy(self, "*", src, dst)
+
+    def package_id(self):
+        boost = self.info.requires["boost"]
+
+        # Changes in major and minor versions will change the Package ID
+        # (1.85.0 isn't compatible with 1.86.0, but 1.86.0 and 1.86.1 are compatible)
+        boost.version = boost.full_version.minor()
 
     def package_info(self):
         # Note: package_info collects information in self.cpp_info. It is called from the Conan
