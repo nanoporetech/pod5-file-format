@@ -14,9 +14,9 @@ git clone https://github.com/gregneagle/relocatable-python.git
 
 echo "Generating python ${version} into ${destination}"
 
-os_version="10.9"
-if [[ "${version}" == "3.10.10" || "${version}" == "3.11.2" || "${version}" == "3.12.0" ]]; then
-    os_version="11"
+os_version="11"
+if [[ "${version}" == "3.8.9" || "${version}" == "3.9.13" ]]; then
+    os_version="10.9"
 fi
 
 # relocatable-python doesn't like this dir existing, it exits with error:
