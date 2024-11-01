@@ -301,7 +301,7 @@ linux-x64-gcc9-release-build:
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 linux-aarch64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_aarch64
@@ -316,7 +316,7 @@ linux-aarch64-gcc9-release-build:
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
 # ======================================
@@ -364,7 +364,7 @@ osx-x64-clang14-release-build:
       - PYTHON_VERSION: ["3.8.9", "3.9.13"]
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-x64"
-      - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0"]
+      - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0", "3.13.0"]
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-x64"
 
@@ -385,7 +385,7 @@ osx-arm64-clang14-release-build:
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
-      - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0"]
+      - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0", "3.13.0"]
         MACOSX_DEPLOYMENT_TARGET: "11.0"
         OUTPUT_SKU: "osx-11.0-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
@@ -426,7 +426,7 @@ win-x64-msvc2019-release-build:
     CMAKE_GENERATOR: "Visual Studio 16 2019"
   parallel:
     matrix:
-      - PYTHON_VERSION: ["38", "39", "310", "311", "312"]
+      - PYTHON_VERSION: ["38", "39", "310", "311", "312", "313"]
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -551,7 +551,7 @@ pytest-linux-aarch64:
     - build-python-api
   parallel:
     matrix:
-      - PY_MINOR_VER: ["8", "9", "10", "11"] # TODO: Missing 12 as h5py doenst have binaries for 3.12 aarch64 yet
+      - PY_MINOR_VER: ["8", "9", "10", "11"] # TODO: Missing 12 as h5py doenst have binaries for 3.12 or 3.13 aarch64 yet
 
 pytest-osx-x64:
   extends: [".pytest"]
