@@ -532,11 +532,6 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    auto thread_pool = options.thread_pool();
-    if (!thread_pool) {
-        thread_pool = make_thread_pool(1);
-    }
-
     ARROW_ASSIGN_OR_RAISE(auto arrow_path, ::arrow::internal::PlatformFilename::FromString(path));
     ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_path));
     if (file_exists) {
