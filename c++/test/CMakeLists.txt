@@ -14,6 +14,7 @@ add_executable(pod5_unit_tests
     svb16_scalar_tests.cpp
     svb16_x64_tests.cpp
     test_utils.h
+    thread_pool_tests.cpp
     utils.h
     uuid_tests.cpp
 )
