@@ -5,6 +5,7 @@
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_reader.h"
+#include "pod5_format/uuid.h"
 
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_dict.h>
@@ -12,7 +13,6 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
 #include <arrow/type.h>
-#include <boost/uuid/uuid_io.hpp>
 
 #include <chrono>
 #include <iostream>
@@ -236,11 +236,7 @@ pod5_error_t pod5_get_file_info(Pod5FileReader_t * reader, FileInfo * file_info)
     }
 
     auto const metadata = reader->reader->schema_metadata();
-
-    std::copy(
-        metadata.file_identifier.begin(),
-        metadata.file_identifier.end(),
-        file_info->file_identifier);
+    metadata.file_identifier.to_c_array(file_info->file_identifier);
 
     file_info->version.major = metadata.writing_pod5_version.major_version();
     file_info->version.minor = metadata.writing_pod5_version.minor_version();
@@ -359,7 +355,7 @@ pod5_error_t pod5_plan_traversal(
     }
 
     auto search_input = pod5::ReadIdSearchInput(
-        gsl::make_span(reinterpret_cast<boost::uuids::uuid const *>(read_id_array), read_id_count));
+        gsl::make_span(reinterpret_cast<pod5::Uuid const *>(read_id_array), read_id_count));
 
     POD5_C_ASSIGN_OR_RAISE(
         auto find_success_count,
@@ -471,7 +467,7 @@ pod5_error_t pod5_get_read_batch_row_info_data(
         }
 
         auto read_id_val = cols.read_id->Value(row);
-        std::copy(read_id_val.begin(), read_id_val.end(), typed_row_data->read_id);
+        read_id_val.to_c_array(typed_row_data->read_id);
 
         typed_row_data->read_number = cols.read_number->Value(row);
         typed_row_data->start_sample = cols.start_sample->Value(row);
@@ -1093,11 +1089,7 @@ static bool load_struct_row_into_read_data(
     if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const *>(row_data);
 
-        boost::uuids::uuid read_id_uuid;
-        std::copy(
-            typed_row_data->read_id[row_id],
-            typed_row_data->read_id[row_id] + sizeof(read_id_uuid),
-            read_id_uuid.begin());
+        pod5::Uuid read_id_uuid{typed_row_data->read_id[row_id]};
 
         pod5::ReadEndReason end_reason_internal = pod5::ReadEndReason::unknown;
         switch (typed_row_data->end_reason[row_id]) {
@@ -1305,8 +1297,8 @@ pod5_error_t pod5_format_read_id(read_id_t const read_id, char * read_id_string)
         return g_pod5_error_no;
     }
 
-    auto uuid_data = reinterpret_cast<boost::uuids::uuid const *>(read_id);
-    std::string string_data = boost::uuids::to_string(*uuid_data);
+    auto uuid_data = reinterpret_cast<pod5::Uuid const *>(read_id);
+    std::string string_data = to_string(*uuid_data);
     if (string_data.size() != 36) {
         pod5_set_error(pod5::Status::Invalid("Unexpected length of UUID"));
         return g_pod5_error_no;

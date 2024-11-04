@@ -9,7 +9,6 @@
 #include <arrow/io/concurrency.h>
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
-#include <boost/uuid/uuid_io.hpp>
 
 namespace pod5 {
 

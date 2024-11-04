@@ -34,9 +34,9 @@ public:
         return uuid_extension->storage_type();
     }
 
-    arrow::Status Append(boost::uuids::uuid const & uuid)
+    arrow::Status Append(Uuid const & uuid)
     {
-        return static_cast<arrow::FixedSizeBinaryBuilder *>(this)->Append(uuid.begin());
+        return static_cast<arrow::FixedSizeBinaryBuilder *>(this)->Append(uuid.data());
     }
 };
 

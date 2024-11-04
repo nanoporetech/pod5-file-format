@@ -88,7 +88,7 @@ struct Pod5RepackerOutputState {
     boost::synchronized_value<std::unordered_map<std::thread::id, Pod5RepackerOutputThreadState>>
         thread_states;
 
-    boost::synchronized_value<std::unordered_set<boost::uuids::uuid>> output_read_ids;
+    boost::synchronized_value<std::unordered_set<pod5::Uuid>> output_read_ids;
 };
 
 namespace {

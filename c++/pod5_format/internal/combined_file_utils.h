@@ -3,14 +3,13 @@
 #include "footer_generated.h"
 #include "pod5_format/file_reader.h"
 #include "pod5_format/result.h"
+#include "pod5_format/uuid.h"
 #include "pod5_format/version.h"
 
 #include <arrow/buffer.h>
 #include <arrow/io/file.h>
 #include <arrow/util/endian.h>
 #include <arrow/util/io_util.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <flatbuffers/flatbuffers.h>
 
 #include <array>
@@ -43,15 +42,14 @@ inline pod5::Status write_file_signature(std::shared_ptr<arrow::io::OutputStream
 
 inline pod5::Status write_section_marker(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    boost::uuids::uuid const & section_marker)
+    Uuid const & section_marker)
 {
-    return sink->Write(
-        section_marker.begin(), std::distance(section_marker.begin(), section_marker.end()));
+    return sink->Write(section_marker.data(), section_marker.size());
 }
 
 inline pod5::Status write_combined_header(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    boost::uuids::uuid const & section_marker)
+    Uuid const & section_marker)
 {
     ARROW_RETURN_NOT_OK(write_file_signature(sink));
     return write_section_marker(sink, section_marker);
@@ -84,7 +82,7 @@ struct ParsedFileInfo : FileInfo {
 
 inline pod5::Result<std::int64_t> write_footer_flatbuffer(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    boost::uuids::uuid const & file_identifier,
+    Uuid const & file_identifier,
     std::string const & software_name,
     FileInfo const & signal_table,
     FileInfo const & run_info_table,
@@ -117,7 +115,7 @@ inline pod5::Result<std::int64_t> write_footer_flatbuffer(
         signal_file, run_info_file, reads_file};
     auto footer = Minknow::ReadsFormat::CreateFooterDirect(
         builder,
-        boost::uuids::to_string(file_identifier).c_str(),
+        to_string(file_identifier).c_str(),
         software_name.c_str(),
         Pod5Version.c_str(),
         &files);
@@ -129,8 +127,8 @@ inline pod5::Result<std::int64_t> write_footer_flatbuffer(
 
 inline pod5::Status write_footer(
     std::shared_ptr<arrow::io::OutputStream> const & sink,
-    boost::uuids::uuid const & section_marker,
-    boost::uuids::uuid const & file_identifier,
+    Uuid const & section_marker,
+    Uuid const & file_identifier,
     std::string const & software_name,
     FileInfo const & signal_table,
     FileInfo const & run_info_table,
@@ -151,7 +149,7 @@ inline pod5::Status write_footer(
 }
 
 struct ParsedFooter {
-    boost::uuids::uuid file_identifier;
+    Uuid file_identifier;
     std::string software_name;
     std::string writer_pod5_version;
 
@@ -196,7 +194,7 @@ inline pod5::Result<ParsedFooter> read_footer(
 
     auto footer_length_data_end = file_size;
     footer_length_data_end -= FILE_SIGNATURE.size();
-    footer_length_data_end -= sizeof(boost::uuids::uuid);
+    footer_length_data_end -= sizeof(Uuid);
 
     std::int64_t footer_length = 0;
     ARROW_RETURN_NOT_OK(file->ReadAt(
@@ -225,13 +223,12 @@ inline pod5::Result<ParsedFooter> read_footer(
     if (!fb_footer->file_identifier()) {
         return arrow::Status::IOError("Invalid footer file_identifier");
     }
-    try {
-        footer.file_identifier =
-            boost::lexical_cast<boost::uuids::uuid>(fb_footer->file_identifier()->str());
-    } catch (boost::bad_lexical_cast const &) {
+    auto const identifier = Uuid::from_string(fb_footer->file_identifier()->str());
+    if (!identifier) {
         return Status::IOError(
             "Invalid file_identifier in file: '", fb_footer->file_identifier()->str(), "'");
     }
+    footer.file_identifier = *identifier;
 
     if (!fb_footer->software()) {
         return arrow::Status::IOError("Invalid footer software");
@@ -438,7 +435,7 @@ inline arrow::Result<combined_file_utils::FileInfo> write_file_and_marker(
     std::shared_ptr<arrow::io::FileOutputStream> const & file,
     FileLocation const & file_location,
     SubFileCleanup cleanup_mode,
-    boost::uuids::uuid const & section_marker)
+    Uuid const & section_marker)
 {
     ARROW_ASSIGN_OR_RAISE(auto file_info, write_file(pool, file, file_location, cleanup_mode));
     // Pad file to 8 bytes and mark section:

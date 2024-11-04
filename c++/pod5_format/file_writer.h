@@ -136,11 +136,11 @@ public:
         std::uint64_t signal_duration);
 
     pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::int16_t const> const & signal);
 
     pod5::Result<SignalTableRowIndex> add_pre_compressed_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::uint8_t const> const & signal_bytes,
         std::uint32_t sample_count);
 

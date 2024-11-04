@@ -15,6 +15,7 @@ add_executable(pod5_unit_tests
     svb16_x64_tests.cpp
     test_utils.h
     utils.h
+    uuid_tests.cpp
 )
 
 if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")

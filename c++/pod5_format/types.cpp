@@ -6,16 +6,16 @@
 
 namespace pod5 {
 
-boost::uuids::uuid const * UuidArray::raw_values() const
+Uuid const * UuidArray::raw_values() const
 {
     auto const array = std::static_pointer_cast<arrow::FixedSizeBinaryArray const>(storage());
-    return reinterpret_cast<boost::uuids::uuid const *>(array->GetValue(0));
+    return reinterpret_cast<Uuid const *>(array->GetValue(0));
 }
 
-boost::uuids::uuid UuidArray::Value(int64_t i) const
+Uuid UuidArray::Value(int64_t i) const
 {
     auto const array = std::static_pointer_cast<arrow::FixedSizeBinaryArray const>(storage());
-    return *reinterpret_cast<boost::uuids::uuid const *>(array->GetValue(i));
+    return *reinterpret_cast<Uuid const *>(array->GetValue(i));
 }
 
 bool UuidType::ExtensionEquals(ExtensionType const & other) const

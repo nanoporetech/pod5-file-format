@@ -7,9 +7,9 @@
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/table_reader.h"
 #include "pod5_format/types.h"
+#include "pod5_format/uuid.h"
 
 #include <arrow/io/type_fwd.h>
-#include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
 #include <mutex>
@@ -112,7 +112,7 @@ public:
 
 private:
     struct IndexData {
-        boost::uuids::uuid id;
+        Uuid id;
         std::size_t batch;
         std::size_t batch_row;
     };

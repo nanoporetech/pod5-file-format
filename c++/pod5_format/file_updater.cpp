@@ -3,9 +3,9 @@
 #include "pod5_format/file_reader.h"
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/schema_metadata.h"
+#include "pod5_format/uuid.h"
 
 #include <arrow/io/file.h>
-#include <boost/uuid/random_generator.hpp>
 
 namespace pod5 {
 
@@ -16,7 +16,8 @@ pod5::Status update_file(
 {
     ARROW_ASSIGN_OR_RAISE(auto main_file, arrow::io::FileOutputStream::Open(destination, false));
 
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::random_device gen;
+    auto uuid_gen = BasicUuidRandomGenerator<std::random_device>{gen};
     auto const section_marker = uuid_gen();
 
     auto metadata = source->schema_metadata();

@@ -1,8 +1,5 @@
 #include "pod5_format/c_api.h"
-
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include "pod5_format/uuid.h"
 
 #include <fstream>
 #include <iostream>
@@ -33,14 +30,19 @@ int main(int argc, char ** argv)
         return EXIT_FAILURE;
     }
 
-    std::vector<boost::uuids::uuid> search_uuids;
+    std::vector<pod5::Uuid> search_uuids;
     std::string input_path(argv[2]);
     try {
         std::cout << "Reading input read ids from " << input_path << "\n";
         std::string line;
         std::ifstream input_stream(input_path);
         while (std::getline(input_stream, line)) {
-            search_uuids.push_back(boost::lexical_cast<boost::uuids::uuid>(line));
+            auto const uuid = pod5::Uuid::from_string(line);
+            if (!uuid) {
+                std::cerr << '"' << line << "\" is not a valid UUID, ignoring it\n";
+            } else {
+                search_uuids.push_back(*uuid);
+            }
         }
         std::cout << "  Read " << search_uuids.size() << " ids from the text file\n";
     } catch (std::exception const & e) {
@@ -76,7 +78,6 @@ int main(int argc, char ** argv)
     std::size_t row_offset = 0;
 
     // Walk the suggested traversal route, storing read data.
-    std::size_t step_index = 0;
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
         Pod5ReadRecordBatch_t * batch = nullptr;
         if (pod5_get_read_batch(&batch, file, batch_index) != POD5_OK) {

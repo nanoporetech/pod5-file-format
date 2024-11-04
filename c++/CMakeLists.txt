@@ -107,6 +107,7 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/tuple_utils.h
     pod5_format/types.cpp
     pod5_format/types.h
+    pod5_format/uuid.h
 
     pod5_format/migration/migration.cpp
     pod5_format/migration/migration.h
@@ -153,6 +154,7 @@ list(APPEND public_headers
     pod5_format/signal_table_writer.h
     pod5_format/signal_table_utils.h
     pod5_format/signal_builder.h
+    pod5_format/uuid.h
 
     pod5_format/c_api.h
 

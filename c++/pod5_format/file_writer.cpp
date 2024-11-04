@@ -11,6 +11,7 @@
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_table_writer.h"
 #include "pod5_format/thread_pool.h"
+#include "pod5_format/uuid.h"
 #include "pod5_format/version.h"
 
 #include <arrow/io/file.h>
@@ -19,7 +20,6 @@
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
 #include <boost/optional/optional.hpp>
-#include <boost/uuid/random_generator.hpp>
 
 #ifdef __linux__
 #include "pod5_format/internal/linux_output_stream.h"
@@ -190,7 +190,7 @@ public:
     }
 
     pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::int16_t const> const & signal)
     {
         if (!m_signal_table_writer || !m_read_table_writer) {
@@ -217,7 +217,7 @@ public:
     }
 
     pod5::Result<SignalTableRowIndex> add_pre_compressed_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::uint8_t const> const & signal_bytes,
         std::uint32_t sample_count)
     {
@@ -325,8 +325,8 @@ public:
         std::string const & run_info_tmp_path,
         std::string const & reads_tmp_path,
         std::int64_t signal_file_start_offset,
-        boost::uuids::uuid const & section_marker,
-        boost::uuids::uuid const & file_identifier,
+        Uuid const & section_marker,
+        Uuid const & file_identifier,
         std::string const & software_name,
         DictionaryWriters && dict_writers,
         RunInfoTableWriter && run_info_table_writer,
@@ -422,8 +422,8 @@ private:
     std::string m_run_info_tmp_path;
     std::string m_reads_tmp_path;
     std::int64_t m_signal_file_start_offset;
-    boost::uuids::uuid m_section_marker;
-    boost::uuids::uuid m_file_identifier;
+    Uuid m_section_marker;
+    Uuid m_file_identifier;
     std::string m_software_name;
 };
 
@@ -451,14 +451,14 @@ arrow::Status FileWriter::add_complete_read(
 }
 
 pod5::Result<std::vector<SignalTableRowIndex>> FileWriter::add_signal(
-    boost::uuids::uuid const & read_id,
+    Uuid const & read_id,
     gsl::span<std::int16_t const> const & signal)
 {
     return m_impl->add_signal(read_id, signal);
 }
 
 pod5::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
-    boost::uuids::uuid const & read_id,
+    Uuid const & read_id,
     gsl::span<std::uint8_t const> const & signal_bytes,
     std::uint32_t sample_count)
 {
@@ -508,18 +508,17 @@ pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::M
 
 std::string make_reads_tmp_path(
     ::arrow::internal::PlatformFilename const & arrow_path,
-    boost::uuids::uuid const & file_identifier)
+    Uuid const & file_identifier)
 {
-    return arrow_path.Parent().ToString() + "/"
-           + ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");
+    return arrow_path.Parent().ToString() + "/" + ("." + to_string(file_identifier) + ".tmp-reads");
 }
 
 std::string make_run_info_tmp_path(
     ::arrow::internal::PlatformFilename const & arrow_path,
-    boost::uuids::uuid const & file_identifier)
+    Uuid const & file_identifier)
 {
     return arrow_path.Parent().ToString() + "/"
-           + ("." + boost::uuids::to_string(file_identifier) + ".tmp-run-info");
+           + ("." + to_string(file_identifier) + ".tmp-run-info");
 }
 
 pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
@@ -547,7 +546,8 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     ARROW_ASSIGN_OR_RAISE(auto dict_writers, make_dictionary_writers(pool));
 
     // Prep file metadata:
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::random_device gen;
+    auto uuid_gen = BasicUuidRandomGenerator<std::random_device>{gen};
     auto const section_marker = uuid_gen();
     auto const file_identifier = uuid_gen();
 

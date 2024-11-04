@@ -47,7 +47,7 @@ SignalTableWriter::~SignalTableWriter()
 }
 
 Result<SignalTableRowIndex> SignalTableWriter::add_signal(
-    boost::uuids::uuid const & read_id,
+    Uuid const & read_id,
     gsl::span<std::int16_t const> const & signal)
 {
     POD5_TRACE_FUNCTION();
@@ -58,7 +58,7 @@ Result<SignalTableRowIndex> SignalTableWriter::add_signal(
     ARROW_RETURN_NOT_OK(reserve_rows());
 
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
-    ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
+    ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.data()));
 
     ARROW_RETURN_NOT_OK(
         boost::apply_visitor(visitors::append_signal{signal, m_pool}, m_signal_builder));
@@ -74,7 +74,7 @@ Result<SignalTableRowIndex> SignalTableWriter::add_signal(
 }
 
 Result<SignalTableRowIndex> SignalTableWriter::add_pre_compressed_signal(
-    boost::uuids::uuid const & read_id,
+    Uuid const & read_id,
     gsl::span<std::uint8_t const> const & signal,
     std::uint32_t sample_count)
 {
@@ -86,7 +86,7 @@ Result<SignalTableRowIndex> SignalTableWriter::add_pre_compressed_signal(
     ARROW_RETURN_NOT_OK(reserve_rows());
 
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
-    ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.begin()));
+    ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.data()));
 
     ARROW_RETURN_NOT_OK(
         boost::apply_visitor(visitors::append_pre_compressed_signal{signal}, m_signal_builder));
