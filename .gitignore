@@ -1,10 +1,11 @@
 build*/
 _build/
+.cache/
 dist/
 .DS_Store
 .pod5
 venv/
-.venv/
+*.venv/
 docs/public/
 .tmp_pod5*
 _version.py
@@ -14,3 +15,4 @@ POD5Version.cmake
 test_package/CMakeUserPresets.json
 .vscode/
 __pycache__
+python/Python.framework/
