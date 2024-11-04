@@ -1,8 +1,8 @@
 #include "pod5_format/thread_pool.h"
 
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 
+#include <optional>
 #include <thread>
 
 namespace pod5 {
@@ -45,7 +45,7 @@ public:
     }
 
     boost::asio::io_context m_context;
-    boost::optional<boost::asio::io_context::work> m_work;
+    std::optional<boost::asio::io_context::work> m_work;
     std::vector<std::thread> m_threads;
 };
 

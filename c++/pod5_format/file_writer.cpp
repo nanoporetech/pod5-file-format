@@ -19,7 +19,8 @@
 #include <arrow/result.h>
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
-#include <boost/optional/optional.hpp>
+
+#include <optional>
 
 #ifdef __linux__
 #include "pod5_format/internal/linux_output_stream.h"
@@ -252,7 +253,7 @@ public:
     {
         if (m_run_info_table_writer) {
             ARROW_RETURN_NOT_OK(m_run_info_table_writer->close());
-            m_run_info_table_writer = boost::none;
+            m_run_info_table_writer = std::nullopt;
         }
         return pod5::Status::OK();
     }
@@ -261,7 +262,7 @@ public:
     {
         if (m_read_table_writer) {
             ARROW_RETURN_NOT_OK(m_read_table_writer->close());
-            m_read_table_writer = boost::none;
+            m_read_table_writer = std::nullopt;
         }
         return pod5::Status::OK();
     }
@@ -270,7 +271,7 @@ public:
     {
         if (m_signal_table_writer) {
             ARROW_RETURN_NOT_OK(m_signal_table_writer->close());
-            m_signal_table_writer = boost::none;
+            m_signal_table_writer = std::nullopt;
         }
         return pod5::Status::OK();
     }
@@ -287,33 +288,33 @@ public:
 
     RunInfoTableWriter * run_info_table_writer()
     {
-        if (is_closed()) {
+        if (is_closed() || !m_run_info_table_writer.has_value()) {
             return nullptr;
         }
-        return m_run_info_table_writer.get_ptr();
+        return &m_run_info_table_writer.value();
     }
 
     ReadTableWriter * read_table_writer()
     {
-        if (is_closed()) {
+        if (is_closed() || !m_read_table_writer.has_value()) {
             return nullptr;
         }
-        return m_read_table_writer.get_ptr();
+        return &m_read_table_writer.value();
     }
 
     SignalTableWriter * signal_table_writer()
     {
-        if (is_closed()) {
+        if (is_closed() || !m_signal_table_writer.has_value()) {
             return nullptr;
         }
-        return m_signal_table_writer.get_ptr();
+        return &m_signal_table_writer.value();
     }
 
 private:
     DictionaryWriters m_read_table_dict_writers;
-    boost::optional<RunInfoTableWriter> m_run_info_table_writer;
-    boost::optional<ReadTableWriter> m_read_table_writer;
-    boost::optional<SignalTableWriter> m_signal_table_writer;
+    std::optional<RunInfoTableWriter> m_run_info_table_writer;
+    std::optional<ReadTableWriter> m_read_table_writer;
+    std::optional<SignalTableWriter> m_signal_table_writer;
     std::uint32_t m_signal_chunk_size;
     arrow::MemoryPool * m_pool;
 };
