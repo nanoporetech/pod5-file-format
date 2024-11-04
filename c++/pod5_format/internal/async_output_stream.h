@@ -6,9 +6,9 @@
 
 #include <arrow/buffer.h>
 #include <arrow/util/future.h>
-#include <boost/thread/synchronized_value.hpp>
 #include <gsl/gsl-lite.hpp>
 
+#include <cassert>
 #include <condition_variable>
 #include <deque>
 #include <thread>
@@ -77,7 +77,7 @@ public:
     {
         POD5_TRACE_FUNCTION();
         if (m_has_error) {
-            return *m_error;
+            return error();
         }
 
         std::size_t const BUFFER_SIZE = 10 * 1024 * 1024;  // 10mb pending writes max
@@ -99,8 +99,7 @@ public:
             m_completed_byte_writes += data->size();
 
             if (!result.ok()) {
-                m_error = result;
-                m_has_error = true;
+                set_error(std::move(result));
             }
 
             // Ensure we do this after editing all the other members, in order to prevent `Flush`
@@ -122,7 +121,7 @@ public:
         }
 
         if (m_has_error) {
-            return *m_error;
+            return error();
         }
 
         return m_main_stream->Flush();
@@ -162,7 +161,22 @@ protected:
 
     arrow::MemoryPool * memory_pool() { return m_memory_pool; }
 
-    boost::synchronized_value<arrow::Status> m_error;
+    void set_error(arrow::Status status)
+    {
+        assert(!status.ok());
+        {
+            std::lock_guard<std::mutex> l{m_error_mutex};
+            m_error = std::move(status);
+        }
+        m_has_error = true;
+    }
+
+    arrow::Status error() const
+    {
+        std::lock_guard<std::mutex> l{m_error_mutex};
+        return m_error;
+    }
+
     std::atomic<bool> m_has_error;
 
     std::atomic<std::size_t> m_submitted_writes;
@@ -176,6 +190,9 @@ protected:
     std::shared_ptr<OutputStream> m_main_stream;
 
 private:
+    mutable std::mutex m_error_mutex;
+    arrow::Status m_error;
+
     std::size_t m_file_start_offset;
     std::shared_ptr<ThreadPoolStrand> m_strand;
     arrow::MemoryPool * m_memory_pool;

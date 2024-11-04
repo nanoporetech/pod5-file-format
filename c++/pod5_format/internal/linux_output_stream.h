@@ -6,7 +6,6 @@
 
 #include <arrow/buffer.h>
 #include <arrow/util/future.h>
-#include <boost/thread/synchronized_value.hpp>
 #include <gsl/gsl-lite.hpp>
 
 #include <condition_variable>
