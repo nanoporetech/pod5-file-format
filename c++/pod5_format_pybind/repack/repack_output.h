@@ -1,9 +1,14 @@
 #pragma once
 
 #include "pod5_format/file_writer.h"
+#include "pod5_format/thread_pool.h"
 #include "repack_states.h"
 
+#include <atomic>
 #include <deque>
+#include <memory>
+#include <mutex>
+#include <vector>
 
 namespace repack {
 
@@ -15,7 +20,7 @@ class Pod5RepackerOutput {
 public:
     Pod5RepackerOutput(
         std::shared_ptr<Pod5Repacker> const & repacker,
-        boost::asio::io_context & m_context,
+        std::shared_ptr<pod5::ThreadPool> thread_pool,
         std::shared_ptr<pod5::FileWriter> const & output,
         bool check_duplicate_read_ids);
     ~Pod5RepackerOutput();
@@ -64,7 +69,7 @@ private:
     }
 
     std::shared_ptr<Pod5Repacker> m_repacker;
-    boost::asio::io_context & m_context;
+    std::shared_ptr<pod5::ThreadPool> m_thread_pool;
     std::shared_ptr<pod5::FileWriter> m_output;
     std::atomic<bool> m_finished{false};
 

@@ -33,19 +33,37 @@ public:
 
     ~ThreadPoolImpl()
     {
-        m_work.reset();
-        for (auto & thread : m_threads) {
-            thread.join();
-        }
+        stop_and_drain();
     }
 
     std::shared_ptr<ThreadPoolStrand> create_strand() override
     {
+        if (m_stopped) {
+            throw std::logic_error{"ThreadPool: create_strand() called after stop_and_drain()"};
+        }
         return std::make_shared<StrandImpl>(m_context, shared_from_this());
+    }
+
+    void post(std::function<void()> callback) override {
+        if (m_stopped) {
+            throw std::logic_error{"ThreadPool: post() called after stop_and_drain()"};
+        }
+        boost::asio::post(m_context, std::move(callback));
+    }
+
+    void stop_and_drain() override {
+        m_stopped = true;
+        m_work.reset();
+        for (auto & thread : m_threads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
     }
 
     boost::asio::io_context m_context;
     std::optional<boost::asio::io_context::work> m_work;
+    std::atomic<bool> m_stopped{false};
     std::vector<std::thread> m_threads;
 };
 

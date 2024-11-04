@@ -2,11 +2,11 @@
 
 #include "pod5_format_pybind/api.h"
 
-#include <boost/asio/executor_work_guard.hpp>
-#include <boost/asio/io_context.hpp>
 #include <pybind11/pybind11.h>
 
 #include <iostream>
+#include <memory>
+#include <vector>
 
 namespace repack {
 
@@ -73,9 +73,7 @@ private:
         m_file_readers.emplace_back(input.reader);
     }
 
-    boost::asio::io_context m_context;
-    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> m_work;
-    std::vector<std::thread> m_workers;
+    std::shared_ptr<pod5::ThreadPool> m_thread_pool;
 
     mutable std::vector<std::weak_ptr<pod5::FileReader>> m_file_readers;
     std::vector<std::shared_ptr<Pod5RepackerOutput>> m_outputs;

@@ -5,7 +5,6 @@
 
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_primitive.h>
-#include <boost/asio/io_context.hpp>
 
 #include <cstddef>
 #include <cstdint>

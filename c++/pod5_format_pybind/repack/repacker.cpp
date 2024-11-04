@@ -24,14 +24,7 @@ void repacker_add_reads_preconditions(
 
 }  // namespace
 
-Pod5Repacker::Pod5Repacker() : m_work(boost::asio::make_work_guard(m_context))
-{
-    std::size_t worker_count = 10;
-    m_workers.reserve(worker_count);
-    for (std::size_t i = 0; i < worker_count; ++i) {
-        m_workers.emplace_back([&] { m_context.run(); });
-    }
-}
+Pod5Repacker::Pod5Repacker() : m_thread_pool{pod5::make_thread_pool(10)} {}
 
 Pod5Repacker::~Pod5Repacker() { finish(); }
 
@@ -44,12 +37,7 @@ void Pod5Repacker::finish()
 
     check_for_error();
 
-    m_work.reset();
-    for (auto & worker : m_workers) {
-        if (worker.joinable()) {
-            worker.join();
-        }
-    }
+    m_thread_pool->stop_and_drain();
 
     for (auto & output : m_outputs) {
         m_reads_complete_deleted_outputs += output->reads_completed();
@@ -63,7 +51,7 @@ std::shared_ptr<Pod5RepackerOutput> Pod5Repacker::add_output(
 {
     POD5_TRACE_FUNCTION();
     auto repacker_output = std::make_shared<Pod5RepackerOutput>(
-        shared_from_this(), m_context, output, check_duplicate_read_ids);
+        shared_from_this(), m_thread_pool, output, check_duplicate_read_ids);
     m_outputs.push_back(repacker_output);
     return repacker_output;
 }

@@ -236,11 +236,11 @@ struct StateOperator {
 
 Pod5RepackerOutput::Pod5RepackerOutput(
     std::shared_ptr<Pod5Repacker> const & repacker,
-    boost::asio::io_context & context,
+    std::shared_ptr<pod5::ThreadPool> thread_pool,
     std::shared_ptr<pod5::FileWriter> const & output,
     bool check_duplicate_read_ids)
 : m_repacker(repacker)
-, m_context(context)
+, m_thread_pool(thread_pool)
 , m_output(output)
 , m_progress_state(std::make_unique<Pod5RepackerOutputState>(
       output,
@@ -316,7 +316,7 @@ void Pod5RepackerOutput::register_new_reads(
 
 void Pod5RepackerOutput::post_try_work()
 {
-    m_context.post([&]() {
+    m_thread_pool->post([&]() {
         POD5_TRACE_FUNCTION();
 
         auto get_next_work = [](auto & locked_states) -> states::shared_variant {
