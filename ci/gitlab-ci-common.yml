@@ -71,8 +71,6 @@ before_script:
     # The after_script removes unneeded builds and sources and packages everything into a tarball,
     # artifacts defines the name and path for build artifacts.
     stage: build
-    variables:
-        EXTRA_CREATE_ARGS: "-opod5_file_format:ont_internal_boost=True"
     script:
         - *profile-variables
         - |

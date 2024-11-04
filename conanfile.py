@@ -11,10 +11,9 @@ class Pod5Conan(ConanFile):
     description = "POD5 File format"
     topics = "nanopore", "sequencing", "genomic", "dna", "arrow"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False], "ont_internal_boost": [True, False]}
+    options = {"shared": [True, False]}
     default_options = {
         "shared": False,
-        "ont_internal_boost": False,
         "arrow:with_zstd": True,
     }
     exports_sources = [
@@ -55,10 +54,6 @@ class Pod5Conan(ConanFile):
 
     def requirements(self):
         self.requires("arrow/12.0.0@")
-        if self.options.ont_internal_boost:
-            self.requires("boost/1.86.0@nanopore/testing")
-        else:
-            self.requires("boost/1.78.0@")
         self.requires("flatbuffers/2.0.0@")
         self.requires("zstd/1.5.5@")
         self.requires("zlib/1.2.13@")
@@ -123,13 +118,6 @@ class Pod5Conan(ConanFile):
             dst = f"{self.build_folder}/{self.settings.build_type}/lib/"
             copy(self, "*", src, dst)
 
-    def package_id(self):
-        boost = self.info.requires["boost"]
-
-        # Changes in major and minor versions will change the Package ID
-        # (1.85.0 isn't compatible with 1.86.0, but 1.86.0 and 1.86.1 are compatible)
-        boost.version = boost.full_version.minor()
-
     def package_info(self):
         # Note: package_info collects information in self.cpp_info. It is called from the Conan
         # application.
@@ -149,7 +137,6 @@ class Pod5Conan(ConanFile):
         self.cpp_info.libs = collect_libs(self)
         self.cpp_info.requires = [
             "arrow::arrow",
-            "boost::headers",
             "flatbuffers::flatbuffers",
             "zstd::zstd",
             "zlib::zlib",

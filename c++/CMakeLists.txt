@@ -2,7 +2,6 @@
 
 if (ENABLE_CONAN)
     find_package(Arrow REQUIRED CONFIG)
-    find_package(Boost REQUIRED CONFIG)
     find_package(Flatbuffers REQUIRED CONFIG)
     find_package(zstd REQUIRED CONFIG)
     find_package(ZLIB REQUIRED CONFIG)
@@ -12,11 +11,6 @@ if (ENABLE_CONAN)
     endif()
 else()
     find_package(Arrow REQUIRED)
-    find_package(
-        Boost REQUIRED
-        COMPONENTS
-            headers
-    )
     find_package(Flatbuffers REQUIRED)
     find_package(zstd REQUIRED)
     find_package(ZLIB REQUIRED)
@@ -200,7 +194,6 @@ set_target_properties(pod5_format
 set(maybe_public_libs
     arrow::arrow
     flatbuffers::flatbuffers
-    Boost::headers
 )
 if (BUILD_SHARED_LIB)
     target_link_libraries(pod5_format PRIVATE ${maybe_public_libs})

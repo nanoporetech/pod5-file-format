@@ -80,7 +80,6 @@ Building the project requires that several tools and libraries are available
 * `CMake <https://cmake.org/>`_
 * Arrow_
 * `Zstd <https://github.com/facebook/zstd#build-instructions>`_
-* `Boost <https://www.boost.org/>`_
 * `Flatbuffers <https://google.github.io/flatbuffers/>`_
 
 
@@ -92,7 +91,7 @@ Building the project requires that several tools and libraries are available
    $ sudo apt update
 
    # Now install the rest of the dependencies:
-   $ sudo apt install cmake libzstd-dev libzstd-dev libboost-dev libboost-filesystem-dev libflatbuffers-dev
+   $ sudo apt install cmake libzstd-dev libzstd-dev libflatbuffers-dev
 
    # Finally start build of POD5:
    $ git clone https://github.com/nanoporetech/pod5-file-format.git

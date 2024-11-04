@@ -34,7 +34,7 @@ IncludeCategories:
   # Aim is:
   # 0. the "main" header file (#include "foo.h" in foo.cpp) automatically gets priority 0
   # 1. internal headers (#include "util/helpers.h"): quotation marks, with a '/'
-  # 2. third-party headers (#include <boost/string_view.hpp>): angle brackets, '/' or .h/.hpp/.h++
+  # 2. third-party headers (#include <arrow/status.h>): angle brackets, '/' or .h/.hpp/.h++
   #    file ext
   # 3. standard library headers (#include <vector>): angle brackets, no file ext, no '/'
   - Regex:    '^"'
