@@ -7,7 +7,6 @@
 #include "pod5_format/uuid.h"
 
 #include <arrow/io/type_fwd.h>
-#include <boost/variant/variant.hpp>
 #include <gsl/gsl-lite.hpp>
 
 namespace arrow {

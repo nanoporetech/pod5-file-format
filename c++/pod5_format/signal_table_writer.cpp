@@ -60,8 +60,7 @@ Result<SignalTableRowIndex> SignalTableWriter::add_signal(
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.data()));
 
-    ARROW_RETURN_NOT_OK(
-        boost::apply_visitor(visitors::append_signal{signal, m_pool}, m_signal_builder));
+    ARROW_RETURN_NOT_OK(std::visit(visitors::append_signal{signal, m_pool}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(signal.size()));
     ++m_current_batch_row_count;
@@ -89,7 +88,7 @@ Result<SignalTableRowIndex> SignalTableWriter::add_pre_compressed_signal(
     ARROW_RETURN_NOT_OK(m_read_id_builder->Append(read_id.data()));
 
     ARROW_RETURN_NOT_OK(
-        boost::apply_visitor(visitors::append_pre_compressed_signal{signal}, m_signal_builder));
+        std::visit(visitors::append_pre_compressed_signal{signal}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Append(sample_count));
     ++m_current_batch_row_count;
@@ -167,8 +166,8 @@ Status SignalTableWriter::write_batch()
     std::vector<std::shared_ptr<arrow::Array>> columns{nullptr, nullptr, nullptr};
     ARROW_RETURN_NOT_OK(m_read_id_builder->Finish(&columns[m_field_locations.read_id]));
 
-    ARROW_RETURN_NOT_OK(boost::apply_visitor(
-        visitors::finish_column{&columns[m_field_locations.signal]}, m_signal_builder));
+    ARROW_RETURN_NOT_OK(
+        std::visit(visitors::finish_column{&columns[m_field_locations.signal]}, m_signal_builder));
 
     ARROW_RETURN_NOT_OK(m_samples_builder->Finish(&columns[m_field_locations.samples]));
 
@@ -193,7 +192,7 @@ Status SignalTableWriter::reserve_rows()
 
     static constexpr std::uint32_t APPROX_READ_SIZE = 102'400;
 
-    return boost::apply_visitor(
+    return std::visit(
         visitors::reserve_rows{m_table_batch_size, APPROX_READ_SIZE}, m_signal_builder);
 }
 

@@ -8,7 +8,8 @@
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/util.h>
-#include <boost/variant.hpp>
+
+#include <variant>
 
 namespace pod5 {
 
@@ -22,7 +23,7 @@ struct VbzSignalBuilder {
     ExpandableBuffer<std::uint8_t> data_values;
 };
 
-using SignalBuilderVariant = boost::variant<UncompressedSignalBuilder, VbzSignalBuilder>;
+using SignalBuilderVariant = std::variant<UncompressedSignalBuilder, VbzSignalBuilder>;
 
 inline arrow::Result<SignalBuilderVariant> make_signal_builder(
     SignalType compression_type,
@@ -43,7 +44,7 @@ inline arrow::Result<SignalBuilderVariant> make_signal_builder(
 }
 
 namespace visitors {
-class reserve_rows : boost::static_visitor<Status> {
+class reserve_rows {
 public:
     reserve_rows(std::size_t row_count, std::size_t approx_read_samples)
     : m_row_count(row_count)
@@ -67,7 +68,7 @@ public:
     std::size_t m_approx_read_samples;
 };
 
-class append_pre_compressed_signal : boost::static_visitor<Status> {
+class append_pre_compressed_signal {
 public:
     append_pre_compressed_signal(gsl::span<std::uint8_t const> const & signal) : m_signal(signal) {}
 
@@ -89,7 +90,7 @@ public:
     gsl::span<std::uint8_t const> m_signal;
 };
 
-class append_signal : boost::static_visitor<Status> {
+class append_signal {
 public:
     append_signal(gsl::span<std::int16_t const> const & signal, arrow::MemoryPool * pool)
     : m_signal(signal)
@@ -120,7 +121,7 @@ public:
     arrow::MemoryPool * m_pool;
 };
 
-class finish_column : boost::static_visitor<Status> {
+class finish_column {
 public:
     finish_column(std::shared_ptr<arrow::Array> * dest) : m_dest(dest) {}
 

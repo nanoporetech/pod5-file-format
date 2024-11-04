@@ -10,7 +10,7 @@
 namespace repack {
 
 namespace {
-struct is_not_nullptr : boost::static_visitor<bool> {
+struct is_not_nullptr {
     template <typename T>
     bool operator()(T const & t) const
     {
@@ -19,7 +19,7 @@ struct is_not_nullptr : boost::static_visitor<bool> {
 };
 
 #if 0
-struct get_name : boost::static_visitor<std::string>{
+struct get_name{
     template <typename T>
     std::string operator()(T const& t) const {
         return typeid(typename T::element_type).name();
@@ -31,7 +31,7 @@ void dump_queued_items(T const& queued) {
     std::map<std::string, std::size_t> items;
 
     for (auto const& item : queued) {
-        items[boost::apply_visitor(get_name{}, item)] += 1;
+        items[std::visit(get_name{}, item)] += 1;
     }
 
     std::cout << "Queued items:\n";
@@ -104,7 +104,7 @@ struct StateProgressResult {
     std::vector<states::shared_variant> new_states;
 };
 
-struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>> {
+struct StateOperator {
     StateOperator(Pod5RepackerOutputState * _progress_state) : progress_state(_progress_state) {}
 
     arrow::Result<StateProgressResult> operator()(
@@ -322,15 +322,15 @@ void Pod5RepackerOutput::post_try_work()
             // are in `m_active_read_table_states`
             auto remove_in_flight = gsl::finally([&] { m_in_flight -= 1; });
 
-            if (!boost::apply_visitor(is_not_nullptr{}, next_work)) {
+            if (!std::visit(is_not_nullptr{}, next_work)) {
                 auto states = m_active_read_table_states.synchronize();
                 next_work = get_next_work(states);
-                if (!boost::apply_visitor(is_not_nullptr{}, next_work)) {
+                if (!std::visit(is_not_nullptr{}, next_work)) {
                     return;
                 }
             }
 
-            auto result = boost::apply_visitor(state_operator, next_work);
+            auto result = std::visit(state_operator, next_work);
             if (!result.ok()) {
                 set_error(result.status());
                 return;

@@ -6,10 +6,10 @@
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_primitive.h>
 #include <boost/asio/io_context.hpp>
-#include <boost/variant.hpp>
 
 #include <cstddef>
 #include <cstdint>
+#include <variant>
 #include <vector>
 
 namespace repack { namespace states {
@@ -77,7 +77,7 @@ public:
 
 struct finished {};
 
-using shared_variant = boost::variant<
+using shared_variant = std::variant<
     std::shared_ptr<unread_read_table_rows>,
     std::shared_ptr<read_split_signal_table_batch_rows>,
     std::shared_ptr<read_read_table_rows_no_signal>,
