@@ -6,6 +6,7 @@
 #include <catch2/catch.hpp>
 
 #include <fstream>
+#include <sstream>
 
 namespace {
 static constexpr std::size_t TestDataSize = 1024 * 1024 * 100;

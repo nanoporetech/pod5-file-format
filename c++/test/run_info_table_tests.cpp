@@ -3,6 +3,7 @@
 #include "pod5_format/run_info_table_writer.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/types.h"
+#include "pod5_format/uuid.h"
 #include "pod5_format/version.h"
 #include "test_utils.h"
 #include "utils.h"
@@ -13,7 +14,6 @@
 #include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
 #include <arrow/record_batch.h>
-#include <boost/uuid/random_generator.hpp>
 #include <catch2/catch.hpp>
 
 SCENARIO("Run Info table Tests")
@@ -23,7 +23,8 @@ SCENARIO("Run Info table Tests")
     (void)pod5::register_extension_types();
     auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::mt19937 gen{Catch::rngSeed()};
+    auto uuid_gen = pod5::UuidRandomGenerator{gen};
 
     auto file_identifier = uuid_gen();
 

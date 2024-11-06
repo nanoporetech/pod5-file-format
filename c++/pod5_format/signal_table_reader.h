@@ -8,8 +8,6 @@
 #include "pod5_format/types.h"
 
 #include <arrow/io/type_fwd.h>
-#include <boost/optional.hpp>
-#include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
 #include <atomic>

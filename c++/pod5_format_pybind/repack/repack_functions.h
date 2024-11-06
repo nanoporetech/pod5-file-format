@@ -4,13 +4,12 @@
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_builder.h"
 #include "pod5_format/signal_table_schema.h"
+#include "pod5_format/uuid.h"
 #include "repack_utils.h"
 
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
 #include <arrow/array/builder_binary.h>
-#include <boost/uuid/uuid_hash.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 #include <numeric>
 #include <unordered_set>
@@ -23,7 +22,7 @@ struct ReadReadData {
     std::vector<std::size_t> signal_durations;
     std::vector<std::size_t> signal_row_sizes;
 
-    std::vector<boost::uuids::uuid> signal_rows_read_ids;
+    std::vector<pod5::Uuid> signal_rows_read_ids;
     std::vector<std::uint64_t> signal_rows;
 };
 
@@ -135,7 +134,7 @@ arrow::Status read_signal(
     std::shared_ptr<pod5::FileReader> const & source_file,
     pod5::SignalType input_compression_type,
     std::uint64_t abs_signal_row,
-    boost::uuids::uuid read_id,
+    pod5::Uuid read_id,
     pod5::SignalType output_compression_type,
     arrow::FixedSizeBinaryBuilder & read_id_builder,
     pod5::SignalBuilderVariant & signal_builder,
@@ -158,9 +157,9 @@ arrow::Status read_signal(
         auto signal_span =
             gsl::make_span(extracted_signal.front()->data(), extracted_signal.front()->size());
 
-        ARROW_RETURN_NOT_OK(read_id_builder.Append(read_id.begin()));
-        ARROW_RETURN_NOT_OK(boost::apply_visitor(
-            pod5::visitors::append_pre_compressed_signal{signal_span}, signal_builder));
+        ARROW_RETURN_NOT_OK(read_id_builder.Append(read_id.data()));
+        ARROW_RETURN_NOT_OK(
+            std::visit(pod5::visitors::append_pre_compressed_signal{signal_span}, signal_builder));
         ARROW_RETURN_NOT_OK(samples_builder.Append(sample_counts.front()));
     } else {
         // Find the sample count of the complete read:
@@ -171,9 +170,9 @@ arrow::Status read_signal(
         auto signal_buffer_span = gsl::make_span(signal);
         ARROW_RETURN_NOT_OK(source_file->extract_samples(signal_rows_span, signal_buffer_span));
 
-        ARROW_RETURN_NOT_OK(read_id_builder.Append(read_id.begin()));
-        ARROW_RETURN_NOT_OK(boost::apply_visitor(
-            pod5::visitors::append_signal{signal_buffer_span, pool}, signal_builder));
+        ARROW_RETURN_NOT_OK(read_id_builder.Append(read_id.data()));
+        ARROW_RETURN_NOT_OK(
+            std::visit(pod5::visitors::append_signal{signal_buffer_span, pool}, signal_builder));
         ARROW_RETURN_NOT_OK(samples_builder.Append(sample_count));
     }
     return arrow::Status::OK();
@@ -188,7 +187,7 @@ arrow::Result<RequestedSignalReads> request_signal_reads(
     std::shared_ptr<pod5::FileReader> const & source_file,
     pod5::SignalType output_compression_type,
     std::size_t signal_batch_size,
-    std::vector<boost::uuids::uuid> read_ids,
+    std::vector<pod5::Uuid> read_ids,
     std::vector<std::uint64_t> signal_rows,
     std::shared_ptr<states::read_split_signal_table_batch_rows> const & partial_request,
     std::shared_ptr<states::read_read_table_rows_no_signal> const & dest_read_table_rows,
@@ -268,7 +267,7 @@ arrow::Result<ReadSignal> read_signal_data(states::read_split_signal_table_batch
     result.columns = {nullptr, nullptr, nullptr};
     ARROW_RETURN_NOT_OK(
         signal_rows.read_id_builder->Finish(&result.columns[field_locations.read_id]));
-    ARROW_RETURN_NOT_OK(boost::apply_visitor(
+    ARROW_RETURN_NOT_OK(std::visit(
         pod5::visitors::finish_column{&result.columns[field_locations.signal]},
         signal_rows.signal_builder));
     ARROW_RETURN_NOT_OK(
@@ -297,7 +296,7 @@ arrow::Status write_reads(
 }
 
 arrow::Status check_duplicate_read_ids(
-    std::unordered_set<boost::uuids::uuid> & output_read_ids,
+    std::unordered_set<pod5::Uuid> & output_read_ids,
     std::vector<pod5::ReadData> const & new_reads)
 {
     for (auto const & read : new_reads) {

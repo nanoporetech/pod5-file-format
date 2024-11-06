@@ -1,8 +1,8 @@
 #pragma once
 
 #include "pod5_format/pod5_format_export.h"
+#include "pod5_format/uuid.h"
 
-#include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
 #include <chrono>
@@ -30,7 +30,7 @@ public:
     /// \param run_info The dictionary index of the run info for this read.
     /// \param num_minknow_events The number of minknow events in the read.
     ReadData(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         std::uint32_t read_number,
         std::uint64_t start_sample,
         std::uint16_t channel,
@@ -72,7 +72,7 @@ public:
     }
 
     // V1 Fields
-    boost::uuids::uuid read_id;
+    Uuid read_id;
     std::uint32_t read_number;
     std::uint64_t start_sample;
     float median_before;
@@ -285,11 +285,11 @@ inline ReadEndReason end_reason_from_string(std::string const & reason)
 class POD5_FORMAT_EXPORT ReadIdSearchInput {
 public:
     struct InputId {
-        boost::uuids::uuid id;
+        Uuid id;
         std::size_t index;
     };
 
-    ReadIdSearchInput(gsl::span<boost::uuids::uuid const> const & input_ids);
+    ReadIdSearchInput(gsl::span<Uuid const> const & input_ids);
 
     std::size_t read_id_count() const { return m_search_read_ids.size(); }
 

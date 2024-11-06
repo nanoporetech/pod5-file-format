@@ -198,7 +198,7 @@ build-standalone-ubu20:
     - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
     - apt update
-    - apt install -y cmake build-essential libzstd-dev libzstd-dev libboost-dev libflatbuffers-dev libarrow-dev=12.0.1-1
+    - apt install -y cmake build-essential libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=12.0.1-1
     - mkdir -p build
     - cd build
     - cmake
@@ -599,7 +599,6 @@ conda_pytest:
       dependencies:
         - python=3.${PY_MINOR_VER}
         - cmake
-        - boost
         - pyarrow
         - pip
       EOF

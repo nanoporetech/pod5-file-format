@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for python 3.13.
 
+## Changed
+
+- Removed use of Boost. This does not affect the C interface, but may require changes to
+  consumers of the C++ headers.
+
 ## [0.3.20]
 
 ## Changed

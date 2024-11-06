@@ -3,6 +3,7 @@
 #include "pod5_format/file_writer.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_table_reader.h"
+#include "pod5_format/uuid.h"
 #include "test_utils.h"
 #include "utils.h"
 
@@ -10,9 +11,6 @@
 #include <arrow/array/array_dict.h>
 #include <arrow/array/array_primitive.h>
 #include <arrow/memory_pool.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/random_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <catch2/catch.hpp>
 
 #include <iostream>
@@ -27,7 +25,8 @@ void run_file_reader_writer_tests()
 
     auto const run_info_data = get_test_run_info_data("_run_info");
 
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::mt19937 gen{Catch::rngSeed()};
+    auto uuid_gen = pod5::UuidRandomGenerator{gen};
     auto read_id_1 = uuid_gen();
 
     std::uint16_t channel = 25;
@@ -173,12 +172,14 @@ SCENARIO("Opening older files")
     (void)pod5::register_extension_types();
     auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
-    auto uuid_from_string = [](char const * val) -> boost::uuids::uuid {
-        return boost::lexical_cast<boost::uuids::uuid>(val);
+    auto uuid_from_string = [](char const * val) -> pod5::Uuid {
+        auto result = pod5::Uuid::from_string(val);
+        REQUIRE(result);
+        return *result;
     };
 
     struct ReadData {
-        boost::uuids::uuid read_id;
+        pod5::Uuid read_id;
         std::uint32_t read_number;
         float calibration_offset;
         float calibration_scale;

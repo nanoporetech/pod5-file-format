@@ -1,7 +1,5 @@
 #include "pod5_format/c_api.h"
-
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
+#include "pod5_format/uuid.h"
 
 #include <array>
 #include <fstream>

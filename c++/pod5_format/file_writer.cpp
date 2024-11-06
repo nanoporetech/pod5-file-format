@@ -11,6 +11,7 @@
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_table_writer.h"
 #include "pod5_format/thread_pool.h"
+#include "pod5_format/uuid.h"
 #include "pod5_format/version.h"
 
 #include <arrow/io/file.h>
@@ -18,8 +19,8 @@
 #include <arrow/result.h>
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
-#include <boost/optional/optional.hpp>
-#include <boost/uuid/random_generator.hpp>
+
+#include <optional>
 
 #ifdef __linux__
 #include "pod5_format/internal/linux_output_stream.h"
@@ -190,7 +191,7 @@ public:
     }
 
     pod5::Result<std::vector<SignalTableRowIndex>> add_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::int16_t const> const & signal)
     {
         if (!m_signal_table_writer || !m_read_table_writer) {
@@ -217,7 +218,7 @@ public:
     }
 
     pod5::Result<SignalTableRowIndex> add_pre_compressed_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::uint8_t const> const & signal_bytes,
         std::uint32_t sample_count)
     {
@@ -252,7 +253,7 @@ public:
     {
         if (m_run_info_table_writer) {
             ARROW_RETURN_NOT_OK(m_run_info_table_writer->close());
-            m_run_info_table_writer = boost::none;
+            m_run_info_table_writer = std::nullopt;
         }
         return pod5::Status::OK();
     }
@@ -261,7 +262,7 @@ public:
     {
         if (m_read_table_writer) {
             ARROW_RETURN_NOT_OK(m_read_table_writer->close());
-            m_read_table_writer = boost::none;
+            m_read_table_writer = std::nullopt;
         }
         return pod5::Status::OK();
     }
@@ -270,7 +271,7 @@ public:
     {
         if (m_signal_table_writer) {
             ARROW_RETURN_NOT_OK(m_signal_table_writer->close());
-            m_signal_table_writer = boost::none;
+            m_signal_table_writer = std::nullopt;
         }
         return pod5::Status::OK();
     }
@@ -287,33 +288,33 @@ public:
 
     RunInfoTableWriter * run_info_table_writer()
     {
-        if (is_closed()) {
+        if (is_closed() || !m_run_info_table_writer.has_value()) {
             return nullptr;
         }
-        return m_run_info_table_writer.get_ptr();
+        return &m_run_info_table_writer.value();
     }
 
     ReadTableWriter * read_table_writer()
     {
-        if (is_closed()) {
+        if (is_closed() || !m_read_table_writer.has_value()) {
             return nullptr;
         }
-        return m_read_table_writer.get_ptr();
+        return &m_read_table_writer.value();
     }
 
     SignalTableWriter * signal_table_writer()
     {
-        if (is_closed()) {
+        if (is_closed() || !m_signal_table_writer.has_value()) {
             return nullptr;
         }
-        return m_signal_table_writer.get_ptr();
+        return &m_signal_table_writer.value();
     }
 
 private:
     DictionaryWriters m_read_table_dict_writers;
-    boost::optional<RunInfoTableWriter> m_run_info_table_writer;
-    boost::optional<ReadTableWriter> m_read_table_writer;
-    boost::optional<SignalTableWriter> m_signal_table_writer;
+    std::optional<RunInfoTableWriter> m_run_info_table_writer;
+    std::optional<ReadTableWriter> m_read_table_writer;
+    std::optional<SignalTableWriter> m_signal_table_writer;
     std::uint32_t m_signal_chunk_size;
     arrow::MemoryPool * m_pool;
 };
@@ -325,8 +326,8 @@ public:
         std::string const & run_info_tmp_path,
         std::string const & reads_tmp_path,
         std::int64_t signal_file_start_offset,
-        boost::uuids::uuid const & section_marker,
-        boost::uuids::uuid const & file_identifier,
+        Uuid const & section_marker,
+        Uuid const & file_identifier,
         std::string const & software_name,
         DictionaryWriters && dict_writers,
         RunInfoTableWriter && run_info_table_writer,
@@ -422,8 +423,8 @@ private:
     std::string m_run_info_tmp_path;
     std::string m_reads_tmp_path;
     std::int64_t m_signal_file_start_offset;
-    boost::uuids::uuid m_section_marker;
-    boost::uuids::uuid m_file_identifier;
+    Uuid m_section_marker;
+    Uuid m_file_identifier;
     std::string m_software_name;
 };
 
@@ -451,14 +452,14 @@ arrow::Status FileWriter::add_complete_read(
 }
 
 pod5::Result<std::vector<SignalTableRowIndex>> FileWriter::add_signal(
-    boost::uuids::uuid const & read_id,
+    Uuid const & read_id,
     gsl::span<std::int16_t const> const & signal)
 {
     return m_impl->add_signal(read_id, signal);
 }
 
 pod5::Result<SignalTableRowIndex> FileWriter::add_pre_compressed_signal(
-    boost::uuids::uuid const & read_id,
+    Uuid const & read_id,
     gsl::span<std::uint8_t const> const & signal_bytes,
     std::uint32_t sample_count)
 {
@@ -508,18 +509,17 @@ pod5::Result<FileWriterImpl::DictionaryWriters> make_dictionary_writers(arrow::M
 
 std::string make_reads_tmp_path(
     ::arrow::internal::PlatformFilename const & arrow_path,
-    boost::uuids::uuid const & file_identifier)
+    Uuid const & file_identifier)
 {
-    return arrow_path.Parent().ToString() + "/"
-           + ("." + boost::uuids::to_string(file_identifier) + ".tmp-reads");
+    return arrow_path.Parent().ToString() + "/" + ("." + to_string(file_identifier) + ".tmp-reads");
 }
 
 std::string make_run_info_tmp_path(
     ::arrow::internal::PlatformFilename const & arrow_path,
-    boost::uuids::uuid const & file_identifier)
+    Uuid const & file_identifier)
 {
     return arrow_path.Parent().ToString() + "/"
-           + ("." + boost::uuids::to_string(file_identifier) + ".tmp-run-info");
+           + ("." + to_string(file_identifier) + ".tmp-run-info");
 }
 
 pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
@@ -532,11 +532,6 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    auto thread_pool = options.thread_pool();
-    if (!thread_pool) {
-        thread_pool = make_thread_pool(1);
-    }
-
     ARROW_ASSIGN_OR_RAISE(auto arrow_path, ::arrow::internal::PlatformFilename::FromString(path));
     ARROW_ASSIGN_OR_RAISE(bool file_exists, arrow::internal::FileExists(arrow_path));
     if (file_exists) {
@@ -547,7 +542,8 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     ARROW_ASSIGN_OR_RAISE(auto dict_writers, make_dictionary_writers(pool));
 
     // Prep file metadata:
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::random_device gen;
+    auto uuid_gen = BasicUuidRandomGenerator<std::random_device>{gen};
     auto const section_marker = uuid_gen();
     auto const file_identifier = uuid_gen();
 

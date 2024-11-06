@@ -9,11 +9,10 @@
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_reader.h"
 #include "pod5_format/thread_pool.h"
+#include "pod5_format/uuid.h"
 #include "utils.h"
 
 #include <arrow/memory_pool.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -207,7 +206,7 @@ struct Pod5FileReaderPtr {
     {
         auto const read_id_count = read_id_data.shape(0);
         auto search_input = pod5::ReadIdSearchInput(gsl::make_span(
-            reinterpret_cast<boost::uuids::uuid const *>(read_id_data.data()), read_id_count));
+            reinterpret_cast<pod5::Uuid const *>(read_id_data.data()), read_id_count));
 
         POD5_PYTHON_ASSIGN_OR_RAISE(
             auto find_success_count,
@@ -336,7 +335,7 @@ inline pod5::ReadData make_read_data(
         num_reads_since_mux_change,
     py::array_t<float, py::array::c_style | py::array::forcecast> const & time_since_mux_change)
 {
-    auto read_ids = reinterpret_cast<boost::uuids::uuid const *>(read_id_data.data(0));
+    auto read_ids = reinterpret_cast<pod5::Uuid const *>(read_id_data.data(0));
     return pod5::ReadData{
         read_ids[row_id],
         *read_numbers.data(row_id),
@@ -457,7 +456,7 @@ inline void FileWriter_add_reads_pre_compressed(
         throw std::runtime_error("Read id array is of unexpected size");
     }
 
-    auto read_ids = reinterpret_cast<boost::uuids::uuid const *>(read_id_data.data(0));
+    auto read_ids = reinterpret_cast<pod5::Uuid const *>(read_id_data.data(0));
     auto compressed_signal_it = compressed_signal_ptrs.begin();
     auto sample_counts_it = sample_counts.data();
     for (std::size_t i = 0; i < count; ++i) {
@@ -545,7 +544,7 @@ inline std::size_t load_read_id_iterable(
     py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> & read_id_data_out)
 {
     std::size_t out_idx = 0;
-    auto read_ids = reinterpret_cast<boost::uuids::uuid *>(read_id_data_out.mutable_data());
+    auto read_ids = reinterpret_cast<pod5::Uuid *>(read_id_data_out.mutable_data());
     auto read_ids_out_len = read_id_data_out.shape(0);
 
     std::string temp_uuid;
@@ -555,14 +554,10 @@ inline std::size_t load_read_id_iterable(
         }
 
         temp_uuid = read_id.cast<py::str>();
-        try {
-            auto found_uuid = boost::lexical_cast<boost::uuids::uuid>(temp_uuid);
-            read_ids[out_idx++] = found_uuid;
-
-        } catch (boost::bad_lexical_cast const & e) {
-            // Ignore - we will return one fewer read ids than expected and the caller can deal with it.
-            continue;
+        if (auto const found_uuid = pod5::Uuid::from_string(temp_uuid)) {
+            read_ids[out_idx++] = *found_uuid;
         }
+        // if it's invalid, ignore it - we will return one fewer read ids than expected and the caller can deal with it.
     }
 
     return out_idx;

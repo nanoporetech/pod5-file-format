@@ -10,7 +10,7 @@
 namespace repack {
 
 namespace {
-struct is_not_nullptr : boost::static_visitor<bool> {
+struct is_not_nullptr {
     template <typename T>
     bool operator()(T const & t) const
     {
@@ -19,7 +19,7 @@ struct is_not_nullptr : boost::static_visitor<bool> {
 };
 
 #if 0
-struct get_name : boost::static_visitor<std::string>{
+struct get_name{
     template <typename T>
     std::string operator()(T const& t) const {
         return typeid(typename T::element_type).name();
@@ -31,7 +31,7 @@ void dump_queued_items(T const& queued) {
     std::map<std::string, std::size_t> items;
 
     for (auto const& item : queued) {
-        items[boost::apply_visitor(get_name{}, item)] += 1;
+        items[std::visit(get_name{}, item)] += 1;
     }
 
     std::cout << "Queued items:\n";
@@ -67,10 +67,10 @@ struct Pod5RepackerOutputState {
 
     Pod5RepackerOutputThreadState * get_thread_state()
     {
-        auto ts = thread_states.synchronize();
-        auto it = ts->find(std::this_thread::get_id());
-        if (it == ts->end()) {
-            it = ts->emplace(std::this_thread::get_id(), dict_manager).first;
+        std::lock_guard<std::mutex> l{thread_states_mutex};
+        auto it = thread_states.find(std::this_thread::get_id());
+        if (it == thread_states.end()) {
+            it = thread_states.emplace(std::this_thread::get_id(), dict_manager).first;
         }
         return &it->second;
     }
@@ -81,14 +81,15 @@ struct Pod5RepackerOutputState {
     std::mutex read_table_writer_mutex;
     std::mutex signal_table_writer_mutex;
     std::shared_ptr<ReadsTableDictionaryManager> dict_manager;
-    boost::synchronized_value<std::shared_ptr<states::read_split_signal_table_batch_rows>>
-        partial_signal_batch;
+    std::mutex partial_signal_batch_mutex;
+    std::shared_ptr<states::read_split_signal_table_batch_rows> partial_signal_batch;
     std::atomic<std::size_t> reads_completed{0};
 
-    boost::synchronized_value<std::unordered_map<std::thread::id, Pod5RepackerOutputThreadState>>
-        thread_states;
+    std::mutex thread_states_mutex;
+    std::unordered_map<std::thread::id, Pod5RepackerOutputThreadState> thread_states;
 
-    boost::synchronized_value<std::unordered_set<boost::uuids::uuid>> output_read_ids;
+    std::mutex output_read_ids_mutex;
+    std::unordered_set<pod5::Uuid> output_read_ids;
 };
 
 namespace {
@@ -104,7 +105,7 @@ struct StateProgressResult {
     std::vector<states::shared_variant> new_states;
 };
 
-struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>> {
+struct StateOperator {
     StateOperator(Pod5RepackerOutputState * _progress_state) : progress_state(_progress_state) {}
 
     arrow::Result<StateProgressResult> operator()(
@@ -125,13 +126,14 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
         read_table_rows->signal_row_indices.resize(read_result.signal_rows.size());
 
         if (progress_state->check_duplicate_read_ids) {
-            auto read_ids = progress_state->output_read_ids.synchronize();
-            ARROW_RETURN_NOT_OK(check_duplicate_read_ids(*read_ids, read_table_rows->reads));
+            std::lock_guard<std::mutex> l{progress_state->output_read_ids_mutex};
+            ARROW_RETURN_NOT_OK(
+                check_duplicate_read_ids(progress_state->output_read_ids, read_table_rows->reads));
         }
 
         // Split the read table rows into new signal table batches:
         {
-            auto partial_signal_batch = progress_state->partial_signal_batch.synchronize();
+            std::lock_guard<std::mutex> l{progress_state->partial_signal_batch_mutex};
             ARROW_ASSIGN_OR_RAISE(
                 auto signal_request_result,
                 request_signal_reads(
@@ -140,11 +142,11 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
                     progress_state->output_file->signal_table_batch_size(),
                     read_result.signal_rows_read_ids,
                     read_result.signal_rows,
-                    *partial_signal_batch,
+                    progress_state->partial_signal_batch,
                     read_table_rows,
                     progress_state->memory_pool));
 
-            *partial_signal_batch = signal_request_result.partial_request;
+            progress_state->partial_signal_batch = signal_request_result.partial_request;
             return StateProgressResult{std::move(signal_request_result.complete_requests)};
         }
     }
@@ -216,12 +218,12 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
 
         std::vector<states::shared_variant> final_states;
         // No further reads expected, flush all partial state:
-        auto partial_signal_batch = progress_state->partial_signal_batch.synchronize();
-        if (*partial_signal_batch) {
-            (*partial_signal_batch)->final_batch = true;
+        std::lock_guard<std::mutex> l{progress_state->partial_signal_batch_mutex};
+        if (progress_state->partial_signal_batch) {
+            progress_state->partial_signal_batch->final_batch = true;
 
-            final_states.emplace_back(std::move(*partial_signal_batch));
-            partial_signal_batch->reset();
+            final_states.emplace_back(std::move(progress_state->partial_signal_batch));
+            progress_state->partial_signal_batch.reset();
         }
 
         return StateProgressResult{std::move(final_states)};
@@ -234,11 +236,11 @@ struct StateOperator : boost::static_visitor<arrow::Result<StateProgressResult>>
 
 Pod5RepackerOutput::Pod5RepackerOutput(
     std::shared_ptr<Pod5Repacker> const & repacker,
-    boost::asio::io_context & context,
+    std::shared_ptr<pod5::ThreadPool> thread_pool,
     std::shared_ptr<pod5::FileWriter> const & output,
     bool check_duplicate_read_ids)
 : m_repacker(repacker)
-, m_context(context)
+, m_thread_pool(thread_pool)
 , m_output(output)
 , m_progress_state(std::make_unique<Pod5RepackerOutputState>(
       output,
@@ -251,7 +253,11 @@ Pod5RepackerOutput::~Pod5RepackerOutput() {}
 
 bool Pod5RepackerOutput::has_tasks() const
 {
-    return m_in_flight > 0 || m_active_read_table_states->size() > 0;
+    if (m_in_flight > 0) {
+        return true;
+    }
+    std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
+    return m_active_read_table_states.size() > 0;
 }
 
 void Pod5RepackerOutput::set_finished()
@@ -266,7 +272,10 @@ void Pod5RepackerOutput::set_finished()
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
-        m_active_read_table_states->emplace_front(std::make_shared<states::finished>());
+        {
+            std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
+            m_active_read_table_states.emplace_front(std::make_shared<states::finished>());
+        }
         post_try_work();
 
         m_finished = true;
@@ -275,7 +284,11 @@ void Pod5RepackerOutput::set_finished()
 
 bool Pod5RepackerOutput::is_complete() const
 {
-    return m_finished && m_active_read_table_states->empty();
+    if (!m_finished) {
+        return false;
+    }
+    std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
+    return m_active_read_table_states.empty();
 }
 
 std::size_t Pod5RepackerOutput::reads_completed() const
@@ -292,24 +305,27 @@ void Pod5RepackerOutput::register_new_reads(
         throw std::runtime_error("Failed to add reads to finished output");
     }
 
-    m_active_read_table_states->emplace_front(std::make_shared<states::unread_read_table_rows>(
-        input, batch_index, std::move(batch_rows)));
+    {
+        std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
+        m_active_read_table_states.emplace_front(std::make_shared<states::unread_read_table_rows>(
+            input, batch_index, std::move(batch_rows)));
+    }
 
     post_try_work();
 }
 
 void Pod5RepackerOutput::post_try_work()
 {
-    m_context.post([&]() {
+    m_thread_pool->post([&]() {
         POD5_TRACE_FUNCTION();
 
-        auto get_next_work = [](auto & synced_states) -> states::shared_variant {
-            if (synced_states->empty()) {
+        auto get_next_work = [](auto & locked_states) -> states::shared_variant {
+            if (locked_states.empty()) {
                 return {};
             }
 
-            auto work = synced_states->back();
-            synced_states->pop_back();
+            auto work = locked_states.back();
+            locked_states.pop_back();
             return work;
         };
 
@@ -322,15 +338,15 @@ void Pod5RepackerOutput::post_try_work()
             // are in `m_active_read_table_states`
             auto remove_in_flight = gsl::finally([&] { m_in_flight -= 1; });
 
-            if (!boost::apply_visitor(is_not_nullptr{}, next_work)) {
-                auto states = m_active_read_table_states.synchronize();
-                next_work = get_next_work(states);
-                if (!boost::apply_visitor(is_not_nullptr{}, next_work)) {
+            if (!std::visit(is_not_nullptr{}, next_work)) {
+                std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
+                next_work = get_next_work(m_active_read_table_states);
+                if (!std::visit(is_not_nullptr{}, next_work)) {
                     return;
                 }
             }
 
-            auto result = boost::apply_visitor(state_operator, next_work);
+            auto result = std::visit(state_operator, next_work);
             if (!result.ok()) {
                 set_error(result.status());
                 return;
@@ -338,8 +354,9 @@ void Pod5RepackerOutput::post_try_work()
             next_work = {};
 
             {
-                auto states = m_active_read_table_states.synchronize();
-                states->insert(states->end(), result->new_states.begin(), result->new_states.end());
+                std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
+                auto && states = m_active_read_table_states;
+                states.insert(states.end(), result->new_states.begin(), result->new_states.end());
 
                 next_work = get_next_work(states);
             }

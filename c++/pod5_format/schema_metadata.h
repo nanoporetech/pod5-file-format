@@ -2,8 +2,7 @@
 
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/result.h"
-
-#include <boost/uuid/uuid.hpp>
+#include "pod5_format/uuid.h"
 
 #include <memory>
 #include <string>
@@ -12,10 +11,6 @@
 namespace arrow {
 class KeyValueMetadata;
 }
-
-namespace boost { namespace uuids {
-struct uuid;
-}}  // namespace boost::uuids
 
 namespace pod5 {
 
@@ -56,7 +51,7 @@ POD5_FORMAT_EXPORT Result<Version> parse_version_number(std::string const & ver)
 POD5_FORMAT_EXPORT Version current_build_version_number();
 
 struct SchemaMetadataDescription {
-    boost::uuids::uuid file_identifier;
+    Uuid file_identifier;
     std::string writing_software;
     Version writing_pod5_version;
 };

@@ -4,10 +4,9 @@
 #include "pod5_format/result.h"
 #include "pod5_format/signal_builder.h"
 #include "pod5_format/signal_table_schema.h"
+#include "pod5_format/uuid.h"
 
 #include <arrow/io/type_fwd.h>
-#include <boost/uuid/uuid.hpp>
-#include <boost/variant/variant.hpp>
 #include <gsl/gsl-lite.hpp>
 
 namespace arrow {
@@ -46,7 +45,7 @@ public:
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.
     Result<SignalTableRowIndex> add_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::int16_t const> const & signal);
 
     /// \brief Add a pre-compressed read to the signal table, adding to the current batch.
@@ -59,7 +58,7 @@ public:
     /// \param signal The signal for the read entry
     /// \returns The row index of the inserted signal, or a status on failure.
     Result<SignalTableRowIndex> add_pre_compressed_signal(
-        boost::uuids::uuid const & read_id,
+        Uuid const & read_id,
         gsl::span<std::uint8_t const> const & signal,
         std::uint32_t sample_count);
 

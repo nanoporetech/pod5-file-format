@@ -4,7 +4,7 @@
 
 namespace pod5 {
 
-ReadIdSearchInput::ReadIdSearchInput(gsl::span<boost::uuids::uuid const> const & input_ids)
+ReadIdSearchInput::ReadIdSearchInput(gsl::span<Uuid const> const & input_ids)
 : m_search_read_ids(input_ids.size())
 {
     // Copy in search input:

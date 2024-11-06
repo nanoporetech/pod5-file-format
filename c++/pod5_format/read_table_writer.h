@@ -9,7 +9,6 @@
 
 #include <arrow/array/builder_dict.h>
 #include <arrow/io/type_fwd.h>
-#include <boost/variant/variant.hpp>
 
 namespace arrow {
 class Schema;

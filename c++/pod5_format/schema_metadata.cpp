@@ -1,10 +1,9 @@
 #include "pod5_format/schema_metadata.h"
 
+#include "pod5_format/uuid.h"
 #include "pod5_format/version.h"
 
 #include <arrow/util/key_value_metadata.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 namespace pod5 {
 
@@ -71,13 +70,13 @@ Result<std::shared_ptr<arrow::KeyValueMetadata const>> make_schema_key_value_met
         return Status::Invalid("Expected writing_pod5_version to be specified for metadata");
     }
 
-    if (schema_metadata.file_identifier == boost::uuids::uuid{}) {
+    if (schema_metadata.file_identifier == Uuid{}) {
         return Status::Invalid("Expected file_identifier to be specified for metadata");
     }
 
     return arrow::KeyValueMetadata::Make(
         {"MINKNOW:file_identifier", "MINKNOW:software", "MINKNOW:pod5_version"},
-        {boost::uuids::to_string(schema_metadata.file_identifier),
+        {to_string(schema_metadata.file_identifier),
          schema_metadata.writing_software,
          schema_metadata.writing_pod5_version.to_string()});
 }
@@ -91,15 +90,13 @@ Result<SchemaMetadataDescription> read_schema_key_value_metadata(
     ARROW_ASSIGN_OR_RAISE(auto pod5_version_str, key_value_metadata->Get("MINKNOW:pod5_version"));
     ARROW_ASSIGN_OR_RAISE(auto pod5_version, parse_version_number(pod5_version_str));
 
-    boost::uuids::uuid file_identifier;
-    try {
-        file_identifier = boost::lexical_cast<boost::uuids::uuid>(file_identifier_str);
-    } catch (boost::bad_lexical_cast const &) {
+    auto const file_identifier = Uuid::from_string(file_identifier_str);
+    if (!file_identifier) {
         return Status::IOError(
             "Schema file_identifier metadata not uuid form: '", file_identifier_str, "'");
     }
 
-    return SchemaMetadataDescription{file_identifier, software_str, pod5_version};
+    return SchemaMetadataDescription{*file_identifier, software_str, pod5_version};
 }
 
 }  // namespace pod5

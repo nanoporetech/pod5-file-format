@@ -2,10 +2,10 @@
 
 #include "pod5_format/pod5_format_export.h"
 #include "pod5_format/result.h"
+#include "pod5_format/uuid.h"
 
 #include <arrow/extension_type.h>
 #include <arrow/stl_iterator.h>
-#include <boost/uuid/uuid.hpp>
 #include <gsl/gsl-lite.hpp>
 
 namespace pod5 {
@@ -16,20 +16,17 @@ public:
 
     using ExtensionArray::ExtensionArray;
 
-    boost::uuids::uuid const * raw_values() const;
+    Uuid const * raw_values() const;
 
-    boost::uuids::uuid Value(int64_t i) const;
+    Uuid Value(int64_t i) const;
 
     // this isn't actually a view - it copies the data - but
     // (a) it's only 16 bytes, which is what a view (pointer + size) would require anyway
     // (b) arrow::std::ArrayIterator hard-codes the name of this method (even though it is supposed
     //     to be configurable via the ValueAccessor template parameter)
-    boost::uuids::uuid GetView(int64_t i) const { return Value(i); }
+    Uuid GetView(int64_t i) const { return Value(i); }
 
-    std::optional<boost::uuids::uuid> operator[](int64_t i) const
-    {
-        return *IteratorType(*this, i);
-    }
+    std::optional<Uuid> operator[](int64_t i) const { return *IteratorType(*this, i); }
 
     IteratorType begin() const { return IteratorType(*this); }
 

@@ -2,11 +2,10 @@
 
 #include "pod5_format/file_reader.h"
 #include "pod5_format/schema_metadata.h"
+#include "pod5_format/uuid.h"
 #include "pod5_format/version.h"
 #include "utils.h"
 
-#include <boost/uuid/random_generator.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
 
@@ -51,17 +50,9 @@ public:
 struct Pod5ReadId {
     Pod5ReadId() = default;
 
-    Pod5ReadId(boost::uuids::uuid uid)
-    {
-        std::copy((uint8_t *)uid.begin(), (uint8_t *)uid.end(), read_id);
-    }
+    Pod5ReadId(pod5::Uuid const & uid) { uid.to_c_array(read_id); }
 
-    boost::uuids::uuid as_uuid() const
-    {
-        boost::uuids::uuid uid;
-        std::copy(read_id, read_id + sizeof(read_id), (uint8_t *)uid.begin());
-        return uid;
-    }
+    pod5::Uuid as_uuid() const { return pod5::Uuid{read_id}; }
 
     bool operator==(Pod5ReadId const & other) const { return as_uuid() == other.as_uuid(); }
 
@@ -77,7 +68,8 @@ SCENARIO("C API Reads")
     pod5_init();
     auto fin = gsl::finally([] { pod5_terminate(); });
 
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::mt19937 gen{Catch::rngSeed()};
+    auto uuid_gen = pod5::UuidRandomGenerator{gen};
     auto input_read_id = uuid_gen();
     auto input_read_id_2 = uuid_gen();
     std::vector<int16_t> signal_1(10);
@@ -132,7 +124,7 @@ SCENARIO("C API Reads")
         std::uint8_t well = 4;
         pod5_end_reason_t end_reason = POD5_END_REASON_MUX_CHANGE;
         uint8_t end_reason_forced = false;
-        auto read_id_array = (read_id_t const *)input_read_id.begin();
+        auto read_id_array = (read_id_t const *)input_read_id.data();
 
         std::int16_t run_info_id = 0;
         ReadBatchRowInfoArrayV3 row_data{
@@ -214,7 +206,7 @@ SCENARIO("C API Reads")
 
             std::size_t signal_counts = 1;
 
-            auto read_id_array = (read_id_t const *)input_read_id_2.begin();
+            auto read_id_array = (read_id_t const *)input_read_id_2.data();
             row_data.read_id = read_id_array;
 
             CHECK_POD5_OK(pod5_add_reads_data_pre_compressed(
@@ -247,11 +239,7 @@ SCENARIO("C API Reads")
         CHECK(file_info.version.revision == pod5::Pod5RevVersion);
         {
             auto reader = pod5::open_file_reader(filename);
-            boost::uuids::uuid file_identifier;
-            std::copy(
-                file_info.file_identifier,
-                file_info.file_identifier + sizeof(file_info.file_identifier),
-                file_identifier.begin());
+            pod5::Uuid file_identifier{file_info.file_identifier};
             CHECK(file_identifier == (*reader)->schema_metadata().file_identifier);
         }
 
@@ -313,11 +301,8 @@ SCENARIO("C API Reads")
             std::string formatted_uuid(36, '\0');
             CHECK_POD5_OK(pod5_format_read_id(v3_struct.read_id, &formatted_uuid[0]));
             CHECK(
-                formatted_uuid.size()
-                == boost::uuids::to_string(*(boost::uuids::uuid *)v3_struct.read_id).size());
-            CHECK(
                 formatted_uuid
-                == boost::uuids::to_string(*(boost::uuids::uuid *)v3_struct.read_id));
+                == to_string(*reinterpret_cast<pod5::Uuid const *>(v3_struct.read_id)));
 
             CHECK(v3_struct.read_number == 12);
             CHECK(v3_struct.start_sample == 10245);
@@ -498,7 +483,8 @@ SCENARIO("C API Many Reads")
     pod5_init();
     auto fin = gsl::finally([] { pod5_terminate(); });
 
-    auto uuid_gen = boost::uuids::random_generator_mt19937();
+    std::mt19937 gen{Catch::rngSeed()};
+    auto uuid_gen = pod5::UuidRandomGenerator{gen};
     auto input_read_id = uuid_gen();
     std::vector<int16_t> signal_1(10);
     std::iota(signal_1.begin(), signal_1.end(), -20000);
@@ -573,7 +559,7 @@ SCENARIO("C API Many Reads")
         std::vector<std::uint8_t> well(read_count, 4);
         std::vector<pod5_end_reason_t> end_reason(read_count, POD5_END_REASON_MUX_CHANGE);
         std::vector<uint8_t> end_reason_forced(read_count, false);
-        std::vector<boost::uuids::uuid> read_id_array(read_count, input_read_id);
+        std::vector<pod5::Uuid> read_id_array(read_count, input_read_id);
 
         std::vector<float> calibration_offset(read_count, 54.0f);
         std::vector<float> calibration_scale(read_count, 100.0f);
@@ -648,11 +634,7 @@ SCENARIO("C API Many Reads")
         CHECK(file_info.version.revision == pod5::Pod5RevVersion);
         {
             auto reader = pod5::open_file_reader(filename);
-            boost::uuids::uuid file_identifier;
-            std::copy(
-                file_info.file_identifier,
-                file_info.file_identifier + sizeof(file_info.file_identifier),
-                file_identifier.begin());
+            pod5::Uuid file_identifier{file_info.file_identifier};
             CHECK(file_identifier == (*reader)->schema_metadata().file_identifier);
         }
 

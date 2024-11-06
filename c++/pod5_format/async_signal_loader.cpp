@@ -51,13 +51,13 @@ AsyncSignalLoader::~AsyncSignalLoader()
 }
 
 Result<std::unique_ptr<CachedBatchSignalData>> AsyncSignalLoader::release_next_batch(
-    boost::optional<std::chrono::steady_clock::time_point> timeout)
+    std::optional<std::chrono::steady_clock::time_point> timeout)
 {
     std::shared_ptr<SignalCacheWorkPackage> batch;
 
     // Return any error, if one has occurred:
     if (m_has_error) {
-        return Status(*m_error);
+        return error();
     }
 
     // First wait until there is a batch available:
@@ -65,9 +65,9 @@ Result<std::unique_ptr<CachedBatchSignalData>> AsyncSignalLoader::release_next_b
         std::unique_lock<std::mutex> l(m_batches_sync);
         // Wait until there is a batch available:
         m_batch_done.wait_until(
-            l,
-            timeout.get_value_or(std::chrono::steady_clock::now() + std::chrono::seconds(5)),
-            [&] { return m_batches.size() || m_finished || m_has_error; });
+            l, timeout.value_or(std::chrono::steady_clock::now() + std::chrono::seconds(5)), [&] {
+                return m_batches.size() || m_finished || m_has_error;
+            });
 
         // Grab a batch if one exists (note error or user destroying us might have happened instead):
         if (!m_batches.empty()) {
@@ -85,7 +85,7 @@ Result<std::unique_ptr<CachedBatchSignalData>> AsyncSignalLoader::release_next_b
 
     // Return any error, if one has occurred during our wait:
     if (m_has_error) {
-        return Status(*m_error);
+        return error();
     }
 
     // If we got a batch, wait for all work to be finished, then return it:
@@ -105,8 +105,17 @@ Result<std::unique_ptr<CachedBatchSignalData>> AsyncSignalLoader::release_next_b
 void AsyncSignalLoader::set_error(pod5::Status status)
 {
     assert(!status.ok());
-    m_error = status;
+    {
+        std::lock_guard<std::mutex> l{m_error_mutex};
+        m_error = std::move(status);
+    }
     m_has_error = true;
+}
+
+pod5::Status AsyncSignalLoader::error() const
+{
+    std::lock_guard<std::mutex> l{m_error_mutex};
+    return m_error;
 }
 
 void AsyncSignalLoader::run_worker()
@@ -194,8 +203,7 @@ void AsyncSignalLoader::do_work(
         // Find the sample count for these rows:
         auto sample_count_result = m_reader->extract_sample_count(signal_rows_span);
         if (!sample_count_result.ok()) {
-            m_error = sample_count_result.status();
-            m_has_error = true;
+            set_error(sample_count_result.status());
             return;
         }
         std::uint64_t sample_count = *sample_count_result;
@@ -207,8 +215,7 @@ void AsyncSignalLoader::do_work(
             auto samples_result =
                 m_reader->extract_samples(signal_rows_span, gsl::make_span(samples));
             if (!samples_result.ok()) {
-                m_error = samples_result;
-                m_has_error = true;
+                set_error(std::move(samples_result));
                 return;
             }
             sample_count = samples.size();

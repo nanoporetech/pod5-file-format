@@ -7,12 +7,12 @@
 
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
-#include <boost/thread/synchronized_value.hpp>
 
 #include <condition_variable>
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <thread>
 
 namespace pod5 {
@@ -135,11 +135,12 @@ public:
     /// Get the next batch of loaded signal, always returns the consecutive next signal batch
     /// \note Returns nullptr when timeoout occurs, or if all data is exhausted.
     Result<std::unique_ptr<CachedBatchSignalData>> release_next_batch(
-        boost::optional<std::chrono::steady_clock::time_point> timeout = boost::none);
+        std::optional<std::chrono::steady_clock::time_point> timeout = std::nullopt);
 
 private:
     /// Set an error code that will stop all async loading and return an error to the caller.
     void set_error(pod5::Status status);
+    pod5::Status error() const;
 
     void run_worker();
     void do_work(
@@ -175,7 +176,8 @@ private:
 
     std::atomic<bool> m_finished;
     std::atomic<bool> m_has_error;
-    boost::synchronized_value<pod5::Status> m_error;
+    mutable std::mutex m_error_mutex;
+    pod5::Status m_error;
     std::shared_ptr<SignalCacheWorkPackage> m_in_progress_batch;
 
     std::mutex m_batches_sync;
