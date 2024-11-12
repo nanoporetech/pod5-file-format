@@ -1,6 +1,7 @@
 """
 Testing Pod5Reader
 """
+
 import random
 from typing import Type
 from unittest import mock

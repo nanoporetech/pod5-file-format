@@ -2,7 +2,6 @@
 Utility functions for the pod5 API
 """
 
-
 import warnings
 from typing import Any, Collection, List, Union
 

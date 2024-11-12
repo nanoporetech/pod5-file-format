@@ -538,6 +538,7 @@ tools-linux-x64:
     - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
     - pip install pytest pytest-cov pytest-mock psutil
     - pytest
+    - POD5_DISABLE_MMAP_OPEN=1 pytest
 
 pytest-linux-x64:
   extends: [".pytest"]
@@ -559,7 +560,7 @@ pytest-linux-aarch64:
     - build-python-api
   parallel:
     matrix:
-      - PY_MINOR_VER: ["8", "9", "10", "11"] # TODO: Missing 12 as h5py doenst have binaries for 3.12 or 3.13 aarch64 yet
+      - PY_MINOR_VER: ["8", "9", "10", "11"] # TODO: Missing 12 as h5py doesn't have binaries for 3.12 or 3.13 aarch64 yet
 
 pytest-osx-x64:
   extends: [".pytest"]

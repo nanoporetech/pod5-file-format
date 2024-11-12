@@ -1,8 +1,9 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from functools import lru_cache, partial
 import os
 from pathlib import Path
 from typing import (
+    Any,
     Callable,
     Collection,
     Dict,
@@ -20,7 +21,7 @@ from pod5.pod5_types import PathOrStr
 from pod5.reader import ReadRecord, Reader
 from pod5.tools.utils import search_path
 
-DEFAULT_CPUS = os.cpu_count() or 1
+DEFAULT_CPUS = min(os.cpu_count() or 1, 4)
 
 
 class DatasetReader:
@@ -109,10 +110,9 @@ class DatasetReader:
                 msg = f"DatasetReader error reading: {[path]}"
                 raise Pod5ApiException(msg) from exc
 
-        self._num_reads = 0
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            self._num_reads = sum(executor.map(_get_num_reads, self._paths))
-
+        self._num_reads = sum(
+            self._run_max_workers(_get_num_reads, self.paths, self.threads)
+        )
         return self._num_reads
 
     @property
@@ -126,12 +126,11 @@ class DatasetReader:
         Yield all read_ids in this dataset
         """
 
-        def _get_read_ids(path: Path):
+        def _get_read_ids(path: Path) -> List[str]:
             return self.get_reader(path).read_ids
 
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            for read_id_gen in executor.map(_get_read_ids, self.paths):
-                yield from read_id_gen
+        for ids in self._run_max_workers(_get_read_ids, self.paths, self.threads):
+            yield from ids
 
     def reads(
         self,
@@ -165,9 +164,8 @@ class DatasetReader:
                 selection=selection, missing_ok=True, preload=preload
             )
 
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            for read_gen in executor.map(_get_reads_iter, self.paths):
-                yield from read_gen
+        for reads in self._run_max_workers(_get_reads_iter, self.paths, self.threads):
+            yield from reads
 
     def get_read(self, read_id: str) -> Optional[ReadRecord]:
         """
@@ -205,7 +203,10 @@ class DatasetReader:
     @staticmethod
     def _init_get_reader(maxsize: Optional[int]) -> Callable[[Path], Reader]:
         # This wrapper allows the size of the LRU cache to be set during initialization
-        # without global variables
+        # without global variables.
+
+        # Note that a Pod5.Reader consumes at least 4 file handles.
+        # If you experience "Too Many Open Files" reduce the `max_cached_readers` and `threads`
         @lru_cache(maxsize=maxsize)
         def _get_reader(path: Path) -> Reader:
             return Reader(path)
@@ -250,9 +251,8 @@ class DatasetReader:
         -------
         A `Path` or `None`
         """
-        if self._index is None:
-            self._index_read_ids()
 
+        self.index_read_ids()
         if self._index is None:
             return None
 
@@ -277,8 +277,7 @@ class DatasetReader:
         ----
         This method will index the dataset
         """
-        if self._index is None:
-            self._index_read_ids()
+        self.index_read_ids()
         assert self._index is not None
         return len(self) != len(self._index)
 
@@ -305,9 +304,15 @@ class DatasetReader:
                 collected.update(coll)
         return collected
 
-    def _index_read_ids(self) -> None:
-        self._index = {}
+    def index_read_ids(self) -> None:
+        """
+        Performs read_id indexing if not already done.
+        """
+        if self._index is None:
+            self._index_read_ids()
+        return
 
+    def _index_read_ids(self) -> None:
         def _get_index(path: Path) -> Dict[str, Path]:
             try:
                 return {read_id: path for read_id in self.get_reader(path).read_ids}
@@ -315,13 +320,30 @@ class DatasetReader:
                 msg = f"DatasetReader error reading: {[path]}"
                 raise Pod5ApiException(msg) from exc
 
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            for index in executor.map(_get_index, self.paths):
-                self._index.update(index)
+        self._index = {}
+        for index_item in self._run_max_workers(_get_index, self.paths, self.threads):
+            self._index.update(index_item)
 
     def _issue_duplicate_read_warning(self) -> None:
         if self.warn_duplicate_indexing:
             warnings.warn("duplicate read_ids found in dataset")
+
+    @staticmethod
+    def _run_max_workers(
+        fn: Callable[[Any], Any], iterable: Iterable[Any], max_workers: int
+    ) -> Generator[Any, None, None]:
+        assert max_workers > 0
+        futures: Set[Future] = set()
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for item in iterable:
+                futures.add(executor.submit(fn, item))
+                if len(futures) >= max_workers:
+                    future = next(as_completed(futures))
+                    yield future.result()
+                    futures.remove(future)
+
+            for future in as_completed(futures):
+                yield future.result()
 
     def __enter__(self) -> "DatasetReader":
         return self
