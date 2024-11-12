@@ -49,9 +49,11 @@ class TestDatasetReader:
                 dataset.num_reads
 
     def test_len_single(self) -> None:
-        p5.Reader(POD5_PATH).num_reads == len(
-            p5.DatasetReader(POD5_PATH)
-        ) == POD5_PATH_EXPECTED_NUM_READS
+        assert (
+            p5.Reader(POD5_PATH).num_reads
+            == len(p5.DatasetReader(POD5_PATH))
+            == POD5_PATH_EXPECTED_NUM_READS
+        )
 
     def test_iter_single(self) -> None:
         observed = set()

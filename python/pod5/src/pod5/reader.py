@@ -2,11 +2,10 @@
 Tools for accessing POD5 data from PyArrow files
 """
 
-
 import mmap
 from collections import namedtuple
 from dataclasses import fields
-from io import IOBase
+from io import BufferedReader, IOBase
 import os
 from pathlib import Path
 from typing import (
@@ -549,7 +548,11 @@ class ReadRecordBatch:
 class ArrowTableHandle:
     """Class for managing arrow file handles and memory view mapping of tables"""
 
-    def __init__(self, location: p5b.EmbeddedFileData) -> None:
+    def __init__(
+        self,
+        location: p5b.EmbeddedFileData,
+        options: Optional[pa.ipc.IpcReadOptions] = None,
+    ) -> None:
         """
         Open a pod5 file at the given `path` and use the location data to load
         an arrow table (e.g. signal table)
@@ -559,6 +562,8 @@ class ArrowTableHandle:
         location : lib_pod5.pod5_format_pybind.EmbeddedFileData
             Location data for how a pod5 file should be spit in memory to read a table.
             This is returned from p5b.Pod5FileReader.get_file_X_location methods
+        options: pa.ipc.IpcReadOptions
+            Serialization options for reading IPC format.
 
         Raises
         ------
@@ -569,22 +574,27 @@ class ArrowTableHandle:
         # The location data is passed from the p5b.Pod5FileReader.get_file_X_location
         # methods
         self._location = location
+        self._options = options
         self._path = Path(self._location.file_path)
 
-        # Open the file
-        self._fh = self._path.open("rb")
+        self._fh: Union[BufferedReader, None] = None
+        self._reader: Union[pa.RecordBatchFileReader, None] = None
+        self._stream: Union[pa.PythonFile, pa.NativeFile, None] = None
 
+        self._fh = None
         if "POD5_DISABLE_MMAP_OPEN" in os.environ:
-            self._reader = self._open_without_mmap()
+            self._stream = self._open_without_mmap()
         else:
             # Create a memory view of the file and select the region for the table
             try:
-                self._reader = self._open_with_mmap()
+                self._stream = self._open_with_mmap()
             except OSError:
                 # If we fail fall back to a traditional open.
-                self._reader = self._open_without_mmap()
+                self._stream = self._open_without_mmap()
 
-    def _open_without_mmap(self):
+        self._reader = pa.ipc.open_file(self._stream, options=self._options)
+
+    def _open_without_mmap(self) -> pa.PythonFile:
         class File(IOBase):
             def __init__(self, handle, location):
                 self._handle = handle
@@ -607,19 +617,23 @@ class ArrowTableHandle:
             def read(self, size=-1):
                 return self._handle.read(size)
 
-        return pa.ipc.open_file(pa.PythonFile(File(self._fh, self._location)))
+        if self._fh is None:
+            self._fh = self._path.open("rb")
 
-    def _open_with_mmap(self):
-        _mmap = mmap.mmap(self._fh.fileno(), length=0, access=mmap.ACCESS_READ)
-        file_view = memoryview(_mmap)
+        return pa.PythonFile(File(self._fh, self._location))
 
-        arrow_table_view = file_view[
-            self._location.offset : self._location.offset + self._location.length
-        ]
+    def _open_with_mmap(self) -> pa.BufferReader:
+        # Temporarily open file to reduce open file handles
+        with self._path.open("rb") as fh:
+            _mmap = mmap.mmap(fh.fileno(), length=0, access=mmap.ACCESS_READ)
+            file_view = memoryview(_mmap)
 
-        # Open the table
+            arrow_table_view = file_view[
+                self._location.offset : self._location.offset + self._location.length
+            ]
+
         try:
-            return pa.ipc.open_file(pa.BufferReader(arrow_table_view))
+            return pa.BufferReader(arrow_table_view)
         except pa.ArrowInvalid as exc:
             raise Pod5ApiException(f"Failed to open ArrowTable: {self._path}") from exc
 
@@ -631,12 +645,26 @@ class ArrowTableHandle:
 
         raise RuntimeError(f"Could not open pyarrow reader: {p5b.get_error_string()}")
 
+    @property
+    def stream(self) -> Union[pa.PythonFile, pa.NativeFile]:
+        """Return the pyarrow file stream / backend"""
+        if self._stream is not None:
+            return self._stream
+
+        raise RuntimeError(f"Could not open pyarrow stream: {p5b.get_error_string()}")
+
     def close(self) -> None:
         """
         Cleanly close the open file handles and memory views.
         """
+        safe_close(self, "_reader")
         self._reader = None
+
+        safe_close(self, "_stream")
+        self._stream = None
+
         safe_close(self, "_fh")
+        self._fh = None
 
     def __enter__(self) -> "ArrowTableHandle":
         return self
@@ -644,7 +672,7 @@ class ArrowTableHandle:
     def __exit__(self, *exc_details) -> None:
         self.close()
 
-    def __del__(self) -> None:
+    def __del__(self):
         self.close()
 
 
@@ -657,7 +685,6 @@ class Reader:
         """
         Open a pod5 filepath for reading
         """
-
         self._path = Path(path).absolute()
 
         self._file_reader: Optional[p5b.Pod5FileReader] = None
@@ -717,11 +744,7 @@ class Reader:
             file_reader.get_file_run_info_table_location()
         )
         signal_handle = ArrowTableHandle(file_reader.get_file_signal_table_location())
-
         return file_reader, read_handle, run_info_handle, signal_handle
-
-    def __del__(self) -> None:
-        self.close()
 
     def __enter__(self) -> "Reader":
         return self
