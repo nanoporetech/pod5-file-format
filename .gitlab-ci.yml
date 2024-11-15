@@ -368,15 +368,14 @@ osx-x64-clang14-release-build:
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-x64"
 
-osx-arm64-clang14-release-build:
+osx-arm64-clang15-release-build:
   extends: [".build-osx-common"]
   tags:
     - osx_arm64
-    - xcode-14.2
-    - high-cpu
+    - xcode-15.0.1
     - conan
   variables:
-    CONAN_PROFILE: "macos-aarch64-appleclang-14.0.jinja"
+    CONAN_PROFILE: "macos-aarch64-appleclang-15.0.jinja"
     CONAN_PROFILE_CPPSTD: 20
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
   parallel:
@@ -752,42 +751,42 @@ upload-conan:macos-x86_64-appleclang-14.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-14.0" ]
 
-build-conan:macos-aarch64-appleclang-14.0:
+build-conan:macos-aarch64-appleclang-15.0:
     extends:
-        - .profile-macos-aarch64-appleclang-14.0
+        - .profile-macos-aarch64-appleclang-15.0
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "osx-arm64-clang14-release-build"]
-upload-conan:macos-aarch64-appleclang-14.0:
+    needs: ["prepare_version", "osx-arm64-clang15-release-build"]
+upload-conan:macos-aarch64-appleclang-15.0:
     extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-14.0" ]
+    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-15.0" ]
 
-build-conan:ios-aarch64-appleclang-14.0:
+build-conan:ios-aarch64-appleclang-15.0:
     extends:
-        - .profile-iOS-aarch64-appleclang-14.0
+        - .profile-iOS-aarch64-appleclang-15.0
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
     after_script:
         - *tarball-package-without-macos
-    needs: ["prepare_version", "osx-arm64-clang14-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
-upload-conan:ios-aarch64-appleclang-14.0:
+    needs: ["prepare_version", "osx-arm64-clang15-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
+upload-conan:ios-aarch64-appleclang-15.0:
     extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-14.0" ]
+    dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-15.0" ]
 
-build-conan:iOSSimulator-aarch64-appleclang-14.0:
+build-conan:iOSSimulator-aarch64-appleclang-15.0:
     extends:
-        - .profile-iOSSimulator-aarch64-appleclang-14.0
+        - .profile-iOSSimulator-aarch64-appleclang-15.0
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
     after_script:
         - *tarball-package-without-macos
-    needs: ["prepare_version", "osx-arm64-clang14-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
-upload-conan:iOSSimulator-aarch64-appleclang-14.0:
+    needs: ["prepare_version", "osx-arm64-clang15-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
+upload-conan:iOSSimulator-aarch64-appleclang-15.0:
     extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-14.0" ]
+    dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-15.0" ]
 
 build-conan:linux-x86_64-gcc9:
     extends:
@@ -848,7 +847,7 @@ build-archive:
     - linux-aarch64-gcc9-release-build
     - linux-aarch64-gcc8-release-build
     - osx-x64-clang14-release-build
-    - osx-arm64-clang14-release-build
+    - osx-arm64-clang15-release-build
     - win-x64-msvc2019-release-build
     - build-python-api
   script:
