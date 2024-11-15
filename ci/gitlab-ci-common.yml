@@ -285,30 +285,6 @@ before_script:
 #
 # Set up for MacOS versions
 #
-.profile-macos-x86_64-appleclang-12.0:
-    # Set up for MacOS x86 using clang 12.0, using conan and the profile
-    # macos-x86_64-appleclang-12.0, adapted for debug and release. To be called from individual
-    # packages by using "extends". ##### Still in use, because a 13.1 version is not available yet.
-    tags:
-        - osx
-        - appleclang-12.0
-        - conan
-    variables:
-        PROFILE_BASE: macos-x86_64-appleclang-12.0.jinja
-    parallel: !reference [.parallel-cppstd,parallel]
-
-.profile-macos-x86_64-appleclang-13.1:
-    # Set up for MacOS x86 using clang 13.1, using conan and the profile
-    # macos-x86_64-appleclang-13.1 adapted for debug and release. To be called from individual
-    # packages by using "extends". ##### Not in use yet, because this version has been just added.
-    tags:
-        - osx
-        - appleclang-13.1
-        - conan
-    variables:
-        PROFILE_BASE: macos-x86_64-appleclang-13.1.jinja
-    parallel: !reference [.parallel-cppstd,parallel]
-
 .profile-macos-x86_64-appleclang-14.0:
     # Set up for MacOS x86 using clang 14.0, using conan and the profile
     # macos-x86_64-appleclang-14.0, adapted for debug and release. To be called from individual
@@ -321,98 +297,46 @@ before_script:
         PROFILE_BASE: macos-x86_64-appleclang-14.0.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-macos-aarch64-appleclang-13.1:
-    # Set up for MacOS arm 64 using clang 13.1, using conan and the profile
-    # macos-aarch64-appleclang-13.1, adapted for debug and release. To be called from individual
+.profile-macos-aarch64-appleclang-15.0:
+    # Set up for MacOS arm 64 using clang 15.0, using conan and the profile
+    # macos-aarch64-appleclang-15.0, adapted for debug and release. To be called from individual
     # packages by using "extends".
     tags:
         - osx_arm64
-        - appleclang-13.1
+        - appleclang-15.0
         - conan
     variables:
-        PROFILE_BASE: macos-aarch64-appleclang-13.1.jinja
-    parallel: !reference [.parallel-cppstd,parallel]
-
-.profile-macos-aarch64-appleclang-14.0:
-    # Set up for MacOS arm 64 using clang 14.0, using conan and the profile
-    # macos-aarch64-appleclang-14.0, adapted for debug and release. To be called from individual
-    # packages by using "extends".
-    tags:
-        - osx_arm64
-        - appleclang-14.0
-        - conan
-    variables:
-        PROFILE_BASE: macos-aarch64-appleclang-14.0.jinja
+        PROFILE_BASE: macos-aarch64-appleclang-15.0.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
 #
 # Set up for iOS versions
 #
-.profile-iOS-aarch64-appleclang-13.1:
-    # Set up for iOS build using clang 13.1, and cross-compiling using conan and build / host
-    # profiles macos-aarch64-appleclang-13.1 and iOS-aarch64-appleclang-13.1, adapted for debug and
+.profile-iOS-aarch64-appleclang-15.0:
+    # Set up for iOS build using clang 15.0, and cross-compiling using conan and build / host
+    # profiles macos-aarch64-appleclang-15.0 and iOS-aarch64-appleclang-15.0, adapted for debug and
     # release. To be called from individual packages by using "extends".
     tags:
         - osx_arm64
-        - appleclang-13.1
+        - appleclang-15.0
         - conan
     variables:
         CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
-        PROFILE_BASE_HOST: iOS-aarch64-appleclang-13.1.jinja
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-15.0.jinja
+        PROFILE_BASE_HOST: iOS-aarch64-appleclang-15.0.jinja
 
-.profile-iOS-aarch64-appleclang-14.0:
-    # Set up for iOS build using clang 14.0, and cross-compiling using conan and build / host
-    # profiles macos-aarch64-appleclang-14.0 and iOS-aarch64-appleclang-14.0, adapted for debug and
+.profile-iOSSimulator-aarch64-appleclang-15.0:
+    # Set up for iOSSimulator build using clang 15.0, and cross-compiling using conan and build / host
+    # profiles macos-aarch64-appleclang-15.0 and iOSSimulator-aarch64-appleclang-15.0, adapted for debug and
     # release. To be called from individual packages by using "extends".
     tags:
         - osx_arm64
-        - appleclang-14.0
+        - appleclang-15.0
         - conan
     variables:
         CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-14.0.jinja
-        PROFILE_BASE_HOST: iOS-aarch64-appleclang-14.0.jinja
-
-.profile-iOSSimulator-aarch64-appleclang-13.1:
-    # Set up for iOS arm64 simulator and cross-compiling using clang 13.1, using conan and build /
-    # host profiles macos-aarch64-appleclang-13.1 and iOSSimulator-aarch64-appleclang-13.1, adapted
-    # for debug and release. To be called from individual packages by using "extends".
-    tags:
-        - osx_arm64
-        - appleclang-13.1
-        - conan
-    variables:
-        CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
-        PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-13.1.jinja
-
-.profile-iOSSimulator-aarch64-appleclang-14.0:
-    # Set up for iOS arm64 simulator and cross-compiling using clang 14.0, using conan and build /
-    # host profiles macos-aarch64-appleclang-14.0 and iOSSimulator-aarch64-appleclang-14.0, adapted
-    # for debug and release. To be called from individual packages by using "extends".
-    tags:
-        - osx_arm64
-        - appleclang-14.0
-        - conan
-    variables:
-        CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-14.0.jinja
-        PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-14.0.jinja
-
-
-.profile-iOSSimulator-x86_64-appleclang-13.1:
-    # Set up for iOS x86 simulator and cross-compiling using clang 13.1, using conan and build /
-    # host profiles macos-aarch64-appleclang-13.1 and iOSSimulator-x86_64-appleclang-13.1, adapted
-    # for debug and release. To be called from individual packages by using "extends".
-    tags:
-        - osx_arm64
-        - appleclang-13.1
-        - conan
-    variables:
-        CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-13.1.jinja
-        PROFILE_BASE_HOST: iOSSimulator-x86_64-appleclang-13.1.jinja
+        PROFILE_BASE_BUILD: macos-aarch64-appleclang-15.0.jinja
+        PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-15.0.jinja
 
 #
 # Set up for linux versions
