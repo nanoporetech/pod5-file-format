@@ -490,7 +490,7 @@ build-python-api:
 .parallel-py-minor-ver:
   parallel:
     matrix:
-      - PY_MINOR_VER: ["8", "9", "10", "11", "12"]
+      - PY_MINOR_VER: ["8", "9", "10", "11", "12", "13"]
 
 tools-linux-x64:
   extends: [".parallel-py-minor-ver"]
@@ -557,9 +557,6 @@ pytest-linux-aarch64:
   needs:
     - linux-aarch64-gcc9-release-build
     - build-python-api
-  parallel:
-    matrix:
-      - PY_MINOR_VER: ["8", "9", "10", "11"] # TODO: Missing 12 as h5py doesn't have binaries for 3.12 or 3.13 aarch64 yet
 
 pytest-osx-x64:
   extends: [".pytest"]

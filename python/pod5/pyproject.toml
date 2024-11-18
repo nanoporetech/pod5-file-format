@@ -5,39 +5,40 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pod5"
-authors = [{name="Oxford Nanopore Technologies plc", email="support@nanoporetech.com"}]
+authors = [
+  { name = "Oxford Nanopore Technologies plc", email = "support@nanoporetech.com" },
+]
 readme = "README.md"
 requires-python = "~= 3.8"
-description="Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
+description = "Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
 dynamic = ["version"]
 keywords = ['nanopore']
-classifiers=[
-    'Environment :: Console',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Science/Research',
-    'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
-    'Natural Language :: English',
-    'Programming Language :: Python :: 3',
-    'Topic :: Scientific/Engineering :: Bio-Informatics',
+classifiers = [
+  'Environment :: Console',
+  'Intended Audience :: Developers',
+  'Intended Audience :: Science/Research',
+  'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+  'Natural Language :: English',
+  'Programming Language :: Python :: 3',
+  'Topic :: Scientific/Engineering :: Bio-Informatics',
 ]
 
 dependencies = [
-    "lib_pod5 == 0.3.22",
-    "iso8601",
-    'importlib-metadata; python_version<"3.8"',
-    "more_itertools",
-    "numpy >= 1.21.0",
-    'typing-extensions; python_version<"3.10"',
-    # Avoid issues with pyarrow 16.1.0 on x64 Macos: https://github.com/apache/arrow/issues/41696
-    'pyarrow ~= 16.1.0; platform_system!="Darwin" or platform_machine!="x86_64" or python_version<"3.12"',
-    'pyarrow ~= 16.0.0; platform_system=="Darwin" and platform_machine=="x86_64" and python_version>="3.12"',
-    "pytz",
-    "packaging",
-    "polars~=0.19",
-    'h5py~=3.11.0; python_version>"3.8"',
-    'h5py~=3.10.0; python_version<="3.8"',
-    "vbz_h5py_plugin",
-    "tqdm"
+  "lib_pod5 == 0.3.22",
+  "iso8601",
+  'importlib-metadata; python_version<"3.8"',
+  "more_itertools",
+  "numpy >= 1.21.0",
+  'typing-extensions; python_version<"3.10"',
+  'pyarrow ~= 16.1.0; python_version<="3.8"',
+  'pyarrow ~= 18.0.0; python_version>"3.8"',
+  "pytz",
+  "packaging",
+  "polars~=0.19",
+  'h5py~=3.11; python_version>"3.8"',
+  'h5py~=3.10.0; python_version<="3.8"',
+  "vbz_h5py_plugin",
+  "tqdm",
 ]
 
 [project.optional-dependencies]
@@ -66,7 +67,7 @@ where = ["src"]
 exclude = ["test*"]
 
 [tool.setuptools.dynamic]
-version = {attr = "pod5._version.__version__"}
+version = { attr = "pod5._version.__version__" }
 
 [tool.black]
 target-version = ["py37"]
