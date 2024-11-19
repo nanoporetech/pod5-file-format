@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ArrowTableHandle` `stream` member to store the `BatchFileReader` backend
 - `ArrowTableHandle` `options` argument to pass in `IpcReadOptions`
+- `pod5::default_memory_pool` function which selects an appropriate memory pool even on large page systems.
 
 ## Changed
 

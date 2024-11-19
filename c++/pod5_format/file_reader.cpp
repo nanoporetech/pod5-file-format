@@ -1,6 +1,7 @@
 #include "pod5_format/file_reader.h"
 
 #include "pod5_format/internal/combined_file_utils.h"
+#include "pod5_format/memory_pool.h"
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/run_info_table_reader.h"
@@ -8,12 +9,11 @@
 
 #include <arrow/io/concurrency.h>
 #include <arrow/io/file.h>
-#include <arrow/memory_pool.h>
 
 namespace pod5 {
 
 FileReaderOptions::FileReaderOptions()
-: m_memory_pool(arrow::default_memory_pool())
+: m_memory_pool(pod5::default_memory_pool())
 , m_max_cached_signal_table_batches(DEFAULT_MAX_CACHED_SIGNAL_TABLE_BATCHES)
 {
 }
