@@ -91,6 +91,8 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/expandable_buffer.h
     pod5_format/io_manager.cpp
     pod5_format/io_manager.h
+    pod5_format/memory_pool.cpp
+    pod5_format/memory_pool.h
     pod5_format/result.h
     pod5_format/schema_utils.cpp
     pod5_format/schema_utils.h
@@ -156,6 +158,7 @@ list(APPEND public_headers
     pod5_format/expandable_buffer.h
     pod5_format/file_output_stream.h
     pod5_format/io_manager.h
+    pod5_format/memory_pool.h
     pod5_format/result.h
     pod5_format/dictionary_writer.h
     pod5_format/schema_field_builder.h

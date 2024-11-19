@@ -4,6 +4,7 @@
 #include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/io_manager.h"
+#include "pod5_format/memory_pool.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/read_table_writer.h"
 #include "pod5_format/read_table_writer_utils.h"
@@ -15,7 +16,6 @@
 #include "pod5_format/version.h"
 
 #include <arrow/io/file.h>
-#include <arrow/memory_pool.h>
 #include <arrow/result.h>
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
@@ -79,7 +79,7 @@ namespace pod5 {
 
 FileWriterOptions::FileWriterOptions()
 : m_max_signal_chunk_size(DEFAULT_SIGNAL_CHUNK_SIZE)
-, m_memory_pool(arrow::default_memory_pool())
+, m_memory_pool(pod5::default_memory_pool())
 , m_signal_type(DEFAULT_SIGNAL_TYPE)
 , m_signal_table_batch_size(DEFAULT_SIGNAL_TABLE_BATCH_SIZE)
 , m_read_table_batch_size(DEFAULT_READ_TABLE_BATCH_SIZE)
