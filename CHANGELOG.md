@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored Multi-threading in `DatasetReader` to prevent too many open files errors
 - Updated dependency to `pyarrow~=18.0.0` for `python>=3.9`
 - Relaxed h5py python dependency
+- Removed use of python `build` when building wheel in cmake.
 
 ## [0.3.21]
 
