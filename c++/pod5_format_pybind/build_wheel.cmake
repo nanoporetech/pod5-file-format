@@ -10,10 +10,10 @@ set(ENV{POD5_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
 
 file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5")
 
-message("  using: ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR}")
+message("  using: ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}")
 
 execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} -m build --outdir ${WHEEL_OUTPUT_DIR}
+    COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}
     WORKING_DIRECTORY "${PYTHON_PROJECT_DIR}/"
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE output
