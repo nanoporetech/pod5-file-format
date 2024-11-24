@@ -8,6 +8,7 @@
 #include <optional>
 #include <thread>
 #include <vector>
+#include <stdexcept>
 
 namespace pod5 {
 
