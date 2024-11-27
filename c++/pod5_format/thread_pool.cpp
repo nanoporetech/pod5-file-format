@@ -6,9 +6,9 @@
 #include <deque>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <thread>
 #include <vector>
-#include <stdexcept>
 
 namespace pod5 {
 

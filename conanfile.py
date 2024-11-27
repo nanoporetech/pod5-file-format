@@ -14,7 +14,6 @@ class Pod5Conan(ConanFile):
     options = {"shared": [True, False]}
     default_options = {
         "shared": False,
-        "arrow:with_zstd": True,
     }
     exports_sources = [
         "c++/*",
@@ -53,7 +52,7 @@ class Pod5Conan(ConanFile):
             )
 
     def requirements(self):
-        self.requires("arrow/12.0.0@")
+        self.requires("arrow/18.0.0@")
         self.requires("flatbuffers/2.0.0@")
         self.requires("zstd/1.5.5@")
         self.requires("zlib/1.2.13@")
@@ -91,6 +90,7 @@ class Pod5Conan(ConanFile):
         tc.variables["POD5_DISABLE_TESTS"] = "ON"
         tc.variables["POD5_BUILD_EXAMPLES"] = "OFF"
         tc.variables["BUILD_SHARED_LIB"] = "ON" if self.options.shared else "OFF"
+
         tc.generate()
 
         deps = CMakeDeps(self)
@@ -145,3 +145,6 @@ class Pod5Conan(ConanFile):
         # self.cpp
         if self.settings.os == "Linux":
             self.cpp_info.requires.append("jemalloc::jemalloc")
+
+        if self.settings.os in ["iOS", "Macos"]:
+            self.cpp_info.frameworks = ["CoreFoundation"]

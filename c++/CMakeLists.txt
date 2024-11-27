@@ -212,6 +212,11 @@ target_link_libraries(pod5_format
         Threads::Threads
 )
 
+if(APPLE)
+    find_library(CORE_FOUNDATION CoreFoundation)
+    target_link_libraries(pod5_format PRIVATE ${CORE_FOUNDATION})
+endif()
+
 target_include_directories(pod5_format
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
