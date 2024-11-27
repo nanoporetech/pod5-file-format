@@ -223,7 +223,7 @@ build-standalone-ubu20:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
   - cd build
-  - conan install --profile ${CONAN_PROFILE} ..
+  - conan install --profile ${CONAN_PROFILE} ${EXTRA_INSTALL_ARGS} ..
   - cmake ${CMAKE_ARGS}
     -D BUILD_SHARED_LIB=ON
     -D CMAKE_BUILD_TYPE=Release
@@ -262,6 +262,8 @@ build-standalone-ubu20:
   needs:
     - "prepare_version"
   retry: 1
+  variables:
+    EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
     - /opt/python/cp310-cp310/bin/pip install -U pip 'conan<2' auditwheel build
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
@@ -331,6 +333,8 @@ linux-aarch64-gcc9-release-build:
   needs:
     - "prepare_version"
   retry: 1
+  variables:
+    EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
@@ -402,6 +406,9 @@ osx-arm64-clang15-release-build:
   needs:
     - "prepare_version"
   retry: 1
+  variables:
+    # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
+    EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
   before_script:
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - c:/Python${PYTHON_VERSION}/python -m venv .venv

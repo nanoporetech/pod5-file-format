@@ -71,6 +71,9 @@ before_script:
     # The after_script removes unneeded builds and sources and packages everything into a tarball,
     # artifacts defines the name and path for build artifacts.
     stage: build
+    variables:
+        # For Linux and iOS we need to tell arrow to not use boost.
+        EXTRA_CREATE_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
     script:
         - *profile-variables
         - |
@@ -121,6 +124,9 @@ before_script:
         # we're nesting conan's data dir pretty deep, so build systems that would normally be ok can
         # fail if we don't use short paths
         CONAN_USE_ALWAYS_SHORT_PATHS: '1'
+        # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
+        EXTRA_CREATE_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
+
     after_script:
         # Avoid storing things on the CI node unnecessarily
         - conan remove "*" --builds --src --force
