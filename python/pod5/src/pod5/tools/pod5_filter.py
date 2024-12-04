@@ -44,7 +44,7 @@ def parse_read_id_targets(ids: Path, output: Path) -> pl.LazyFrame:
         pl.scan_csv(
             ids,
             has_header=False,  # Any header will be filtered out by is_uuid
-            comment_char="#",
+            comment_prefix="#",
             new_columns=[PL_READ_ID],
             rechunk=False,
         )
