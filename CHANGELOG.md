@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update to arrow 18 for the cpp library.
 
+## Fixed
+
+- Flush `pod5 view` header to prevent issue on Windows systems where header would not be on top.
+
 ## [0.3.23]
 
 ## Changed

@@ -230,7 +230,7 @@ def write_header(
     """Write the header line"""
     header = separator.join(key for key in FIELDS if key in selected)
     if output is None:
-        print(header, file=sys.stdout)
+        print(header, file=sys.stdout, flush=True)
     else:
         output.write_text(header + "\n")
 
