@@ -365,7 +365,7 @@ osx-x64-clang14-release-build:
     CONAN_PROFILE_CPPSTD: 20
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.8.9", "3.9.13"]
+      - PYTHON_VERSION: ["3.9.13"]
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-x64"
       - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0", "3.13.0"]
@@ -384,7 +384,7 @@ osx-arm64-clang15-release-build:
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.8.9", "3.9.13"]
+      - PYTHON_VERSION: ["3.9.13"]
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
@@ -494,13 +494,19 @@ build-python-api:
 # ======================================
 
 
-.parallel-py-minor-ver:
+.parallel-py-minor-ver-mac-win:
+  parallel:
+    matrix:
+      - PY_MINOR_VER: ["9", "10", "11", "12", "13"]
+
+# we sometimes support older python versions on linux, due to ubuntu LTS
+.parallel-py-minor-ver-linux:
   parallel:
     matrix:
       - PY_MINOR_VER: ["8", "9", "10", "11", "12", "13"]
 
 tools-linux-x64:
-  extends: [".parallel-py-minor-ver"]
+  extends: [".parallel-py-minor-ver-linux"]
   stage: test
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
@@ -532,7 +538,6 @@ tools-linux-x64:
 
 
 .pytest:
-  extends: [".parallel-py-minor-ver"]
   stage: test
   retry: 1
   before_script:
@@ -547,7 +552,7 @@ tools-linux-x64:
     - POD5_DISABLE_MMAP_OPEN=1 pytest
 
 pytest-linux-x64:
-  extends: [".pytest"]
+  extends: [".pytest", ".parallel-py-minor-ver-linux"]
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
@@ -556,7 +561,7 @@ pytest-linux-x64:
     - build-python-api
 
 pytest-linux-aarch64:
-  extends: [".pytest"]
+  extends: [".pytest", ".parallel-py-minor-ver-linux"]
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux_aarch64
@@ -566,7 +571,7 @@ pytest-linux-aarch64:
     - build-python-api
 
 pytest-osx-x64:
-  extends: [".pytest"]
+  extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
   tags:
     - osx_x86
     - high-cpu
@@ -576,7 +581,7 @@ pytest-osx-x64:
     - build-python-api
 
 pytest-win-x64:
-  extends: [".pytest"]
+  extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
   tags:
     - windows
   needs:
@@ -594,7 +599,7 @@ pytest-win-x64:
 conda_pytest:
   extends:
     - .pytest
-    - .parallel-py-minor-ver
+    - .parallel-py-minor-ver-linux
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
   tags:
     - linux
@@ -929,7 +934,7 @@ mlhub:
   parallel:
     matrix:
       - PYTHON_VERSION:
-        - "3.8"
+        - "3.9"
         - "3.12"
 
 
