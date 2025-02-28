@@ -1,6 +1,6 @@
 #pragma once
 
-#include "footer_generated.h"
+#include "pod5_flatbuffers/footer_generated.h"
 #include "pod5_format/file_reader.h"
 #include "pod5_format/result.h"
 #include "pod5_format/uuid.h"

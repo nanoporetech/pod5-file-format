@@ -1,20 +1,27 @@
 #include "pod5_format/async_signal_loader.h"
 #include "pod5_format/file_reader.h"
 #include "pod5_format/file_writer.h"
+#include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_table_reader.h"
 #include "pod5_format/uuid.h"
+#include "TemporaryDirectory.h"
 #include "test_utils.h"
 #include "utils.h"
 
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_dict.h>
 #include <arrow/array/array_primitive.h>
+#include <arrow/io/file.h>
 #include <arrow/memory_pool.h>
 #include <catch2/catch.hpp>
 
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <numeric>
+#include <string>
+#include <thread>
 
 void run_file_reader_writer_tests()
 {
@@ -341,4 +348,370 @@ SCENARIO("Opening older files")
             {"usb_config", "MinION_fx3_1.1.1_ONT#MinION_fpga_1.1.0#ctrl#Auto"},
             {"version", "3.4.0-rc3"},
         });
+}
+
+/// Create empty file at \p path.
+static void touch(std::filesystem::path const & path) { std::ofstream const ofs(path); }
+
+/// Create file of zeros/nulls at \p path.
+static void write_zeros(std::filesystem::path const & path)
+{
+    std::ofstream ofs(path);
+    for (int i = 0; i < 1000000; ++i)
+        ofs << uint32_t{0};
+}
+
+/// Returns true iff the file exists and contains non-null data.
+static bool file_writing_started(std::filesystem::path const & file_path)
+{
+    if (!exists(file_path))
+        return false;
+    if (!is_regular_file(file_path))
+        return false;
+    // This should be enough for the check as unwritten files are usually
+    // empty or populated with nulls if writing has not been done.
+    auto const MINIMUM_BYTES_WRITTEN = 3;
+    if (file_size(file_path) < 3)
+        return MINIMUM_BYTES_WRITTEN;
+    std::ifstream file{file_path, std::ios::in | std::ios::binary};
+    for (auto byte_index = 0; byte_index < MINIMUM_BYTES_WRITTEN; ++byte_index) {
+        std::uint8_t byte;
+        file >> byte;
+        if (byte == 0)
+            return false;
+    }
+    return true;
+}
+
+static bool files_ready_to_recover(std::filesystem::path const & directory_path)
+{
+    using directory_iterator = std::filesystem::directory_iterator;
+    // The directory should contain 3 files for recovery. A `pod5.tmp` with the signal data
+    // a `.tmp-reads` for the reads and a `.tmp-run-info` for the run information.
+    return std::count_if(
+               directory_iterator(directory_path), directory_iterator{}, file_writing_started)
+           >= 3;
+}
+
+static void wait_for_files_to_recover(std::filesystem::path const & directory_path)
+{
+    using clock = std::chrono::steady_clock;
+    auto const begin_waiting = clock::now();
+    auto const time_waited = [&]() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - begin_waiting);
+    };
+    while (!files_ready_to_recover(directory_path)) {
+        REQUIRE(time_waited() < std::chrono::milliseconds{100000});
+        // Give any asynchronous file writing threads a chance to write to disk, before we continue.
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    }
+}
+
+static std::filesystem::path create_files_for_recovery(
+    std::string const & file_name,
+    pod5::Uuid read_id_1,
+    ont::testutils::TemporaryDirectory & recovery_directory)
+{
+    auto const run_info_data = get_test_run_info_data("_run_info");
+
+    std::uint16_t channel = 25;
+    std::uint8_t well = 3;
+    std::uint32_t read_number = 1234;
+    std::uint64_t start_sample = 12340;
+    std::uint64_t num_minknow_events = 27;
+    float median_before = 224.0f;
+    float calib_offset = 22.5f;
+    float calib_scale = 1.2f;
+    float tracked_scaling_scale = 2.3f;
+    float tracked_scaling_shift = 100.0f;
+    float predicted_scaling_scale = 1.5f;
+    float predicted_scaling_shift = 50.0f;
+    std::uint32_t num_reads_since_mux_change = 3;
+    float time_since_mux_change = 200.0f;
+
+    std::vector<std::int16_t> signal_1(100'000);
+    std::iota(signal_1.begin(), signal_1.end(), 0);
+
+    ont::testutils::TemporaryDirectory data_writing_directory;
+    auto file = data_writing_directory.path() / file_name;
+
+    pod5::FileWriterOptions options;
+    options.set_max_signal_chunk_size(20'480);
+    options.set_read_table_batch_size(1);
+    options.set_signal_table_batch_size(5);
+    options.set_use_sync_io(true);
+
+    auto writer_result = pod5::create_file_writer(file.string(), "test_software", options);
+    REQUIRE_ARROW_STATUS_OK(writer_result);
+    std::unique_ptr<pod5::FileWriter> writer = std::move(*writer_result);
+
+    auto run_info = writer->add_run_info(run_info_data);
+    auto end_reason = writer->lookup_end_reason(pod5::ReadEndReason::signal_negative);
+    bool end_reason_forced = true;
+    auto pore_type = writer->add_pore_type("Pore_type");
+
+    for (std::size_t i = 0; i < 10; ++i) {
+        CHECK_ARROW_STATUS_OK(writer->add_complete_read(
+            {read_id_1,
+             read_number,
+             start_sample,
+             channel,
+             well,
+             *pore_type,
+             calib_offset,
+             calib_scale,
+             median_before,
+             *end_reason,
+             end_reason_forced,
+             *run_info,
+             num_minknow_events,
+             tracked_scaling_scale,
+             tracked_scaling_shift,
+             predicted_scaling_scale,
+             predicted_scaling_shift,
+             num_reads_since_mux_change,
+             time_since_mux_change},
+            gsl::make_span(signal_1)));
+    }
+
+    wait_for_files_to_recover(data_writing_directory.path());
+
+    // The files are deliberately copied here before they can be properly finalised
+    // by the destructor of the FileWriter.
+    std::filesystem::copy(data_writing_directory.path(), recovery_directory.path());
+
+    REQUIRE(files_ready_to_recover(recovery_directory.path()));
+
+    return recovery_directory.path() / file_name;
+}
+
+/// This is equivalent to the C++20 `std::string::ends_with` function. It should be replaced with
+/// the standard library function once we move to the C++20 standard and drop support for building
+/// with GCC 8.
+static bool ends_with(std::string const & search_in, std::string const & suffix)
+{
+    if (suffix.size() > search_in.size())
+        return false;
+    return search_in.compare(search_in.size() - suffix.size(), std::string::npos, suffix) == 0;
+}
+
+TEST_CASE("Check custom rolled ends_with works", "[string_utilities]")
+{
+    CHECK(ends_with("abc", "abc"));
+    CHECK(ends_with("abcdef", "def"));
+    CHECK_FALSE(ends_with("abcdef", "abc"));
+    CHECK_FALSE(ends_with("def", "abcdef"));
+    CHECK_FALSE(ends_with("abc", "def"));
+}
+
+static std::string escape_for_regex(std::string const & input)
+{
+    std::string output;
+    for (auto const & character : input) {
+        switch (character) {
+        case '\\':
+        case '/':
+        case '.':
+        case '[':
+        case ']':
+        case '(':
+        case ')':
+            output += std::string("\\");
+        default:;
+        }
+        output += character;
+    }
+    return output;
+}
+
+TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
+{
+    std::string const file_name = "foo.pod5.tmp";
+    ont::testutils::TemporaryDirectory recovery_directory;
+    auto const registration_status = pod5::register_extension_types();
+    REQUIRE(registration_status.ok());
+    auto const unregister = [] { (void)pod5::unregister_extension_types(); };
+    auto fin = std::make_unique<gsl::final_action<decltype(unregister)>>(unregister);
+    std::mt19937 gen{Catch::rngSeed()};
+    auto uuid_gen = pod5::UuidRandomGenerator{gen};
+    std::filesystem::path const path_to_recover =
+        create_files_for_recovery(file_name, uuid_gen(), recovery_directory);
+
+    REQUIRE(exists(path_to_recover));
+    std::filesystem::path reads_path, run_path;
+    for (auto const & directory_entry :
+         std::filesystem::directory_iterator{recovery_directory.path()})
+    {
+        if (!directory_entry.is_regular_file())
+            continue;
+        if (ends_with(directory_entry.path().filename().string(), (".tmp-reads")))
+            reads_path = directory_entry.path();
+        if (ends_with(directory_entry.path().filename().string(), (".tmp-run-info")))
+            run_path = directory_entry.path();
+    }
+    REQUIRE(exists(reads_path));
+    REQUIRE(exists(run_path));
+    auto const recovered_file_path = recovery_directory.path() / (file_name + "-recovered.pod5");
+    // Confirm that no recovered file is left over from previous test runs.
+    REQUIRE_FALSE(exists(recovered_file_path));
+
+    // Paths are implicitly convertible to the kind of strings used for paths
+    // on the current platform. On Windows this is an `std::wstring`, but the
+    // recover_file_writer takes a `std::string`, so we need the explicit
+    // conversion to make the build work on that platform.
+    // `generic_string()` is used rather than `native()` because Arrow paths
+    // always use `/` as a separator, even on Windows.
+    std::string const to_recover = path_to_recover.generic_string();
+    std::string const recovered = recovered_file_path.generic_string();
+    CAPTURE(to_recover, recovered);
+
+    SECTION("Recovering basic set of .tmp files.")
+    {
+        auto recover_result1 = pod5::recover_file_writer(to_recover, recovered);
+        REQUIRE_ARROW_STATUS_OK(recover_result1);
+        recover_result1->reset();
+        REQUIRE(exists(recovered_file_path));
+    }
+
+    SECTION("Recovering whilst extensions are not registered.")
+    {
+        fin = {};
+        auto recover_result2 = pod5::recover_file_writer(to_recover, recovered);
+        REQUIRE_FALSE(recover_result2.ok());
+        REQUIRE(
+            recover_result2.status().ToString()
+            == "Invalid: Recovered file Schema does not match expected schema, version mismatch?");
+    }
+
+    SECTION("Recovering without run information.")
+    {
+        remove(run_path);
+        std::string const run_info_string = run_path.generic_string();
+        CAPTURE(run_info_string);
+
+        SECTION("Recovering set of .tmp files with run info file missing.")
+        {
+            auto recover_result3 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result3.ok());
+            auto const result_message3 = recover_result3.status().ToString();
+            auto const expected_regex3 =
+                "IOError: Failed to open local file '" + escape_for_regex(run_info_string)
+                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
+            REQUIRE_THAT(result_message3, Catch::Matchers::Matches(expected_regex3));
+        }
+
+        SECTION("Recovering set of .tmp files with run info file empty.")
+        {
+            touch(run_path);
+            auto recover_result4 = pod5::recover_file_writer(to_recover, recovered);
+            // The line below tests that the check/message for particular error state is missing.
+            // This should be replaced with a requirements for the actual error, when the error
+            // handling is implemented.
+            REQUIRE_ARROW_STATUS_OK(recover_result4);
+        }
+
+        SECTION("Recovering set of .tmp files with run info file zeroed.")
+        {
+            write_zeros(run_path);
+            auto recover_result5 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result5.ok());
+            REQUIRE(recover_result5.status().ToString() == "Invalid: Not an Arrow file");
+        }
+    }
+
+    SECTION("Recovering without read information.")
+    {
+        remove(reads_path);
+        std::string const reads_string = reads_path.generic_string();
+        CAPTURE(reads_string);
+
+        SECTION("Recovering set of .tmp files with reads file missing.")
+        {
+            auto recover_result6 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result6.ok());
+            auto const result_message6 = recover_result6.status().ToString();
+            auto const expected_regex6 =
+                "IOError: Failed to open local file '" + escape_for_regex(reads_string)
+                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
+            REQUIRE_THAT(result_message6, Catch::Matchers::Matches(expected_regex6));
+        }
+
+        SECTION("Recovering set of .tmp files with reads file empty.")
+        {
+            touch(reads_path);
+            auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
+            // The line below tests that the check/message for particular error state is missing.
+            // This should be replaced with a requirements for the actual error, when the error
+            // handling is implemented.
+            REQUIRE_ARROW_STATUS_OK(recover_result7);
+        }
+
+        SECTION("Recovering set of .tmp files with reads file zeroed.")
+        {
+            write_zeros(reads_path);
+            auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result7.ok());
+            REQUIRE(recover_result7.status().ToString() == "Invalid: Not an Arrow file");
+        }
+    }
+
+    SECTION("Error messages for problems with combined .pod5.tmp file.")
+    {
+        remove(path_to_recover);
+
+        SECTION("Recovering set of .tmp files with .pod5.tmp file missing.")
+        {
+            auto recover_result8 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result8.ok());
+            auto const result_message = recover_result8.status().ToString();
+            auto const expected_regex =
+                "IOError: Failed to open local file '" + escape_for_regex(to_recover)
+                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
+            CAPTURE(result_message, expected_regex);
+            REQUIRE_THAT(result_message, Catch::Matchers::Matches(expected_regex));
+        }
+
+        SECTION("Recovering set of .tmp files with .pod5.tmp file empty.")
+        {
+            touch(path_to_recover);
+            auto recover_result9 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result9.ok());
+            REQUIRE(recover_result9.status().ToString() == "IOError: Invalid signature in file");
+        }
+
+        SECTION("Recovering set of .tmp files with .pod5.tmp file zeroed.")
+        {
+            write_zeros(path_to_recover);
+            auto recover_result10 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result10.ok());
+            REQUIRE(recover_result10.status().ToString() == "IOError: Invalid signature in file");
+        }
+
+        arrow::Result<std::shared_ptr<arrow::io::FileOutputStream>> result_tmp_file =
+            arrow::io::FileOutputStream::Open(to_recover, false);
+        REQUIRE_ARROW_STATUS_OK(result_tmp_file);
+        std::shared_ptr<arrow::io::FileOutputStream> tmp_file = std::move(*result_tmp_file);
+        REQUIRE_ARROW_STATUS_OK(pod5::combined_file_utils::write_file_signature(tmp_file));
+
+        SECTION("Recover .pod5.tmp missing section marker after signature.")
+        {
+            tmp_file = {};
+            auto recover_result11 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result11.ok());
+            REQUIRE(recover_result11.status().ToString() == "IOError: Invalid offset into SubFile");
+        }
+
+        SECTION("Recover .pod5.tmp missing signal sub file.")
+        {
+            pod5::Uuid section_id = uuid_gen();
+            REQUIRE_ARROW_STATUS_OK(tmp_file->Write(section_id.data(), section_id.size()));
+            tmp_file = {};
+            auto recover_result12 = pod5::recover_file_writer(to_recover, recovered);
+            REQUIRE_FALSE(recover_result12.ok());
+            REQUIRE(recover_result12.status().ToString() == "Invalid: Not an Arrow file");
+        }
+    }
 }
