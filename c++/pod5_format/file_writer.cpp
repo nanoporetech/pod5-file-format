@@ -625,6 +625,21 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         pool));
 }
 
+template <typename writer_type>
+static Status append_recovered_file(
+    std::string const & tmp_path,
+    writer_type const & destination_writer,
+    arrow::MemoryPool * const pool)
+{
+    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(tmp_path, pool));
+    ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
+    if (size > 0) {
+        ARROW_ASSIGN_OR_RAISE(
+            RecoveredData const recovered_raw_data, recover_arrow_file(file, destination_writer));
+    }
+    return arrow::Status::OK();
+}
+
 pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     std::string const & src_path,
     std::string const & dest_path,
@@ -656,30 +671,16 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     }
 
     auto file_identifier = recovered_raw_data.metadata.file_identifier;
-    auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
-    auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
 
     // Recover the run info data into [dest_file]:
-    {
-        ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(run_info_tmp_path, pool));
-        ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
-        if (size > 0) {
-            ARROW_ASSIGN_OR_RAISE(
-                recovered_raw_data,
-                recover_arrow_file(file, dest_file->impl()->run_info_table_writer()));
-        }
-    }
+    auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
+    auto run_info_writer = dest_file->impl()->run_info_table_writer();
+    ARROW_RETURN_NOT_OK(append_recovered_file(run_info_tmp_path, run_info_writer, pool));
 
     // Recover the read data into [dest_file]:
-    {
-        ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(reads_tmp_path, pool));
-        ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
-        if (size > 0) {
-            ARROW_ASSIGN_OR_RAISE(
-                recovered_raw_data,
-                recover_arrow_file(file, dest_file->impl()->read_table_writer()));
-        }
-    }
+    auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
+    auto read_writer = dest_file->impl()->read_table_writer();
+    ARROW_RETURN_NOT_OK(append_recovered_file(reads_tmp_path, read_writer, pool));
 
     return dest_file;
 }
