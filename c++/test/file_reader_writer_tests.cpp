@@ -613,10 +613,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         {
             touch(run_path);
             auto recover_result4 = pod5::recover_file_writer(to_recover, recovered);
-            // The line below tests that the check/message for particular error state is missing.
-            // This should be replaced with a requirements for the actual error, when the error
-            // handling is implemented.
-            REQUIRE_ARROW_STATUS_OK(recover_result4);
+            REQUIRE_FALSE(recover_result4.ok());
+            REQUIRE(
+                recover_result4.status().ToString() == "Invalid: File is empty/zero bytes long.");
         }
 
         SECTION("Recovering set of .tmp files with run info file zeroed.")
@@ -650,10 +649,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         {
             touch(reads_path);
             auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
-            // The line below tests that the check/message for particular error state is missing.
-            // This should be replaced with a requirements for the actual error, when the error
-            // handling is implemented.
-            REQUIRE_ARROW_STATUS_OK(recover_result7);
+            REQUIRE_FALSE(recover_result7.ok());
+            REQUIRE(
+                recover_result7.status().ToString() == "Invalid: File is empty/zero bytes long.");
         }
 
         SECTION("Recovering set of .tmp files with reads file zeroed.")

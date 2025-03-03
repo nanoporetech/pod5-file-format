@@ -633,10 +633,11 @@ static Status append_recovered_file(
 {
     ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::ReadableFile::Open(tmp_path, pool));
     ARROW_ASSIGN_OR_RAISE(auto size, file->GetSize());
-    if (size > 0) {
-        ARROW_ASSIGN_OR_RAISE(
-            RecoveredData const recovered_raw_data, recover_arrow_file(file, destination_writer));
+    if (size == 0) {
+        return arrow::Status::Invalid("File is empty/zero bytes long.");
     }
+    ARROW_ASSIGN_OR_RAISE(
+        RecoveredData const recovered_raw_data, recover_arrow_file(file, destination_writer));
     return arrow::Status::OK();
 }
 
