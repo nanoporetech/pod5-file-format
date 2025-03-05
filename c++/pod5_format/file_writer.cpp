@@ -625,6 +625,18 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
         pool));
 }
 
+static Status add_recovery_failure_context(
+    Status status,
+    std::string const & tmp_path,
+    std::string const & description)
+{
+    std::string const error_context =
+        "Failed whilst attempting to recover " + description + " from file - " + tmp_path;
+    if (status.detail())
+        return status.WithMessage(error_context);
+    return arrow::Status::Invalid(error_context + ". Detail: " + status.message());
+}
+
 template <typename writer_type>
 static Status append_recovered_file(
     std::string const & tmp_path,
@@ -642,13 +654,8 @@ static Status append_recovered_file(
             RecoveredData const recovered_raw_data, recover_arrow_file(file, destination_writer));
         return arrow::Status::OK();
     }();
-    if (!inner_status.ok()) {
-        std::string const error_context =
-            "Failed whilst attempting to recover " + description + " from file - " + tmp_path;
-        if (inner_status.detail())
-            return inner_status.WithMessage(error_context);
-        return arrow::Status::Invalid(error_context + ". Detail: " + inner_status.message());
-    }
+    if (!inner_status.ok())
+        return add_recovery_failure_context(inner_status, tmp_path, description);
     return inner_status;
 }
 
@@ -675,17 +682,20 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     auto null_metadata = arrow::KeyValueMetadata::Make({}, {});
 
     // Recover the signal data into [dest_file]:
-    RecoveredData recovered_raw_data;
+    arrow::Result<RecoveredData> recovered_raw_data;
     {
         ARROW_ASSIGN_OR_RAISE(
             auto raw_sub_file,
             combined_file_utils::open_sub_file(file, combined_file_utils::header_size));
-        ARROW_ASSIGN_OR_RAISE(
-            recovered_raw_data,
-            recover_arrow_file(raw_sub_file, dest_file->impl()->signal_table_writer()));
+        recovered_raw_data =
+            recover_arrow_file(raw_sub_file, dest_file->impl()->signal_table_writer());
+    }
+    if (!recovered_raw_data.ok()) {
+        return add_recovery_failure_context(
+            recovered_raw_data.status(), arrow_path.ToString(), "signal data sub file");
     }
 
-    auto file_identifier = recovered_raw_data.metadata.file_identifier;
+    auto file_identifier = recovered_raw_data->metadata.file_identifier;
 
     // Recover the run info data into [dest_file]:
     auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);

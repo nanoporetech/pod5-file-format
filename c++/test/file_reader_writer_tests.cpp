@@ -727,7 +727,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             tmp_file = {};
             auto recover_result12 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result12.ok());
-            REQUIRE(recover_result12.status().ToString() == "Invalid: Not an Arrow file");
+            REQUIRE(
+                recover_result12.status().ToString()
+                == "Invalid: Failed whilst attempting to recover signal data sub file from file - "
+                       + to_recover + ". Detail: Not an Arrow file");
         }
     }
 }
