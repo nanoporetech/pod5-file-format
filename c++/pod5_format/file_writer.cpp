@@ -679,8 +679,6 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     // Signature should be right at 0:
     ARROW_RETURN_NOT_OK(combined_file_utils::check_signature(file, 0));
 
-    auto null_metadata = arrow::KeyValueMetadata::Make({}, {});
-
     // Recover the signal data into [dest_file]:
     arrow::Result<RecoveredData> recovered_raw_data;
     {
