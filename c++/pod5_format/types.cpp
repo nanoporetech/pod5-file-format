@@ -146,4 +146,6 @@ pod5::Status unregister_extension_types()
     return pod5::Status::OK();
 }
 
+bool check_extension_types_registered() { return g_pod5_register_count > 0; }
+
 }  // namespace pod5

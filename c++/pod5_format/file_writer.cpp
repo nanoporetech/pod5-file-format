@@ -657,6 +657,9 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     std::string const & dest_path,
     FileWriterOptions const & options)
 {
+    if (!check_extension_types_registered())
+        return arrow::Status::Invalid("POD5 library is not correctly initialised.");
+
     // Create a file to push recovered data into:
     ARROW_ASSIGN_OR_RAISE(
         auto dest_file, create_file_writer(dest_path, "pod5_file_recovery", options));

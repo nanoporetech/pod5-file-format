@@ -82,4 +82,6 @@ POD5_FORMAT_EXPORT pod5::Status register_extension_types();
 /// \brief Unregister all required extension types.
 POD5_FORMAT_EXPORT pod5::Status unregister_extension_types();
 
+bool check_extension_types_registered();
+
 }  // namespace pod5

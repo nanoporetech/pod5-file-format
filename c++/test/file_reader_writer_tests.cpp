@@ -588,7 +588,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         REQUIRE_FALSE(recover_result2.ok());
         REQUIRE(
             recover_result2.status().ToString()
-            == "Invalid: Recovered file Schema does not match expected schema, version mismatch?");
+            == "Invalid: POD5 library is not correctly initialised.");
     }
 
     SECTION("Recovering without run information.")
