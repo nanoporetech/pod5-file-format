@@ -23,6 +23,9 @@ public:
     /// Further calls to create_strand() or post() (including on an existing strand created from
     /// this pool) will throw.
     virtual void stop_and_drain() = 0;
+
+    /// Waits for the threads to process all posted work.
+    virtual void wait_for_drain() = 0;
 };
 
 POD5_FORMAT_EXPORT std::shared_ptr<ThreadPool> make_thread_pool(std::size_t worker_threads);

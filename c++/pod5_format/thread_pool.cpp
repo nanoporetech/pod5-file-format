@@ -126,6 +126,18 @@ public:
         assert(m_work.empty());
     }
 
+    void wait_for_drain() override
+    {
+        auto const drained = [&]() {
+            std::lock_guard<std::mutex> lock{m_work_mutex};
+            return m_work.empty();
+        };
+        while (!drained()) {
+            m_work_ready.notify_all();
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+    }
+
     std::shared_ptr<ThreadPoolStrand> create_strand() override;
 
 private:
