@@ -354,12 +354,12 @@ SCENARIO("Opening older files")
 /// Create empty file at \p path.
 static void touch(std::filesystem::path const & path) { std::ofstream const ofs(path); }
 
-/// Create file of zeros/nulls at \p path.
+/// Create file containing bytes of value zero at \p path.
 static void write_zeros(std::filesystem::path const & path)
 {
-    std::ofstream ofs(path);
+    std::ofstream file_stream(path, std::ios::binary);
     for (int i = 0; i < 1000000; ++i)
-        ofs << uint32_t{0};
+        file_stream.put('\0');
 }
 
 /// Returns true iff the file exists and contains non-null data.
