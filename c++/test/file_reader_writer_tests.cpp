@@ -4,6 +4,7 @@
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_table_reader.h"
+#include "pod5_format/thread_pool.h"
 #include "pod5_format/uuid.h"
 #include "TemporaryDirectory.h"
 #include "test_utils.h"
@@ -440,6 +441,8 @@ static std::filesystem::path create_files_for_recovery(
     options.set_read_table_batch_size(1);
     options.set_signal_table_batch_size(5);
     options.set_use_sync_io(true);
+    auto thread_pool = pod5::make_thread_pool(4);
+    options.set_thread_pool(thread_pool);
 
     auto writer_result = pod5::create_file_writer(file.string(), "test_software", options);
     REQUIRE_ARROW_STATUS_OK(writer_result);
@@ -475,6 +478,11 @@ static std::filesystem::path create_files_for_recovery(
     }
 
     wait_for_files_to_recover(data_writing_directory.path());
+
+    // Intermittent failures were seen on Windows, where the file was in the middle of being
+    // written when we copied it. This ensures that the file writing threads are done before
+    // we take the files.
+    thread_pool->wait_for_drain();
 
     // The files are deliberately copied here before they can be properly finalised
     // by the destructor of the FileWriter.
