@@ -603,8 +603,8 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result3.ok());
             auto const result_message3 = recover_result3.status().ToString();
             auto const expected_regex3 =
-                "IOError: Failed to open local file '" + escape_for_regex(run_info_string)
-                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                "IOError: Failed whilst attempting to recover run information from file - "
+                + escape_for_regex(run_info_string) + R"(\. Detail: \[(errno|Windows error) 2\] )"
                 + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
             REQUIRE_THAT(result_message3, Catch::Matchers::Matches(expected_regex3));
         }
@@ -615,7 +615,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             auto recover_result4 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result4.ok());
             REQUIRE(
-                recover_result4.status().ToString() == "Invalid: File is empty/zero bytes long.");
+                recover_result4.status().ToString()
+                == "Invalid: Failed whilst attempting to recover run information from file - "
+                       + run_info_string + ". Detail: File is empty/zero bytes long.");
         }
 
         SECTION("Recovering set of .tmp files with run info file zeroed.")
@@ -623,7 +625,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             write_zeros(run_path);
             auto recover_result5 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result5.ok());
-            REQUIRE(recover_result5.status().ToString() == "Invalid: Not an Arrow file");
+            REQUIRE(
+                recover_result5.status().ToString()
+                == "Invalid: Failed whilst attempting to recover run information from file - "
+                       + run_info_string + ". Detail: Not an Arrow file");
         }
     }
 
@@ -639,8 +644,8 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result6.ok());
             auto const result_message6 = recover_result6.status().ToString();
             auto const expected_regex6 =
-                "IOError: Failed to open local file '" + escape_for_regex(reads_string)
-                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                "IOError: Failed whilst attempting to recover reads from file - "
+                + escape_for_regex(reads_string) + R"(\. Detail: \[(errno|Windows error) 2\] )"
                 + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
             REQUIRE_THAT(result_message6, Catch::Matchers::Matches(expected_regex6));
         }
@@ -651,7 +656,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result7.ok());
             REQUIRE(
-                recover_result7.status().ToString() == "Invalid: File is empty/zero bytes long.");
+                recover_result7.status().ToString()
+                == "Invalid: Failed whilst attempting to recover reads from file - " + reads_string
+                       + ". Detail: File is empty/zero bytes long.");
         }
 
         SECTION("Recovering set of .tmp files with reads file zeroed.")
@@ -659,7 +666,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             write_zeros(reads_path);
             auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result7.ok());
-            REQUIRE(recover_result7.status().ToString() == "Invalid: Not an Arrow file");
+            REQUIRE(
+                recover_result7.status().ToString()
+                == "Invalid: Failed whilst attempting to recover reads from file - " + reads_string
+                       + ". Detail: Not an Arrow file");
         }
     }
 
