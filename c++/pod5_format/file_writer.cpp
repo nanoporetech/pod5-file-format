@@ -630,12 +630,13 @@ static Status add_recovery_failure_context(
     std::string const & tmp_path,
     std::string const & description)
 {
+    assert(!status.ok());
     std::string const error_context =
         "Failed whilst attempting to recover " + description + " from file - " + tmp_path;
     if (status.detail()) {
         return status.WithMessage(error_context);
     }
-    return arrow::Status::Invalid(error_context + ". Detail: " + status.message());
+    return arrow::Status::FromArgs(status.code(), error_context + ". Detail: " + status.message());
 }
 
 template <typename writer_type>
