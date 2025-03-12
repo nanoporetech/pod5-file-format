@@ -707,6 +707,9 @@ linux-x64-gcc11-fuzz:
       -s compiler.libcxx=libstdc++11
       -s compiler.cppstd=${CONAN_PROFILE_CPPSTD}
       -s build_type=Release
+      -o arrow:with_boost=False
+      -o arrow:with_thrift=False
+      -o arrow:parquet=False
       ..
     - cmake
       -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
