@@ -82,6 +82,9 @@ POD5_FORMAT_EXPORT pod5::Status register_extension_types();
 /// \brief Unregister all required extension types.
 POD5_FORMAT_EXPORT pod5::Status unregister_extension_types();
 
+/// \brief Returns true iff the required extension types are registered.
+/// \details The caller can expect the extension types to be registered if the number of calls to
+/// `register_extension_types` exceeds the number of calls to `unregister_extension_types`.
 bool check_extension_types_registered();
 
 }  // namespace pod5
