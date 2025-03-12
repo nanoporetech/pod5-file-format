@@ -38,8 +38,9 @@ static uint8_t * svb_encode_scalar_d1_init(
     uint32_t count,
     uint16_t prev)
 {
-    if (count == 0)
+    if (count == 0) {
         return dataPtr;  // exit immediately if no data
+    }
 
     uint8_t shift = 0;  // cycles 0 through 7 then resets
     uint8_t key = 0;

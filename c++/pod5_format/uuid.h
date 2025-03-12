@@ -63,8 +63,9 @@ template <typename TChar>
 template <typename TChar>
 [[nodiscard]] constexpr std::basic_string_view<TChar> to_string_view(TChar const * str) noexcept
 {
-    if (str)
+    if (str) {
         return str;
+    }
     return {};
 }
 
@@ -155,8 +156,9 @@ public:
 
         std::array<uint8_t, 16> data{{0}};
 
-        if (str.empty())
+        if (str.empty()) {
             return {};
+        }
 
         if (str.front() == '{') {
             hasBraces = 1;

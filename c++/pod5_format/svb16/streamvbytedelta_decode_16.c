@@ -33,8 +33,9 @@ static uint8_t const * svb_decode_scalar_d1_init(
     uint32_t count,
     uint16_t prev)
 {
-    if (count == 0)
+    if (count == 0) {
         return dataPtr;  // no reads or writes if no data
+    }
 
     uint8_t shift = 0;
     uint16_t key = *keyPtr++;
