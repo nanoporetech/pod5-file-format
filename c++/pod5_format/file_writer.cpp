@@ -632,8 +632,9 @@ static Status add_recovery_failure_context(
 {
     std::string const error_context =
         "Failed whilst attempting to recover " + description + " from file - " + tmp_path;
-    if (status.detail())
+    if (status.detail()) {
         return status.WithMessage(error_context);
+    }
     return arrow::Status::Invalid(error_context + ". Detail: " + status.message());
 }
 
@@ -654,8 +655,9 @@ static Status append_recovered_file(
             RecoveredData const recovered_raw_data, recover_arrow_file(file, destination_writer));
         return arrow::Status::OK();
     }();
-    if (!inner_status.ok())
+    if (!inner_status.ok()) {
         return add_recovery_failure_context(inner_status, tmp_path, description);
+    }
     return inner_status;
 }
 
@@ -664,8 +666,9 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     std::string const & dest_path,
     FileWriterOptions const & options)
 {
-    if (!check_extension_types_registered())
+    if (!check_extension_types_registered()) {
         return arrow::Status::Invalid("POD5 library is not correctly initialised.");
+    }
 
     // Create a file to push recovered data into:
     ARROW_ASSIGN_OR_RAISE(

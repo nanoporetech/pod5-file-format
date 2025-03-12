@@ -358,28 +358,33 @@ static void touch(std::filesystem::path const & path) { std::ofstream const ofs(
 static void write_zeros(std::filesystem::path const & path)
 {
     std::ofstream file_stream(path, std::ios::binary);
-    for (int i = 0; i < 1000000; ++i)
+    for (int i = 0; i < 1000000; ++i) {
         file_stream.put('\0');
+    }
 }
 
 /// Returns true iff the file exists and contains non-null data.
 static bool file_writing_started(std::filesystem::path const & file_path)
 {
-    if (!exists(file_path))
+    if (!exists(file_path)) {
         return false;
-    if (!is_regular_file(file_path))
+    }
+    if (!is_regular_file(file_path)) {
         return false;
+    }
     // This should be enough for the check as unwritten files are usually
     // empty or populated with nulls if writing has not been done.
     auto const MINIMUM_BYTES_WRITTEN = 3;
-    if (file_size(file_path) < 3)
+    if (file_size(file_path) < 3) {
         return MINIMUM_BYTES_WRITTEN;
+    }
     std::ifstream file{file_path, std::ios::in | std::ios::binary};
     for (auto byte_index = 0; byte_index < MINIMUM_BYTES_WRITTEN; ++byte_index) {
         std::uint8_t byte;
         file >> byte;
-        if (byte == 0)
+        if (byte == 0) {
             return false;
+        }
     }
     return true;
 }
@@ -498,8 +503,9 @@ static std::filesystem::path create_files_for_recovery(
 /// with GCC 8.
 static bool ends_with(std::string const & search_in, std::string const & suffix)
 {
-    if (suffix.size() > search_in.size())
+    if (suffix.size() > search_in.size()) {
         return false;
+    }
     return search_in.compare(search_in.size() - suffix.size(), std::string::npos, suffix) == 0;
 }
 
@@ -550,12 +556,15 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
     for (auto const & directory_entry :
          std::filesystem::directory_iterator{recovery_directory.path()})
     {
-        if (!directory_entry.is_regular_file())
+        if (!directory_entry.is_regular_file()) {
             continue;
-        if (ends_with(directory_entry.path().filename().string(), (".tmp-reads")))
+        }
+        if (ends_with(directory_entry.path().filename().string(), (".tmp-reads"))) {
             reads_path = directory_entry.path();
-        if (ends_with(directory_entry.path().filename().string(), (".tmp-run-info")))
+        }
+        if (ends_with(directory_entry.path().filename().string(), (".tmp-run-info"))) {
             run_path = directory_entry.path();
+        }
     }
     REQUIRE(exists(reads_path));
     REQUIRE(exists(run_path));
