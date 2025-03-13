@@ -358,28 +358,33 @@ static void touch(std::filesystem::path const & path) { std::ofstream const ofs(
 static void write_zeros(std::filesystem::path const & path)
 {
     std::ofstream file_stream(path, std::ios::binary);
-    for (int i = 0; i < 1000000; ++i)
+    for (int i = 0; i < 1000000; ++i) {
         file_stream.put('\0');
+    }
 }
 
 /// Returns true iff the file exists and contains non-null data.
 static bool file_writing_started(std::filesystem::path const & file_path)
 {
-    if (!exists(file_path))
+    if (!exists(file_path)) {
         return false;
-    if (!is_regular_file(file_path))
+    }
+    if (!is_regular_file(file_path)) {
         return false;
+    }
     // This should be enough for the check as unwritten files are usually
     // empty or populated with nulls if writing has not been done.
     auto const MINIMUM_BYTES_WRITTEN = 3;
-    if (file_size(file_path) < 3)
+    if (file_size(file_path) < 3) {
         return MINIMUM_BYTES_WRITTEN;
+    }
     std::ifstream file{file_path, std::ios::in | std::ios::binary};
     for (auto byte_index = 0; byte_index < MINIMUM_BYTES_WRITTEN; ++byte_index) {
         std::uint8_t byte;
         file >> byte;
-        if (byte == 0)
+        if (byte == 0) {
             return false;
+        }
     }
     return true;
 }
@@ -498,8 +503,9 @@ static std::filesystem::path create_files_for_recovery(
 /// with GCC 8.
 static bool ends_with(std::string const & search_in, std::string const & suffix)
 {
-    if (suffix.size() > search_in.size())
+    if (suffix.size() > search_in.size()) {
         return false;
+    }
     return search_in.compare(search_in.size() - suffix.size(), std::string::npos, suffix) == 0;
 }
 
@@ -550,12 +556,15 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
     for (auto const & directory_entry :
          std::filesystem::directory_iterator{recovery_directory.path()})
     {
-        if (!directory_entry.is_regular_file())
+        if (!directory_entry.is_regular_file()) {
             continue;
-        if (ends_with(directory_entry.path().filename().string(), (".tmp-reads")))
+        }
+        if (ends_with(directory_entry.path().filename().string(), (".tmp-reads"))) {
             reads_path = directory_entry.path();
-        if (ends_with(directory_entry.path().filename().string(), (".tmp-run-info")))
+        }
+        if (ends_with(directory_entry.path().filename().string(), (".tmp-run-info"))) {
             run_path = directory_entry.path();
+        }
     }
     REQUIRE(exists(reads_path));
     REQUIRE(exists(run_path));
@@ -588,7 +597,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         REQUIRE_FALSE(recover_result2.ok());
         REQUIRE(
             recover_result2.status().ToString()
-            == "Invalid: Recovered file Schema does not match expected schema, version mismatch?");
+            == "Invalid: POD5 library is not correctly initialised.");
     }
 
     SECTION("Recovering without run information.")
@@ -603,8 +612,8 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result3.ok());
             auto const result_message3 = recover_result3.status().ToString();
             auto const expected_regex3 =
-                "IOError: Failed to open local file '" + escape_for_regex(run_info_string)
-                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                "IOError: Failed whilst attempting to recover run information from file - "
+                + escape_for_regex(run_info_string) + R"(\. Detail: \[(errno|Windows error) 2\] )"
                 + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
             REQUIRE_THAT(result_message3, Catch::Matchers::Matches(expected_regex3));
         }
@@ -613,10 +622,11 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         {
             touch(run_path);
             auto recover_result4 = pod5::recover_file_writer(to_recover, recovered);
-            // The line below tests that the check/message for particular error state is missing.
-            // This should be replaced with a requirements for the actual error, when the error
-            // handling is implemented.
-            REQUIRE_ARROW_STATUS_OK(recover_result4);
+            REQUIRE_FALSE(recover_result4.ok());
+            REQUIRE(
+                recover_result4.status().ToString()
+                == "Invalid: Failed whilst attempting to recover run information from file - "
+                       + run_info_string + ". Detail: File is empty/zero bytes long.");
         }
 
         SECTION("Recovering set of .tmp files with run info file zeroed.")
@@ -624,7 +634,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             write_zeros(run_path);
             auto recover_result5 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result5.ok());
-            REQUIRE(recover_result5.status().ToString() == "Invalid: Not an Arrow file");
+            REQUIRE(
+                recover_result5.status().ToString()
+                == "Invalid: Failed whilst attempting to recover run information from file - "
+                       + run_info_string + ". Detail: Not an Arrow file");
         }
     }
 
@@ -640,8 +653,8 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result6.ok());
             auto const result_message6 = recover_result6.status().ToString();
             auto const expected_regex6 =
-                "IOError: Failed to open local file '" + escape_for_regex(reads_string)
-                + R"('\. Detail: \[(errno|Windows error) 2\] )"
+                "IOError: Failed whilst attempting to recover reads from file - "
+                + escape_for_regex(reads_string) + R"(\. Detail: \[(errno|Windows error) 2\] )"
                 + R"((No such file or directory|The system cannot find the file specified)[.\n\r]*)";
             REQUIRE_THAT(result_message6, Catch::Matchers::Matches(expected_regex6));
         }
@@ -650,10 +663,11 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         {
             touch(reads_path);
             auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
-            // The line below tests that the check/message for particular error state is missing.
-            // This should be replaced with a requirements for the actual error, when the error
-            // handling is implemented.
-            REQUIRE_ARROW_STATUS_OK(recover_result7);
+            REQUIRE_FALSE(recover_result7.ok());
+            REQUIRE(
+                recover_result7.status().ToString()
+                == "Invalid: Failed whilst attempting to recover reads from file - " + reads_string
+                       + ". Detail: File is empty/zero bytes long.");
         }
 
         SECTION("Recovering set of .tmp files with reads file zeroed.")
@@ -661,7 +675,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             write_zeros(reads_path);
             auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result7.ok());
-            REQUIRE(recover_result7.status().ToString() == "Invalid: Not an Arrow file");
+            REQUIRE(
+                recover_result7.status().ToString()
+                == "Invalid: Failed whilst attempting to recover reads from file - " + reads_string
+                       + ". Detail: Not an Arrow file");
         }
     }
 
@@ -719,7 +736,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             tmp_file = {};
             auto recover_result12 = pod5::recover_file_writer(to_recover, recovered);
             REQUIRE_FALSE(recover_result12.ok());
-            REQUIRE(recover_result12.status().ToString() == "Invalid: Not an Arrow file");
+            REQUIRE(
+                recover_result12.status().ToString()
+                == "Invalid: Failed whilst attempting to recover signal data sub file from file - "
+                       + to_recover + ". Detail: Not an Arrow file");
         }
     }
 }

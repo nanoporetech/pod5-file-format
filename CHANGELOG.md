@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
 
 - Python 3.8 wheels are no longer built for Windows or macOS (Python 3.8 is end-of-life).
+- Better error messages and testing of file recovery.
 
 ## Added
 
