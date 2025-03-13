@@ -261,7 +261,6 @@ build-standalone-ubu22:
   stage: build
   needs:
     - "prepare_version"
-  retry: 1
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
@@ -332,7 +331,6 @@ linux-aarch64-gcc9-release-build:
   stage: build
   needs:
     - "prepare_version"
-  retry: 1
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
@@ -405,7 +403,6 @@ osx-arm64-clang15-release-build:
   stage: build
   needs:
     - "prepare_version"
-  retry: 1
   variables:
     # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
     EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
@@ -461,7 +458,6 @@ build-python-api:
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
   tags:
     - linux
-  retry: 1
   script:
     - git tag -d $(git tag -l "*a*")
     - git tag -d $(git tag -l "*b*")
@@ -511,7 +507,6 @@ tools-linux-x64:
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
-  retry: 1
   before_script:
     - python3.${PY_MINOR_VER} -m venv .venv/
     - source .venv/bin/activate
@@ -539,7 +534,6 @@ tools-linux-x64:
 
 .pytest:
   stage: test
-  retry: 1
   before_script:
     - python3.${PY_MINOR_VER} -m venv .venv/
     - source .venv/*/activate
@@ -637,7 +631,6 @@ conda_pytest:
 
 .benchmark:
   stage: test
-  retry: 1
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
@@ -743,7 +736,6 @@ linux-x64-gcc11-fuzz:
 
 
 .conan-build-common:
-  retry: 1
   stage: build-conan
   dependencies:
     - "prepare_version"
