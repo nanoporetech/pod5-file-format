@@ -103,8 +103,10 @@ if (BUILD_PYTHON_WHEEL)
 endif()
 
 add_subdirectory(c++)
-add_subdirectory(fuzz)
 
+if (ENABLE_FUZZERS OR NOT POD5_DISABLE_TESTS)
+    add_subdirectory(fuzz)
+endif()
 if (ENABLE_POD5_PACKAGING)
     include(pod5_packaging)
 endif()
