@@ -1,5 +1,4 @@
 #include <pod5_format/c_api.h>
-#include <unistd.h>
 
 #include <array>
 #include <cassert>
@@ -9,6 +8,14 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <process.h>
+
+static int setenv(char const * name, char const * value, int) { return _putenv_s(name, value); }
+#endif
 
 // No access to arrow in shared lib builds.
 #if !BUILD_SHARED_LIB

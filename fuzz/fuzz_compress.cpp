@@ -6,6 +6,14 @@
 #include <cstring>
 #include <vector>
 
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <process.h>
+
+static int setenv(char const * name, char const * value, int) { return _putenv_s(name, value); }
+#endif
+
 // No access to arrow in shared lib builds.
 #if !BUILD_SHARED_LIB
 #include <arrow/memory_pool.h>
