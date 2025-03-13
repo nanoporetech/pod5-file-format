@@ -1,4 +1,3 @@
-#include <arrow/memory_pool.h>
 #include <pod5_format/c_api.h>
 
 #include <cassert>
@@ -6,6 +5,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+
+// No access to arrow in shared lib builds.
+#if !BUILD_SHARED_LIB
+#include <arrow/memory_pool.h>
+#endif
 
 #ifdef NDEBUG
 #error "asserts aren't enabled"
@@ -31,7 +35,9 @@ extern "C" int LLVMFuzzerInitialize(int * argc, char *** argv)
 {
     // Make sure arrow uses the system allocator
     setenv("ARROW_DEFAULT_MEMORY_POOL", "system", 1);
+#if !BUILD_SHARED_LIB
     assert(arrow::system_memory_pool()->backend_name() == "system");
+#endif
 
     // Init pod5
     CHECK_POD5(pod5_init());

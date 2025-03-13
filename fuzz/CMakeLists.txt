@@ -24,6 +24,7 @@ function(make_fuzzer TYPE)
         add_executable(${NAME} fuzz_${TYPE}.cpp)
         target_link_libraries(${NAME} PUBLIC pod5_format)
         target_link_options(${NAME} PUBLIC -fsanitize=fuzzer)
+        target_compile_definitions(${NAME} PRIVATE BUILD_SHARED_LIB=$<BOOL:${BUILD_SHARED_LIB}>)
 
         # Add a test for it
         add_test(
@@ -35,6 +36,7 @@ function(make_fuzzer TYPE)
         set_tests_properties(${NAME} PROPERTIES ENVIRONMENT_MODIFICATION "${FUZZ_SANITIZER_OPTIONS}")
     endif()
 
+    # GCC8 doesn't support filesystem. We can drop this check after we drop GCC8.
     include(CheckIncludeFileCXX)
     check_include_file_cxx("filesystem" FILESYSTEM_AVAILABLE)
     if (FILESYSTEM_AVAILABLE)
@@ -47,6 +49,7 @@ function(make_fuzzer TYPE)
         target_link_libraries(${NAME} PRIVATE pod5_format)
         target_compile_features(${NAME} PRIVATE cxx_std_17)
         target_compile_options(${NAME} PRIVATE -UNDEBUG)
+        target_compile_definitions(${NAME} PRIVATE BUILD_SHARED_LIB=$<BOOL:${BUILD_SHARED_LIB}>)
         add_test(
             NAME ${NAME}
             COMMAND ${NAME} ${CORPUS}
