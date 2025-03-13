@@ -186,9 +186,9 @@ pre-commit checks:
 # ======================================
 
 
-build-standalone-ubu20:
+build-standalone-ubu22:
   stage: build
-  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:20.04
+  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:22.04
   needs:
     - "prepare_version"
   script:
