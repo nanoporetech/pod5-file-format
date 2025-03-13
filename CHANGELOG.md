@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Python 3.8 wheels are no longer built for Windows or macOS (Python 3.8 is end-of-life).
 
+## Added
+
+- Conan pod5 builds with address, thread and undefined behaviour sanitizer support.
+
 ## [0.3.24]
 
 ## Changed

@@ -7,6 +7,15 @@ from conan.tools.cmake import cmake_layout, CMake
 
 class TestPackageConan(ConanFile):
     settings = "os", "arch", "compiler", "build_type"
+    options = {
+        "compiler.sanitizer": [
+            None,
+            "AddressStatic",
+            "ThreadStatic",
+            "UndefinedBehaviorStatic",
+        ]
+    }
+    default_options = {"compiler.sanitizer": None}
     generators = "CMakeDeps", "CMakeToolchain", "VirtualRunEnv"
     test_type = "explicit"
 
