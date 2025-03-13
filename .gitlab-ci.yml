@@ -719,7 +719,12 @@ linux-x64-gcc11-fuzz:
       -D BUILD_PYTHON_WHEEL=OFF
       ..
     - cmake --build . --config Release
-    - ctest -C Release -VV
+    - ctest -C Release -VV -R ${FUZZER_TEST}
+  parallel:
+    matrix:
+      - FUZZER_TEST:
+        - "compress"
+        - "file"
   artifacts:
     # Artifact everything in /fuzz so that we can get to any new/failing corpora.
     when: always
