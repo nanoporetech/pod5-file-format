@@ -56,6 +56,7 @@ IncludeIsMainRegex: '(_test|_tests|Tests|Test)?$'
   # - fooTest.cpp (although this is intended for Foo.h and FooTest.cpp)
 IndentCaseLabels: false
 IndentWidth: 4
+InsertBraces: true
 PackConstructorInitializers: CurrentLine
 PointerAlignment: Middle
 QualifierAlignment: Right # const east
