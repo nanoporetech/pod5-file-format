@@ -36,27 +36,25 @@ function(make_fuzzer TYPE)
         set_tests_properties(${NAME} PROPERTIES ENVIRONMENT_MODIFICATION "${FUZZ_SANITIZER_OPTIONS}")
     endif()
 
-    # GCC8 doesn't support filesystem. We can drop this check after we drop GCC8.
-    include(CheckIncludeFileCXX)
-    check_include_file_cxx("filesystem" FILESYSTEM_AVAILABLE)
-    if (FILESYSTEM_AVAILABLE)
-        # Add a runner for the fuzzer in non-fuzzing builds.
-        set(NAME fuzz_runner_${TYPE})
-        add_executable(${NAME}
-            fuzz_${TYPE}.cpp
-            runner.cpp
-        )
-        target_link_libraries(${NAME} PRIVATE pod5_format)
-        target_compile_features(${NAME} PRIVATE cxx_std_17)
-        target_compile_options(${NAME} PRIVATE -UNDEBUG)
-        target_compile_definitions(${NAME} PRIVATE BUILD_SHARED_LIB=$<BOOL:${BUILD_SHARED_LIB}>)
-        add_test(
-            NAME ${NAME}
-            COMMAND ${NAME} ${CORPUS}
-        )
-        set_tests_properties(${NAME} PROPERTIES ENVIRONMENT_MODIFICATION "${FUZZ_SANITIZER_OPTIONS}")
-    else()
-        message(WARNING "Not building fuzz runner due to lack of <filesystem>")
+    # Add a runner for the fuzzer in non-fuzzing builds.
+    set(NAME fuzz_runner_${TYPE})
+    add_executable(${NAME}
+        fuzz_${TYPE}.cpp
+        runner.cpp
+    )
+    target_link_libraries(${NAME} PRIVATE pod5_format)
+    target_compile_features(${NAME} PRIVATE cxx_std_17)
+    target_compile_options(${NAME} PRIVATE -UNDEBUG)
+    target_compile_definitions(${NAME} PRIVATE BUILD_SHARED_LIB=$<BOOL:${BUILD_SHARED_LIB}>)
+    add_test(
+        NAME ${NAME}
+        COMMAND ${NAME} ${CORPUS}
+    )
+    set_tests_properties(${NAME} PROPERTIES ENVIRONMENT_MODIFICATION "${FUZZ_SANITIZER_OPTIONS}")
+
+    # Workaround for std::filesystem being a separate library in GCC8.
+    if (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
+        target_link_libraries(${NAME} PRIVATE stdc++fs)
     endif()
 endfunction()
 
