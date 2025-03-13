@@ -206,7 +206,7 @@ build-standalone-ubu22:
       -D POD5_BUILD_EXAMPLES=ON
       -D BUILD_PYTHON_WHEEL=OFF
       ..
-    - cmake --build .
+    - cmake --build . --parallel
     - ctest -C Release -VV
 
 
@@ -232,7 +232,7 @@ build-standalone-ubu22:
     -D BUILD_PYTHON_WHEEL=OFF
     -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
     ..
-  - cmake --build . --config Release
+  - cmake --build . --config Release --parallel
   - ctest -C Release -VV
   - ../ci/install.sh
   - cmake ${CMAKE_ARGS}
@@ -244,7 +244,7 @@ build-standalone-ubu22:
     -D PYTHON_VERSION=${PYTHON_VERSION}
     -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
     ..
-  - cmake --build . --config Release
+  - cmake --build . --config Release --parallel
   - ctest -C Release -VV
   - ../ci/install.sh STATIC_BUILD
   - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
@@ -720,7 +720,7 @@ linux-x64-gcc11-fuzz:
       -D BUILD_PYTHON_WHEEL=OFF
       ${CMAKE_EXTRA_ARGS}
       ..
-    - cmake --build . --config Release
+    - cmake --build . --config Release --parallel
     - ctest -C Release -VV -R ${FUZZER_TEST}
   parallel:
     matrix:
