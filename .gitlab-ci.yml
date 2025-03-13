@@ -690,6 +690,7 @@ linux-x64-gcc11-fuzz:
     CONAN_PROFILE_CPPSTD: 20
     CC: clang
     CXX: clang++
+    CMAKE_EXTRA_ARGS: "-D FUZZER_RUN_TIME=600"
   needs:
     - "prepare_version"
   before_script:
@@ -717,6 +718,7 @@ linux-x64-gcc11-fuzz:
       -D CMAKE_BUILD_TYPE=Release
       -D ENABLE_FUZZERS=ON
       -D BUILD_PYTHON_WHEEL=OFF
+      ${CMAKE_EXTRA_ARGS}
       ..
     - cmake --build . --config Release
     - ctest -C Release -VV -R ${FUZZER_TEST}

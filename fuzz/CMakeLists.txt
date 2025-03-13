@@ -1,3 +1,10 @@
+set(FUZZER_RUN_TIME 0 CACHE STRING "How long to run each fuzzer for. 0 indicates no limit")
+
+# The fuzzer only uses nproc/2 workers, so limit the number of jobs to that.
+include(ProcessorCount)
+ProcessorCount(NUM_FUZZER_JOBS)
+math(EXPR NUM_FUZZER_JOBS "${NUM_FUZZER_JOBS} / 2")
+
 function(make_fuzzer TYPE)
     # Setup the target
     set(NAME fuzzer_${TYPE})
@@ -14,7 +21,7 @@ function(make_fuzzer TYPE)
     set(TEST_NAME ${NAME}_quick_check)
     add_test(
         NAME ${TEST_NAME}
-        COMMAND ${NAME} -jobs=3 -max_total_time=500 -timeout=100 ${CORPUS}
+        COMMAND ${NAME} -jobs=${NUM_FUZZER_JOBS} -max_total_time=${FUZZER_RUN_TIME} -timeout=100 ${CORPUS}
         # Run in the current working directory so that failing cases are dumped there.
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
