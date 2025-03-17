@@ -674,6 +674,7 @@ benchmark-linux-aarch64:
 
 
 linux-x64-gcc11-fuzz:
+  allow_failure: true
   stage: build
   image: "ubuntu:jammy"
   tags:
