@@ -689,7 +689,8 @@ linux-x64-gcc11-fuzz:
     - "prepare_version"
   before_script:
     # TODO: is there a better image we can use that has these pre-installed
-    - apt update && apt install -y clang pip cmake
+    - apt update
+    - apt install -y clang pip cmake
     - pip install -U pip 'conan<2' auditwheel build
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
   script:
@@ -749,7 +750,8 @@ linux-x64-gcc11-fuzz:
     - echo "Found versions ${VERSIONS}"
     # This is needed to enforce lf line-endings in the pybind submodule
     # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/ && git checkout HEAD -- :/
+    - git rm -rf :/
+    - git checkout HEAD -- :/
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -764,7 +766,8 @@ linux-x64-gcc11-fuzz:
     - echo "Found versions ${VERSIONS}"
     # This is needed to enforce lf line-endings in the pybind submodule
     # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/ && git checkout HEAD -- :/
+    - git rm -rf :/
+    - git checkout HEAD -- :/
 
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
