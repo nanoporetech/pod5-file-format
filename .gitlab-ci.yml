@@ -418,9 +418,13 @@ osx-arm64-clang15-release-build:
     # HACK: for some reason, pod5_unit_tests.exe is sticking around; deleting it works, but it
     # doesn't go away immediately (as though something had it open with FILE_SHARE_DELETE, although
     # the Handle utility from SysInternals couldn't find anything).
-    - rm build/Release/bin/pod5_unit_tests.exe
+    # This also appears to be happening for the fuzz targets, so remove and wait for every exe.
+    - rm -v build/Release/bin/*.exe
     - date
-    - while [[ -e build/Release/bin/pod5_unit_tests.exe ]]; do sleep 1; done
+    - while true; do
+    -   ls build/Release/bin/*.exe || break
+    -   sleep 1
+    - done
     - date
 
 win-x64-msvc2019-release-build:
