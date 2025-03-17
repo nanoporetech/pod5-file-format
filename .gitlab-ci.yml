@@ -403,6 +403,7 @@ osx-arm64-clang15-release-build:
   stage: build
   needs:
     - "prepare_version"
+  retry: 1
   variables:
     # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
     EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
@@ -575,6 +576,7 @@ pytest-osx-x64:
     - build-python-api
 
 pytest-win-x64:
+  retry: 1
   extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
   tags:
     - windows
