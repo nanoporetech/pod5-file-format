@@ -722,6 +722,9 @@ linux-x64-gcc11-fuzz:
       ${CMAKE_EXTRA_ARGS}
       ..
     - cmake --build . --config Release --parallel
+    # Remove the zipped corpora now that we've extracted it, since we
+    # don't need it artifacted.
+    - rm ../fuzz/*.zip
     - ctest -C Release -VV -R ${FUZZER_TEST}
   parallel:
     matrix:
@@ -733,7 +736,6 @@ linux-x64-gcc11-fuzz:
     when: always
     paths:
       - ./fuzz
-    untracked: true
 
 
 # ======================================
