@@ -43,7 +43,9 @@ function(make_fuzzer TYPE)
         runner.cpp
     )
     target_link_libraries(${NAME} PRIVATE pod5_format)
+    # Enable use of std::filesystem in the runner.
     target_compile_features(${NAME} PRIVATE cxx_std_17)
+    # Make sure that assert() functions correctly even in Release builds.
     target_compile_options(${NAME} PRIVATE -UNDEBUG)
     target_compile_definitions(${NAME} PRIVATE BUILD_SHARED_LIB=$<BOOL:${BUILD_SHARED_LIB}>)
     add_test(
