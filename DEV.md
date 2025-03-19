@@ -11,6 +11,8 @@ Building the project requires several tools and libraries are available:
 - Arrow
 - Zstd
 - Flatbuffers
+- Python
+- setuptools_scm
 
 ```bash
 # Docs on installing arrow from here: https://arrow.apache.org/install/
@@ -20,10 +22,13 @@ Building the project requires several tools and libraries are available:
 > sudo apt update
 # Now install the rest of the dependencies:
 > sudo apt install cmake libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=8.0.0-1
+> pip install setuptools_scm~=7.1
 # Finally start build of POD5:
 > git clone https://github.com/nanoporetech/pod5-file-format.git
 > cd pod5-file-format
 > git submodule update --init --recursive
+> python -m setuptools_scm
+> python ./pod5_make_version.py
 > mkdir build
 > cd build
 > cmake ..
