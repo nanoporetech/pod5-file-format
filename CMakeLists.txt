@@ -56,7 +56,7 @@ if (NOT DISABLE_DEBUG_SYMBOLS)
     endif()
 endif()
 
-option(ENABLE_FUZZERS "Enable fuzzing targets" OFF)
+option(ENABLE_FUZZERS "Build the fuzzers that can be used to catch new issues" OFF)
 if (ENABLE_FUZZERS)
     include(pod5_fuzz)
 endif()
@@ -104,9 +104,12 @@ endif()
 
 add_subdirectory(c++)
 
+# The fuzz directory contains both the fuzzers and the regression runners,
+# the latter of which can be built as ordinary tests.
 if (ENABLE_FUZZERS OR NOT POD5_DISABLE_TESTS)
     add_subdirectory(fuzz)
 endif()
+
 if (ENABLE_POD5_PACKAGING)
     include(pod5_packaging)
 endif()
