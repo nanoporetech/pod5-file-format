@@ -163,15 +163,26 @@ pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
     stage: .pre
     tags:
-        - linux
+        - linux_x86
+        - docker
     script:
         - pip install pre-commit
-          # if any of the hooks wanted to modify files, this will have a non-zero exit
-        - if ! pre-commit run --all-files --verbose --color always ; then
-        - rm -rf .cache
-        - git checkout -f
-        - pre-commit run --all-files --verbose --color always
+        - if ! pre-commit run --all-files; then
+        -   cat "${PRE_COMMIT_HOME}/pre-commit.log"
+        - >-
+            if grep -F -q \
+              -e "InvalidManifestError" \
+              -e "error: [Errno 17] File exists: 'build/temp.linux-x86_64-cpython-" \
+              "${PRE_COMMIT_HOME}/pre-commit.log"; then
+        -     echo "Bad cache state detected, deleting cache and re-running"
+        -     rm -rf "${PRE_COMMIT_HOME}/"
+        -     pre-commit run --all-files
+        -   else
+        -     exit 1
+        -   fi
         - fi
+    after_script:
+        - cat "${PRE_COMMIT_HOME}/pre-commit.log" || true
     variables:
         PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
     cache:
