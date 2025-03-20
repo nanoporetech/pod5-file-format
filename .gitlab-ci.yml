@@ -761,6 +761,7 @@ linux-x64-gcc11-fuzz:
   dependencies:
     - "prepare_version"
   before_script:
+    - git-lfs || (apt update && apt install -y git-lfs)
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install 'conan<2'
@@ -778,7 +779,7 @@ linux-x64-gcc11-fuzz:
   only: ["tags"]
   before_script:
     - apt update
-    - apt install -y cmake
+    - apt install -y cmake git-lfs
     - pip3 install 'conan<2'
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
