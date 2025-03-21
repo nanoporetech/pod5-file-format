@@ -21,7 +21,7 @@ Building the project requires several tools and libraries are available:
 > sudo apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
 > sudo apt update
 # Now install the rest of the dependencies:
-> sudo apt install cmake libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=8.0.0-1
+> sudo apt install cmake libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=12.0.1-1
 > pip install setuptools_scm~=7.1
 # Finally start build of POD5:
 > git clone https://github.com/nanoporetech/pod5-file-format.git
