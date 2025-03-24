@@ -11,7 +11,7 @@ class IOManagerSyncImpl : public IOManager {
 public:
     IOManagerSyncImpl(arrow::MemoryPool * memory_pool) : m_memory_pool(memory_pool) {}
 
-    arrow::Result<std::shared_ptr<QueuedWrite>> allocate_new_write(std::size_t capacity)
+    arrow::Result<std::shared_ptr<QueuedWrite>> allocate_new_write(std::size_t capacity) override
     {
         if (m_queued_writes.size()) {
             auto new_write = m_queued_writes.back();
@@ -31,7 +31,7 @@ public:
         return std::make_shared<QueuedWrite>(std::move(buffer));
     }
 
-    arrow::Status return_used_write(std::shared_ptr<QueuedWrite> && used_write)
+    arrow::Status return_used_write(std::shared_ptr<QueuedWrite> && used_write) override
     {
         if (m_queued_writes.size() < CachedBufferCount) {
             m_queued_writes.push_back(std::move(used_write));

@@ -163,15 +163,26 @@ pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
     stage: .pre
     tags:
-        - linux
+        - linux_x86
+        - docker
     script:
         - pip install pre-commit
-          # if any of the hooks wanted to modify files, this will have a non-zero exit
-        - if ! pre-commit run --all-files --verbose --color always ; then
-        - rm -rf .cache
-        - git checkout -f
-        - pre-commit run --all-files --verbose --color always
+        - if ! pre-commit run --all-files; then
+        -   cat "${PRE_COMMIT_HOME}/pre-commit.log"
+        - >-
+            if grep -F -q \
+              -e "InvalidManifestError" \
+              -e "error: [Errno 17] File exists: 'build/temp.linux-x86_64-cpython-" \
+              "${PRE_COMMIT_HOME}/pre-commit.log"; then
+        -     echo "Bad cache state detected, deleting cache and re-running"
+        -     rm -rf "${PRE_COMMIT_HOME}/"
+        -     pre-commit run --all-files
+        -   else
+        -     exit 1
+        -   fi
         - fi
+    after_script:
+        - cat "${PRE_COMMIT_HOME}/pre-commit.log" || true
     variables:
         PRE_COMMIT_HOME: ${CI_PROJECT_DIR}/.cache/pre-commit
     cache:
@@ -186,9 +197,9 @@ pre-commit checks:
 # ======================================
 
 
-build-standalone-ubu20:
+build-standalone-ubu22:
   stage: build
-  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:20.04
+  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:22.04
   needs:
     - "prepare_version"
   script:
@@ -206,7 +217,7 @@ build-standalone-ubu20:
       -D POD5_BUILD_EXAMPLES=ON
       -D BUILD_PYTHON_WHEEL=OFF
       ..
-    - cmake --build .
+    - cmake --build . --parallel
     - ctest -C Release -VV
 
 
@@ -232,7 +243,7 @@ build-standalone-ubu20:
     -D BUILD_PYTHON_WHEEL=OFF
     -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
     ..
-  - cmake --build . --config Release
+  - cmake --build . --config Release --parallel
   - ctest -C Release -VV
   - ../ci/install.sh
   - cmake ${CMAKE_ARGS}
@@ -244,7 +255,7 @@ build-standalone-ubu20:
     -D PYTHON_VERSION=${PYTHON_VERSION}
     -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
     ..
-  - cmake --build . --config Release
+  - cmake --build . --config Release --parallel
   - ctest -C Release -VV
   - ../ci/install.sh STATIC_BUILD
   - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
@@ -261,7 +272,6 @@ build-standalone-ubu20:
   stage: build
   needs:
     - "prepare_version"
-  retry: 1
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
@@ -332,7 +342,6 @@ linux-aarch64-gcc9-release-build:
   stage: build
   needs:
     - "prepare_version"
-  retry: 1
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
@@ -420,9 +429,13 @@ osx-arm64-clang15-release-build:
     # HACK: for some reason, pod5_unit_tests.exe is sticking around; deleting it works, but it
     # doesn't go away immediately (as though something had it open with FILE_SHARE_DELETE, although
     # the Handle utility from SysInternals couldn't find anything).
-    - rm build/Release/bin/pod5_unit_tests.exe
+    # This also appears to be happening for the fuzz targets, so remove and wait for every exe.
+    - rm -v build/Release/bin/*.exe
     - date
-    - while [[ -e build/Release/bin/pod5_unit_tests.exe ]]; do sleep 1; done
+    - while true; do
+    -   ls build/Release/bin/*.exe || break
+    -   sleep 1
+    - done
     - date
 
 win-x64-msvc2019-release-build:
@@ -461,7 +474,6 @@ build-python-api:
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
   tags:
     - linux
-  retry: 1
   script:
     - git tag -d $(git tag -l "*a*")
     - git tag -d $(git tag -l "*b*")
@@ -511,7 +523,6 @@ tools-linux-x64:
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
-  retry: 1
   before_script:
     - python3.${PY_MINOR_VER} -m venv .venv/
     - source .venv/bin/activate
@@ -539,7 +550,6 @@ tools-linux-x64:
 
 .pytest:
   stage: test
-  retry: 1
   before_script:
     - python3.${PY_MINOR_VER} -m venv .venv/
     - source .venv/*/activate
@@ -581,6 +591,7 @@ pytest-osx-x64:
     - build-python-api
 
 pytest-win-x64:
+  retry: 1
   extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
   tags:
     - windows
@@ -637,7 +648,6 @@ conda_pytest:
 
 .benchmark:
   stage: test
-  retry: 1
   before_script:
     - python3 -m venv .venv/
     - source .venv/bin/activate
@@ -675,17 +685,83 @@ benchmark-linux-aarch64:
 
 # ======================================
 #
+#     Fuzz tests
+#
+# ======================================
+
+
+linux-x64-gcc11-fuzz:
+  allow_failure: true
+  stage: build
+  image: "ubuntu:jammy"
+  tags:
+    - linux
+  variables:
+    CONAN_PROFILE: "linux-x86_64-gcc11.jinja"
+    CONAN_PROFILE_CPPSTD: 20
+    CC: clang
+    CXX: clang++
+    CMAKE_EXTRA_ARGS: "-D FUZZER_RUN_TIME=600"
+  needs:
+    - "prepare_version"
+  before_script:
+    # TODO: is there a better image we can use that has these pre-installed
+    - apt update
+    - apt install -y clang pip cmake
+    - pip install -U pip 'conan<2' auditwheel build
+    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+  script:
+    - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+    - mkdir -p build
+    - cd build
+    # Tell conan that it's OK to use libstdc++ settings.
+    - conan install
+      --profile ${CONAN_PROFILE}
+      -s compiler.libcxx=libstdc++11
+      -s compiler.cppstd=${CONAN_PROFILE_CPPSTD}
+      -s build_type=Release
+      -o arrow:with_boost=False
+      -o arrow:with_thrift=False
+      -o arrow:parquet=False
+      ..
+    - cmake
+      -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+      -D POD5_DISABLE_TESTS=ON
+      -D CMAKE_BUILD_TYPE=Release
+      -D ENABLE_FUZZERS=ON
+      -D BUILD_PYTHON_WHEEL=OFF
+      ${CMAKE_EXTRA_ARGS}
+      ..
+    - cmake --build . --config Release --parallel
+    # Remove the zipped corpora now that we've extracted it, since we
+    # don't need it artifacted.
+    - rm ../fuzz/*.zip
+    - ctest -C Release -VV -R ${FUZZER_TEST}
+  parallel:
+    matrix:
+      - FUZZER_TEST:
+        - "compress"
+        - "file"
+  artifacts:
+    # Artifact everything in /fuzz so that we can get to any new/failing corpora.
+    when: always
+    paths:
+      - ./fuzz
+
+
+# ======================================
+#
 #     Conan
 #
 # ======================================
 
 
 .conan-build-common:
-  retry: 1
   stage: build-conan
   dependencies:
     - "prepare_version"
   before_script:
+    - git-lfs || (apt update && apt install -y git-lfs)
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - pip3 install 'conan<2'
@@ -694,7 +770,8 @@ benchmark-linux-aarch64:
     - echo "Found versions ${VERSIONS}"
     # This is needed to enforce lf line-endings in the pybind submodule
     # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/ && git checkout HEAD -- :/
+    - git rm -rf :/
+    - git checkout HEAD -- :/
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -702,14 +779,15 @@ benchmark-linux-aarch64:
   only: ["tags"]
   before_script:
     - apt update
-    - apt install -y cmake
+    - apt install -y cmake git-lfs
     - pip3 install 'conan<2'
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
     # This is needed to enforce lf line-endings in the pybind submodule
     # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/ && git checkout HEAD -- :/
+    - git rm -rf :/
+    - git checkout HEAD -- :/
 
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages

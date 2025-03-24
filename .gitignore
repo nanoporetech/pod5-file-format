@@ -17,3 +17,4 @@ test_package/CMakeUserPresets.json
 .vscode/
 __pycache__
 python/Python.framework/
+/fuzz/corpus_*

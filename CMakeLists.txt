@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16.0)
+cmake_minimum_required(VERSION 3.18.0)
 
 project(POD5)
 
@@ -56,6 +56,11 @@ if (NOT DISABLE_DEBUG_SYMBOLS)
     endif()
 endif()
 
+option(ENABLE_FUZZERS "Build the fuzzers that can be used to catch new issues" OFF)
+if (ENABLE_FUZZERS)
+    include(pod5_fuzz)
+endif()
+
 
 # FIXME: DISABLE CONDITIONAL TO WORK ON BIONIC
 if (ENABLE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
@@ -98,6 +103,12 @@ if (BUILD_PYTHON_WHEEL)
 endif()
 
 add_subdirectory(c++)
+
+# The fuzz directory contains both the fuzzers and the regression runners,
+# the latter of which can be built as ordinary tests.
+if (ENABLE_FUZZERS OR NOT POD5_DISABLE_TESTS)
+    add_subdirectory(fuzz)
+endif()
 
 if (ENABLE_POD5_PACKAGING)
     include(pod5_packaging)

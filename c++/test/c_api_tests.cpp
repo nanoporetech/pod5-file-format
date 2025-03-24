@@ -313,7 +313,7 @@ SCENARIO("C API Reads")
             CHECK(v3_struct.calibration_offset == calibration_offset);
             CHECK(v3_struct.calibration_scale == calibration_scale);
             CHECK(v3_struct.end_reason == 1);
-            CHECK(v3_struct.end_reason_forced == false);
+            CHECK(v3_struct.end_reason_forced == uint8_t{false});
             CHECK(v3_struct.run_info == 0);
             CHECK(v3_struct.num_minknow_events == num_minknow_events);
             CHECK(v3_struct.tracked_scaling_scale == tracked_scale);
