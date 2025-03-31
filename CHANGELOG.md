@@ -7,13 +7,7 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-
-### Added
-
-- Added fuzz testing.
-
-## [0.3.25]
+## Unreleased [0.3.25]
 
 ### Changed
 
@@ -23,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 
 - Conan pod5 builds with address, thread and undefined behaviour sanitizer support.
+- Added fuzz testing.
 
 ## [0.3.24]
 
