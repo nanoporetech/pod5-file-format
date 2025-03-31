@@ -763,7 +763,7 @@ linux-x64-gcc11-fuzz:
   -   source .venv/Scripts/activate
   - elif [[ ${KERNEL} =~ "Linux" ]]; then
       # Assume that we don't need one.
-  -   true
+  -   true || true # gitlab doesn't like : or true, but it's OK with true||true
   - else
   -   python3 -m venv .venv
   -   source .venv/bin/activate
