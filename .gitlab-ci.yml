@@ -755,43 +755,47 @@ linux-x64-gcc11-fuzz:
 #
 # ======================================
 
+.setup-conan-venv:
+  - KERNEL=$(uname -s)
+  - if [[ ${KERNEL} =~ "MINGW" ]]; then
+      # Can be any version since it's only for installing conan.
+  -   C:/Python3.13/python -m venv .venv
+  -   source .venv/Scripts/activate
+  - elif [[ ${KERNEL} =~ "Linux" ]]; then
+      # Assume that we don't need one.
+  -   true
+  - else
+  -   python3 -m venv .venv
+  -   source .venv/bin/activate
+  - fi
+  - pip install 'conan<2'
+
+.conan-setup-common:
+  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".setup-conan-venv"]
+  - cat cmake/POD5Version.cmake
+  - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+  - echo "Found versions ${VERSIONS}"
+  # This is needed to enforce lf line-endings in the pybind submodule
+  # otherwise conan generates different revisions for windows and unix
+  - git rm -rf :/
+  - git checkout HEAD -- :/
 
 .conan-build-common:
   stage: build-conan
   dependencies:
     - "prepare_version"
   before_script:
-    - git-lfs || (apt update && apt install -y git-lfs)
+    - !reference [".conan-setup-common"]
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - python3 -m venv .venv
-    - source .venv/*/activate
-    - pip install 'conan<2'
-    - cat cmake/POD5Version.cmake
-    - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - echo "Found versions ${VERSIONS}"
-    # This is needed to enforce lf line-endings in the pybind submodule
-    # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/
-    - git checkout HEAD -- :/
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
   only: ["tags"]
   before_script:
-    - apt update
-    - apt install -y cmake git-lfs
-    - python3 -m venv .venv
-    - source .venv/*/activate
-    - pip install 'conan<2'
-    - cat cmake/POD5Version.cmake
-    - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - echo "Found versions ${VERSIONS}"
-    # This is needed to enforce lf line-endings in the pybind submodule
-    # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/
-    - git checkout HEAD -- :/
+    - !reference [".conan-setup-common"]
 
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
