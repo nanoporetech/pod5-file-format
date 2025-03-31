@@ -188,19 +188,19 @@ before_script:
               ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
         - fi
 
-.build-with-asan:
+.build-package-with-asan:
     # Almost the same as build-package, but with address sanitizer enabled.
     extends: .build-package
     variables:
         SANITIZER_ARGS: "-o compiler.sanitizer=AddressStatic"
 
-.build-with-tsan:
+.build-package-with-tsan:
     # Almost the same as build-package, but with thread sanitizer enabled.
     extends: .build-package
     variables:
         SANITIZER_ARGS: "-o compiler.sanitizer=ThreadStatic"
 
-.build-with-ubsan:
+.build-package-with-ubsan:
     # Almost the same as build-package, but with undefined behaviour sanitizer enabled.
     extends: .build-package
     variables:
