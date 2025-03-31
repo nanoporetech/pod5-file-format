@@ -764,7 +764,9 @@ linux-x64-gcc11-fuzz:
     - git-lfs || (apt update && apt install -y git-lfs)
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - pip3 install 'conan<2'
+    - python3 -m venv .venv
+    - source .venv/*/activate
+    - pip install 'conan<2'
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
@@ -780,7 +782,9 @@ linux-x64-gcc11-fuzz:
   before_script:
     - apt update
     - apt install -y cmake git-lfs
-    - pip3 install 'conan<2'
+    - python3 -m venv .venv
+    - source .venv/*/activate
+    - pip install 'conan<2'
     - cat cmake/POD5Version.cmake
     - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - echo "Found versions ${VERSIONS}"
