@@ -56,7 +56,9 @@ def is_file_ok(path: Path) -> bool:
         return False
 
 
-def recover_pod5(inputs: typing.List[Path], force_overwrite: bool, recursive: bool):
+def recover_pod5(
+    inputs: typing.List[Path], force_overwrite: bool, recursive: bool, cleanup: bool
+):
     """
     Given a list of truncated pod5 files, recover their data.
     """
@@ -81,9 +83,11 @@ def recover_pod5(inputs: typing.List[Path], force_overwrite: bool, recursive: bo
                 )
 
     recovered_data = RecoveredData()
+    options = p5b.RecoverFileOptions()
+    options.cleanup = cleanup
     for input_file in paths_to_recover:
         dest = path.parent / (path.stem + "_recovered.pod5")
-        p5b.recover_file(str(input_file.resolve()), str(dest.resolve()))
+        p5b.recover_file(str(input_file.resolve()), str(dest.resolve()), options)
 
         # Check how consistent the recovered file is:
         success = do_consistency_check(dest.resolve(), recovered_data)
