@@ -425,7 +425,7 @@ osx-arm64-clang15-release-build:
     # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
     EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
   before_script:
-    - /c/Python${PYTHON_VERSION/./}/python -m venv .venv
+    - python${PYTHON_VERSION} -m venv .venv
     - source .venv/Scripts/activate
     - pip install 'conan<2'
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
@@ -763,7 +763,7 @@ linux-x64-gcc11-fuzz:
   - KERNEL=$(uname -s)
   - if [[ ${KERNEL} =~ "MINGW" ]]; then
       # Can be any version since it's only for installing conan.
-  -   /c/Python313/python -m venv .venv
+  -   python3.13 -m venv .venv
   -   source .venv/Scripts/activate
   - elif [[ ${KERNEL} =~ "Linux" ]]; then
       # Assume that we don't need one.
