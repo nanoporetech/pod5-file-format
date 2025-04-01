@@ -17,6 +17,12 @@ variables:
 before_script:
   - ""
 
+# The versions that we build and test.
+.parallel-py-versions:
+  parallel:
+    matrix:
+      - PY_MINOR_VER: ["9", "10", "11", "12", "13"]
+
 
 # ======================================
 #
@@ -303,7 +309,9 @@ linux-aarch64-gcc8-release-build:
 
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
-  extends: [".build-linux"]
+  extends:
+    - .build-linux
+    - .parallel-py-versions
   tags:
     - linux
   variables:
@@ -311,13 +319,13 @@ linux-x64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    PYTHON_VERSION: "3.${PY_MINOR_VER}"
 
 linux-aarch64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_aarch64
-  extends: [".build-linux"]
+  extends:
+    - .build-linux
+    - .parallel-py-versions
   tags:
     - linux_aarch64
     - high-cpu
@@ -326,9 +334,7 @@ linux-aarch64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    PYTHON_VERSION: "3.${PY_MINOR_VER}"
 
 
 # ======================================
@@ -440,7 +446,9 @@ osx-arm64-clang15-release-build:
     - date
 
 win-x64-msvc2019-release-build:
-  extends: [".build-win-common"]
+  extends:
+    - .build-win-common
+    - .parallel-py-versions
   tags:
     - windows
     - cmake
@@ -452,9 +460,7 @@ win-x64-msvc2019-release-build:
     OUTPUT_SKU: "win-x64"
     CMAKE_ARGS: "-A x64"
     CMAKE_GENERATOR: "Visual Studio 16 2019"
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    PYTHON_VERSION: "3.${PY_MINOR_VER}"
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -506,20 +512,9 @@ build-python-api:
 #
 # ======================================
 
-
-.parallel-py-minor-ver-mac-win:
-  parallel:
-    matrix:
-      - PY_MINOR_VER: ["9", "10", "11", "12", "13"]
-
-# we sometimes support older python versions on linux, due to ubuntu LTS
-.parallel-py-minor-ver-linux:
-  parallel:
-    matrix:
-      - PY_MINOR_VER: ["8", "9", "10", "11", "12", "13"]
-
 tools-linux-x64:
-  extends: [".parallel-py-minor-ver-linux"]
+  extends:
+    - .parallel-py-versions
   stage: test
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
@@ -563,7 +558,9 @@ tools-linux-x64:
     - POD5_DISABLE_MMAP_OPEN=1 pytest
 
 pytest-linux-x64:
-  extends: [".pytest", ".parallel-py-minor-ver-linux"]
+  extends:
+    - .pytest
+    - .parallel-py-versions
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux
@@ -572,7 +569,9 @@ pytest-linux-x64:
     - build-python-api
 
 pytest-linux-aarch64:
-  extends: [".pytest", ".parallel-py-minor-ver-linux"]
+  extends:
+    - .pytest
+    - .parallel-py-versions
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
   tags:
     - linux_aarch64
@@ -582,7 +581,9 @@ pytest-linux-aarch64:
     - build-python-api
 
 pytest-osx-x64:
-  extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
+  extends:
+    - .pytest
+    - .parallel-py-versions
   tags:
     - osx_x86
     - high-cpu
@@ -593,7 +594,9 @@ pytest-osx-x64:
 
 pytest-win-x64:
   retry: 1
-  extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
+  extends:
+    - .pytest
+    - .parallel-py-versions
   tags:
     - windows
   needs:
@@ -611,7 +614,7 @@ pytest-win-x64:
 conda_pytest:
   extends:
     - .pytest
-    - .parallel-py-minor-ver-linux
+    - .parallel-py-versions
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
   tags:
     - linux
