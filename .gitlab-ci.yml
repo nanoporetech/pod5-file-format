@@ -758,15 +758,10 @@ linux-x64-gcc11-fuzz:
 
 .setup-conan-venv:
   - KERNEL=$(uname -s)
-  - if [[ ${KERNEL} =~ "MINGW" ]]; then
+  - if [[ ! ${KERNEL} =~ "Linux" ]]; then
+      # Must use an explicit version here otherwise we get the windows store one.
       # Can be any version since it's only for installing conan.
   -   python3.13 -m venv .venv
-  -   source .venv/Scripts/activate
-  - elif [[ ${KERNEL} =~ "Linux" ]]; then
-      # Assume that we don't need one.
-  -   "true" # Quoted so that it's not parsed as a literal.
-  - else
-  -   python3 -m venv .venv
   -   source .venv/bin/activate
   - fi
   - pip install 'conan<2'
