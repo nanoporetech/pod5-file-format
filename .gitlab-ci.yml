@@ -762,7 +762,7 @@ linux-x64-gcc11-fuzz:
       # Must use an explicit version here otherwise we get the windows store one.
       # Can be any version since it's only for installing conan.
   -   python3.13 -m venv .venv
-  -   source .venv/bin/activate
+  -   source .venv/*/activate
   - fi
   - pip install 'conan<2'
 
