@@ -419,9 +419,10 @@ osx-arm64-clang15-release-build:
     # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
     EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
   before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - c:/Python${PYTHON_VERSION}/python -m venv .venv
+    - /c/Python${PYTHON_VERSION}/python -m venv .venv
     - source .venv/Scripts/activate
+    - pip install 'conan<2'
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
   script:
     - pip install build
     - !reference [".conan-build-and-test"]
