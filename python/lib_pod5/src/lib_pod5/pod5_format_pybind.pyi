@@ -154,6 +154,11 @@ class Pod5SignalCacheBatch:
     @property
     def samples(self) -> List[npt.NDArray[np.int16]]: ...
 
+class RecoverFileOptions:
+    cleanup: bool
+    file_writer_options: FileWriterOptions
+    def __init__(self) -> None: ...
+
 class Repacker:
     def __init__(self) -> None: ...
     def add_all_reads_to_output(
@@ -183,7 +188,9 @@ def compress_signal(
 def create_file(
     src_filename: str, writer_name: str, options: Optional[FileWriterOptions]
 ) -> FileWriter: ...
-def recover_file(src_filename: str, dst_filename: str) -> FileWriter: ...
+def recover_file(
+    src_filename: str, dest_filename: str, options: Optional[RecoverFileOptions]
+) -> None: ...
 def decompress_signal(
     compressed_signal: Union[npt.NDArray[np.uint8], memoryview],
     signal_out: npt.NDArray[np.int16],
