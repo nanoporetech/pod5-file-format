@@ -168,7 +168,7 @@ POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     std::string const & writing_software_name,
     FileWriterOptions const & options = {});
 
-POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
+POD5_FORMAT_EXPORT pod5::Status recover_file(
     std::string const & src_path,
     std::string const & dest_path,
     FileWriterOptions const & options = {});

@@ -662,7 +662,7 @@ static Status append_recovered_file(
     return inner_status;
 }
 
-pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
+pod5::Status recover_file(
     std::string const & src_path,
     std::string const & dest_path,
     FileWriterOptions const & options)
@@ -710,7 +710,7 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     auto read_writer = dest_file->impl()->read_table_writer();
     ARROW_RETURN_NOT_OK(append_recovered_file(reads_tmp_path, read_writer, "reads", pool));
 
-    return dest_file;
+    return dest_file->close();
 }
 
 }  // namespace pod5

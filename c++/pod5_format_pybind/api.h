@@ -32,13 +32,9 @@ inline std::shared_ptr<pod5::FileWriter> create_file(
     return writer;
 }
 
-inline std::shared_ptr<pod5::FileWriter> recover_file(
-    char const * src_filename,
-    char const * dest_filename)
+inline void recover_file(char const * src_filename, char const * dest_filename)
 {
-    POD5_PYTHON_ASSIGN_OR_RAISE(
-        auto writer, pod5::recover_file_writer(src_filename, dest_filename));
-    return writer;
+    POD5_PYTHON_RETURN_NOT_OK(pod5::recover_file(src_filename, dest_filename));
 }
 
 class Pod5SignalCacheBatch {

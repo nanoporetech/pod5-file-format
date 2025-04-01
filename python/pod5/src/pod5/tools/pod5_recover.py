@@ -83,11 +83,7 @@ def recover_pod5(inputs: typing.List[Path], force_overwrite: bool, recursive: bo
     recovered_data = RecoveredData()
     for input_file in paths_to_recover:
         dest = path.parent / (path.stem + "_recovered.pod5")
-        # recover_file returns us an open writer:
-        f = p5b.recover_file(str(input_file.resolve()), str(dest.resolve()))
-
-        # We don't want to write any additional data:
-        f.close()
+        p5b.recover_file(str(input_file.resolve()), str(dest.resolve()))
 
         # Check how consistent the recovered file is:
         success = do_consistency_check(dest.resolve(), recovered_data)

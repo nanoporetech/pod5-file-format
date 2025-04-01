@@ -584,20 +584,17 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
     SECTION("Recovering basic set of .tmp files.")
     {
-        auto recover_result1 = pod5::recover_file_writer(to_recover, recovered);
-        REQUIRE_ARROW_STATUS_OK(recover_result1);
-        recover_result1->reset();
+        REQUIRE_ARROW_STATUS_OK(pod5::recover_file(to_recover, recovered));
         REQUIRE(exists(recovered_file_path));
     }
 
     SECTION("Recovering whilst extensions are not registered.")
     {
         fin = {};
-        auto recover_result2 = pod5::recover_file_writer(to_recover, recovered);
+        auto recover_result2 = pod5::recover_file(to_recover, recovered);
         REQUIRE_FALSE(recover_result2.ok());
         REQUIRE(
-            recover_result2.status().ToString()
-            == "Invalid: POD5 library is not correctly initialised.");
+            recover_result2.ToString() == "Invalid: POD5 library is not correctly initialised.");
     }
 
     SECTION("Recovering without run information.")
@@ -608,9 +605,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
         SECTION("Recovering set of .tmp files with run info file missing.")
         {
-            auto recover_result3 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result3 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result3.ok());
-            auto const result_message3 = recover_result3.status().ToString();
+            auto const result_message3 = recover_result3.ToString();
             auto const expected_regex3 =
                 "IOError: Failed whilst attempting to recover run information from file - "
                 + escape_for_regex(run_info_string) + R"(\. Detail: \[(errno|Windows error) 2\] )"
@@ -621,10 +618,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         SECTION("Recovering set of .tmp files with run info file empty.")
         {
             touch(run_path);
-            auto recover_result4 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result4 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result4.ok());
             REQUIRE(
-                recover_result4.status().ToString()
+                recover_result4.ToString()
                 == "Invalid: Failed whilst attempting to recover run information from file - "
                        + run_info_string + ". Detail: File is empty/zero bytes long.");
         }
@@ -632,10 +629,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         SECTION("Recovering set of .tmp files with run info file zeroed.")
         {
             write_zeros(run_path);
-            auto recover_result5 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result5 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result5.ok());
             REQUIRE(
-                recover_result5.status().ToString()
+                recover_result5.ToString()
                 == "Invalid: Failed whilst attempting to recover run information from file - "
                        + run_info_string + ". Detail: Not an Arrow file");
         }
@@ -649,9 +646,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
         SECTION("Recovering set of .tmp files with reads file missing.")
         {
-            auto recover_result6 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result6 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result6.ok());
-            auto const result_message6 = recover_result6.status().ToString();
+            auto const result_message6 = recover_result6.ToString();
             auto const expected_regex6 =
                 "IOError: Failed whilst attempting to recover reads from file - "
                 + escape_for_regex(reads_string) + R"(\. Detail: \[(errno|Windows error) 2\] )"
@@ -662,10 +659,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         SECTION("Recovering set of .tmp files with reads file empty.")
         {
             touch(reads_path);
-            auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result7 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result7.ok());
             REQUIRE(
-                recover_result7.status().ToString()
+                recover_result7.ToString()
                 == "Invalid: Failed whilst attempting to recover reads from file - " + reads_string
                        + ". Detail: File is empty/zero bytes long.");
         }
@@ -673,10 +670,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         SECTION("Recovering set of .tmp files with reads file zeroed.")
         {
             write_zeros(reads_path);
-            auto recover_result7 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result7 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result7.ok());
             REQUIRE(
-                recover_result7.status().ToString()
+                recover_result7.ToString()
                 == "Invalid: Failed whilst attempting to recover reads from file - " + reads_string
                        + ". Detail: Not an Arrow file");
         }
@@ -688,9 +685,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
         SECTION("Recovering set of .tmp files with .pod5.tmp file missing.")
         {
-            auto recover_result8 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result8 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result8.ok());
-            auto const result_message = recover_result8.status().ToString();
+            auto const result_message = recover_result8.ToString();
             auto const expected_regex =
                 "IOError: Failed to open local file '" + escape_for_regex(to_recover)
                 + R"('\. Detail: \[(errno|Windows error) 2\] )"
@@ -702,17 +699,17 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         SECTION("Recovering set of .tmp files with .pod5.tmp file empty.")
         {
             touch(path_to_recover);
-            auto recover_result9 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result9 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result9.ok());
-            REQUIRE(recover_result9.status().ToString() == "IOError: Invalid signature in file");
+            REQUIRE(recover_result9.ToString() == "IOError: Invalid signature in file");
         }
 
         SECTION("Recovering set of .tmp files with .pod5.tmp file zeroed.")
         {
             write_zeros(path_to_recover);
-            auto recover_result10 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result10 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result10.ok());
-            REQUIRE(recover_result10.status().ToString() == "IOError: Invalid signature in file");
+            REQUIRE(recover_result10.ToString() == "IOError: Invalid signature in file");
         }
 
         arrow::Result<std::shared_ptr<arrow::io::FileOutputStream>> result_tmp_file =
@@ -724,9 +721,9 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
         SECTION("Recover .pod5.tmp missing section marker after signature.")
         {
             tmp_file = {};
-            auto recover_result11 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result11 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result11.ok());
-            REQUIRE(recover_result11.status().ToString() == "IOError: Invalid offset into SubFile");
+            REQUIRE(recover_result11.ToString() == "IOError: Invalid offset into SubFile");
         }
 
         SECTION("Recover .pod5.tmp missing signal sub file.")
@@ -734,10 +731,10 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             pod5::Uuid section_id = uuid_gen();
             REQUIRE_ARROW_STATUS_OK(tmp_file->Write(section_id.data(), section_id.size()));
             tmp_file = {};
-            auto recover_result12 = pod5::recover_file_writer(to_recover, recovered);
+            auto recover_result12 = pod5::recover_file(to_recover, recovered);
             REQUIRE_FALSE(recover_result12.ok());
             REQUIRE(
-                recover_result12.status().ToString()
+                recover_result12.ToString()
                 == "Invalid: Failed whilst attempting to recover signal data sub file from file - "
                        + to_recover + ". Detail: Not an Arrow file");
         }
