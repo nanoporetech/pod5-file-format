@@ -21,7 +21,7 @@ before_script:
 .parallel-py-versions:
   parallel:
     matrix:
-      - PY_MINOR_VER: ["9", "10", "11", "12", "13"]
+      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
 # ======================================
@@ -319,7 +319,6 @@ linux-x64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
-    PYTHON_VERSION: "3.${PY_MINOR_VER}"
 
 linux-aarch64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_aarch64
@@ -334,7 +333,6 @@ linux-aarch64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
-    PYTHON_VERSION: "3.${PY_MINOR_VER}"
 
 
 # ======================================
@@ -460,7 +458,6 @@ win-x64-msvc2019-release-build:
     OUTPUT_SKU: "win-x64"
     CMAKE_ARGS: "-A x64"
     CMAKE_GENERATOR: "Visual Studio 16 2019"
-    PYTHON_VERSION: "3.${PY_MINOR_VER}"
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -516,25 +513,25 @@ tools-linux-x64:
   extends:
     - .parallel-py-versions
   stage: test
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags:
     - linux
   before_script:
-    - python3.${PY_MINOR_VER} -m venv .venv/
+    - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/bin/activate
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
   script:
-    - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
+    - pip install ./lib_pod5*cp${PYTHON_VERSION/./}*.whl pod5-*.whl
     - pod5 convert fast5 ./test_data/ --output ./output_files --one-to-one ./test_data
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
     - pod5 convert to_fast5 ./output_files/ --output ./output_files
     - pod5 convert fast5 ./output_files/*.fast5 --output ./output_files_2 --one-to-one ./output_files/
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
 
 
 # ======================================
@@ -547,12 +544,12 @@ tools-linux-x64:
 .pytest:
   stage: test
   before_script:
-    - python3.${PY_MINOR_VER} -m venv .venv/
+    - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/*/activate
     - python --version
     - python -m pip install --upgrade pip
   script:
-    - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
+    - pip install ./lib_pod5*cp${PYTHON_VERSION/./}*.whl pod5-*.whl
     - pip install pytest pytest-cov pytest-mock psutil
     - pytest
     - POD5_DISABLE_MMAP_OPEN=1 pytest
@@ -561,7 +558,7 @@ pytest-linux-x64:
   extends:
     - .pytest
     - .parallel-py-versions
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags:
     - linux
   needs:
@@ -572,7 +569,7 @@ pytest-linux-aarch64:
   extends:
     - .pytest
     - .parallel-py-versions
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags:
     - linux_aarch64
     - high-cpu
@@ -629,7 +626,7 @@ conda_pytest:
         - conda-forge
         - bioconda
       dependencies:
-        - python=3.${PY_MINOR_VER}
+        - python=${PYTHON_VERSION}
         - cmake
         - pyarrow
         - pip
