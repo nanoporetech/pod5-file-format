@@ -759,7 +759,7 @@ linux-x64-gcc11-fuzz:
   - KERNEL=$(uname -s)
   - if [[ ${KERNEL} =~ "MINGW" ]]; then
       # Can be any version since it's only for installing conan.
-  -   C:/Python3.13/python -m venv .venv
+  -   /c/Python313/python -m venv .venv
   -   source .venv/Scripts/activate
   - elif [[ ${KERNEL} =~ "Linux" ]]; then
       # Assume that we don't need one.
@@ -796,7 +796,6 @@ linux-x64-gcc11-fuzz:
   only: ["tags"]
   before_script:
     - !reference [".conan-setup-common"]
-
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
 
