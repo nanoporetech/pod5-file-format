@@ -94,10 +94,6 @@ include(GenerateExportHeader)
 enable_testing()
 
 if (BUILD_PYTHON_WHEEL)
-    if (WIN32)
-        # Windows builds fail with 'FindPython: INTERNAL ERROR' if this is set
-        set(PYTHON_VERSION "")
-    endif()
     find_package (Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
     add_subdirectory(third_party/pybind11)
 endif()
