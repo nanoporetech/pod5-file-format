@@ -17,6 +17,12 @@ variables:
 before_script:
   - ""
 
+# The versions that we build and test.
+.parallel-py-versions:
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
 
 # ======================================
 #
@@ -303,7 +309,9 @@ linux-aarch64-gcc8-release-build:
 
 linux-x64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_x86_64
-  extends: [".build-linux"]
+  extends:
+    - .build-linux
+    - .parallel-py-versions
   tags:
     - linux
   variables:
@@ -311,13 +319,12 @@ linux-x64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-x64"
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 linux-aarch64-gcc9-release-build:
   image: quay.io/pypa/manylinux2014_aarch64
-  extends: [".build-linux"]
+  extends:
+    - .build-linux
+    - .parallel-py-versions
   tags:
     - linux_aarch64
     - high-cpu
@@ -326,9 +333,6 @@ linux-aarch64-gcc9-release-build:
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-arm64"
     AUDITWHEEL_PLATFORM: manylinux2014_aarch64
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 
 # ======================================
@@ -419,9 +423,10 @@ osx-arm64-clang15-release-build:
     # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
     EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
   before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - c:/Python${PYTHON_VERSION}/python -m venv .venv
+    - python${PYTHON_VERSION} -m venv .venv
     - source .venv/Scripts/activate
+    - pip install 'conan<2'
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
   script:
     - pip install build
     - !reference [".conan-build-and-test"]
@@ -439,7 +444,9 @@ osx-arm64-clang15-release-build:
     - date
 
 win-x64-msvc2019-release-build:
-  extends: [".build-win-common"]
+  extends:
+    - .build-win-common
+    - .parallel-py-versions
   tags:
     - windows
     - cmake
@@ -451,9 +458,6 @@ win-x64-msvc2019-release-build:
     OUTPUT_SKU: "win-x64"
     CMAKE_ARGS: "-A x64"
     CMAKE_GENERATOR: "Visual Studio 16 2019"
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["38", "39", "310", "311", "312", "313"]
   artifacts:
     name: "${CI_JOB_NAME}-artifacts"
     paths:
@@ -505,40 +509,29 @@ build-python-api:
 #
 # ======================================
 
-
-.parallel-py-minor-ver-mac-win:
-  parallel:
-    matrix:
-      - PY_MINOR_VER: ["9", "10", "11", "12", "13"]
-
-# we sometimes support older python versions on linux, due to ubuntu LTS
-.parallel-py-minor-ver-linux:
-  parallel:
-    matrix:
-      - PY_MINOR_VER: ["8", "9", "10", "11", "12", "13"]
-
 tools-linux-x64:
-  extends: [".parallel-py-minor-ver-linux"]
+  extends:
+    - .parallel-py-versions
   stage: test
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags:
     - linux
   before_script:
-    - python3.${PY_MINOR_VER} -m venv .venv/
+    - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/bin/activate
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
   script:
-    - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
+    - pip install ./lib_pod5*cp${PYTHON_VERSION/./}*.whl pod5-*.whl
     - pod5 convert fast5 ./test_data/ --output ./output_files --one-to-one ./test_data
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v0.pod5
     - pod5 convert to_fast5 ./output_files/ --output ./output_files
     - pod5 convert fast5 ./output_files/*.fast5 --output ./output_files_2 --one-to-one ./output_files/
-    - python3.${PY_MINOR_VER} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./output_files_2/*.pod5
 
 
 # ======================================
@@ -551,19 +544,21 @@ tools-linux-x64:
 .pytest:
   stage: test
   before_script:
-    - python3.${PY_MINOR_VER} -m venv .venv/
+    - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/*/activate
     - python --version
     - python -m pip install --upgrade pip
   script:
-    - pip install ./lib_pod5*cp3${PY_MINOR_VER}*.whl pod5-*.whl
+    - pip install ./lib_pod5*cp${PYTHON_VERSION/./}*.whl pod5-*.whl
     - pip install pytest pytest-cov pytest-mock psutil
     - pytest
     - POD5_DISABLE_MMAP_OPEN=1 pytest
 
 pytest-linux-x64:
-  extends: [".pytest", ".parallel-py-minor-ver-linux"]
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  extends:
+    - .pytest
+    - .parallel-py-versions
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags:
     - linux
   needs:
@@ -571,8 +566,10 @@ pytest-linux-x64:
     - build-python-api
 
 pytest-linux-aarch64:
-  extends: [".pytest", ".parallel-py-minor-ver-linux"]
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.${PY_MINOR_VER}
+  extends:
+    - .pytest
+    - .parallel-py-versions
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags:
     - linux_aarch64
     - high-cpu
@@ -581,7 +578,9 @@ pytest-linux-aarch64:
     - build-python-api
 
 pytest-osx-x64:
-  extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
+  extends:
+    - .pytest
+    - .parallel-py-versions
   tags:
     - osx_x86
     - high-cpu
@@ -592,7 +591,9 @@ pytest-osx-x64:
 
 pytest-win-x64:
   retry: 1
-  extends: [".pytest", ".parallel-py-minor-ver-mac-win"]
+  extends:
+    - .pytest
+    - .parallel-py-versions
   tags:
     - windows
   needs:
@@ -610,7 +611,7 @@ pytest-win-x64:
 conda_pytest:
   extends:
     - .pytest
-    - .parallel-py-minor-ver-linux
+    - .parallel-py-versions
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
   tags:
     - linux
@@ -625,7 +626,7 @@ conda_pytest:
         - conda-forge
         - bioconda
       dependencies:
-        - python=3.${PY_MINOR_VER}
+        - python=${PYTHON_VERSION}
         - cmake
         - pyarrow
         - pip
@@ -755,66 +756,44 @@ linux-x64-gcc11-fuzz:
 #
 # ======================================
 
+.setup-conan-venv:
+  - KERNEL=$(uname -s)
+  - if [[ ! ${KERNEL} =~ "Linux" ]]; then
+      # Must use an explicit version here otherwise we get the windows store one.
+      # Can be any version since it's only for installing conan.
+  -   python3.13 -m venv .venv
+  -   source .venv/*/activate
+  - fi
+  - pip install 'conan<2'
+
+.conan-setup-common:
+  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".setup-conan-venv"]
+  - cat cmake/POD5Version.cmake
+  - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+  - echo "Found versions ${VERSIONS}"
+  # This is needed to enforce lf line-endings in the pybind submodule
+  # otherwise conan generates different revisions for windows and unix
+  - git rm -rf :/
+  - git checkout HEAD -- :/
 
 .conan-build-common:
   stage: build-conan
   dependencies:
     - "prepare_version"
   before_script:
-    - git-lfs || (apt update && apt install -y git-lfs)
+    - !reference [".conan-setup-common"]
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-    - pip3 install 'conan<2'
-    - cat cmake/POD5Version.cmake
-    - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - echo "Found versions ${VERSIONS}"
-    # This is needed to enforce lf line-endings in the pybind submodule
-    # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/
-    - git checkout HEAD -- :/
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
   only: ["tags"]
   before_script:
-    - apt update
-    - apt install -y cmake git-lfs
-    - pip3 install 'conan<2'
-    - cat cmake/POD5Version.cmake
-    - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
-    - echo "Found versions ${VERSIONS}"
-    # This is needed to enforce lf line-endings in the pybind submodule
-    # otherwise conan generates different revisions for windows and unix
-    - git rm -rf :/
-    - git checkout HEAD -- :/
-
+    - !reference [".conan-setup-common"]
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
-
-.tarball-package-without-macos: &tarball-package-without-macos
-    # This is a copy of tarball-package in conan-config, except it removes macos packages first.
-    # This is used because the iOS builds all copy a MacOS package into their uploads which is
-    # pointless and just wastes space. Normally tarball-package is called from within build-package.
-    # To change this, a caller still extends .build-package, but adds their own after_script
-    # (cannot just modify the one in build-package, it must be completely replaced), and calls
-    # tarball-package-without-macos instead of tarball-package. We can't call the original
-    # tarball-package because it is private to conan-config.
-    #
-    # This also allows us to only archive the package we just built, and not any of its dependencies
-    # (because we can use `conan inspect` to find the name of the right packages).
-    #
-    # Avoid storing things on the CI node unnecessarily
-    - echo "Remove unneeded files"
-    - conan remove "*" --builds --src --force
-    # Remove unneeded MacOS packages
-    - echo "Remove MacOS packages"
-    - conan remove "flatbuffers/2.0.0@" -q "os=Macos" --force
-    # Move required packages to a tarball
-    - PACKAGE_DIR="${CONAN_USER_HOME#${PWD}/}/.conan/data/$(conan inspect --raw name ${CONAN_REFERENCE})"
-    - echo "Packing from $PACKAGE_DIR"
-    - tar -czvf "conan-${CI_JOB_ID}.tar.gz" "$PACKAGE_DIR"/*/${CONAN_USER}/${CONAN_CHANNEL}/{package,metadata.json}
-    - rm -rf "${CONAN_USER_HOME}/.conan"
 
 # Conan: build and upload packages:
 build-conan:windows-x86_64-vs2019:
@@ -853,10 +832,9 @@ upload-conan:macos-aarch64-appleclang-15.0:
 build-conan:macos-aarch64-appleclang-15.0-asan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
-        - .build-package
+        - .build-package-with-asan
         - .conan-build-common
         - .build-shared-and-static
-        - .build-with-asan
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
 upload-conan:macos-aarch64-appleclang-15.0-asan:
     extends: .conan-upload
@@ -865,10 +843,9 @@ upload-conan:macos-aarch64-appleclang-15.0-asan:
 build-conan:macos-aarch64-appleclang-15.0-tsan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
-        - .build-package
+        - .build-package-with-tsan
         - .conan-build-common
         - .build-shared-and-static
-        - .build-with-tsan
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
 upload-conan:macos-aarch64-appleclang-15.0-tsan:
     extends: .conan-upload
@@ -877,40 +854,13 @@ upload-conan:macos-aarch64-appleclang-15.0-tsan:
 build-conan:macos-aarch64-appleclang-15.0-ubsan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
-        - .build-package
+        - .build-package-with-ubsan
         - .conan-build-common
         - .build-shared-and-static
-        - .build-with-ubsan
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
 upload-conan:macos-aarch64-appleclang-15.0-ubsan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-15.0-ubsan" ]
-
-build-conan:ios-aarch64-appleclang-15.0:
-    extends:
-        - .profile-iOS-aarch64-appleclang-15.0
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-    after_script:
-        - *tarball-package-without-macos
-    needs: ["prepare_version", "osx-arm64-clang15-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
-upload-conan:ios-aarch64-appleclang-15.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:ios-aarch64-appleclang-15.0" ]
-
-build-conan:iOSSimulator-aarch64-appleclang-15.0:
-    extends:
-        - .profile-iOSSimulator-aarch64-appleclang-15.0
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-    after_script:
-        - *tarball-package-without-macos
-    needs: ["prepare_version", "osx-arm64-clang15-release-build"] # No direct ios build stage to depend on, arm macos gives a good enough base
-upload-conan:iOSSimulator-aarch64-appleclang-15.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:iOSSimulator-aarch64-appleclang-15.0" ]
 
 build-conan:linux-x86_64-gcc9:
     extends:
@@ -937,10 +887,9 @@ upload-conan:linux-x86_64-gcc11:
 build-conan:linux-x86_64-gcc11-asan:
     extends:
         - .profile-linux-x86_64-gcc11
-        - .build-package
+        - .build-package-with-asan
         - .conan-build-common
         - .build-shared-and-static
-        - .build-with-asan
     needs: ["prepare_version", "linux-x64-gcc9-release-build"]
 upload-conan:linux-x86_64-gcc11-asan:
     extends: .conan-upload
@@ -949,10 +898,9 @@ upload-conan:linux-x86_64-gcc11-asan:
 build-conan:linux-x86_64-gcc11-tsan:
     extends:
         - .profile-linux-x86_64-gcc11
-        - .build-package
+        - .build-package-with-tsan
         - .conan-build-common
         - .build-shared-and-static
-        - .build-with-tsan
     needs: ["prepare_version", "linux-x64-gcc9-release-build"]
 upload-conan:linux-x86_64-gcc11-tsan:
     extends: .conan-upload
@@ -961,10 +909,9 @@ upload-conan:linux-x86_64-gcc11-tsan:
 build-conan:linux-x86_64-gcc11-ubsan:
     extends:
         - .profile-linux-x86_64-gcc11
-        - .build-package
+        - .build-package-with-ubsan
         - .conan-build-common
         - .build-shared-and-static
-        - .build-with-ubsan
     needs: ["prepare_version", "linux-x64-gcc9-release-build"]
 upload-conan:linux-x86_64-gcc11-ubsan:
     extends: .conan-upload

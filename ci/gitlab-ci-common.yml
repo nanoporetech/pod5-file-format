@@ -72,7 +72,7 @@ before_script:
     # artifacts defines the name and path for build artifacts.
     stage: build
     variables:
-        # For Linux and iOS we need to tell arrow to not use boost.
+        # For Linux we need to tell arrow to not use boost.
         EXTRA_CREATE_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
     script:
         - *profile-variables
@@ -188,19 +188,19 @@ before_script:
               ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
         - fi
 
-.build-with-asan:
+.build-package-with-asan:
     # Almost the same as build-package, but with address sanitizer enabled.
     extends: .build-package
     variables:
         SANITIZER_ARGS: "-o compiler.sanitizer=AddressStatic"
 
-.build-with-tsan:
+.build-package-with-tsan:
     # Almost the same as build-package, but with thread sanitizer enabled.
     extends: .build-package
     variables:
         SANITIZER_ARGS: "-o compiler.sanitizer=ThreadStatic"
 
-.build-with-ubsan:
+.build-package-with-ubsan:
     # Almost the same as build-package, but with undefined behaviour sanitizer enabled.
     extends: .build-package
     variables:
@@ -287,6 +287,7 @@ before_script:
     # adapted for debug and release. To be called from individual packages by using "extends".
     tags:
         - windows
+        - cmake
         - VS2019
         - conan
     variables:
@@ -319,35 +320,6 @@ before_script:
     variables:
         PROFILE_BASE: macos-aarch64-appleclang-15.0.jinja
     parallel: !reference [.parallel-cppstd,parallel]
-
-#
-# Set up for iOS versions
-#
-.profile-iOS-aarch64-appleclang-15.0:
-    # Set up for iOS build using clang 15.0, and cross-compiling using conan and build / host
-    # profiles macos-aarch64-appleclang-15.0 and iOS-aarch64-appleclang-15.0, adapted for debug and
-    # release. To be called from individual packages by using "extends".
-    tags:
-        - osx_arm64
-        - appleclang-15.0
-        - conan
-    variables:
-        CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-15.0.jinja
-        PROFILE_BASE_HOST: iOS-aarch64-appleclang-15.0.jinja
-
-.profile-iOSSimulator-aarch64-appleclang-15.0:
-    # Set up for iOSSimulator build using clang 15.0, and cross-compiling using conan and build / host
-    # profiles macos-aarch64-appleclang-15.0 and iOSSimulator-aarch64-appleclang-15.0, adapted for debug and
-    # release. To be called from individual packages by using "extends".
-    tags:
-        - osx_arm64
-        - appleclang-15.0
-        - conan
-    variables:
-        CONAN_PROFILE_CPPSTD: 20
-        PROFILE_BASE_BUILD: macos-aarch64-appleclang-15.0.jinja
-        PROFILE_BASE_HOST: iOSSimulator-aarch64-appleclang-15.0.jinja
 
 #
 # Set up for linux versions
