@@ -20,6 +20,8 @@
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
 
+#include <filesystem>
+#include <fstream>
 #include <optional>
 
 #ifdef __linux__
@@ -662,10 +664,16 @@ static Status append_recovered_file(
     return inner_status;
 }
 
-pod5::Status recover_file(
+struct TemporaryFilePaths {
+    std::string run_info;
+    std::string reads;
+};
+
+static pod5::Status recover_file(
     std::string const & src_path,
     std::string const & dest_path,
-    FileWriterOptions const & options)
+    FileWriterOptions const & options,
+    TemporaryFilePaths & temporary_file_paths)
 {
     if (!check_extension_types_registered()) {
         return arrow::Status::Invalid("POD5 library is not correctly initialised.");
@@ -698,19 +706,77 @@ pod5::Status recover_file(
     }
 
     auto file_identifier = recovered_raw_data->metadata.file_identifier;
+    temporary_file_paths.run_info = make_run_info_tmp_path(arrow_path, file_identifier);
+    temporary_file_paths.reads = make_reads_tmp_path(arrow_path, file_identifier);
 
     // Recover the run info data into [dest_file]:
-    auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
     auto run_info_writer = dest_file->impl()->run_info_table_writer();
-    ARROW_RETURN_NOT_OK(
-        append_recovered_file(run_info_tmp_path, run_info_writer, "run information", pool));
+    ARROW_RETURN_NOT_OK(append_recovered_file(
+        temporary_file_paths.run_info, run_info_writer, "run information", pool));
 
     // Recover the read data into [dest_file]:
-    auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
     auto read_writer = dest_file->impl()->read_table_writer();
-    ARROW_RETURN_NOT_OK(append_recovered_file(reads_tmp_path, read_writer, "reads", pool));
+    ARROW_RETURN_NOT_OK(
+        append_recovered_file(temporary_file_paths.reads, read_writer, "reads", pool));
 
     return dest_file->close();
+}
+
+/// \brief File is considered useless for recovery if it is 0 bytes long
+/// or if all bytes have value 0.
+static bool is_useless(std::filesystem::path const & file_path)
+{
+    if (file_size(file_path) == 0) {
+        return true;
+    }
+    std::ifstream file{file_path, std::ios::in | std::ios::binary};
+    if (!file.is_open()) {
+        // If we can't open the file, assume there is data, just in case.
+        return false;
+    }
+    while (true) {
+        std::uint8_t byte;
+        file >> byte;
+        if (file.eof()) {
+            return true;
+        }
+        if (byte != 0) {
+            return false;
+        }
+    }
+}
+
+static void remove_if_useless(std::filesystem::path const & file_path)
+{
+    if (exists(file_path) && is_useless(file_path)) {
+        remove(file_path);
+    }
+}
+
+POD5_FORMAT_EXPORT pod5::Status recover_file(
+    std::string const & src_path,
+    std::string const & dest_path,
+    RecoverFileOptions const & options)
+{
+    TemporaryFilePaths temp_file_paths;
+    auto const recovery_status =
+        recover_file(src_path, dest_path, options.file_writer_options, temp_file_paths);
+    if (!options.cleanup) {
+        return recovery_status;
+    }
+    if (recovery_status.ok()) {
+        std::filesystem::remove(src_path);
+        std::filesystem::remove(temp_file_paths.reads);
+        std::filesystem::remove(temp_file_paths.run_info);
+    } else {
+        if (std::filesystem::exists(dest_path)) {
+            std::filesystem::remove(dest_path);
+        }
+        remove_if_useless(temp_file_paths.reads);
+        remove_if_useless(temp_file_paths.run_info);
+        remove_if_useless(src_path);
+    }
+    return recovery_status;
 }
 
 }  // namespace pod5
