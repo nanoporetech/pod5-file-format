@@ -10,6 +10,7 @@
 #include "pod5_format/read_table_writer_utils.h"
 #include "pod5_format/run_info_table_writer.h"
 #include "pod5_format/schema_metadata.h"
+#include "pod5_format/signal_table_reader.h"
 #include "pod5_format/signal_table_writer.h"
 #include "pod5_format/thread_pool.h"
 #include "pod5_format/uuid.h"
@@ -722,6 +723,31 @@ static pod5::Status recover_file(
     return dest_file->close();
 }
 
+/// This is a thorough count of all rows. Doing it this way ensures that all rows can be read.
+static pod5::Result<RecoveredRowCounts> count_recovered_rows(
+    std::filesystem::path const & recovered_path)
+{
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<pod5::FileReader> recovered,
+        pod5::open_file_reader(recovered_path.string()));
+    RecoveredRowCounts counts;
+
+    std::size_t const signal_batches = recovered->num_signal_record_batches();
+    for (std::size_t index = 0; index < signal_batches; ++index) {
+        ARROW_ASSIGN_OR_RAISE(auto const signal_batch, recovered->read_signal_record_batch(index));
+        counts.signal += signal_batch.num_rows();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(counts.run_info, recovered->run_info_count());
+
+    std::size_t const read_batches = recovered->num_read_record_batches();
+    for (std::size_t index = 0; index < read_batches; ++index) {
+        ARROW_ASSIGN_OR_RAISE(auto const record_batch, recovered->read_read_record_batch(index));
+        counts.reads += record_batch.num_rows();
+    }
+    return counts;
+}
+
 /// \brief File is considered useless for recovery if it is 0 bytes long
 /// or if all bytes have value 0.
 static bool is_useless(std::filesystem::path const & file_path)
@@ -753,18 +779,25 @@ static void remove_if_useless(std::filesystem::path const & file_path)
     }
 }
 
-POD5_FORMAT_EXPORT pod5::Status recover_file(
+POD5_FORMAT_EXPORT pod5::Result<RecoveredRowCounts> recover_file(
     std::string const & src_path,
     std::string const & dest_path,
     RecoverFileOptions const & options)
 {
     TemporaryFilePaths temp_file_paths;
-    auto const recovery_status =
-        recover_file(src_path, dest_path, options.file_writer_options, temp_file_paths);
+    auto const result = [&]() -> pod5::Result<RecoveredRowCounts> {
+        ARROW_RETURN_NOT_OK(
+            recover_file(src_path, dest_path, options.file_writer_options, temp_file_paths));
+        auto const row_count_result = count_recovered_rows(dest_path);
+        if (!row_count_result.ok()) {
+            return add_recovery_failure_context(row_count_result.status(), dest_path, "row counts");
+        }
+        return row_count_result;
+    }();
     if (!options.cleanup) {
-        return recovery_status;
+        return result;
     }
-    if (recovery_status.ok()) {
+    if (result.ok()) {
         std::filesystem::remove(src_path);
         std::filesystem::remove(temp_file_paths.reads);
         std::filesystem::remove(temp_file_paths.run_info);
@@ -776,7 +809,7 @@ POD5_FORMAT_EXPORT pod5::Status recover_file(
         remove_if_useless(temp_file_paths.run_info);
         remove_if_useless(src_path);
     }
-    return recovery_status;
+    return result;
 }
 
 }  // namespace pod5

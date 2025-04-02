@@ -159,6 +159,12 @@ class RecoverFileOptions:
     file_writer_options: FileWriterOptions
     def __init__(self) -> None: ...
 
+class RecoveredRowCounts:
+    reads: int
+    run_info: int
+    signal: int
+    def __init__(self) -> None: ...
+
 class Repacker:
     def __init__(self) -> None: ...
     def add_all_reads_to_output(
@@ -190,7 +196,7 @@ def create_file(
 ) -> FileWriter: ...
 def recover_file(
     src_filename: str, dest_filename: str, options: Optional[RecoverFileOptions]
-) -> None: ...
+) -> RecoveredRowCounts: ...
 def decompress_signal(
     compressed_signal: Union[npt.NDArray[np.uint8], memoryview],
     signal_out: npt.NDArray[np.int16],

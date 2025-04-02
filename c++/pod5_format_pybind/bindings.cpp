@@ -104,6 +104,14 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         }))
         .def_readwrite("file_writer_options", &RecoverFileOptions::file_writer_options)
         .def_readwrite("cleanup", &RecoverFileOptions::cleanup);
+    py::class_<RecoveredRowCounts>(m, "RecoveredRowCounts")
+        .def(py::init([]() {
+            RecoveredRowCounts counts;
+            return counts;
+        }))
+        .def_readwrite("signal", &RecoveredRowCounts::signal)
+        .def_readwrite("run_info", &RecoveredRowCounts::run_info)
+        .def_readwrite("reads", &RecoveredRowCounts::reads);
     m.def(
         "recover_file",
         &::recover_file,

@@ -75,6 +75,7 @@ public:
     /// \brief Find the read schema metadata for this file.
     virtual SchemaMetadataDescription schema_metadata() const = 0;
 
+    virtual Result<std::size_t> run_info_count() const = 0;
     virtual Result<std::size_t> read_count() const = 0;
 
     virtual Result<ReadTableRecordBatch> read_read_record_batch(std::size_t i) const = 0;
