@@ -86,7 +86,7 @@ def recover_pod5(
     options = p5b.RecoverFileOptions()
     options.cleanup = cleanup
     for input_file in paths_to_recover:
-        dest = path.parent / (path.stem + "_recovered.pod5")
+        dest = input_file.parent / (input_file.stem + "_recovered.pod5")
         p5b.recover_file(str(input_file.resolve()), str(dest.resolve()), options)
 
         # Check how consistent the recovered file is:
