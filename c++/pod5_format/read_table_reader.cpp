@@ -288,7 +288,7 @@ Result<std::size_t> ReadTableReader::search_for_read_ids(
         auto const & search_item = search_input[i];
 
         // Increment file pointer while less than the search term:
-        while (file_ids_current_it->id < search_item.id && file_ids_current_it != file_ids_end) {
+        while (file_ids_current_it != file_ids_end && file_ids_current_it->id < search_item.id) {
             ++file_ids_current_it;
         }
 
