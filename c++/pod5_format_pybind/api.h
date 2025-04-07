@@ -32,16 +32,16 @@ inline std::shared_ptr<pod5::FileWriter> create_file(
     return writer;
 }
 
-inline pod5::RecoveredRowCounts recover_file(
+inline pod5::RecoveryDetails recover_file(
     char const * src_filename,
     char const * dest_filename,
     pod5::RecoverFileOptions const * const options)
 {
     POD5_PYTHON_ASSIGN_OR_RAISE(
-        pod5::RecoveredRowCounts counts,
+        pod5::RecoveryDetails details,
         pod5::recover_file(
             src_filename, dest_filename, options ? *options : pod5::RecoverFileOptions{}));
-    return counts;
+    return details;
 }
 
 class Pod5SignalCacheBatch {

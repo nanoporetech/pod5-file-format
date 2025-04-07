@@ -779,7 +779,35 @@ static void remove_if_useless(std::filesystem::path const & file_path)
     }
 }
 
-POD5_FORMAT_EXPORT pod5::Result<RecoveredRowCounts> recover_file(
+template <typename Constructed>
+struct ConstructorOf final {
+    template <typename... Arguments>
+    Constructed operator()(Arguments &&... arguments)
+    {
+        return Constructed{std::forward<Arguments>(arguments)...};
+    }
+};
+
+/// A functor which constructs type `Constructed`. Any constructor overload may be used.
+template <typename Constructed>
+ConstructorOf<Constructed> constructor_of;
+
+static std::optional<CleanupError> try_remove(std::string const & file_path)
+{
+    try {
+        std::filesystem::remove(file_path);
+        return {};
+    } catch (std::filesystem::filesystem_error const & error) {
+        return CleanupError{.file_path = file_path, .description = error.what()};
+    }
+}
+
+static Status add_clean_up_error(Status status, std::filesystem::filesystem_error const & exception)
+{
+    return arrow::Status::FromArgs(status.code(), status.message(), exception.what());
+}
+
+POD5_FORMAT_EXPORT pod5::Result<RecoveryDetails> recover_file(
     std::string const & src_path,
     std::string const & dest_path,
     RecoverFileOptions const & options)
@@ -795,21 +823,33 @@ POD5_FORMAT_EXPORT pod5::Result<RecoveredRowCounts> recover_file(
         return row_count_result;
     }();
     if (!options.cleanup) {
-        return result;
+        return result.Map(constructor_of<RecoveryDetails>);
     }
-    if (result.ok()) {
-        std::filesystem::remove(src_path);
-        std::filesystem::remove(temp_file_paths.reads);
-        std::filesystem::remove(temp_file_paths.run_info);
-    } else {
-        if (std::filesystem::exists(dest_path)) {
-            std::filesystem::remove(dest_path);
+    if (!result.ok()) {
+        try {
+            if (std::filesystem::exists(dest_path)) {
+                std::filesystem::remove(dest_path);
+            }
+            remove_if_useless(temp_file_paths.reads);
+            remove_if_useless(temp_file_paths.run_info);
+            remove_if_useless(src_path);
+        } catch (std::filesystem::filesystem_error const & error) {
+            return add_clean_up_error(result.status(), error);
         }
-        remove_if_useless(temp_file_paths.reads);
-        remove_if_useless(temp_file_paths.run_info);
-        remove_if_useless(src_path);
+        return result.status();
     }
-    return result;
+
+    RecoveryDetails details{.row_counts = *result};
+    if (auto const error = try_remove(src_path)) {
+        details.cleanup_errors.push_back(*error);
+    }
+    if (auto const error = try_remove(temp_file_paths.reads)) {
+        details.cleanup_errors.push_back(*error);
+    }
+    if (auto const error = try_remove(temp_file_paths.run_info)) {
+        details.cleanup_errors.push_back(*error);
+    }
+    return details;
 }
 
 }  // namespace pod5

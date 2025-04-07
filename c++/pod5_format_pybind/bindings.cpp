@@ -112,6 +112,20 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         .def_readwrite("signal", &RecoveredRowCounts::signal)
         .def_readwrite("run_info", &RecoveredRowCounts::run_info)
         .def_readwrite("reads", &RecoveredRowCounts::reads);
+    py::class_<CleanupError>(m, "CleanupError")
+        .def(py::init([]() {
+            CleanupError cleanup_error;
+            return cleanup_error;
+        }))
+        .def_readwrite("file_path", &CleanupError::file_path)
+        .def_readwrite("description", &CleanupError::description);
+    py::class_<RecoveryDetails>(m, "RecoveryDetails")
+        .def(py::init([]() {
+            RecoveryDetails details;
+            return details;
+        }))
+        .def_readwrite("row_counts", &RecoveryDetails::row_counts)
+        .def_readwrite("cleanup_errors", &RecoveryDetails::cleanup_errors);
     m.def(
         "recover_file",
         &::recover_file,

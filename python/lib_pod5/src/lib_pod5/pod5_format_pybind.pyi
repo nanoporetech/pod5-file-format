@@ -13,6 +13,11 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 
+class CleanupError:
+    description: str
+    file_path: str
+    def __init__(self) -> None: ...
+
 class EmbeddedFileData:
     def __init__(self, *args, **kwargs) -> None: ...
     @property
@@ -165,6 +170,11 @@ class RecoveredRowCounts:
     signal: int
     def __init__(self) -> None: ...
 
+class RecoveryDetails:
+    cleanup_errors: list[CleanupError]
+    row_counts: RecoveredRowCounts
+    def __init__(self) -> None: ...
+
 class Repacker:
     def __init__(self) -> None: ...
     def add_all_reads_to_output(
@@ -196,7 +206,7 @@ def create_file(
 ) -> FileWriter: ...
 def recover_file(
     src_filename: str, dest_filename: str, options: Optional[RecoverFileOptions]
-) -> RecoveredRowCounts: ...
+) -> RecoveryDetails: ...
 def decompress_signal(
     compressed_signal: Union[npt.NDArray[np.uint8], memoryview],
     signal_out: npt.NDArray[np.int16],

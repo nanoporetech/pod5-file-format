@@ -588,12 +588,13 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
     SECTION("Recovering basic set of .tmp files.")
     {
-        auto const recovery_counts = pod5::recover_file(to_recover, recovered, options);
-        REQUIRE_ARROW_STATUS_OK(recovery_counts);
+        auto const recovery_details = pod5::recover_file(to_recover, recovered, options);
+        REQUIRE_ARROW_STATUS_OK(recovery_details);
         CHECK(exists(recovered_file_path));
-        CHECK(recovery_counts->run_info == 1);
-        CHECK(recovery_counts->signal == 50);
-        CHECK(recovery_counts->reads == 10);
+        CHECK(recovery_details->row_counts.run_info == 1);
+        CHECK(recovery_details->row_counts.signal == 50);
+        CHECK(recovery_details->row_counts.reads == 10);
+        CHECK(recovery_details->cleanup_errors.empty());
         if (cleanup) {
             CHECK_FALSE(exists(path_to_recover));
             CHECK_FALSE(exists(reads_path));

@@ -189,7 +189,7 @@ set(svb16_headers
 set_target_properties(pod5_format
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         PUBLIC_HEADER "${public_headers}"
 )
 

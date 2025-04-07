@@ -184,7 +184,17 @@ struct POD5_FORMAT_EXPORT RecoveredRowCounts final {
     std::size_t reads = 0;
 };
 
-POD5_FORMAT_EXPORT pod5::Result<RecoveredRowCounts> recover_file(
+struct POD5_FORMAT_EXPORT CleanupError final {
+    std::string file_path;
+    std::string description;
+};
+
+struct POD5_FORMAT_EXPORT RecoveryDetails final {
+    RecoveredRowCounts row_counts;
+    std::vector<CleanupError> cleanup_errors;
+};
+
+POD5_FORMAT_EXPORT pod5::Result<RecoveryDetails> recover_file(
     std::string const & src_path,
     std::string const & dest_path,
     RecoverFileOptions const & options = {});

@@ -64,16 +64,21 @@ def recover_pod5(
     for input_file in paths_to_recover:
         dest = input_file.parent / (input_file.stem + "_recovered.pod5")
         try:
-            file_row_counts = p5b.recover_file(
+            details = p5b.recover_file(
                 str(input_file.resolve()), str(dest.resolve()), options
             )
-            recovered_data.signal_rows += file_row_counts.signal
-            recovered_data.run_infos += file_row_counts.run_info
-            recovered_data.reads += file_row_counts.reads
+            recovered_data.signal_rows += details.row_counts.signal
+            recovered_data.run_infos += details.row_counts.run_info
+            recovered_data.reads += details.row_counts.reads
             print(f"{dest} - Recovered")
-        except RuntimeError:
+            for cleanup_error in details.cleanup_errors:
+                print(
+                    "Warning cleanup failed to cleanup file "
+                    + f"'{cleanup_error.file_path}' due to : {cleanup_error.description}"
+                )
+        except RuntimeError as error:
             recovered_data.files_with_errors += 1
-            print(f"{dest} - Recovery failed")
+            print(f"{dest} - Recovery failed - {str(error)}")
             dest.unlink()
 
     print(
