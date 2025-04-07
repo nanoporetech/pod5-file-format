@@ -1,3 +1,4 @@
+import sys
 from os.path import exists
 from pathlib import Path
 
@@ -36,7 +37,9 @@ class TestRecover:
         return reads
 
     @pytest.mark.parametrize("cleanup", [False, True])
-    def test_recover_runs(self, tmp_path: Path, cleanup: bool):
+    def test_recover_runs(
+        self, capsys: pytest.CaptureFixture, tmp_path: Path, cleanup: bool
+    ):
         """Test that the recover tool runs a trivial example"""
 
         recoverable_path = tmp_path / "recoverable.tmp"
@@ -67,4 +70,14 @@ class TestRecover:
             expected_recovered_count = (len(added_reads) // 1000) * 1000
             assert count_recovered == expected_recovered_count
 
-        assert exists(recoverable_path) ^ cleanup
+        if sys.platform == "win32":
+            # Cleanup errors are expected on Windows, because we are still holding input file handles.
+            assert exists(recoverable_path)
+            if cleanup:
+                capture_result = capsys.readouterr()
+                assert (
+                    "remove: The process cannot access the file because it is being used by another process."
+                    in capture_result.out
+                )
+        else:
+            assert exists(recoverable_path) ^ cleanup
