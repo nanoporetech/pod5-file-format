@@ -16,10 +16,7 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         .export_values();
 
     py::class_<FileWriterOptions>(m, "FileWriterOptions")
-        .def(py::init([]() {
-            FileWriterOptions options;
-            return options;
-        }))
+        .def(py::init<>())
         .def_property(
             "max_signal_chunk_size",
             &FileWriterOptions::max_signal_chunk_size,
@@ -98,32 +95,20 @@ PYBIND11_MODULE(pod5_format_pybind, m)
 
     // Recovering files
     py::class_<RecoverFileOptions>(m, "RecoverFileOptions")
-        .def(py::init([]() {
-            RecoverFileOptions options;
-            return options;
-        }))
+        .def(py::init<>())
         .def_readwrite("file_writer_options", &RecoverFileOptions::file_writer_options)
         .def_readwrite("cleanup", &RecoverFileOptions::cleanup);
     py::class_<RecoveredRowCounts>(m, "RecoveredRowCounts")
-        .def(py::init([]() {
-            RecoveredRowCounts counts;
-            return counts;
-        }))
+        .def(py::init<>())
         .def_readwrite("signal", &RecoveredRowCounts::signal)
         .def_readwrite("run_info", &RecoveredRowCounts::run_info)
         .def_readwrite("reads", &RecoveredRowCounts::reads);
     py::class_<CleanupError>(m, "CleanupError")
-        .def(py::init([]() {
-            CleanupError cleanup_error;
-            return cleanup_error;
-        }))
+        .def(py::init<>())
         .def_readwrite("file_path", &CleanupError::file_path)
         .def_readwrite("description", &CleanupError::description);
     py::class_<RecoveryDetails>(m, "RecoveryDetails")
-        .def(py::init([]() {
-            RecoveryDetails details;
-            return details;
-        }))
+        .def(py::init<>())
         .def_readwrite("row_counts", &RecoveryDetails::row_counts)
         .def_readwrite("cleanup_errors", &RecoveryDetails::cleanup_errors);
     m.def(
