@@ -3,7 +3,7 @@ Tool for recovering truncated pod5 files
 """
 import dataclasses
 import typing
-from os.path import exists
+from contextlib import suppress
 from pathlib import Path
 
 import lib_pod5 as p5b
@@ -80,7 +80,7 @@ def recover_pod5(
         except RuntimeError as error:
             recovered_data.files_with_errors += 1
             print(f"{dest} - Recovery failed - {str(error)}")
-            if exists(dest):
+            with suppress(FileNotFoundError):
                 dest.unlink()
 
     print(
