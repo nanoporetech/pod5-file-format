@@ -781,19 +781,6 @@ static void remove_if_useless(std::filesystem::path const & file_path)
     }
 }
 
-template <typename Constructed>
-struct ConstructorOf final {
-    template <typename... Arguments>
-    Constructed operator()(Arguments &&... arguments)
-    {
-        return Constructed{std::forward<Arguments>(arguments)...};
-    }
-};
-
-/// A functor which constructs type `Constructed`. Any constructor overload may be used.
-template <typename Constructed>
-ConstructorOf<Constructed> constructor_of;
-
 static std::optional<CleanupError> try_remove(std::string const & file_path)
 {
     try {
@@ -825,7 +812,10 @@ POD5_FORMAT_EXPORT pod5::Result<RecoveryDetails> recover_file(
         return row_count_result;
     }();
     if (!options.cleanup) {
-        return result.Map(constructor_of<RecoveryDetails>);
+        auto const to_recovery_details = [](RecoveredRowCounts counts) {
+            return RecoveryDetails{counts};
+        };
+        return result.Map(to_recovery_details);
     }
     if (!result.ok()) {
         try {
