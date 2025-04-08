@@ -665,10 +665,12 @@ static Status append_recovered_file(
     return inner_status;
 }
 
+namespace {
 struct TemporaryFilePaths {
     std::string run_info;
     std::string reads;
 };
+}  // namespace
 
 static pod5::Status recover_file(
     std::string const & src_path,
