@@ -9,6 +9,7 @@
 
 #include <arrow/io/concurrency.h>
 #include <arrow/io/file.h>
+#include <arrow/ipc/reader.h>
 
 namespace pod5 {
 
@@ -54,6 +55,11 @@ public:
     SchemaMetadataDescription schema_metadata() const override
     {
         return m_read_table_reader.schema_metadata();
+    }
+
+    Result<std::size_t> run_info_count() const override
+    {
+        return m_run_info_table_reader.reader()->CountRows();
     }
 
     virtual Result<std::size_t> read_count() const override

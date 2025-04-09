@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Conan pod5 builds with address, thread and undefined behaviour sanitizer support.
 - Added fuzz testing.
+- New option cleanup temporary files after file recovery.
 
 ## [0.3.24]
 

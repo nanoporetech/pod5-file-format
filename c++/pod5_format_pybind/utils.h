@@ -13,10 +13,13 @@ inline void raise_error(arrow::Result<T> const & result)
     throw std::runtime_error(result.status().ToString());
 }
 
-#define POD5_PYTHON_RETURN_NOT_OK(result) \
-    if (!result.ok()) {                   \
-        raise_error(result);              \
-    }
+#define POD5_PYTHON_RETURN_NOT_OK(statement) \
+    do {                                     \
+        auto const _res = (statement);       \
+        if (!_res.ok()) {                    \
+            raise_error(_res);               \
+        }                                    \
+    } while (false)
 
 #define POD5_PYTHON_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
     auto && result_name = (rexpr);                                \

@@ -3,6 +3,7 @@ Tool for recovering truncated pod5 files
 """
 import dataclasses
 import typing
+from contextlib import suppress
 from pathlib import Path
 
 import lib_pod5 as p5b
@@ -23,30 +24,6 @@ class RecoveredData:
     files_with_errors: int = 0
 
 
-def do_consistency_check(path: Path, recovered: RecoveredData) -> bool:
-    """
-    Count the number of recoverd records in `path` updating `recovered`.
-    Returns True is this file was successfully recovered
-    """
-    try:
-        with p5.Reader(path) as file:
-            for i in range(file.signal_table.num_record_batches):
-                batch = file.signal_table.get_batch(i)
-                recovered.signal_rows += batch.num_rows
-
-            for i in range(file.run_info_table.num_record_batches):
-                batch = file.run_info_table.get_batch(i)
-                recovered.run_infos += batch.num_rows
-
-            for i in range(file.read_table.num_record_batches):
-                batch = file.read_table.get_batch(i)
-                recovered.reads += batch.num_rows
-    except RuntimeError:
-        recovered.files_with_errors += 1
-        return False
-    return True
-
-
 def is_file_ok(path: Path) -> bool:
     try:
         with p5.Reader(path):
@@ -56,7 +33,9 @@ def is_file_ok(path: Path) -> bool:
         return False
 
 
-def recover_pod5(inputs: typing.List[Path], force_overwrite: bool, recursive: bool):
+def recover_pod5(
+    inputs: typing.List[Path], force_overwrite: bool, recursive: bool, cleanup: bool
+):
     """
     Given a list of truncated pod5 files, recover their data.
     """
@@ -81,21 +60,28 @@ def recover_pod5(inputs: typing.List[Path], force_overwrite: bool, recursive: bo
                 )
 
     recovered_data = RecoveredData()
+    options = p5b.RecoverFileOptions()
+    options.cleanup = cleanup
     for input_file in paths_to_recover:
-        dest = path.parent / (path.stem + "_recovered.pod5")
-        # recover_file returns us an open writer:
-        f = p5b.recover_file(str(input_file.resolve()), str(dest.resolve()))
-
-        # We don't want to write any additional data:
-        f.close()
-
-        # Check how consistent the recovered file is:
-        success = do_consistency_check(dest.resolve(), recovered_data)
-        if not success:
-            print(f"{dest} - Recovery failed")
-            dest.unlink()
-        else:
+        dest = input_file.parent / (input_file.stem + "_recovered.pod5")
+        try:
+            details = p5b.recover_file(
+                str(input_file.resolve()), str(dest.resolve()), options
+            )
+            recovered_data.signal_rows += details.row_counts.signal
+            recovered_data.run_infos += details.row_counts.run_info
+            recovered_data.reads += details.row_counts.reads
             print(f"{dest} - Recovered")
+            for cleanup_error in details.cleanup_errors:
+                print(
+                    "Warning cleanup failed to cleanup file "
+                    + f"'{cleanup_error.file_path}' due to : {cleanup_error.description}"
+                )
+        except RuntimeError as error:
+            recovered_data.files_with_errors += 1
+            print(f"{dest} - Recovery failed - {str(error)}")
+            with suppress(FileNotFoundError):
+                dest.unlink()
 
     print(
         f"Recovered {recovered_data.signal_rows} signal rows, "

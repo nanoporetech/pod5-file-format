@@ -1,3 +1,5 @@
+import sys
+from os.path import exists
 from pathlib import Path
 
 import numpy as np
@@ -34,7 +36,10 @@ class TestRecover:
         assert len(list(dest_path.parent.glob(".*.tmp-reads"))) == 1
         return reads
 
-    def test_recover_runs(self, tmp_path: Path):
+    @pytest.mark.parametrize("cleanup", [False, True])
+    def test_recover_runs(
+        self, capsys: pytest.CaptureFixture, tmp_path: Path, cleanup: bool
+    ):
         """Test that the recover tool runs a trivial example"""
 
         recoverable_path = tmp_path / "recoverable.tmp"
@@ -43,7 +48,9 @@ class TestRecover:
         with pytest.raises(RuntimeError):
             p5.Reader(recoverable_path)
 
-        recover_pod5([recoverable_path], recursive=False, force_overwrite=False)
+        recover_pod5(
+            [recoverable_path], recursive=False, force_overwrite=False, cleanup=cleanup
+        )
 
         expected_recovered_path = recoverable_path.parent / (
             recoverable_path.stem + "_recovered.pod5"
@@ -62,3 +69,15 @@ class TestRecover:
             # Only recover in whole batches, so whole 1000 read counts
             expected_recovered_count = (len(added_reads) // 1000) * 1000
             assert count_recovered == expected_recovered_count
+
+        if sys.platform == "win32":
+            # Cleanup errors are expected on Windows, because we are still holding input file handles.
+            assert exists(recoverable_path)
+            if cleanup:
+                capture_result = capsys.readouterr()
+                assert (
+                    "remove: The process cannot access the file because it is being used by another process."
+                    in capture_result.out
+                )
+        else:
+            assert exists(recoverable_path) ^ cleanup

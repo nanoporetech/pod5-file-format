@@ -600,6 +600,12 @@ def prepare_pod5_recover_argparser(
         parser = parent.add_parser(name="recover", description=_desc)
 
     parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Delete successfully recovered input files and files with no data to recover.",
+    )
+
+    parser.add_argument(
         "inputs", type=Path, nargs="+", help="Input pod5 file(s) to update"
     )
 

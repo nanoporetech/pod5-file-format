@@ -10,6 +10,7 @@
 #include "pod5_format/read_table_writer_utils.h"
 #include "pod5_format/run_info_table_writer.h"
 #include "pod5_format/schema_metadata.h"
+#include "pod5_format/signal_table_reader.h"
 #include "pod5_format/signal_table_writer.h"
 #include "pod5_format/thread_pool.h"
 #include "pod5_format/uuid.h"
@@ -20,6 +21,8 @@
 #include <arrow/util/future.h>
 #include <arrow/util/key_value_metadata.h>
 
+#include <filesystem>
+#include <fstream>
 #include <optional>
 
 #ifdef __linux__
@@ -662,10 +665,18 @@ static Status append_recovered_file(
     return inner_status;
 }
 
-pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
+namespace {
+struct TemporaryFilePaths {
+    std::string run_info;
+    std::string reads;
+};
+}  // namespace
+
+static pod5::Status recover_file(
     std::string const & src_path,
     std::string const & dest_path,
-    FileWriterOptions const & options)
+    FileWriterOptions const & options,
+    TemporaryFilePaths & temporary_file_paths)
 {
     if (!check_extension_types_registered()) {
         return arrow::Status::Invalid("POD5 library is not correctly initialised.");
@@ -698,19 +709,139 @@ pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
     }
 
     auto file_identifier = recovered_raw_data->metadata.file_identifier;
+    temporary_file_paths.run_info = make_run_info_tmp_path(arrow_path, file_identifier);
+    temporary_file_paths.reads = make_reads_tmp_path(arrow_path, file_identifier);
 
     // Recover the run info data into [dest_file]:
-    auto run_info_tmp_path = make_run_info_tmp_path(arrow_path, file_identifier);
     auto run_info_writer = dest_file->impl()->run_info_table_writer();
-    ARROW_RETURN_NOT_OK(
-        append_recovered_file(run_info_tmp_path, run_info_writer, "run information", pool));
+    ARROW_RETURN_NOT_OK(append_recovered_file(
+        temporary_file_paths.run_info, run_info_writer, "run information", pool));
 
     // Recover the read data into [dest_file]:
-    auto reads_tmp_path = make_reads_tmp_path(arrow_path, file_identifier);
     auto read_writer = dest_file->impl()->read_table_writer();
-    ARROW_RETURN_NOT_OK(append_recovered_file(reads_tmp_path, read_writer, "reads", pool));
+    ARROW_RETURN_NOT_OK(
+        append_recovered_file(temporary_file_paths.reads, read_writer, "reads", pool));
 
-    return dest_file;
+    return dest_file->close();
+}
+
+/// This is a thorough count of all rows. Doing it this way ensures that all rows can be read.
+static pod5::Result<RecoveredRowCounts> count_recovered_rows(
+    std::filesystem::path const & recovered_path)
+{
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<pod5::FileReader> recovered,
+        pod5::open_file_reader(recovered_path.string()));
+    RecoveredRowCounts counts;
+
+    std::size_t const signal_batches = recovered->num_signal_record_batches();
+    for (std::size_t index = 0; index < signal_batches; ++index) {
+        ARROW_ASSIGN_OR_RAISE(auto const signal_batch, recovered->read_signal_record_batch(index));
+        counts.signal += signal_batch.num_rows();
+    }
+
+    ARROW_ASSIGN_OR_RAISE(counts.run_info, recovered->run_info_count());
+
+    std::size_t const read_batches = recovered->num_read_record_batches();
+    for (std::size_t index = 0; index < read_batches; ++index) {
+        ARROW_ASSIGN_OR_RAISE(auto const record_batch, recovered->read_read_record_batch(index));
+        counts.reads += record_batch.num_rows();
+    }
+    return counts;
+}
+
+/// \brief File is considered useless for recovery if it is 0 bytes long
+/// or if all bytes have value 0.
+static bool is_useless(std::filesystem::path const & file_path)
+{
+    if (file_size(file_path) == 0) {
+        return true;
+    }
+    std::ifstream file{file_path, std::ios::in | std::ios::binary};
+    if (!file.is_open()) {
+        // If we can't open the file, assume there is data, just in case.
+        return false;
+    }
+    while (true) {
+        std::uint8_t byte;
+        file >> byte;
+        if (file.eof()) {
+            return true;
+        }
+        if (byte != 0) {
+            return false;
+        }
+    }
+}
+
+static void remove_if_useless(std::filesystem::path const & file_path)
+{
+    if (exists(file_path) && is_useless(file_path)) {
+        remove(file_path);
+    }
+}
+
+static std::optional<CleanupError> try_remove(std::string const & file_path)
+{
+    try {
+        std::filesystem::remove(file_path);
+        return {};
+    } catch (std::filesystem::filesystem_error const & error) {
+        return CleanupError{.file_path = file_path, .description = error.what()};
+    }
+}
+
+static Status add_clean_up_error(Status status, std::filesystem::filesystem_error const & exception)
+{
+    return arrow::Status::FromArgs(status.code(), status.message(), exception.what());
+}
+
+POD5_FORMAT_EXPORT pod5::Result<RecoveryDetails> recover_file(
+    std::string const & src_path,
+    std::string const & dest_path,
+    RecoverFileOptions const & options)
+{
+    TemporaryFilePaths temp_file_paths;
+    auto const result = [&]() -> pod5::Result<RecoveredRowCounts> {
+        ARROW_RETURN_NOT_OK(
+            recover_file(src_path, dest_path, options.file_writer_options, temp_file_paths));
+        auto const row_count_result = count_recovered_rows(dest_path);
+        if (!row_count_result.ok()) {
+            return add_recovery_failure_context(row_count_result.status(), dest_path, "row counts");
+        }
+        return row_count_result;
+    }();
+    if (!options.cleanup) {
+        auto const to_recovery_details = [](RecoveredRowCounts counts) {
+            return RecoveryDetails{counts};
+        };
+        return result.Map(to_recovery_details);
+    }
+    if (!result.ok()) {
+        try {
+            if (std::filesystem::exists(dest_path)) {
+                std::filesystem::remove(dest_path);
+            }
+            remove_if_useless(temp_file_paths.reads);
+            remove_if_useless(temp_file_paths.run_info);
+            remove_if_useless(src_path);
+        } catch (std::filesystem::filesystem_error const & error) {
+            return add_clean_up_error(result.status(), error);
+        }
+        return result.status();
+    }
+
+    RecoveryDetails details{.row_counts = *result};
+    if (auto const error = try_remove(src_path)) {
+        details.cleanup_errors.push_back(*error);
+    }
+    if (auto const error = try_remove(temp_file_paths.reads)) {
+        details.cleanup_errors.push_back(*error);
+    }
+    if (auto const error = try_remove(temp_file_paths.run_info)) {
+        details.cleanup_errors.push_back(*error);
+    }
+    return details;
 }
 
 }  // namespace pod5

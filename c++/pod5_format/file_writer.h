@@ -168,9 +168,35 @@ POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     std::string const & writing_software_name,
     FileWriterOptions const & options = {});
 
-POD5_FORMAT_EXPORT pod5::Result<std::unique_ptr<FileWriter>> recover_file_writer(
+struct POD5_FORMAT_EXPORT RecoverFileOptions {
+    FileWriterOptions file_writer_options = {};
+
+    /// If this is set to true, recover_file will remove the following files
+    ///   * Temp files which we have successfully recovered data from.
+    ///   * Temp files which we have failed to recover data from and which hold no data.
+    ///   * Output file created during failed recovery.
+    bool cleanup = false;
+};
+
+struct POD5_FORMAT_EXPORT RecoveredRowCounts final {
+    std::size_t signal = 0;
+    std::size_t run_info = 0;
+    std::size_t reads = 0;
+};
+
+struct POD5_FORMAT_EXPORT CleanupError final {
+    std::string file_path;
+    std::string description;
+};
+
+struct POD5_FORMAT_EXPORT RecoveryDetails final {
+    RecoveredRowCounts row_counts;
+    std::vector<CleanupError> cleanup_errors;
+};
+
+POD5_FORMAT_EXPORT pod5::Result<RecoveryDetails> recover_file(
     std::string const & src_path,
     std::string const & dest_path,
-    FileWriterOptions const & options = {});
+    RecoverFileOptions const & options = {});
 
 }  // namespace pod5

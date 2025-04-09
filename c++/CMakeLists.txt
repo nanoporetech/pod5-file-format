@@ -189,7 +189,7 @@ set(svb16_headers
 set_target_properties(pod5_format
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
-        CXX_STANDARD 17
+        CXX_STANDARD 20
         PUBLIC_HEADER "${public_headers}"
 )
 
@@ -198,6 +198,14 @@ set(maybe_public_libs
     arrow::arrow
     flatbuffers::flatbuffers
 )
+
+# Link the C++ filesystem library if needed. Before GCC 9, support for the std::filesystem
+# library was considered to be experimental. Therefore it exists in a separate library
+# which needs to be opted into.
+if (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
+    list(APPEND maybe_public_libs stdc++fs)
+endif()
+
 if (BUILD_SHARED_LIB)
     target_link_libraries(pod5_format PRIVATE ${maybe_public_libs})
 else()
