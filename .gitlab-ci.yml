@@ -370,7 +370,7 @@ osx-x64-clang14-release-build:
   extends: [".build-osx-common"]
   tags:
     - osx_x86
-    - xcode-14.2
+    - xcode-15.3
     - high-cpu
     - conan
   variables:
@@ -389,7 +389,7 @@ osx-arm64-clang15-release-build:
   extends: [".build-osx-common"]
   tags:
     - osx_arm64
-    - xcode-15.0.1
+    - xcode-15.3
     - conan
   variables:
     CONAN_PROFILE: "macos-aarch64-appleclang-15.0.jinja"
@@ -868,7 +868,7 @@ build-conan:linux-x86_64-gcc9:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
+    needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
@@ -879,10 +879,21 @@ build-conan:linux-x86_64-gcc11:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
+    needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
+
+build-conan:linux-x86_64-gcc13:
+    extends:
+        - .profile-linux-x86_64-gcc13
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc13:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13" ]
 
 build-conan:linux-x86_64-gcc11-asan:
     extends:
@@ -890,7 +901,7 @@ build-conan:linux-x86_64-gcc11-asan:
         - .build-package-with-asan
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
+    needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11-asan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-asan" ]
@@ -901,7 +912,7 @@ build-conan:linux-x86_64-gcc11-tsan:
         - .build-package-with-tsan
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
+    needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11-tsan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-tsan" ]
@@ -912,7 +923,7 @@ build-conan:linux-x86_64-gcc11-ubsan:
         - .build-package-with-ubsan
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "linux-x64-gcc9-release-build"]
+    needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11-ubsan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-ubsan" ]
@@ -934,10 +945,21 @@ build-conan:linux-aarch64-gcc11:
         - .build-package
         - .conan-build-common
         - .build-shared-and-static
-    needs: ["prepare_version", "linux-aarch64-gcc9-release-build"]
+    needs: ["prepare_version"]
 upload-conan:linux-aarch64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]
+
+build-conan:linux-aarch64-gcc13:
+    extends:
+        - .profile-linux-aarch64-gcc13
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-aarch64-gcc13:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc13" ]
 
 
 # ======================================
