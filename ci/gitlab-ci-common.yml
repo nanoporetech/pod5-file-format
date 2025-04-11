@@ -73,7 +73,7 @@ before_script:
     stage: build
     variables:
         # For Linux we need to tell arrow to not use boost.
-        EXTRA_CREATE_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
+        EXTRA_CREATE_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False -o arrow:with_zstd=True"
     script:
         - *profile-variables
         - |
@@ -315,7 +315,7 @@ before_script:
     # packages by using "extends".
     tags:
         - osx_arm64
-        - appleclang-15.0
+        - xcode-15.3
         - conan
     variables:
         PROFILE_BASE: macos-aarch64-appleclang-15.0.jinja
@@ -357,6 +357,14 @@ before_script:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
+.profile-linux-x86_64-gcc13:
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc13:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc13.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-aarch64-gcc9:
     # Set up for linux arm64 using gcc9, using docker and the profile linux-aarch64-gcc9, adapted
@@ -389,4 +397,13 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc11.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
+.profile-linux-aarch64-gcc13:
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc13:latest
+    tags:
+        - linux_aarch64
+        - docker
+    variables:
+        PROFILE_BASE: linux-aarch64-gcc13.jinja
     parallel: !reference [.parallel-cppstd,parallel]
