@@ -29,8 +29,11 @@ class EndReasonEnum(enum.Enum):
     API_REQUEST = 6
     DEVICE_DATA_ERROR = 7
     ANALYSIS_CONFIG_CHANGE = 8
+    PAUSED = 9
 
 
+# The bool encodes if the reads are "forced" to end. Reads are forced to end if it is due to
+# some stimulus outside of the signal such as a device-error or an unblock operation.
 _END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
     EndReasonEnum.UNKNOWN: False,
     EndReasonEnum.MUX_CHANGE: True,
@@ -41,6 +44,7 @@ _END_REASON_FORCED_DEFAULTS: Dict[EndReasonEnum, bool] = {
     EndReasonEnum.API_REQUEST: True,
     EndReasonEnum.DEVICE_DATA_ERROR: True,
     EndReasonEnum.ANALYSIS_CONFIG_CHANGE: True,
+    EndReasonEnum.PAUSED: True,
 }
 
 

@@ -7,6 +7,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased [0.3.26]
+
+### Changed
+
+- The read end reason now includes paused - for reads that ended because acquisition was paused.
+
 ## [0.3.25]
 
 ### Changed
@@ -14,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python 3.8 wheels are no longer built for Windows or macOS (Python 3.8 is end-of-life).
 - Better error messages and testing of file recovery.
 
-## Added
+### Added
 
 - Conan pod5 builds with address, thread and undefined behaviour sanitizer support.
 - Added fuzz testing.

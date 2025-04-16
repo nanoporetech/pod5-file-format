@@ -221,14 +221,15 @@ enum class ReadEndReason : std::uint8_t {
     api_request,
     device_data_error,
     analysis_config_change,
+    paused,
 
-    last_end_reason = analysis_config_change
+    last_end_reason = paused
 };
 
 inline char const * end_reason_as_string(ReadEndReason reason)
 {
     static_assert(
-        ReadEndReason::last_end_reason == ReadEndReason::analysis_config_change,
+        ReadEndReason::last_end_reason == ReadEndReason::paused,
         "Need to add new end reason to this function");
     switch (reason) {
     case ReadEndReason::mux_change:
@@ -247,6 +248,8 @@ inline char const * end_reason_as_string(ReadEndReason reason)
         return "device_data_error";
     case ReadEndReason::analysis_config_change:
         return "analysis_config_change";
+    case ReadEndReason::paused:
+        return "paused";
     case ReadEndReason::unknown:
         break;
     }
@@ -256,7 +259,7 @@ inline char const * end_reason_as_string(ReadEndReason reason)
 inline ReadEndReason end_reason_from_string(std::string const & reason)
 {
     static_assert(
-        ReadEndReason::last_end_reason == ReadEndReason::analysis_config_change,
+        ReadEndReason::last_end_reason == ReadEndReason::paused,
         "Need to add new end reason to this function");
     if (reason == "unknown") {
         return ReadEndReason::unknown;
@@ -276,6 +279,8 @@ inline ReadEndReason end_reason_from_string(std::string const & reason)
         return ReadEndReason::device_data_error;
     } else if (reason == "analysis_config_change") {
         return ReadEndReason::analysis_config_change;
+    } else if (reason == "paused") {
+        return ReadEndReason::paused;
     }
 
     return ReadEndReason::unknown;

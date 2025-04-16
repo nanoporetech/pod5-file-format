@@ -27,6 +27,7 @@ FAST5_END_REASONS = {
     "api_request": 7,
     "device_data_error": 8,
     "analysis_config_change": 9,
+    "paused": 10,
 }
 
 # Fast5 types
