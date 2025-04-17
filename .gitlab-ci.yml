@@ -829,6 +829,17 @@ upload-conan:macos-aarch64-appleclang-15.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-15.0" ]
 
+build-conan:macos-aarch64-appleclang-16.0:
+    extends:
+        - .profile-macos-aarch64-appleclang-16.0
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:macos-aarch64-appleclang-16.0:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-16.0" ]
+
 build-conan:macos-aarch64-appleclang-15.0-asan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
