@@ -100,6 +100,8 @@ prepare_version:
     - git tag -d $(git tag -l "*dev*")
     - if [[ ${CI_COMMIT_TAG/#v/} && -z $( git tag -l "${CI_COMMIT_TAG/#v/}" ) ]]; then git tag ${CI_COMMIT_TAG/#v/}; fi
     - pip install --upgrade pip setuptools_scm~=7.1
+    - apt update && apt install -y git-lfs
+    - git status --porcelain
     - python -m setuptools_scm
     - cat _version.py
     # Show the version that will be used in the pod5/pyproject.toml
@@ -791,6 +793,7 @@ linux-x64-gcc11-fuzz:
   stage: deploy
   only: ["tags"]
   before_script:
+    - pip install cmake
     - !reference [".conan-setup-common"]
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
