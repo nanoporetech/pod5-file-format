@@ -5,17 +5,57 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/util/key_value_metadata.h>
 
+#include <iterator>
+
 namespace pod5 {
 
 template <typename T, typename U>
 arrow::Result<std::shared_ptr<arrow::Array>>
 make_filled_array(arrow::MemoryPool * pool, std::size_t row_count, U default_value)
 {
-    T builder(pool);
-    for (std::size_t i = 0; i < row_count; ++i) {
-        ARROW_RETURN_NOT_OK(builder.Append(default_value));
-    }
+    // Minimal iterator to repeat the same value N times.
+    // TODO: replace with std::views::repeat in C++23
+    struct RepeatIter {
+        // These are necessary to make |std::distance| and |std::copy| fast.
+        using iterator_category [[maybe_unused]] = std::random_access_iterator_tag;
+        using value_type = U const;
+        using difference_type = std::int64_t;
+        using pointer [[maybe_unused]] = value_type *;
+        using reference = value_type &;
 
+        std::size_t m_idx;
+        value_type m_value;
+
+        constexpr RepeatIter & operator++()
+        {
+            m_idx++;
+            return *this;
+        }
+
+        constexpr RepeatIter operator++(int)
+        {
+            RepeatIter retval = *this;
+            m_idx++;
+            return retval;
+        }
+
+        constexpr bool operator==(RepeatIter const & other) const { return m_idx == other.m_idx; }
+
+        constexpr bool operator!=(RepeatIter const & other) const { return !operator==(other); }
+
+        constexpr difference_type operator-(RepeatIter const & other) const
+        {
+            return static_cast<difference_type>(m_idx) - static_cast<difference_type>(other.m_idx);
+        }
+
+        constexpr reference operator*() const { return m_value; }
+    };
+
+    RepeatIter iter_begin{0, default_value};
+    RepeatIter iter_end{row_count, default_value};
+
+    T builder(pool);
+    ARROW_RETURN_NOT_OK(builder.AppendValues(iter_begin, iter_end));
     return builder.Finish();
 }
 

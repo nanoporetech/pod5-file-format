@@ -2,6 +2,7 @@
 #include "pod5_format/migration/migration_utils.h"
 
 #include <arrow/array/builder_primitive.h>
+#include <arrow/status.h>
 #include <arrow/util/io_util.h>
 
 #include <iostream>
@@ -44,6 +45,12 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
             // Read V0 data:
             ARROW_ASSIGN_OR_RAISE(auto v0_batch, v0_reader.reader->ReadRecordBatch(batch_idx));
             auto const num_rows = v0_batch->num_rows();
+
+            if (num_rows < 0) {
+                return arrow::Status::Invalid("Invalid number of rows");
+            } else if (POD5_ENABLE_FUZZERS && num_rows > 1'000'000) {
+                return arrow::Status::Invalid("Skipping huge sizes when fuzzing");
+            }
 
             // Extend with V1 data:
             std::vector<std::shared_ptr<arrow::Array>> columns = v0_batch->columns();
