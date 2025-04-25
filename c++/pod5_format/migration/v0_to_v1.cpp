@@ -45,6 +45,10 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
             ARROW_ASSIGN_OR_RAISE(auto v0_batch, v0_reader.reader->ReadRecordBatch(batch_idx));
             auto const num_rows = v0_batch->num_rows();
 
+            if (num_rows < 0) {
+                return arrow::Status::Invalid("Invalid number of rows");
+            }
+
             // Extend with V1 data:
             std::vector<std::shared_ptr<arrow::Array>> columns = v0_batch->columns();
             ARROW_RETURN_NOT_OK(check_columns(v0_reader.schema, columns));
