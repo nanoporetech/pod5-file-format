@@ -30,7 +30,7 @@ arrow::Result<std::size_t> get_num_samples(
     auto offset = signal_col->value_offset(row_idx);
     for (std::int64_t index = 0; index < signal_col->value_length(row_idx); ++index) {
         auto const abs_index = offset + index;
-        if (abs_index >= values->length()) {
+        if (abs_index < 0 || abs_index >= values->length()) {
             return arrow::Status::Invalid("Invalid signal column, potentially corrupt file.");
         }
 
