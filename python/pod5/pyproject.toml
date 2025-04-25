@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "lib_pod5 == 0.3.26",
+  "lib_pod5 == 0.3.27",
   "iso8601",
   'importlib-metadata; python_version<"3.8"',
   "more_itertools",
