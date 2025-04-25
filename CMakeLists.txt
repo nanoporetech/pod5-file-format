@@ -60,6 +60,7 @@ option(ENABLE_FUZZERS "Build the fuzzers that can be used to catch new issues" O
 if (ENABLE_FUZZERS)
     include(pod5_fuzz)
 endif()
+add_compile_definitions(POD5_ENABLE_FUZZERS=$<BOOL:${ENABLE_FUZZERS}>)
 
 
 # FIXME: DISABLE CONDITIONAL TO WORK ON BIONIC
