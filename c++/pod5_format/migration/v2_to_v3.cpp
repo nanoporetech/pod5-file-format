@@ -76,7 +76,7 @@ append_struct_row(StructRow const & struct_row, char const * field_name, Builder
         return Status::Invalid(field_name, " field is the wrong type");
     }
 
-    if (struct_row.dict_item_index >= field_array->length()) {
+    if (struct_row.dict_item_index < 0 || struct_row.dict_item_index >= field_array->length()) {
         return Status::Invalid("Dictionary index is out of range");
     }
     return builder.Append(typed_field_array->Value(struct_row.dict_item_index));
@@ -97,7 +97,7 @@ arrow::Status append_struct_row_to_dict(
         return Status::Invalid(field_name, " field is the wrong type");
     }
 
-    if (struct_row.dict_item_index >= field_array->length()) {
+    if (struct_row.dict_item_index < 0 || struct_row.dict_item_index >= field_array->length()) {
         return Status::Invalid("Dictionary index is out of range");
     }
 
