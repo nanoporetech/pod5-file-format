@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed some crashes when parsing corrupt POD5 files.
 
+### Removed
+
+- Dropped automated ARM+GCC8 builds.
+
 ## [0.3.26]
 
 ### Changed

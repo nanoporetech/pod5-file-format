@@ -199,13 +199,6 @@ set(maybe_public_libs
     flatbuffers::flatbuffers
 )
 
-# Link the C++ filesystem library if needed. Before GCC 9, support for the std::filesystem
-# library was considered to be experimental. Therefore it exists in a separate library
-# which needs to be opted into.
-if (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
-    list(APPEND maybe_public_libs stdc++fs)
-endif()
-
 if (BUILD_SHARED_LIB)
     target_link_libraries(pod5_format PRIVATE ${maybe_public_libs})
 else()

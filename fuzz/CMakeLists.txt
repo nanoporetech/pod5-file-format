@@ -53,11 +53,6 @@ function(make_fuzzer TYPE)
         COMMAND ${NAME} ${CORPUS}
     )
     set_tests_properties(${NAME} PROPERTIES ENVIRONMENT_MODIFICATION "${FUZZ_SANITIZER_OPTIONS}")
-
-    # Workaround for std::filesystem being a separate library in GCC8.
-    if (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
-        target_link_libraries(${NAME} PRIVATE stdc++fs)
-    endif()
 endfunction()
 
 make_fuzzer(compress)
