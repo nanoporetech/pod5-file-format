@@ -19,13 +19,6 @@ add_executable(pod5_unit_tests
     uuid_tests.cpp
 )
 
-# Link the C++ filesystem library if needed. Before GCC 9, support for the std::filesystem
-# library was considered to be experimental. Therefore it exists in a separate library
-# which needs to be opted into.
-if (CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9.0")
-    target_link_libraries(pod5_unit_tests PRIVATE stdc++fs)
-endif()
-
 if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
     set_source_files_properties(c_api_build_test.c PROPERTIES COMPILE_OPTIONS "-Wdocumentation")
 endif()
