@@ -1,5 +1,9 @@
 #pragma once
 
+#include "pod5_format/internal/combined_file_utils.h"
+#include "pod5_format/result.h"
+#include "pod5_format/schema_metadata.h"
+
 #include <arrow/array.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
