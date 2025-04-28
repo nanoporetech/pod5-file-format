@@ -237,7 +237,6 @@ build-standalone-ubu22:
 
 
 # Takes CMAKE_ARGS, AUDITWHEEL_PLATFORM, and PYTHON_VERSION.
-# BUILD_PYTHON_WHEEL can optionally be disabled.
 .conan-build-and-test:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
@@ -259,7 +258,7 @@ build-standalone-ubu22:
     -D CMAKE_BUILD_TYPE=Release
     -D POD5_DISABLE_TESTS=OFF
     -D POD5_BUILD_EXAMPLES=ON
-    -D BUILD_PYTHON_WHEEL=${BUILD_PYTHON_WHEEL:=ON}
+    -D BUILD_PYTHON_WHEEL=ON
     -D PYTHON_VERSION=${PYTHON_VERSION}
     -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
     ..
