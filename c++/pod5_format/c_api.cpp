@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <limits>
 
 //---------------------------------------------------------------------------------------------------------------------
 struct Pod5FileReader {
@@ -426,9 +427,11 @@ pod5_error_t pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch *
     return POD5_OK;
 }
 
-static pod5_error_t check_row_index_and_set_error(size_t row, size_t batch_size)
+static pod5_error_t check_row_index_and_set_error(size_t row, int64_t batch_size)
 {
-    if (row >= batch_size) {
+    if (row > static_cast<size_t>(std::numeric_limits<int64_t>::max())
+        || static_cast<int64_t>(row) >= batch_size)
+    {
         pod5_set_error(arrow::Status::IndexError(
             "Invalid index into batch. Index ", row, " with batch size ", batch_size));
         return g_pod5_error_no;
