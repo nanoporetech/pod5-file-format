@@ -222,6 +222,9 @@ POD5_FORMAT_EXPORT Pod5FileReader_t * pod5_open_file_options(
     Pod5ReaderOptions_t const * options);
 
 /// \brief Close a file reader, releasing all memory held by the reader.
+/// \param file A previously opened reader.
+/// \note Any references to \a file or its components are no longer valid after this call.
+/// \note It is safe to call this with a null \a file.
 POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_reader(Pod5FileReader_t * file);
 
 struct FileInfo {
@@ -316,6 +319,8 @@ pod5_get_read_batch(Pod5ReadRecordBatch_t ** batch, Pod5FileReader_t * reader, s
 
 /// \brief Release a read batch when it is not longer used.
 /// \param batch The batch to release.
+/// \note Any references to \a batch or its components are no longer valid after this call.
+/// \note It is safe to call this with a null \a batch.
 POD5_FORMAT_EXPORT pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch_t * batch);
 
 /// \brief Find the number of rows in a batch.
@@ -423,6 +428,9 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_run_info(
     RunInfoDictData_t ** run_info_data);
 
 /// \brief Release a RunInfoDictData struct after use.
+/// \param run_info_data The run info to release.
+/// \note Any references to \a run_info_data or its components are no longer valid after this call.
+/// \note It is safe to call this with a null \a run_info_data.
 POD5_FORMAT_EXPORT pod5_error_t pod5_free_run_info(RunInfoDictData_t * run_info_data);
 
 /// \brief Release a RunInfoDictData struct after use.
@@ -478,7 +486,7 @@ typedef struct SignalRowInfo SignalRowInfo_t;
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal_row_info(
     Pod5FileReader_t * reader,
     size_t signal_rows_count,
-    uint64_t * signal_rows,
+    uint64_t const * signal_rows,
     SignalRowInfo_t ** signal_row_info);
 
 /// \brief Release a list of signal row infos allocated by [pod5_get_signal_row_info].
@@ -566,6 +574,9 @@ POD5_FORMAT_EXPORT Pod5FileWriter_t * pod5_create_file(
     Pod5WriterOptions_t const * options);
 
 /// \brief Close a file writer, releasing all memory held by the writer.
+/// \param file A previously opened writer.
+/// \note Any references to \a file or its components are no longer valid after this call.
+/// \note It is safe to call this with a null \a file.
 POD5_FORMAT_EXPORT pod5_error_t pod5_close_and_free_writer(Pod5FileWriter_t * file);
 
 /// \brief Add a new pore type to the file.
@@ -633,7 +644,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_run_info(
 /// \brief Add a read to the file.
 ///
 /// For each read `r`, where `0 <= r < read_count`:
-/// - `((RowInfo_t const*)row_data)[r]` describes the read metadata, where `RowInfo_t` is determined by [struct_version]
+/// - `row_data->field[r]` describes a field of the read metadata
 /// - `signal[r]` is the raw signal data for the read
 /// - `signal_size[r]` is the length of `signal[r]` (in samples, not in bytes)
 ///
@@ -641,7 +652,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_run_info(
 /// \param      read_count      The number of reads to add with this call.
 /// \param      struct_version  The version of the struct of [row_data] being filled, use READ_BATCH_ROW_INFO_VERSION.
 /// \param      row_data        The array data for injecting into the file, should be ReadBatchRowInfoArray_t.
-///                             This must be an array of length [read_count].
+///                             All fields of the array must have length [read_count].
 /// \param      signal          The signal data for the reads.
 /// \param      signal_size     The number of samples in the signal data.
 ///                             This must be an array of length [read_count].
@@ -661,7 +672,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_data(
 /// Data should be compressed using [pod5_vbz_compress_signal].
 ///
 /// For each read `r`, where `0 <= r < read_count`:
-/// - `((RowInfo_t const*)row_data)[r]` describes the read metadata, where `RowInfo_t` is determined by [struct_version]
+/// - `row_data->field[r]` describes a field of the read metadata
 /// - `signal_chunk_count[r]` is the number of signal chunks
 /// - for each signal chunk `i` where `0 <= i < signal_chunk_count[r]`:
 ///   - `sample_counts[r][i]` is the number of samples in the chunk (ie: the size of the uncompressed data in
@@ -673,7 +684,7 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_data(
 /// \param      read_count              The number of reads to add with this call.
 /// \param      struct_version          The version of the struct of [row_data] being filled, use READ_BATCH_ROW_INFO_VERSION.
 /// \param      row_data                The array data for injecting into the file, should be ReadBatchRowInfoArray_t.
-///                                     This must be an array of length [read_count].
+///                                     All fields of the array must have length [read_count].
 /// \param      compressed_signal       The signal chunks data for the read.
 /// \param      compressed_signal_size  The sizes (in bytes) of each signal chunk.
 /// \param      sample_counts           The number of samples of each signal chunk. In other words, it is the *uncompressed* size of the

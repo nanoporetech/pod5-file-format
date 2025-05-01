@@ -1,6 +1,5 @@
 #include "pod5_format/read_table_writer.h"
 
-#include "pod5_format/errors.h"
 #include "pod5_format/internal/async_output_stream.h"
 #include "pod5_format/internal/tracing/tracing.h"
 
