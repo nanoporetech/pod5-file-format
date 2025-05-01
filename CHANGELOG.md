@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed some crashes when parsing corrupt POD5 files.
+- Fixed missing error handling when the C API is called incorrectly.
 
 ### Removed
 

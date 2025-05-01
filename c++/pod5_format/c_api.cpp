@@ -14,9 +14,8 @@
 #include <arrow/memory_pool.h>
 #include <arrow/type.h>
 
-#include <chrono>
-#include <iostream>
 #include <limits>
+#include <optional>
 
 //---------------------------------------------------------------------------------------------------------------------
 struct Pod5FileReader {
@@ -406,10 +405,6 @@ pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch * batch)
 {
     pod5_reset_error();
 
-    if (!check_not_null(batch)) {
-        return g_pod5_error_no;
-    }
-
     std::unique_ptr<Pod5ReadRecordBatch> ptr{batch};
     ptr.reset();
     return POD5_OK;
@@ -449,7 +444,9 @@ pod5_error_t pod5_get_read_batch_row_info_data(
 {
     pod5_reset_error();
 
-    if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)) {
+    if (!check_not_null(batch) || !check_output_pointer_not_null(row_data)
+        || !check_output_pointer_not_null(read_table_version))
+    {
         return g_pod5_error_no;
     }
 
@@ -573,14 +570,16 @@ pod5_error_t pod5_get_calibration_extra_info(
     return POD5_OK;
 }
 
+namespace {
+
 struct RunInfoDataCHelper : public RunInfoDictData {
     struct InternalMapHelper {
         std::vector<char const *> keys;
         std::vector<char const *> values;
     };
 
-    RunInfoDataCHelper(std::shared_ptr<pod5::RunInfoData const> const & internal_data_)
-    : internal_data(internal_data_)
+    RunInfoDataCHelper(std::shared_ptr<pod5::RunInfoData const> && internal_data_)
+    : internal_data(std::move(internal_data_))
     {
         acquisition_id = internal_data->acquisition_id.c_str();
         acquisition_start_time_ms = internal_data->acquisition_start_time;
@@ -625,6 +624,8 @@ struct RunInfoDataCHelper : public RunInfoDictData {
     InternalMapHelper tracking_id_helper;
 };
 
+}  // namespace
+
 pod5_error_t
 pod5_get_run_info(Pod5ReadRecordBatch * batch, int16_t run_info, RunInfoDictData ** run_info_data)
 {
@@ -649,7 +650,7 @@ pod5_error_t pod5_get_file_run_info(
 {
     pod5_reset_error();
 
-    if (!check_not_null(file) || !check_output_pointer_not_null(run_info_data)) {
+    if (!check_file_not_null(file) || !check_output_pointer_not_null(run_info_data)) {
         return g_pod5_error_no;
     }
 
@@ -663,10 +664,6 @@ pod5_error_t pod5_get_file_run_info(
 pod5_error_t pod5_free_run_info(RunInfoDictData_t * run_info_data)
 {
     pod5_reset_error();
-
-    if (!check_not_null(run_info_data)) {
-        return g_pod5_error_no;
-    }
 
     std::unique_ptr<RunInfoDataCHelper> helper(static_cast<RunInfoDataCHelper *>(run_info_data));
     helper.reset();
@@ -685,7 +682,7 @@ pod5_error_t pod5_get_file_run_info_count(
 {
     pod5_reset_error();
 
-    if (!check_not_null(file)) {
+    if (!check_file_not_null(file) || !check_output_pointer_not_null(run_info_count)) {
         return g_pod5_error_no;
     }
 
@@ -703,7 +700,7 @@ pod5_error_t pod5_get_end_reason(
 {
     pod5_reset_error();
 
-    if (!check_output_pointer_not_null(end_reason_value)
+    if (!check_not_null(batch) || !check_output_pointer_not_null(end_reason_value)
         || !check_output_pointer_not_null(end_reason_string_value)
         || !check_output_pointer_not_null(end_reason_string_value_size))
     {
@@ -717,6 +714,7 @@ pod5_error_t pod5_get_end_reason(
         return POD5_ERROR_STRING_NOT_LONG_ENOUGH;
     }
 
+    *end_reason_value = POD5_END_REASON_UNKNOWN;
     switch (end_reason_val.first) {
     case pod5::ReadEndReason::mux_change:
         *end_reason_value = POD5_END_REASON_MUX_CHANGE;
@@ -745,7 +743,6 @@ pod5_error_t pod5_get_end_reason(
     case pod5::ReadEndReason::paused:
         *end_reason_value = POD5_END_REASON_PAUSED;
         break;
-    default:
     case pod5::ReadEndReason::unknown:
         *end_reason_value = POD5_END_REASON_UNKNOWN;
         break;
@@ -764,7 +761,7 @@ pod5_error_t pod5_get_pore_type(
 {
     pod5_reset_error();
 
-    if (!check_output_pointer_not_null(pore_type_string_value)
+    if (!check_not_null(batch) || !check_output_pointer_not_null(pore_type_string_value)
         || !check_output_pointer_not_null(pore_type_string_value_size))
     {
         return g_pod5_error_no;
@@ -782,22 +779,35 @@ pod5_error_t pod5_get_pore_type(
     return POD5_OK;
 }
 
+namespace {
+
 class SignalRowInfoCHelper : public SignalRowInfo {
 public:
-    SignalRowInfoCHelper(pod5::SignalTableRecordBatch const & b) : batch(b) {}
+    SignalRowInfoCHelper(pod5::SignalTableRecordBatch && b) : batch(std::move(b)) {}
 
     pod5::SignalTableRecordBatch batch;
 };
 
+}  // namespace
+
 pod5_error_t pod5_get_signal_row_info(
     Pod5FileReader * reader,
     size_t signal_rows_count,
-    uint64_t * signal_rows,
+    uint64_t const * signal_rows,
     SignalRowInfo ** signal_row_info)
 {
     pod5_reset_error();
 
-    if (!check_not_null(reader) || !check_output_pointer_not_null(signal_row_info)) {
+    // Check for a valid reader.
+    if (!check_file_not_null(reader)) {
+        return g_pod5_error_no;
+    }
+
+    // Check for valid inputs.
+    if (signal_rows_count == 0) {
+        // Nothing to do.
+        return POD5_OK;
+    } else if (!check_not_null(signal_rows) || !check_output_pointer_not_null(signal_row_info)) {
         return g_pod5_error_no;
     }
 
@@ -805,9 +815,13 @@ pod5_error_t pod5_get_signal_row_info(
     std::vector<std::uint64_t> signal_rows_sorted{signal_rows, signal_rows + signal_rows_count};
     std::sort(signal_rows_sorted.begin(), signal_rows_sorted.end());
 
+    // Store allocations to a temporary buffer so that we don't leak them on failure.
+    std::vector<std::unique_ptr<SignalRowInfoCHelper>> row_infos(signal_rows_count);
+
     // Then loop all rows, forward.
-    for (std::size_t completed_rows = 0; completed_rows < signal_rows_sorted.size();)
-    {  // No increment here, we do it below when we succeed.
+    for (std::size_t completed_rows = 0; completed_rows < signal_rows_sorted.size();
+         completed_rows++)
+    {
         auto const start_row = signal_rows_sorted[completed_rows];
 
         std::size_t batch_row = 0;
@@ -816,25 +830,33 @@ pod5_error_t pod5_get_signal_row_info(
             (reader->reader->signal_batch_for_row_id(start_row, &batch_row)));
         POD5_C_ASSIGN_OR_RAISE(auto batch, reader->reader->read_signal_record_batch(row_batch));
 
-        auto output = std::make_unique<SignalRowInfoCHelper>(batch);
+        auto output = std::make_unique<SignalRowInfoCHelper>(std::move(batch));
 
         output->batch_index = start_row;
         output->batch_row_index = batch_row;
 
-        auto samples = batch.samples_column();
+        auto samples = output->batch.samples_column();
         output->stored_sample_count = samples->Value(batch_row);
-        POD5_C_ASSIGN_OR_RAISE(output->stored_byte_count, batch.samples_byte_count(batch_row));
+        POD5_C_ASSIGN_OR_RAISE(
+            output->stored_byte_count, output->batch.samples_byte_count(batch_row));
 
-        signal_row_info[completed_rows] = output.release();
-        completed_rows += 1;
+        row_infos[completed_rows] = std::move(output);
     }
 
+    // Pass ownership of the info back to the caller.
+    for (std::size_t row_idx = 0; row_idx < signal_rows_count; row_idx++) {
+        signal_row_info[row_idx] = row_infos[row_idx].release();
+    }
     return POD5_OK;
 }
 
 pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t ** signal_row_info)
 {
     pod5_reset_error();
+
+    if (signal_rows_count > 0 && !check_not_null(signal_row_info)) {
+        return g_pod5_error_no;
+    }
 
     for (std::size_t i = 0; i < signal_rows_count; ++i) {
         std::unique_ptr<SignalRowInfoCHelper> helper(
@@ -852,7 +874,7 @@ pod5_error_t pod5_get_signal(
 {
     pod5_reset_error();
 
-    if (!check_not_null(reader) || !check_not_null(row_info)
+    if (!check_file_not_null(reader) || !check_not_null(row_info)
         || !check_output_pointer_not_null(sample_data))
     {
         return g_pod5_error_no;
@@ -874,7 +896,9 @@ pod5_error_t pod5_get_read_complete_sample_count(
 {
     pod5_reset_error();
 
-    if (!check_not_null(reader) || !check_output_pointer_not_null(sample_count)) {
+    if (!check_file_not_null(reader) || !check_not_null(batch)
+        || !check_output_pointer_not_null(sample_count))
+    {
         return g_pod5_error_no;
     }
 
@@ -896,7 +920,9 @@ pod5_error_t pod5_get_read_complete_signal(
 {
     pod5_reset_error();
 
-    if (!check_not_null(reader) || !check_output_pointer_not_null(signal)) {
+    if (!check_file_not_null(reader) || !check_not_null(batch)
+        || !check_output_pointer_not_null(signal))
+    {
         return g_pod5_error_no;
     }
 
@@ -934,7 +960,9 @@ pod5_error_t pod5_close_and_free_writer(Pod5FileWriter * file)
     pod5_reset_error();
 
     std::unique_ptr<Pod5FileWriter> ptr{file};
-    POD5_C_RETURN_NOT_OK(ptr->writer->close());
+    if (ptr) {
+        POD5_C_RETURN_NOT_OK(ptr->writer->close());
+    }
 
     ptr.reset();
     return POD5_OK;
@@ -984,7 +1012,15 @@ pod5_error_t pod5_add_run_info(
 {
     pod5_reset_error();
 
-    if (!check_file_not_null(file)) {
+    if (!check_file_not_null(file) || !check_not_null(run_info_index)
+        || !check_string_not_empty(acquisition_id) || !check_string_not_empty(experiment_name)
+        || !check_string_not_empty(flow_cell_id) || !check_string_not_empty(flow_cell_product_code)
+        || !check_string_not_empty(protocol_name) || !check_string_not_empty(protocol_run_id)
+        || !check_string_not_empty(sample_id) || !check_string_not_empty(sequencing_kit)
+        || !check_string_not_empty(sequencer_position)
+        || !check_string_not_empty(sequencer_position_type) || !check_string_not_empty(software)
+        || !check_string_not_empty(system_name) || !check_string_not_empty(system_type))
+    {
         return g_pod5_error_no;
     }
 
@@ -992,12 +1028,16 @@ pod5_error_t pod5_add_run_info(
         [](std::size_t tracking_id_count,
            char const ** tracking_id_keys,
            char const ** tracking_id_values) -> pod5::Result<pod5::RunInfoData::MapType> {
+        if (!check_not_null(tracking_id_keys) || !check_not_null(tracking_id_values)) {
+            return arrow::Status::Invalid(g_pod5_error_string);
+        }
+
         pod5::RunInfoData::MapType result;
         for (std::size_t i = 0; i < tracking_id_count; ++i) {
             auto key = tracking_id_keys[i];
             auto value = tracking_id_values[i];
-            if (key == nullptr || value == nullptr) {
-                return arrow::Status::Invalid("null file passed to C API");
+            if (!check_string_not_empty(key) || !check_string_not_empty(value)) {
+                return arrow::Status::Invalid(g_pod5_error_string);
             }
 
             result.emplace_back(key, value);
@@ -1060,8 +1100,9 @@ static bool check_read_data_struct(std::uint16_t struct_version, void const * ro
             || !check_not_null(typed_row_data->start_sample)
             || !check_not_null(typed_row_data->median_before)
             || !check_not_null(typed_row_data->channel) || !check_not_null(typed_row_data->well)
-            || !check_not_null(typed_row_data->calibration_scale)
+            || !check_not_null(typed_row_data->pore_type)
             || !check_not_null(typed_row_data->calibration_offset)
+            || !check_not_null(typed_row_data->calibration_scale)
             || !check_not_null(typed_row_data->end_reason)
             || !check_not_null(typed_row_data->end_reason_forced)
             || !check_not_null(typed_row_data->run_info_id)
@@ -1097,7 +1138,7 @@ static bool load_struct_row_into_read_data(
 
         pod5::Uuid read_id_uuid{typed_row_data->read_id[row_id]};
 
-        pod5::ReadEndReason end_reason_internal = pod5::ReadEndReason::unknown;
+        std::optional<pod5::ReadEndReason> end_reason_internal;
         switch (typed_row_data->end_reason[row_id]) {
         case POD5_END_REASON_UNKNOWN:
             end_reason_internal = pod5::ReadEndReason::unknown;
@@ -1117,7 +1158,20 @@ static bool load_struct_row_into_read_data(
         case POD5_END_REASON_SIGNAL_NEGATIVE:
             end_reason_internal = pod5::ReadEndReason::signal_negative;
             break;
-        default:
+        case POD5_END_REASON_API_REQUEST:
+            end_reason_internal = pod5::ReadEndReason::api_request;
+            break;
+        case POD5_END_REASON_DEVICE_DATA_ERROR:
+            end_reason_internal = pod5::ReadEndReason::device_data_error;
+            break;
+        case POD5_END_REASON_ANALYSIS_CONFIG_CHANGE:
+            end_reason_internal = pod5::ReadEndReason::analysis_config_change;
+            break;
+        case POD5_END_REASON_PAUSED:
+            end_reason_internal = pod5::ReadEndReason::paused;
+            break;
+        }
+        if (!end_reason_internal.has_value()) {
             pod5_set_error(arrow::Status::Invalid(
                 "out of range end reason ",
                 typed_row_data->end_reason[row_id],
@@ -1125,7 +1179,7 @@ static bool load_struct_row_into_read_data(
             return false;
         }
 
-        auto const end_reason_index = writer->lookup_end_reason(end_reason_internal);
+        auto const end_reason_index = writer->lookup_end_reason(*end_reason_internal);
         if (!end_reason_index.ok()) {
             pod5_set_error(end_reason_index.status());
             return false;
@@ -1170,8 +1224,21 @@ pod5_error_t pod5_add_reads_data(
 {
     pod5_reset_error();
 
-    if (!check_file_not_null(file) || !check_read_data_struct(struct_version, row_data)) {
+    if (!check_file_not_null(file)) {
         return g_pod5_error_no;
+    }
+    if (read_count == 0) {
+        return POD5_OK;
+    }
+    if (!check_read_data_struct(struct_version, row_data) || !check_not_null(signal)
+        || !check_not_null(signal_size))
+    {
+        return g_pod5_error_no;
+    }
+    for (std::uint32_t read = 0; read < read_count; ++read) {
+        if (!check_not_null(signal[read])) {
+            return g_pod5_error_no;
+        }
     }
 
     for (std::uint32_t read = 0; read < read_count; ++read) {
@@ -1201,8 +1268,25 @@ pod5_error_t pod5_add_reads_data_pre_compressed(
 {
     pod5_reset_error();
 
-    if (!check_file_not_null(file) || !check_read_data_struct(struct_version, row_data)) {
+    if (!check_file_not_null(file)) {
         return g_pod5_error_no;
+    }
+    if (read_count == 0) {
+        return POD5_OK;
+    }
+    if (!check_read_data_struct(struct_version, row_data) || !check_not_null(compressed_signal)
+        || !check_not_null(compressed_signal_size) || !check_not_null(sample_counts)
+        || !check_not_null(signal_chunk_count))
+    {
+        return g_pod5_error_no;
+    }
+    for (std::uint32_t read = 0; read < read_count; ++read) {
+        if (!check_not_null(compressed_signal[read])
+            || !check_not_null(compressed_signal_size[read])
+            || !check_not_null(sample_counts[read]))
+        {
+            return g_pod5_error_no;
+        }
     }
 
     for (std::uint32_t read = 0; read < read_count; ++read) {

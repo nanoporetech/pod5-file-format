@@ -86,8 +86,6 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/c_api.cpp
     pod5_format/c_api.h
 
-    pod5_format/errors.cpp
-    pod5_format/errors.h
     pod5_format/expandable_buffer.h
     pod5_format/io_manager.cpp
     pod5_format/io_manager.h
@@ -154,7 +152,6 @@ list(APPEND public_headers
 
     pod5_format/c_api.h
 
-    pod5_format/errors.h
     pod5_format/expandable_buffer.h
     pod5_format/file_output_stream.h
     pod5_format/io_manager.h
