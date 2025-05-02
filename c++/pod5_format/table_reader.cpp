@@ -2,6 +2,7 @@
 
 #include <arrow/ipc/reader.h>
 #include <arrow/record_batch.h>
+#include <arrow/util/align_util.h>
 
 namespace pod5 {
 
@@ -55,6 +56,14 @@ Result<std::shared_ptr<arrow::RecordBatch>> ReadRecordBatchAndValidate(
 {
     ARROW_ASSIGN_OR_RAISE(auto batch, reader.ReadRecordBatch(i));
     ARROW_RETURN_NOT_OK(batch->ValidateFull());
+
+    // Check that the data buffers are aligned.
+    std::vector<bool> unaligned_columns;
+    unaligned_columns.reserve(batch->num_columns());
+    if (!arrow::util::CheckAlignment(*batch, arrow::util::kValueAlignment, &unaligned_columns)) {
+        return Status::Invalid("Column data alignment check failed");
+    }
+
     return batch;
 }
 
