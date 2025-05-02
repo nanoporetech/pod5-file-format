@@ -46,7 +46,14 @@ Result<int64_t> TableReader::CountRows() const { return m_reader->CountRows(); }
 
 Result<std::shared_ptr<arrow::RecordBatch>> TableReader::ReadRecordBatch(int i) const
 {
-    ARROW_ASSIGN_OR_RAISE(auto batch, m_reader->ReadRecordBatch(i));
+    return ReadRecordBatchAndValidate(*m_reader, i);
+}
+
+Result<std::shared_ptr<arrow::RecordBatch>> ReadRecordBatchAndValidate(
+    arrow::ipc::RecordBatchFileReader & reader,
+    int i)
+{
+    ARROW_ASSIGN_OR_RAISE(auto batch, reader.ReadRecordBatch(i));
     ARROW_RETURN_NOT_OK(batch->ValidateFull());
     return batch;
 }
