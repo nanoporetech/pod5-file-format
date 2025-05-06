@@ -62,6 +62,20 @@ if (ENABLE_FUZZERS)
 endif()
 add_compile_definitions(POD5_ENABLE_FUZZERS=$<BOOL:${ENABLE_FUZZERS}>)
 
+option(ENABLE_COVERAGE_REPORT "Executables emit coverage reports" OFF)
+if (ENABLE_COVERAGE_REPORT)
+    if (DISABLE_DEBUG_SYMBOLS)
+        message(FATAL_ERROR "Debug symbols are required for coverage reports to work")
+    elseif (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+        message(FATAL_ERROR "Only unoptimised builds give reliable coverage reports")
+    elseif (CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
+        add_compile_options(--coverage)
+        add_link_options(--coverage)
+    else()
+        message(FATAL_ERROR "Cannot enable coverage on unknown compiler")
+    endif()
+endif()
+
 
 # FIXME: DISABLE CONDITIONAL TO WORK ON BIONIC
 if (ENABLE_CONAN AND CMAKE_COMPILER_IS_GNUCXX AND
