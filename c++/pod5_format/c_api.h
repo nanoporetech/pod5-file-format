@@ -209,7 +209,7 @@ struct Pod5ReaderOptions {
 };
 typedef struct Pod5ReaderOptions Pod5ReaderOptions_t;
 
-/// \brief Open a file reader
+/// \brief Open a file reader with default options.
 /// \param filename         The filename of the pod5 file.
 /// \see             pod5_open_file_options
 POD5_FORMAT_EXPORT Pod5FileReader_t * pod5_open_file(char const * filename);
@@ -217,6 +217,8 @@ POD5_FORMAT_EXPORT Pod5FileReader_t * pod5_open_file(char const * filename);
 /// \brief Open a file reader
 /// \param filename         The filename of the pod5 file.
 /// \param options          The options to use when opening the file.
+/// \return A reader, or null on error. The reason for the error can be queried with
+///         pod5_get_error_no() and pod5_get_error_string().
 POD5_FORMAT_EXPORT Pod5FileReader_t * pod5_open_file_options(
     char const * filename,
     Pod5ReaderOptions_t const * options);
@@ -568,6 +570,8 @@ typedef struct Pod5WriterOptions Pod5WriterOptions_t;
 /// \param filename         The filename of the pod5 file.
 /// \param writer_name      A descriptive string for the user software writing this file.
 /// \param options          Options controlling how the file will be written.
+/// \return A writer, or null on error. The reason for the error can be queried with
+///         pod5_get_error_no() and pod5_get_error_string().
 POD5_FORMAT_EXPORT Pod5FileWriter_t * pod5_create_file(
     char const * filename,
     char const * writer_name,
@@ -703,7 +707,9 @@ POD5_FORMAT_EXPORT pod5_error_t pod5_add_reads_data_pre_compressed(
 
 /// \brief Find the max size of a compressed array of samples.
 /// \param sample_count The number of samples in the source signal.
-/// \return The max number of bytes required for the compressed signal.
+/// \return The max number of bytes required for the compressed signal, or 0 on error.
+///         The reason for the error can be queried with pod5_get_error_no() and
+///         pod5_get_error_string().
 POD5_FORMAT_EXPORT size_t pod5_vbz_compressed_signal_max_size(size_t sample_count);
 
 /// \brief VBZ compress an array of samples.

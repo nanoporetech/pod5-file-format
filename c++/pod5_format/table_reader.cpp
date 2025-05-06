@@ -42,4 +42,13 @@ TableReader::~TableReader() = default;
 
 std::size_t TableReader::num_record_batches() const { return m_reader->num_record_batches(); }
 
+Result<int64_t> TableReader::CountRows() const { return m_reader->CountRows(); }
+
+Result<std::shared_ptr<arrow::RecordBatch>> TableReader::ReadRecordBatch(int i) const
+{
+    ARROW_ASSIGN_OR_RAISE(auto batch, m_reader->ReadRecordBatch(i));
+    ARROW_RETURN_NOT_OK(batch->ValidateFull());
+    return batch;
+}
+
 }  // namespace pod5

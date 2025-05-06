@@ -796,7 +796,7 @@ static Status add_clean_up_error(Status status, std::filesystem::filesystem_erro
     return arrow::Status::FromArgs(status.code(), status.message(), exception.what());
 }
 
-POD5_FORMAT_EXPORT pod5::Result<RecoveryDetails> recover_file(
+pod5::Result<RecoveryDetails> recover_file(
     std::string const & src_path,
     std::string const & dest_path,
     RecoverFileOptions const & options)

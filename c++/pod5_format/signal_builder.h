@@ -108,7 +108,7 @@ public:
     {
         ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
 
-        auto const max_size = compressed_signal_max_size(m_signal.size());
+        ARROW_ASSIGN_OR_RAISE(auto const max_size, compressed_signal_max_size(m_signal.size()));
 
         // Compress the signal in place into our buffer.
         return builder.data_values.append(

@@ -539,7 +539,9 @@ inline std::size_t compress_signal_wrapper(
 
 inline std::size_t vbz_compressed_signal_max_size(std::size_t sample_count)
 {
-    return pod5::compressed_signal_max_size(sample_count);
+    POD5_PYTHON_ASSIGN_OR_RAISE(
+        std::size_t const max_size, pod5::compressed_signal_max_size(sample_count));
+    return max_size;
 }
 
 inline std::size_t load_read_id_iterable(

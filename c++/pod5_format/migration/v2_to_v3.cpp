@@ -128,6 +128,8 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
         ARROW_ASSIGN_OR_RAISE(
             auto new_metadata, update_metadata(v2_reader.metadata, Version(0, 0, 35)));
 
+        auto const num_record_batches = v2_reader.reader->num_record_batches();
+
         {
             auto v3_reads_schema = arrow::schema(
                 {arrow::field("read_id", uuid()),
@@ -176,11 +178,10 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
             StringDictBuilder pore_type;
             StringDictBuilder end_reason;
             StringDictBuilder run_info;
-            for (std::int64_t batch_idx = 0; batch_idx < v2_reader.reader->num_record_batches();
-                 ++batch_idx)
-            {
+            for (std::int64_t batch_idx = 0; batch_idx < num_record_batches; ++batch_idx) {
                 // Read V2 data:
                 ARROW_ASSIGN_OR_RAISE(auto v2_batch, v2_reader.reader->ReadRecordBatch(batch_idx));
+                ARROW_RETURN_NOT_OK(v2_batch->ValidateFull());
                 auto const num_rows = v2_batch->num_rows();
 
                 std::vector<std::shared_ptr<arrow::Array>> v3_columns;
@@ -252,10 +253,10 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
             }
             ARROW_RETURN_NOT_OK(v3_reads_writer.writer->Close());
         }
-        {
+
+        if (num_record_batches > 0) {
             ARROW_ASSIGN_OR_RAISE(
-                auto v2_last_batch,
-                v2_reader.reader->ReadRecordBatch(v2_reader.reader->num_record_batches() - 1));
+                auto v2_last_batch, v2_reader.reader->ReadRecordBatch(num_record_batches - 1));
             auto run_info_column = std::dynamic_pointer_cast<arrow::DictionaryArray>(
                 v2_last_batch->GetColumnByName("run_info"));
             if (!run_info_column) {

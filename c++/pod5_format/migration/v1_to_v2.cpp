@@ -81,6 +81,7 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
         {
             ARROW_ASSIGN_OR_RAISE(
                 signal_batches[batch_idx], v1_signal_reader.reader->ReadRecordBatch(batch_idx));
+            ARROW_RETURN_NOT_OK(signal_batches[batch_idx]->ValidateFull());
         }
 
         auto v2_new_schama = arrow::schema({arrow::field("num_samples", arrow::uint64())});
@@ -98,6 +99,7 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
         {
             // Read V1 data:
             ARROW_ASSIGN_OR_RAISE(auto v1_batch, v1_reader.reader->ReadRecordBatch(batch_idx));
+            ARROW_RETURN_NOT_OK(v1_batch->ValidateFull());
             auto const num_rows = v1_batch->num_rows();
 
             // Extend with V2 data:
@@ -108,6 +110,8 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
             if (!signal_column) {
                 return arrow::Status::Invalid("`signal` column is missing from file");
             }
+            ARROW_RETURN_NOT_OK(signal_column->ValidateFull());
+
             arrow::UInt64Builder num_samples_builder;
             for (std::int64_t row = 0; row < num_rows; ++row) {
                 ARROW_ASSIGN_OR_RAISE(

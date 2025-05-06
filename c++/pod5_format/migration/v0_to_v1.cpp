@@ -44,6 +44,7 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
         {
             // Read V0 data:
             ARROW_ASSIGN_OR_RAISE(auto v0_batch, v0_reader.reader->ReadRecordBatch(batch_idx));
+            ARROW_RETURN_NOT_OK(v0_batch->ValidateFull());
             auto const num_rows = v0_batch->num_rows();
 
             if (num_rows < 0) {

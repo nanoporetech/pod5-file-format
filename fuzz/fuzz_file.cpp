@@ -128,7 +128,6 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
 
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
         Pod5ReadRecordBatch_t * batch = nullptr;
-        // TODO: is it OK for this to fail?
         CHECK_POD5_MAY_FAIL(pod5_get_read_batch(&batch, file.get(), batch_index));
         if (batch == nullptr) {
             continue;
@@ -148,60 +147,44 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
             CHECK_POD5_SUCCESS(pod5_format_read_id(read_data.read_id, formatted_read_id.data()));
             validate_string(formatted_read_id.data());
 
-#if 0 /* TODO : crashes */
             // Check signal indices.
-            //assert(read_data.signal_row_count >= 0); // TODO: assert fails
+            assert(read_data.signal_row_count >= 0);
             if (read_data.signal_row_count > 0 && read_data.signal_row_count < 1'000'000) {
                 std::vector<uint64_t> indices(read_data.signal_row_count);
                 CHECK_POD5_SUCCESS(
                     pod5_get_signal_row_indices(batch, row, indices.size(), indices.data()));
             }
-#endif
 
-#if 0 /* TODO : crashes */
             // Check signal extraction.
             std::size_t sample_count = 0;
-            // TODO: is it OK for this to fail?
             CHECK_POD5_MAY_FAIL(
                 pod5_get_read_complete_sample_count(file.get(), batch, row, &sample_count));
             if (sample_count < 1'000'000) {
                 std::vector<int16_t> samples(sample_count);
-                // TODO: is it OK for this to fail?
                 CHECK_POD5_MAY_FAIL(pod5_get_read_complete_signal(
                     file.get(), batch, row, samples.size(), samples.data()));
             }
-#endif
 
-#if 0 /* TODO : crashes */
             // Check calibration data.
             CalibrationExtraData_t calib_data;
-            // TODO: is it OK for this to fail?
             CHECK_POD5_MAY_FAIL(pod5_get_calibration_extra_info(batch, row, &calib_data));
 
             // Check run info.
             RunInfoDictData_t * run_info = nullptr;
-            // TODO: is it OK for this to fail?
             CHECK_POD5_MAY_FAIL(pod5_get_run_info(batch, read_data.run_info, &run_info));
             // We'll do a proper check of the run info later.
             if (run_info != nullptr) {
                 CHECK_POD5_SUCCESS(pod5_free_run_info(run_info));
             }
-#endif
         }
 
         // Check run info.
         run_info_index_t run_info_count = 0;
-        // TODO: is it OK for this to fail?
         CHECK_POD5_MAY_FAIL(pod5_get_file_run_info_count(file.get(), &run_info_count));
         for (run_info_index_t run_info_idx = 0; run_info_idx < run_info_count; run_info_idx++) {
             RunInfoDictData_t * run_info_data = nullptr;
-#if 0 /* TODO : crashes */
-            // TODO: is it OK for this to fail?
-            CHECK_POD5_MAY_FAIL(pod5_get_file_run_info(file.get(), run_info_idx, &run_info_data));
-#endif
-            if (run_info_data == nullptr) {
-                continue;
-            }
+            CHECK_POD5_SUCCESS(pod5_get_file_run_info(file.get(), run_info_idx, &run_info_data));
+            assert(run_info_data != nullptr);
 
             validate_string(run_info_data->acquisition_id);
             validate_string(run_info_data->experiment_name);

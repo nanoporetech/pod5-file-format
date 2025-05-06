@@ -52,7 +52,10 @@ public:
 
     std::size_t num_record_batches() const;
 
-    std::shared_ptr<arrow::ipc::RecordBatchFileReader> const & reader() const { return m_reader; }
+    Result<int64_t> CountRows() const;
+
+    // Same as RecordBatchFileReader::ReadRecordBatch() but validates the contents.
+    Result<std::shared_ptr<arrow::RecordBatch>> ReadRecordBatch(int i) const;
 
 private:
     std::shared_ptr<void> m_input_source;
