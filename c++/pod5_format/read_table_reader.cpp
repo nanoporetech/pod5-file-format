@@ -214,11 +214,8 @@ ReadTableReader & ReadTableReader::operator=(ReadTableReader && other)
 Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) const
 {
     std::lock_guard<std::mutex> l(m_batch_get_mutex);
-    auto record_batch = reader()->ReadRecordBatch(i);
-    if (!record_batch.ok()) {
-        return record_batch.status();
-    }
-    return ReadTableRecordBatch{std::move(*record_batch), m_field_locations};
+    ARROW_ASSIGN_OR_RAISE(auto record_batch, TableReader::ReadRecordBatch(i));
+    return ReadTableRecordBatch{std::move(record_batch), m_field_locations};
 }
 
 Status ReadTableReader::build_read_id_lookup()

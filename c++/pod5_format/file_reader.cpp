@@ -59,7 +59,7 @@ public:
 
     Result<std::size_t> run_info_count() const override
     {
-        return m_run_info_table_reader.reader()->CountRows();
+        return m_run_info_table_reader.CountRows();
     }
 
     virtual Result<std::size_t> read_count() const override

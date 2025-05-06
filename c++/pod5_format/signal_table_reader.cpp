@@ -218,7 +218,7 @@ Result<SignalTableRecordBatch> SignalTableReader::read_record_batch(std::size_t 
         assert(m_table_batches.size() < m_max_cached_table_batches);
     }
 
-    ARROW_ASSIGN_OR_RAISE(m_last_read_record_batch, reader()->ReadRecordBatch(i));
+    ARROW_ASSIGN_OR_RAISE(m_last_read_record_batch, TableReader::ReadRecordBatch(i));
     m_last_read_record_batch_index = i;
     auto inserted = m_table_batches.emplace(
         i,

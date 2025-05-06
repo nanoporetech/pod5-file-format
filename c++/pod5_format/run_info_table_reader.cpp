@@ -114,7 +114,7 @@ RunInfoTableReader & RunInfoTableReader::operator=(RunInfoTableReader && other)
 Result<RunInfoTableRecordBatch> RunInfoTableReader::read_record_batch(std::size_t i) const
 {
     std::lock_guard<std::mutex> l(m_batch_get_mutex);
-    ARROW_ASSIGN_OR_RAISE(auto record_batch, reader()->ReadRecordBatch(i));
+    ARROW_ASSIGN_OR_RAISE(auto record_batch, TableReader::ReadRecordBatch(i));
     return RunInfoTableRecordBatch{std::move(record_batch), m_field_locations};
 }
 

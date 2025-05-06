@@ -1322,7 +1322,15 @@ pod5_error_t pod5_add_reads_data_pre_compressed(
 size_t pod5_vbz_compressed_signal_max_size(size_t sample_count)
 {
     pod5_reset_error();
-    return pod5::compressed_signal_max_size(sample_count);
+
+    auto const compressed_size = pod5::compressed_signal_max_size(sample_count);
+    if (!compressed_size.ok()) {
+        // TODO: on MAJOR_VERSION bump change this to return an error code.
+        pod5_set_error(compressed_size.status());
+        return 0;
+    } else {
+        return compressed_size.ValueUnsafe();
+    }
 }
 
 pod5_error_t pod5_vbz_compress_signal(
