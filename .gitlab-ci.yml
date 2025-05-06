@@ -673,13 +673,11 @@ benchmark-linux-aarch64:
 
 # ======================================
 #
-#     Fuzz tests
+#     Fuzz tests and coverage reports
 #
 # ======================================
 
-
-linux-x64-gcc11-fuzz:
-  allow_failure: true
+.generic-linux-x64-gcc11-build:
   stage: build
   image: "ubuntu:jammy"
   tags:
@@ -687,44 +685,57 @@ linux-x64-gcc11-fuzz:
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc11.jinja"
     CONAN_PROFILE_CPPSTD: 20
-    CC: clang
-    CXX: clang++
-    CMAKE_EXTRA_ARGS: "-D FUZZER_RUN_TIME=600"
+    CMAKE_BUILD_TYPE: Release
   needs:
     - "prepare_version"
-  before_script:
-    # TODO: is there a better image we can use that has these pre-installed
+  script:
+    # Install requirements.
     - apt update
-    - apt install -y clang pip cmake
+    - apt install -y pip cmake
     - pip install -U pip 'conan<2' auditwheel build
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
-  script:
+    # Setup build.
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir -p build
-    - cd build
-    # Tell conan that it's OK to use libstdc++ settings.
-    - conan install
-      --profile ${CONAN_PROFILE}
-      -s compiler.libcxx=libstdc++11
-      -s compiler.cppstd=${CONAN_PROFILE_CPPSTD}
-      -s build_type=Release
-      -o arrow:with_boost=False
-      -o arrow:with_thrift=False
-      -o arrow:parquet=False
-      ..
-    - cmake
-      -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
-      -D POD5_DISABLE_TESTS=ON
-      -D CMAKE_BUILD_TYPE=Release
-      -D ENABLE_FUZZERS=ON
-      -D BUILD_PYTHON_WHEEL=OFF
-      ${CMAKE_EXTRA_ARGS}
-      ..
-    - cmake --build . --config Release --parallel
+    - pushd build
+        # Tell conan that it's OK to use libstdc++ settings.
+    -   conan install
+          --profile ${CONAN_PROFILE}
+          -s compiler.libcxx=libstdc++11
+          -s compiler.cppstd=${CONAN_PROFILE_CPPSTD}
+          -s build_type=${CMAKE_BUILD_TYPE}
+          -o arrow:with_boost=False
+          -o arrow:with_thrift=False
+          -o arrow:parquet=False
+          ..
+    -   cmake
+          -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+          -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+          -D BUILD_PYTHON_WHEEL=OFF
+          ${CMAKE_EXTRA_ARGS}
+          ..
+        # Do the build
+    -   cmake --build . --config ${CMAKE_BUILD_TYPE} --parallel
+    - popd
+
+linux-x64-gcc11-fuzz:
+  extends: .generic-linux-x64-gcc11-build
+  allow_failure: true
+  variables:
+    CC: clang
+    CXX: clang++
+    CMAKE_EXTRA_ARGS: "-D ENABLE_FUZZERS=ON -D FUZZER_RUN_TIME=600"
+  script:
+    # We need clang for libFuzzer.
+    - apt update
+    - apt install -y clang
+    # Do the build.
+    - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Remove the zipped corpora now that we've extracted it, since we
     # don't need it artifacted.
-    - rm ../fuzz/*.zip
-    - ctest -C Release -VV -R ${FUZZER_TEST}
+    - rm fuzz/*.zip
+    # Run the tests.
+    - ctest -C Release --test-dir build -VV -R ${FUZZER_TEST}
   parallel:
     matrix:
       - FUZZER_TEST:
@@ -735,6 +746,28 @@ linux-x64-gcc11-fuzz:
     when: always
     paths:
       - ./fuzz
+
+linux-x64-gcc11-coverage:
+  extends: .generic-linux-x64-gcc11-build
+  variables:
+    CMAKE_BUILD_TYPE: "Debug"
+    CMAKE_EXTRA_ARGS: "-D POD5_DISABLE_TESTS=OFF -D ENABLE_COVERAGE_REPORT=ON"
+  script:
+    # We need a venv.
+    - apt update
+    - apt install -y python3-venv
+    # Do the build.
+    - !reference [".generic-linux-x64-gcc11-build", "script"]
+    # Run the coverage report.
+    - ./ci/generate_coverage_report.sh build
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage-report-*.xml
+    paths:
+      # Artifact the human readable ones too.
+      - coverage-report-*.html
 
 
 # ======================================
