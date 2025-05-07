@@ -246,7 +246,8 @@ typedef struct FileInfo FileInfo_t;
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_info(Pod5FileReader_t * file, FileInfo_t * file_info);
 
 struct EmbeddedFileData {
-    // The file name to open - note this may not be the original file name, if the file has been migrated.
+    // The embedded file name - note this may not be the original file name, if the file has been migrated.
+    // This pointer will remain valid until the next pod5 api call.
     char const * file_name;
     size_t offset;
     size_t length;

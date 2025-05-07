@@ -256,7 +256,7 @@ pod5_error_t pod5_get_file_read_table_location(
     }
     auto const & read_table_location = reader->reader->read_table_location();
 
-    file_data->offset = read_table_location.offset;
+    file_data->file_name = read_table_location.file_path.c_str();
     file_data->offset = read_table_location.offset;
     file_data->length = read_table_location.size;
     return POD5_OK;
@@ -271,8 +271,9 @@ pod5_error_t pod5_get_file_signal_table_location(
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
         return g_pod5_error_no;
     }
-    auto const signal_table_location = reader->reader->signal_table_location();
+    auto const & signal_table_location = reader->reader->signal_table_location();
 
+    file_data->file_name = signal_table_location.file_path.c_str();
     file_data->offset = signal_table_location.offset;
     file_data->length = signal_table_location.size;
     return POD5_OK;
@@ -287,8 +288,9 @@ pod5_error_t pod5_get_file_run_info_table_location(
     if (!check_file_not_null(reader) || !check_output_pointer_not_null(file_data)) {
         return g_pod5_error_no;
     }
-    auto const run_info_table_location = reader->reader->run_info_table_location();
+    auto const & run_info_table_location = reader->reader->run_info_table_location();
 
+    file_data->file_name = run_info_table_location.file_path.c_str();
     file_data->offset = run_info_table_location.offset;
     file_data->length = run_info_table_location.size;
     return POD5_OK;
