@@ -1,7 +1,13 @@
 #pragma once
 
+#include <arrow/result.h>
 #include <arrow/status.h>
 #include <catch2/catch.hpp>
+
+template <typename T>
+struct Catch::StringMaker<arrow::Result<T>> {
+    static std::string convert(arrow::Result<T> const & value) { return value.status().ToString(); }
+};
 
 template <bool CheckOk>
 class IsStatusOk : public Catch::MatcherBase<arrow::Status> {
