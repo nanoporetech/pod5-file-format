@@ -54,7 +54,6 @@ public:
 
     Result<int64_t> CountRows() const;
 
-    // Same as RecordBatchFileReader::ReadRecordBatch() but validates the contents.
     Result<std::shared_ptr<arrow::RecordBatch>> ReadRecordBatch(int i) const;
 
 private:
@@ -62,5 +61,10 @@ private:
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> m_reader;
     SchemaMetadataDescription m_schema_metadata;
 };
+
+// Same as RecordBatchFileReader::ReadRecordBatch() but validates the contents.
+Result<std::shared_ptr<arrow::RecordBatch>> ReadRecordBatchAndValidate(
+    arrow::ipc::RecordBatchFileReader & reader,
+    int i);
 
 }  // namespace pod5

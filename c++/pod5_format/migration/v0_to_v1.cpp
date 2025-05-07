@@ -1,5 +1,6 @@
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/migration/migration_utils.h"
+#include "pod5_format/table_reader.h"
 
 #include <arrow/array/builder_primitive.h>
 #include <arrow/status.h>
@@ -43,7 +44,8 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
              ++batch_idx)
         {
             // Read V0 data:
-            ARROW_ASSIGN_OR_RAISE(auto v0_batch, v0_reader.reader->ReadRecordBatch(batch_idx));
+            ARROW_ASSIGN_OR_RAISE(
+                auto v0_batch, ReadRecordBatchAndValidate(*v0_reader.reader, batch_idx));
             ARROW_RETURN_NOT_OK(v0_batch->ValidateFull());
             auto const num_rows = v0_batch->num_rows();
 

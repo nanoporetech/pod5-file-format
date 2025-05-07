@@ -2,6 +2,7 @@
 
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_compression.h"
+#include "pod5_format/table_reader.h"
 
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
@@ -337,7 +338,7 @@ Result<SignalTableReader> make_signal_table_reader(
     std::size_t const num_record_batches = reader->num_record_batches();
     std::size_t batch_size = 0;
     if (num_record_batches > 0) {
-        ARROW_ASSIGN_OR_RAISE(auto const batch_zero, reader->ReadRecordBatch(0));
+        ARROW_ASSIGN_OR_RAISE(auto const batch_zero, ReadRecordBatchAndValidate(*reader, 0));
         batch_size = batch_zero->num_rows();
     }
 

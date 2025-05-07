@@ -9,8 +9,7 @@ math(EXPR NUM_FUZZER_JOBS "${NUM_FUZZER_JOBS} / 2")
 set(FUZZ_SANITIZER_OPTIONS
     # Note that we have to disable |detect_leaks| since arrow will allocate persistent state.
     "ASAN_OPTIONS=string_append::detect_stack_use_after_return=1:check_initialization_order=1:detect_leaks=0"
-    # TODO: halt_on_error=1
-    "UBSAN_OPTIONS=string_append::print_stacktrace=1:halt_on_error=0"
+    "UBSAN_OPTIONS=string_append::print_stacktrace=1:halt_on_error=1"
 )
 
 function(make_fuzzer TYPE)
