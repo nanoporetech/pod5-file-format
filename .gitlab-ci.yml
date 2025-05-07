@@ -760,6 +760,7 @@ linux-x64-gcc11-coverage:
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Run the coverage report.
     - ./ci/generate_coverage_report.sh build
+  coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     reports:
       coverage_report:

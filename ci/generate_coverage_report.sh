@@ -49,3 +49,6 @@ done
 
 # Generate a full coverage report too.
 generate_coverage "all" ""
+
+# CI wants to see a TOTAL line in order to report coverage, so give it the one from all tests.
+gcovr --filter "${project_root}/c\+\+" | grep TOTAL
