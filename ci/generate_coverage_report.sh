@@ -38,8 +38,8 @@ function generate_coverage {
     ctest --test-dir "${build_dir}" ${regex}
 
     # Generate the coverage report for this test.
-    gcovr --filter "${project_root}/c++" --cobertura "${project_root}/coverage-report-${test_name}.xml"
-    gcovr --filter "${project_root}/c++" --html-single-page --html-details "${project_root}/coverage-report-${test_name}.html"
+    gcovr --filter "${project_root}/c\+\+" --cobertura "${project_root}/coverage-report-${test_name}.xml"
+    gcovr --filter "${project_root}/c\+\+" --html-single-page --html-details "${project_root}/coverage-report-${test_name}.html"
 }
 
 # Generate a report for each test.
