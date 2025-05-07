@@ -429,6 +429,29 @@ SCENARIO("C API Reads")
             CHECK(calibration_extra_data.range == 8192 * calibration_scale);
         }
 
+        SECTION("Embedded files")
+        {
+            for (auto [get_file_location, name] : {
+                     std::tuple(
+                         pod5_get_file_read_table_location, "pod5_get_file_read_table_location"),
+                     std::tuple(
+                         pod5_get_file_signal_table_location,
+                         "pod5_get_file_signal_table_location"),
+                     std::tuple(
+                         pod5_get_file_run_info_table_location,
+                         "pod5_get_file_run_info_table_location"),
+                 })
+            {
+                CAPTURE(name);
+                EmbeddedFileData_t embedded_file_data{};
+                CHECK_POD5_OK(get_file_location(file, &embedded_file_data));
+                REQUIRE(embedded_file_data.file_name != nullptr);
+                CHECK(embedded_file_data.file_name == std::string_view{filename});
+                CHECK(embedded_file_data.offset > 0);
+                CHECK(embedded_file_data.length > 0);
+            }
+        }
+
         run_info_index_t run_info_count = 0;
         CHECK_POD5_OK(pod5_get_file_run_info_count(file, &run_info_count));
         REQUIRE(run_info_count == 1);
