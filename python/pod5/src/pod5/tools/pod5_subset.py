@@ -78,7 +78,7 @@ def fstring_to_polars(
     template: str,
 ) -> Tuple[str, List[str]]:
     """
-    Repalce f-string keyed placeholders with positional ones and return the keys in
+    Replace f-string keyed placeholders with positional ones and return the keys in
     their respective position
     """
     # This is for pl.format positional syntax
@@ -202,7 +202,7 @@ def parse_csv_mapping(csv_path: Path) -> pl.LazyFrame:
 def resolve_output_targets(targets: pl.LazyFrame, output: Path) -> pl.LazyFrame:
     """Prepend the output path to the target filename and resolve the complete string"""
     # Add output directory column
-    # Concatenate output directory to the output filenmae, drop temporary column
+    # Concatenate output directory to the output filename, drop temporary column
     targets = targets.with_columns(
         pl.concat_str(
             [

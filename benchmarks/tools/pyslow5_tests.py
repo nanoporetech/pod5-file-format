@@ -119,7 +119,7 @@ def main():
         "--get-column",
         default=None,
         type=str,
-        help="Add columns that should be extacted",
+        help="Add columns that should be extracted",
     )
 
     args = parser.parse_args()

@@ -267,9 +267,10 @@ arrow::Result<ReadSignal> read_signal_data(states::read_split_signal_table_batch
     result.columns = {nullptr, nullptr, nullptr};
     ARROW_RETURN_NOT_OK(
         signal_rows.read_id_builder->Finish(&result.columns[field_locations.read_id]));
-    ARROW_RETURN_NOT_OK(std::visit(
-        pod5::visitors::finish_column{&result.columns[field_locations.signal]},
-        signal_rows.signal_builder));
+    ARROW_RETURN_NOT_OK(
+        std::visit(
+            pod5::visitors::finish_column{&result.columns[field_locations.signal]},
+            signal_rows.signal_builder));
     ARROW_RETURN_NOT_OK(
         signal_rows.samples_builder.Finish(&result.columns[field_locations.samples]));
     return result;

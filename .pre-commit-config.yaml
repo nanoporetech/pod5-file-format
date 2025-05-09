@@ -2,7 +2,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -10,32 +10,30 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
   - repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 25.1.0
     hooks:
       - id: black
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.4
+    rev: v2.4.1
     hooks:
       - id: codespell
         exclude: 'third_party/'
   - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.4
+    rev: 7.2.0
     hooks:
       - id: flake8
         exclude: docs/conf.py
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.8.0.4
+    rev: v0.10.0.1
     hooks:
       - id: shellcheck
-
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: 'v17.0.6'
+    rev: 'v20.1.4'
     hooks:
       - id: clang-format
         exclude: 'third_party/'
-
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.3.0'
+    rev: 'v1.15.0'
     hooks:
       - id: mypy
         files: 'python/pod5/src/'
@@ -49,8 +47,8 @@ repos:
 # This set of default stages ensures we don't slow down or break other git operations
 # even if you install hooks for them.
 default_stages:
-  - commit
-  - merge-commit
+  - pre-commit
+  - pre-merge-commit
   - manual
 
 # vi:et:sw=2:sts=2:

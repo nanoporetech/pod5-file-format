@@ -427,7 +427,7 @@ def convert_fast5_end_reason(fast5_end_reason: int) -> p5.EndReason:
 
 
 def convert_datetime_as_epoch_ms(
-    time_str: Union[str, bytes, None]
+    time_str: Union[str, bytes, None],
 ) -> datetime.datetime:
     """Convert the fast5 time string to timestamp"""
     epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=datetime.timezone.utc)

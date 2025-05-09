@@ -223,7 +223,7 @@ def main():
         "--get-column",
         default=None,
         type=str,
-        help="Add column that should be extacted",
+        help="Add column that should be extracted",
     )
     args = parser.parse_args()
 

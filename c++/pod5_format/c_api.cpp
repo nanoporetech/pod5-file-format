@@ -427,8 +427,9 @@ static pod5_error_t check_row_index_and_set_error(size_t row, int64_t batch_size
     if (row > static_cast<size_t>(std::numeric_limits<int64_t>::max())
         || static_cast<int64_t>(row) >= batch_size)
     {
-        pod5_set_error(arrow::Status::IndexError(
-            "Invalid index into batch. Index ", row, " with batch size ", batch_size));
+        pod5_set_error(
+            arrow::Status::IndexError(
+                "Invalid index into batch. Index ", row, " with batch size ", batch_size));
         return g_pod5_error_no;
     }
 
@@ -524,11 +525,12 @@ pod5_error_t pod5_get_signal_row_indices(
         std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
 
     if (signal_row_indices_count != row_data->length()) {
-        pod5_set_error(pod5::Status::Invalid(
-            "Incorrect number of signal indices, expected ",
-            row_data->length(),
-            " received ",
-            signal_row_indices_count));
+        pod5_set_error(
+            pod5::Status::Invalid(
+                "Incorrect number of signal indices, expected ",
+                row_data->length(),
+                " received ",
+                signal_row_indices_count));
         return g_pod5_error_no;
     }
 
@@ -1053,27 +1055,28 @@ pod5_error_t pod5_add_run_info(
 
     POD5_C_ASSIGN_OR_RAISE(
         *run_info_index,
-        file->writer->add_run_info(pod5::RunInfoData(
-            acquisition_id,
-            acquisition_start_time_ms,
-            adc_max,
-            adc_min,
-            context_tags,
-            experiment_name,
-            flow_cell_id,
-            flow_cell_product_code,
-            protocol_name,
-            protocol_run_id,
-            protocol_start_time_ms,
-            sample_id,
-            sample_rate,
-            sequencing_kit,
-            sequencer_position,
-            sequencer_position_type,
-            software,
-            system_name,
-            system_type,
-            tracking_id)));
+        file->writer->add_run_info(
+            pod5::RunInfoData(
+                acquisition_id,
+                acquisition_start_time_ms,
+                adc_max,
+                adc_min,
+                context_tags,
+                experiment_name,
+                flow_cell_id,
+                flow_cell_product_code,
+                protocol_name,
+                protocol_run_id,
+                protocol_start_time_ms,
+                sample_id,
+                sample_rate,
+                sequencing_kit,
+                sequencer_position,
+                sequencer_position_type,
+                software,
+                system_name,
+                system_type,
+                tracking_id)));
 
     return POD5_OK;
 }
@@ -1172,10 +1175,11 @@ static bool load_struct_row_into_read_data(
             break;
         }
         if (!end_reason_internal.has_value()) {
-            pod5_set_error(arrow::Status::Invalid(
-                "out of range end reason ",
-                typed_row_data->end_reason[row_id],
-                " passed to add read"));
+            pod5_set_error(
+                arrow::Status::Invalid(
+                    "out of range end reason ",
+                    typed_row_data->end_reason[row_id],
+                    " passed to add read"));
             return false;
         }
 
@@ -1352,12 +1356,13 @@ pod5_error_t pod5_vbz_compress_signal(
         pod5::compress_signal(gsl::make_span(signal, signal_size), arrow::system_memory_pool()));
 
     if ((std::size_t)buffer->size() > *compressed_signal_size) {
-        pod5_set_error(pod5::Status::Invalid(
-            "Compressed signal size (",
-            buffer->size(),
-            ") is greater than provided buffer size (",
-            compressed_signal_size,
-            ")"));
+        pod5_set_error(
+            pod5::Status::Invalid(
+                "Compressed signal size (",
+                buffer->size(),
+                ") is greater than provided buffer size (",
+                compressed_signal_size,
+                ")"));
         return g_pod5_error_no;
     }
 

@@ -67,15 +67,15 @@ def vbz_decompress_signal_chunked(
     if len(compressed_signal_chunks) == 0:
         return np.array([], dtype=np.int16)
 
-    decompressed_signal: npt.NDArray[
-        np.int16
-    ] = np.concatenate(  # type:ignore [no-untyped-call]
-        [
-            vbz_decompress_signal(signal_chunk, sample_count)
-            for signal_chunk, sample_count in zip(
-                compressed_signal_chunks, sample_counts
-            )
-        ]
+    decompressed_signal: npt.NDArray[np.int16] = (
+        np.concatenate(  # type:ignore [no-untyped-call]
+            [
+                vbz_decompress_signal(signal_chunk, sample_count)
+                for signal_chunk, sample_count in zip(
+                    compressed_signal_chunks, sample_counts
+                )
+            ]
+        )
     )
     return decompressed_signal
 

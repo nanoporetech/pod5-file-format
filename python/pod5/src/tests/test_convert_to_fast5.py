@@ -1,6 +1,7 @@
 """
 Test for the convert_from_fast5 tool
 """
+
 from pathlib import Path
 
 import numpy as np

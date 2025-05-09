@@ -205,10 +205,12 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
                 for (std::int64_t row = 0; row < num_rows; ++row) {
                     ARROW_ASSIGN_OR_RAISE(
                         auto calibration_data, get_dict_struct(v2_batch, row, "calibration"));
-                    ARROW_RETURN_NOT_OK(append_struct_row<arrow::FloatArray>(
-                        calibration_data, "offset", calibration_offset));
-                    ARROW_RETURN_NOT_OK(append_struct_row<arrow::FloatArray>(
-                        calibration_data, "scale", calibration_scale));
+                    ARROW_RETURN_NOT_OK(
+                        append_struct_row<arrow::FloatArray>(
+                            calibration_data, "offset", calibration_offset));
+                    ARROW_RETURN_NOT_OK(
+                        append_struct_row<arrow::FloatArray>(
+                            calibration_data, "scale", calibration_scale));
 
                     ARROW_ASSIGN_OR_RAISE(auto pore_data, get_dict_struct(v2_batch, row, "pore"));
                     ARROW_RETURN_NOT_OK(
@@ -222,8 +224,9 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
                         auto end_reason_data, get_dict_struct(v2_batch, row, "end_reason"));
                     ARROW_RETURN_NOT_OK(
                         append_struct_row_to_dict(end_reason_data, "name", end_reason));
-                    ARROW_RETURN_NOT_OK(append_struct_row<arrow::BooleanArray>(
-                        end_reason_data, "forced", end_reason_forced));
+                    ARROW_RETURN_NOT_OK(
+                        append_struct_row<arrow::BooleanArray>(
+                            end_reason_data, "forced", end_reason_forced));
 
                     ARROW_ASSIGN_OR_RAISE(
                         auto run_info_data, get_dict_struct(v2_batch, row, "run_info"));

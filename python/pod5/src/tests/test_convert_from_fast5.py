@@ -1,6 +1,7 @@
 """
 Test for the convert_from_fast5 tool
 """
+
 import datetime
 import multiprocessing as mp
 from pathlib import Path
@@ -513,7 +514,7 @@ class TestOutputHandler:
         assert handler.get_writer(example) is None
 
     def test_no_duplicate_open(self, tmp_path: Path):
-        """Assert that the OutputHandler will re-use handles"""
+        """Assert that the OutputHandler will reuse handles"""
         handler = OutputHandler(tmp_path, tmp_path, False)
         example = tmp_path / "example"
         writer1 = handler.get_writer(example)

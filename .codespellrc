@@ -15,6 +15,6 @@ enable-colors =
 # e.g. "foo_bar" is split into two words ("foo", "bar") instead of one word ("foo_bar")
 ignore-regex = _
 # comma-separated list of false positives
-ignore-words-list = iff,inout,befores,deque,stdio,O_WRONLY,wronly,sv_lite,lite,creat
+ignore-words-list = iff,inout,befores,deque,stdio,O_WRONLY,wronly,sv_lite,lite,creat,arange
 # comma-separated list of globs of files not to check
 skip = .gitignore,.codespellrc

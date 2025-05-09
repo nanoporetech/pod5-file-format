@@ -67,8 +67,9 @@ public:
             return py_samples;
         }
         for (auto const & row_samples : m_cached_data.samples()) {
-            py_samples.append(py::array_t<std::int16_t>(
-                {row_samples.size()}, {sizeof(std::int16_t)}, row_samples.data()));
+            py_samples.append(
+                py::array_t<std::int16_t>(
+                    {row_samples.size()}, {sizeof(std::int16_t)}, row_samples.data()));
         }
 
         return py_samples;
@@ -208,8 +209,9 @@ struct Pod5FileReaderPtr {
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> & batch_rows)
     {
         auto const read_id_count = read_id_data.shape(0);
-        auto search_input = pod5::ReadIdSearchInput(gsl::make_span(
-            reinterpret_cast<pod5::Uuid const *>(read_id_data.data()), read_id_count));
+        auto search_input = pod5::ReadIdSearchInput(
+            gsl::make_span(
+                reinterpret_cast<pod5::Uuid const *>(read_id_data.data()), read_id_count));
 
         POD5_PYTHON_ASSIGN_OR_RAISE(
             auto find_success_count,
@@ -519,20 +521,22 @@ inline void decompress_signal_wrapper(
     py::array_t<uint8_t, py::array::c_style | py::array::forcecast> const & compressed_signal,
     py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> & signal_out)
 {
-    throw_on_error(pod5::decompress_signal(
-        gsl::make_span(compressed_signal.data(0), compressed_signal.shape(0)),
-        arrow::system_memory_pool(),
-        gsl::make_span(signal_out.mutable_data(0), signal_out.shape(0))));
+    throw_on_error(
+        pod5::decompress_signal(
+            gsl::make_span(compressed_signal.data(0), compressed_signal.shape(0)),
+            arrow::system_memory_pool(),
+            gsl::make_span(signal_out.mutable_data(0), signal_out.shape(0))));
 }
 
 inline std::size_t compress_signal_wrapper(
     py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const & signal,
     py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> & compressed_signal_out)
 {
-    auto size = throw_on_error(pod5::compress_signal(
-        gsl::make_span(signal.data(), signal.shape(0)),
-        arrow::system_memory_pool(),
-        gsl::make_span(compressed_signal_out.mutable_data(), compressed_signal_out.shape(0))));
+    auto size = throw_on_error(
+        pod5::compress_signal(
+            gsl::make_span(signal.data(), signal.shape(0)),
+            arrow::system_memory_pool(),
+            gsl::make_span(compressed_signal_out.mutable_data(), compressed_signal_out.shape(0))));
 
     return size;
 }

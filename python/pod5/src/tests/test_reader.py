@@ -205,12 +205,12 @@ class TestRecordBatch:
             select_idxs = [3, 4, 8]
             batch.set_selected_batch_rows(select_idxs)
 
-            assert type(batch.read_id_column) == pa.FixedSizeBinaryArray
+            assert type(batch.read_id_column) is pa.FixedSizeBinaryArray
             assert len(batch.read_id_column) == len(select_idxs)
             ids = [reader.read_ids[idx] for idx in select_idxs]
             assert format_read_ids(batch.read_id_column) == ids
 
-            assert type(batch.read_number_column) == pa.UInt32Array
+            assert type(batch.read_number_column) is pa.UInt32Array
             assert len(batch.read_number_column) == len(select_idxs)
             reads = list(reader.reads())
             rnums = [reads[idx].read_number for idx in select_idxs]

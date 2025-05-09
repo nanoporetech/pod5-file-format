@@ -278,5 +278,5 @@ def test_read_id_packing():
     assert isinstance(unpacked_rids, list)
 
     for rid, unpacked in zip(rids, unpacked_rids):
-        assert type(rid) == type(unpacked)
+        assert type(rid) is type(unpacked)
         assert rid == unpacked

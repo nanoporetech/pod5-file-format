@@ -1,6 +1,7 @@
 """
 Container class for a pod5 Read object
 """
+
 import datetime
 import enum
 import math
