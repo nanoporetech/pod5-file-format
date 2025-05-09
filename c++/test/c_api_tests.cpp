@@ -1,5 +1,6 @@
 #include "pod5_format/c_api.h"
 
+#include "c_api_test_utils.h"
 #include "pod5_format/file_reader.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/uuid.h"
@@ -11,41 +12,6 @@
 
 #include <iostream>
 #include <numeric>
-
-struct Pod5C_Result {
-    static Pod5C_Result capture(pod5_error_t err_num)
-    {
-        return Pod5C_Result{err_num, pod5_get_error_string()};
-    }
-
-    pod5_error_t error_code;
-    std::string error_string;
-};
-
-namespace Catch {
-template <>
-struct StringMaker<Pod5C_Result> {
-    static std::string convert(Pod5C_Result const & value)
-    {
-        return "{ code: " + std::to_string(value.error_code) + "| " + value.error_string + " }";
-    }
-};
-}  // namespace Catch
-
-class IsPod5COk : public Catch::MatcherBase<Pod5C_Result> {
-public:
-    IsPod5COk() = default;
-
-    bool match(Pod5C_Result const & result) const override { return result.error_code == POD5_OK; }
-
-    virtual std::string describe() const override { return "== POD5_OK"; }
-};
-
-#define CHECK_POD5_OK(statement)                              \
-    {                                                         \
-        auto const & _res = (statement);                      \
-        CHECK_THAT(Pod5C_Result::capture(_res), IsPod5COk()); \
-    }
 
 struct Pod5ReadId {
     Pod5ReadId() = default;
