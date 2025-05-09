@@ -1,6 +1,7 @@
 
 add_executable(pod5_unit_tests
     main.cpp
+    c_api_null_input.cpp
     c_api_test_utils.h
     c_api_tests.cpp
     c_api_build_test.c
