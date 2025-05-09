@@ -294,10 +294,7 @@ pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_t * read_ids)
 ///                                 [batch_counts] provide the per-batch row data. Input array length should
 ///                                 equal read_id_count.
 /// \param[out] find_success_count  The number of requested read ids that were found.
-/// \note The output array is sorted in file storage order, to improve read efficiency.
-///       [find_success_count] is the number of successful find steps in the result [steps].
-///       Failed finds are all sorted to the back of the [steps] array, and are marked with an
-///       invalid batch and batch_row value.
+/// \note The output arrays are sorted in file storage order, to improve read efficiency.
 POD5_FORMAT_EXPORT pod5_error_t pod5_plan_traversal(
     Pod5FileReader_t * file,
     uint8_t const * read_id_array,

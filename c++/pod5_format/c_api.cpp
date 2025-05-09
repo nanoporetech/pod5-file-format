@@ -351,7 +351,8 @@ pod5_error_t pod5_plan_traversal(
 
     if (!check_file_not_null(reader) || !check_not_null(read_id_array)
         || !check_output_pointer_not_null(batch_counts)
-        || !check_output_pointer_not_null(batch_rows))
+        || !check_output_pointer_not_null(batch_rows)
+        || !check_output_pointer_not_null(find_success_count_out))
     {
         return g_pod5_error_no;
     }
@@ -366,9 +367,8 @@ pod5_error_t pod5_plan_traversal(
             gsl::make_span(batch_counts, reader->reader->num_read_record_batches()),
             gsl::make_span(batch_rows, read_id_count)));
 
-    if (find_success_count_out) {
-        *find_success_count_out = find_success_count;
-    }
+    // TODO: on MAJOR_VERSION bump drop this out param and do the check internally.
+    *find_success_count_out = find_success_count;
 
     return POD5_OK;
 }
