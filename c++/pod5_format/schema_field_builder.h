@@ -217,9 +217,10 @@ public:
 
     template <typename SchamaDescription>
     FieldBuilder(std::shared_ptr<SchamaDescription> const & desc_base, arrow::MemoryPool * pool)
-    : m_builders(typename Args::BuilderType(
-        desc_base->fields()[Args::WriteIndex::value]->datatype(),
-        pool)...)
+    : m_builders(
+          typename Args::BuilderType(
+              desc_base->fields()[Args::WriteIndex::value]->datatype(),
+              pool)...)
     {
     }
 

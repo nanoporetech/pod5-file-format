@@ -11,6 +11,7 @@ the pod5_file_format repository, because the libraries are
 not actually installed there. See INSTALL.md for further details.
 
 """
+
 import os
 import sys
 

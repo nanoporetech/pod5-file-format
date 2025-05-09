@@ -1,6 +1,7 @@
 """
 Tool for updating pod5 files to the latest available version
 """
+
 from typing import Iterable
 from pathlib import Path
 

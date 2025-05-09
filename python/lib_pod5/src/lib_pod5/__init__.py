@@ -1,4 +1,4 @@
-""" Imports everything from the pod5_format_pybind11 module and associated .pyi"""
+"""Imports everything from the pod5_format_pybind11 module and associated .pyi"""
 
 from ._version import __version__, __version_tuple__
 from .pod5_format_pybind import (

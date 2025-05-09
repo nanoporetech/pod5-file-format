@@ -339,12 +339,12 @@ public:
         std::uint32_t signal_chunk_size,
         arrow::MemoryPool * pool)
     : FileWriterImpl(
-        std::move(dict_writers),
-        std::move(run_info_table_writer),
-        std::move(read_table_writer),
-        std::move(signal_table_writer),
-        signal_chunk_size,
-        pool)
+          std::move(dict_writers),
+          std::move(run_info_table_writer),
+          std::move(read_table_writer),
+          std::move(signal_table_writer),
+          signal_chunk_size,
+          pool)
     , m_path(path)
     , m_run_info_tmp_path(run_info_tmp_path)
     , m_reads_tmp_path(reads_tmp_path)
@@ -410,14 +410,15 @@ public:
                 m_section_marker));
 
         // Write full file footer:
-        ARROW_RETURN_NOT_OK(combined_file_utils::write_footer(
-            file,
-            m_section_marker,
-            m_file_identifier,
-            m_software_name,
-            signal_table,
-            run_info_info_table,
-            reads_info_table));
+        ARROW_RETURN_NOT_OK(
+            combined_file_utils::write_footer(
+                file,
+                m_section_marker,
+                m_file_identifier,
+                m_software_name,
+                signal_table,
+                run_info_info_table,
+                reads_info_table));
         return arrow::Status::OK();
     }
 

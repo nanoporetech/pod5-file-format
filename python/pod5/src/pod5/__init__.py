@@ -3,7 +3,6 @@
 Bindings for the POD5 file format
 """
 
-
 # Pull the version from the pyproject.toml
 import sys
 

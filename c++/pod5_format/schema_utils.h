@@ -208,12 +208,12 @@ struct Field : public FieldBase {
         TableSpecVersion added_table_spec_version = TableSpecVersion::first_version(),
         TableSpecVersion removed_table_spec_version = TableSpecVersion::unknown_version())
     : FieldBase(
-        owner,
-        WriteIndex::value,
-        name,
-        datatype,
-        added_table_spec_version,
-        removed_table_spec_version)
+          owner,
+          WriteIndex::value,
+          name,
+          datatype,
+          added_table_spec_version,
+          removed_table_spec_version)
     {
     }
 };
@@ -230,11 +230,11 @@ struct ListField : public Field<WriteIndex_, ArrayType_> {
         TableSpecVersion added_table_spec_version = TableSpecVersion::first_version(),
         TableSpecVersion removed_table_spec_version = TableSpecVersion::unknown_version())
     : Field<WriteIndex_, ArrayType_>(
-        owner,
-        name,
-        datatype,
-        added_table_spec_version,
-        removed_table_spec_version)
+          owner,
+          name,
+          datatype,
+          added_table_spec_version,
+          removed_table_spec_version)
     {
     }
 };

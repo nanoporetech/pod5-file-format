@@ -41,7 +41,7 @@ def pack_read_ids(
 
 
 def format_read_ids(
-    read_ids: Union[npt.NDArray[np.uint8], pa.lib.FixedSizeBinaryArray]
+    read_ids: Union[npt.NDArray[np.uint8], pa.lib.FixedSizeBinaryArray],
 ) -> List[str]:
     """
     Convert a packed array of read_ids and convert them to a list of strings.

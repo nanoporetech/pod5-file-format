@@ -2,7 +2,6 @@
 Tool for subsetting pod5 files into one or more outputs using a list of read ids
 """
 
-
 from pathlib import Path
 from time import sleep
 from typing import List

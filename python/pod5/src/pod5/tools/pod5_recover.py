@@ -1,6 +1,7 @@
 """
 Tool for recovering truncated pod5 files
 """
+
 import dataclasses
 import typing
 from contextlib import suppress

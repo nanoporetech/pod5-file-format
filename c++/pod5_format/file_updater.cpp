@@ -51,14 +51,15 @@ pod5::Status update_file(
             section_marker));
 
     // Write full file footer:
-    ARROW_RETURN_NOT_OK(combined_file_utils::write_footer(
-        main_file,
-        section_marker,
-        metadata.file_identifier,
-        metadata.writing_software,
-        signal_info_table,
-        run_info_info_table,
-        reads_info_table));
+    ARROW_RETURN_NOT_OK(
+        combined_file_utils::write_footer(
+            main_file,
+            section_marker,
+            metadata.file_identifier,
+            metadata.writing_software,
+            signal_info_table,
+            run_info_info_table,
+            reads_info_table));
 
     return main_file->Close();
 }

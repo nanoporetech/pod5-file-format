@@ -8,7 +8,6 @@ Python environment, or create a Python wheel.
 
 """
 
-
 import setuptools
 
 if __name__ == "__main__":

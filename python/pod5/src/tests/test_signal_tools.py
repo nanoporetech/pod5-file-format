@@ -1,6 +1,7 @@
 """
 Testing signal_tools
 """
+
 from io import TextIOWrapper
 from pathlib import Path
 import random

@@ -242,10 +242,11 @@ Pod5RepackerOutput::Pod5RepackerOutput(
 : m_repacker(repacker)
 , m_thread_pool(thread_pool)
 , m_output(output)
-, m_progress_state(std::make_unique<Pod5RepackerOutputState>(
-      output,
-      check_duplicate_read_ids,
-      arrow::default_memory_pool()))
+, m_progress_state(
+      std::make_unique<Pod5RepackerOutputState>(
+          output,
+          check_duplicate_read_ids,
+          arrow::default_memory_pool()))
 {
 }
 
@@ -307,8 +308,9 @@ void Pod5RepackerOutput::register_new_reads(
 
     {
         std::lock_guard<std::mutex> l{m_active_read_table_states_mutex};
-        m_active_read_table_states.emplace_front(std::make_shared<states::unread_read_table_rows>(
-            input, batch_index, std::move(batch_rows)));
+        m_active_read_table_states.emplace_front(
+            std::make_shared<states::unread_read_table_rows>(
+                input, batch_index, std::move(batch_rows)));
     }
 
     post_try_work();

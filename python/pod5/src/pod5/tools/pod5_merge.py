@@ -92,7 +92,7 @@ def merge_pod5(
                 break
 
             sleep(0.2)
-            logger.debug(f"{len(_inputs)=}, {active=}, {active>0=}")
+            logger.debug(f"{len(_inputs)=}, {active=}, {(active > 0)=}")
 
         repacker.finish()
         del repacker

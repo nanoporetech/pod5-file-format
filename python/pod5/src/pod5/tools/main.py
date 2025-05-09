@@ -1,4 +1,5 @@
 """Main entry point for pod5 tools"""
+
 import argparse
 from typing import Any
 

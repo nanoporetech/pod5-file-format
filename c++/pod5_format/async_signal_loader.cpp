@@ -18,9 +18,10 @@ AsyncSignalLoader::AsyncSignalLoader(
 , m_batch_counts(batch_counts)
 , m_total_batch_count_so_far(0)
 , m_batch_rows(batch_rows)
-, m_worker_job_size(std::max<std::size_t>(
-      MINIMUM_JOB_SIZE,
-      m_batch_rows.size() / (m_reads_batch_count * worker_count * 2)))
+, m_worker_job_size(
+      std::max<std::size_t>(
+          MINIMUM_JOB_SIZE,
+          m_batch_rows.size() / (m_reads_batch_count * worker_count * 2)))
 , m_current_batch(0)
 , m_finished(false)
 , m_has_error(false)
