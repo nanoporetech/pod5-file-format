@@ -873,8 +873,8 @@ pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t
 pod5_error_t pod5_get_signal(
     Pod5FileReader * reader,
     SignalRowInfo_t * row_info,
-    std::size_t sample_count,
-    std::int16_t * sample_data)
+    size_t sample_count,
+    int16_t * sample_data)
 {
     pod5_reset_error();
 
@@ -990,10 +990,10 @@ pod5_error_t pod5_add_run_info(
     int16_t * run_info_index,
     Pod5FileWriter * file,
     char const * acquisition_id,
-    std::int64_t acquisition_start_time_ms,
-    std::int16_t adc_max,
-    std::int16_t adc_min,
-    std::size_t context_tags_count,
+    int64_t acquisition_start_time_ms,
+    int16_t adc_max,
+    int16_t adc_min,
+    size_t context_tags_count,
     char const ** context_tags_keys,
     char const ** context_tags_values,
     char const * experiment_name,
@@ -1001,16 +1001,16 @@ pod5_error_t pod5_add_run_info(
     char const * flow_cell_product_code,
     char const * protocol_name,
     char const * protocol_run_id,
-    std::int64_t protocol_start_time_ms,
+    int64_t protocol_start_time_ms,
     char const * sample_id,
-    std::uint16_t sample_rate,
+    uint16_t sample_rate,
     char const * sequencing_kit,
     char const * sequencer_position,
     char const * sequencer_position_type,
     char const * software,
     char const * system_name,
     char const * system_type,
-    std::size_t tracking_id_count,
+    size_t tracking_id_count,
     char const ** tracking_id_keys,
     char const ** tracking_id_values)
 {
