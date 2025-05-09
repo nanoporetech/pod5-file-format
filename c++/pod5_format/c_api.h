@@ -241,8 +241,8 @@ struct FileInfo {
 typedef struct FileInfo FileInfo_t;
 
 /// \brief Find info about a file.
-/// \param[out] file        The file to be queried.
-/// \param      file_info   The info read from the file.
+/// \param      file        The file to be queried.
+/// \param[out] file_info   The info read from the file.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_file_info(Pod5FileReader_t * file, FileInfo_t * file_info);
 
 struct EmbeddedFileData {
@@ -255,20 +255,20 @@ struct EmbeddedFileData {
 typedef struct EmbeddedFileData EmbeddedFileData_t;
 
 /// \brief Find the location of the read table data
-/// \param[out] file        The file to be queried.
-/// \param      file_data   The output read table file data.
+/// \param      file        The file to be queried.
+/// \param[out] file_data   The output read table file data.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_file_read_table_location(Pod5FileReader_t * file, EmbeddedFileData_t * file_data);
 
 /// \brief Find the location of the signal table data
-/// \param[out] file        The file to be queried.
-/// \param      file_data   The output signal table file data.
+/// \param      file        The file to be queried.
+/// \param[out] file_data   The output signal table file data.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_file_signal_table_location(Pod5FileReader_t * file, EmbeddedFileData_t * file_data);
 
 /// \brief Find the location of the run info table data
-/// \param[out] file        The file to be queried.
-/// \param      file_data   The output signal table file data.
+/// \param      file        The file to be queried.
+/// \param[out] file_data   The output signal table file data.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_file_run_info_table_location(Pod5FileReader_t * file, EmbeddedFileData_t * file_data);
 
@@ -278,15 +278,15 @@ pod5_get_file_run_info_table_location(Pod5FileReader_t * file, EmbeddedFileData_
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_read_count(Pod5FileReader_t * reader, size_t * count);
 
 /// \brief Grab the read_id's from the file.
-/// \param        reader        The file reader to read from.
-/// \param        count         The number of read_id's allocated in [read_ids], an error is raised if the count is not greater or equal to pod5_get_read_count.
-/// \param[out]   read_ids      The read id's written in a contiguous array.
+/// \param      reader        The file reader to read from.
+/// \param      count         The number of read_id's allocated in [read_ids], an error is raised if the count is not greater or equal to pod5_get_read_count.
+/// \param[out] read_ids      The read id's written in a contiguous array.
 POD5_FORMAT_EXPORT pod5_error_t
 pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_t * read_ids);
 
 /// \brief Plan the most efficient route through the data for the given read ids
 /// \param      file                The file to be queried.
-/// \param      read_id_array       The read id array (contiguous array, 16 bytes per id).
+/// \param[in]  read_id_array       The read id array (contiguous array, 16 bytes per id).
 /// \param      read_id_count       The number of read ids.
 /// \param[out] batch_counts        The number of rows per batch that need to be visited (rows listed in batch_rows),
 ///                                 input array length should be the number of read table batches.
@@ -450,7 +450,7 @@ pod5_get_file_run_info_count(Pod5FileReader_t * file, run_info_index_t * run_inf
 /// \brief Find the end reason for a row in a read batch.
 /// \param          batch                           The read batch to query.
 /// \param          end_reason                      The end reason index to query from the passed batch.
-/// \param          end_reason_value                The enum value for end reason.
+/// \param[out]     end_reason_value                The enum value for end reason.
 /// \param[out]     end_reason_string_value         Output location for the string value for the end reason.
 /// \param[in,out]  end_reason_string_value_size    Size of [end_reason_string_value], the number of characters written (including 1 for null character) is placed in this value on return.
 /// \note If the string input is not long enough POD5_ERROR_STRING_NOT_LONG_ENOUGH is returned.
@@ -484,7 +484,7 @@ typedef struct SignalRowInfo SignalRowInfo_t;
 /// \brief Find the info for a signal row in a reader.
 /// \param      reader                      The reader to query.
 /// \param      signal_rows_count           The number of signal rows to query.
-/// \param      signal_rows                 The signal rows to query.
+/// \param[in]  signal_rows                 The signal rows to query.
 /// \param[out] signal_row_info             Pointers to the output signal row information (must be an array of size signal_rows_count)
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_signal_row_info(
     Pod5FileReader_t * reader,
