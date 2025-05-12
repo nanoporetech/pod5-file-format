@@ -27,7 +27,7 @@ TEST_CASE("Run Info Writer Tests")
         REQUIRE_ARROW_STATUS_OK(value_array);
 
         auto string_value_array = std::dynamic_pointer_cast<arrow::StringArray>(*value_array);
-        REQUIRE(!!string_value_array);
+        REQUIRE(string_value_array);
 
         CHECK(string_value_array->length() == 1);
         CHECK(string_value_array->Value(0) == "acq_id_1");
@@ -43,7 +43,7 @@ TEST_CASE("Run Info Writer Tests")
         REQUIRE_ARROW_STATUS_OK(value_array);
 
         auto string_value_array = std::dynamic_pointer_cast<arrow::StringArray>(*value_array);
-        REQUIRE(!!string_value_array);
+        REQUIRE(string_value_array);
 
         CHECK(string_value_array->length() == 2);
         CHECK(string_value_array->Value(0) == "acq_id_1");

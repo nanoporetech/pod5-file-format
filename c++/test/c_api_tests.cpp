@@ -61,11 +61,11 @@ SCENARIO("C API Reads")
     // Write the file:
     {
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!pod5_create_file(NULL, "c_software", NULL));
+        CHECK_FALSE(pod5_create_file(NULL, "c_software", NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
-        CHECK(!pod5_create_file("", "c_software", NULL));
+        CHECK_FALSE(pod5_create_file("", "c_software", NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
-        CHECK(!pod5_create_file("", NULL, NULL));
+        CHECK_FALSE(pod5_create_file("", NULL, NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
 
         REQUIRE(remove_file_if_exists(filename).ok());
@@ -193,10 +193,10 @@ SCENARIO("C API Reads")
     // Read the file back:
     {
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!pod5_open_file(NULL));
+        CHECK_FALSE(pod5_open_file(NULL));
         auto file = pod5_open_file(filename);
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!!file);
+        CHECK(file);
 
         FileInfo_t file_info;
         CHECK_POD5_OK(pod5_get_file_info(file, &file_info));
@@ -225,7 +225,7 @@ SCENARIO("C API Reads")
 
         Pod5ReadRecordBatch * batch_0 = nullptr;
         CHECK_POD5_OK(pod5_get_read_batch(&batch_0, file, 0));
-        REQUIRE(!!batch_0);
+        REQUIRE(batch_0);
 
         std::size_t row_count = 0;
         CHECK_POD5_OK(pod5_get_read_batch_row_count(&row_count, batch_0));
@@ -429,17 +429,17 @@ SCENARIO("C API Reads")
         // Check getting invalid run info indexes fails correctly.
         RunInfoDictData * run_info_error = nullptr;
         CHECK(pod5_get_run_info(batch_0, -1, &run_info_error) == POD5_ERROR_INDEXERROR);
-        CHECK(!run_info_error);
+        CHECK_FALSE(run_info_error);
         CHECK(pod5_get_run_info(batch_0, run_info_count, &run_info_error) == POD5_ERROR_INDEXERROR);
-        CHECK(!run_info_error);
+        CHECK_FALSE(run_info_error);
         CHECK(pod5_get_file_run_info(file, -1, &run_info_error) == POD5_ERROR_INDEXERROR);
-        CHECK(!run_info_error);
+        CHECK_FALSE(run_info_error);
         CHECK(
             pod5_get_file_run_info(file, run_info_count, &run_info_error) == POD5_ERROR_INDEXERROR);
-        CHECK(!run_info_error);
+        CHECK_FALSE(run_info_error);
 
         auto check_run_info = [](RunInfoDictData * run_info) {
-            REQUIRE(!!run_info);
+            REQUIRE(run_info);
             CHECK(run_info->tracking_id.size == 2);
             CHECK(run_info->tracking_id.keys[0] == std::string("baz"));
             CHECK(run_info->tracking_id.keys[1] == std::string("other"));
@@ -493,11 +493,11 @@ SCENARIO("C API Many Reads")
     // Write the file:
     {
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!pod5_create_file(NULL, "c_software", NULL));
+        CHECK_FALSE(pod5_create_file(NULL, "c_software", NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
-        CHECK(!pod5_create_file("", "c_software", NULL));
+        CHECK_FALSE(pod5_create_file("", "c_software", NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
-        CHECK(!pod5_create_file("", NULL, NULL));
+        CHECK_FALSE(pod5_create_file("", NULL, NULL));
         CHECK(pod5_get_error_no() == POD5_ERROR_INVALID);
 
         REQUIRE(remove_file_if_exists(filename).ok());
@@ -614,11 +614,11 @@ SCENARIO("C API Many Reads")
         options.force_disable_file_mapping = true;
 
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!pod5_open_file_options(NULL, &options));
-        CHECK(!pod5_open_file_options(filename, NULL));
+        CHECK_FALSE(pod5_open_file_options(NULL, &options));
+        CHECK_FALSE(pod5_open_file_options(filename, NULL));
         auto file = pod5_open_file_options(filename, &options);
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!!file);
+        CHECK(file);
 
         FileInfo_t file_info;
         CHECK_POD5_OK(pod5_get_file_info(file, &file_info));
@@ -706,11 +706,11 @@ SCENARIO("C API Run Info")
     // Read the file back:
     {
         CHECK_POD5_OK(pod5_get_error_no());
-        CHECK(!pod5_open_file(NULL));
+        CHECK_FALSE(pod5_open_file(NULL));
         auto file = pod5_open_file(filename);
         CHECK_POD5_OK(pod5_get_error_no());
         CHECK(pod5_get_error_string() == std::string{""});
-        CHECK(!!file);
+        REQUIRE(file);
 
         run_info_index_t run_info_count = 0;
         CHECK_POD5_OK(pod5_get_file_run_info_count(file, &run_info_count));
