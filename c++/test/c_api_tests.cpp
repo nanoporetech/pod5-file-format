@@ -227,28 +227,32 @@ SCENARIO("C API Reads")
         CHECK_POD5_OK(pod5_get_read_batch(&batch_0, file, 0));
         REQUIRE(!!batch_0);
 
+        std::size_t row_count = 0;
+        CHECK_POD5_OK(pod5_get_read_batch_row_count(&row_count, batch_0));
+        REQUIRE(row_count == 2);
+
         // Check out of bounds accesses get errors
         {
             ReadBatchRowInfoV3 v3_struct;
             uint16_t input_version = 0;
             CHECK(
                 pod5_get_read_batch_row_info_data(
-                    batch_0, read_count, READ_BATCH_ROW_INFO_VERSION, &v3_struct, &input_version)
+                    batch_0, row_count, READ_BATCH_ROW_INFO_VERSION, &v3_struct, &input_version)
                 == POD5_ERROR_INDEXERROR);
 
             std::vector<uint64_t> signal_row_indices{1};
             CHECK(
                 pod5_get_signal_row_indices(
-                    batch_0, read_count, signal_row_indices.size(), signal_row_indices.data())
+                    batch_0, row_count, signal_row_indices.size(), signal_row_indices.data())
                 == POD5_ERROR_INDEXERROR);
 
             CalibrationExtraData calibration_extra_data{};
             CHECK(
-                pod5_get_calibration_extra_info(batch_0, read_count, &calibration_extra_data)
+                pod5_get_calibration_extra_info(batch_0, row_count, &calibration_extra_data)
                 == POD5_ERROR_INDEXERROR);
         }
 
-        for (std::size_t row = 0; row < read_count; ++row) {
+        for (std::size_t row = 0; row < row_count; ++row) {
             auto signal = signal_1;
             if (row == 1) {
                 signal = signal_2;
