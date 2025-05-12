@@ -790,3 +790,47 @@ TEST_CASE("pod5_create_file with options")
     REQUIRE(writer != nullptr);
     REQUIRE_POD5_OK(pod5_close_and_free_writer(writer));
 }
+
+TEST_CASE("VBZ compression")
+{
+    pod5_init();
+    auto cleanup = gsl::finally([] { pod5_terminate(); });
+
+    std::size_t const sample_count = 20;
+    std::vector<int16_t> input_signal(sample_count);
+    std::iota(input_signal.begin(), input_signal.end(), -sample_count / 2);
+
+    // Determine max size.
+    std::size_t const compressed_read_max_size =
+        pod5_vbz_compressed_signal_max_size(input_signal.size());
+    REQUIRE(compressed_read_max_size > 0);
+
+    // Compress it.
+    std::vector<char> compressed_signal(compressed_read_max_size);
+    std::size_t compressed_size = compressed_read_max_size;
+    REQUIRE_POD5_OK(pod5_vbz_compress_signal(
+        input_signal.data(), input_signal.size(), compressed_signal.data(), &compressed_size));
+    REQUIRE(compressed_size <= compressed_read_max_size);
+    compressed_signal.resize(compressed_size);
+
+    // Decompress it.
+    std::vector<int16_t> output_signal(sample_count);
+    REQUIRE_POD5_OK(pod5_vbz_decompress_signal(
+        compressed_signal.data(), compressed_signal.size(), sample_count, output_signal.data()));
+    REQUIRE(input_signal == output_signal);
+
+    // Providing incorrect buffer sizes should fail rather than crash.
+    CHECK_POD5_NOT_OK(pod5_vbz_decompress_signal(
+        compressed_signal.data(),
+        compressed_signal.size(),
+        sample_count * 2,
+        output_signal.data()));
+    std::size_t bad_compressed_size = compressed_size / 2;
+    CHECK_POD5_NOT_OK(pod5_vbz_compress_signal(
+        input_signal.data(), input_signal.size(), compressed_signal.data(), &bad_compressed_size));
+
+    // Going over the maximum size should produce an error.
+    size_t const max_size_error = pod5_vbz_compressed_signal_max_size(std::uint64_t{1} << 48);
+    CHECK(max_size_error == 0);
+    CHECK_POD5_NOT_OK(pod5_get_error_no());
+}
