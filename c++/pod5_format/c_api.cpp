@@ -147,14 +147,10 @@ pod5::FileWriterOptions make_internal_writer_options(Pod5WriterOptions const * o
     return internal_options;
 }
 
-pod5::FileReaderOptions make_internal_reader_options(Pod5ReaderOptions const * options)
+pod5::FileReaderOptions make_internal_reader_options(Pod5ReaderOptions const & options)
 {
     pod5::FileReaderOptions internal_options;
-    if (options) {
-        if (options->force_disable_file_mapping != false) {
-            internal_options.set_force_disable_file_mapping(options->force_disable_file_mapping);
-        }
-    }
+    internal_options.set_force_disable_file_mapping(options.force_disable_file_mapping);
     return internal_options;
 }
 
@@ -184,20 +180,8 @@ char const * pod5_get_error_string() { return g_pod5_error_string.c_str(); }
 //---------------------------------------------------------------------------------------------------------------------
 Pod5FileReader * pod5_open_file(char const * filename)
 {
-    pod5_reset_error();
-
-    if (!check_string_not_empty(filename)) {
-        return nullptr;
-    }
-
-    auto internal_reader = pod5::open_file_reader(filename, {});
-    if (!internal_reader.ok()) {
-        pod5_set_error(internal_reader.status());
-        return nullptr;
-    }
-
-    auto reader = std::make_unique<Pod5FileReader>(std::move(*internal_reader));
-    return reader.release();
+    Pod5ReaderOptions_t options{};
+    return pod5_open_file_options(filename, &options);
 }
 
 Pod5FileReader * pod5_open_file_options(char const * filename, Pod5ReaderOptions_t const * options)
@@ -208,7 +192,7 @@ Pod5FileReader * pod5_open_file_options(char const * filename, Pod5ReaderOptions
         return nullptr;
     }
 
-    auto internal_reader = pod5::open_file_reader(filename, make_internal_reader_options(options));
+    auto internal_reader = pod5::open_file_reader(filename, make_internal_reader_options(*options));
     if (!internal_reader.ok()) {
         pod5_set_error(internal_reader.status());
         return nullptr;

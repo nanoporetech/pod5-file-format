@@ -722,3 +722,14 @@ SCENARIO("C API Run Info")
         CHECK_POD5_OK(pod5_close_and_free_reader(file));
     }
 }
+
+TEST_CASE("Missing file passed to pod5_open_file")
+{
+    pod5_init();
+    auto cleanup = gsl::finally([] { pod5_terminate(); });
+
+    static constexpr char const temporary_filename[] = "./foo_c_api.pod5";
+    REQUIRE(remove_file_if_exists(temporary_filename).ok());
+
+    CHECK(pod5_open_file(temporary_filename) == nullptr);
+}
