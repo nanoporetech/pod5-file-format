@@ -1386,15 +1386,9 @@ pod5_error_t pod5_format_read_id(read_id_t const read_id, char * read_id_string)
         return g_pod5_error_no;
     }
 
-    auto uuid_data = reinterpret_cast<pod5::Uuid const *>(read_id);
-    std::string string_data = to_string(*uuid_data);
-    if (string_data.size() != 36) {
-        pod5_set_error(pod5::Status::Invalid("Unexpected length of UUID"));
-        return g_pod5_error_no;
-    }
-
-    std::copy(string_data.begin(), string_data.end(), read_id_string);
-    read_id_string[string_data.size()] = '\0';
+    auto * uuid_data = reinterpret_cast<pod5::Uuid const *>(read_id);
+    uuid_data->write_to(read_id_string);
+    read_id_string[36] = '\0';
 
     return POD5_OK;
 }
