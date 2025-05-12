@@ -733,3 +733,56 @@ TEST_CASE("Missing file passed to pod5_open_file")
 
     CHECK(pod5_open_file(temporary_filename) == nullptr);
 }
+
+TEST_CASE("Existing file passed to pod5_create_file")
+{
+    pod5_init();
+    auto cleanup = gsl::finally([] { pod5_terminate(); });
+
+    static constexpr char const temporary_filename[] = "./foo_c_api.pod5";
+    REQUIRE(remove_file_if_exists(temporary_filename).ok());
+
+    // Create it once.
+    Pod5FileWriter_t * writer = pod5_create_file(temporary_filename, "c_software", nullptr);
+    REQUIRE_POD5_OK(pod5_get_error_no());
+    REQUIRE(writer != nullptr);
+    REQUIRE_POD5_OK(pod5_close_and_free_writer(writer));
+
+    // File already exists so this should fail.
+    CHECK(pod5_create_file(temporary_filename, "c_software", nullptr) == nullptr);
+}
+
+TEST_CASE("pod5_create_file with options")
+{
+    pod5_init();
+    auto cleanup = gsl::finally([] { pod5_terminate(); });
+
+    static constexpr char const temporary_filename[] = "./foo_c_api.pod5";
+    REQUIRE(remove_file_if_exists(temporary_filename).ok());
+
+    Pod5WriterOptions_t test_options{};
+    Pod5WriterOptions_t const * options = nullptr;
+    bool const with_options = GENERATE(false, true);
+    if (with_options) {
+        options = &test_options;
+    }
+    test_options.max_signal_chunk_size = GENERATE(0, 1, 2);
+    test_options.signal_compression_type = GENERATE(
+        CompressionOption::DEFAULT_SIGNAL_COMPRESSION,
+        CompressionOption::VBZ_SIGNAL_COMPRESSION,
+        CompressionOption::UNCOMPRESSED_SIGNAL);
+    test_options.signal_table_batch_size = GENERATE(0, 1, 2);
+    test_options.read_table_batch_size = GENERATE(0, 1, 2);
+
+    CAPTURE(
+        with_options,
+        test_options.max_signal_chunk_size,
+        test_options.signal_compression_type,
+        test_options.signal_table_batch_size,
+        test_options.read_table_batch_size);
+
+    Pod5FileWriter_t * writer = pod5_create_file(temporary_filename, "c_software", options);
+    REQUIRE_POD5_OK(pod5_get_error_no());
+    REQUIRE(writer != nullptr);
+    REQUIRE_POD5_OK(pod5_close_and_free_writer(writer));
+}
