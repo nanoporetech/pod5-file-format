@@ -10,6 +10,7 @@
 #include <catch2/catch.hpp>
 #include <gsl/gsl-lite.hpp>
 
+#include <algorithm>
 #include <iostream>
 #include <numeric>
 
@@ -478,17 +479,19 @@ SCENARIO("C API Many Reads")
 
     std::mt19937 gen{Catch::rngSeed()};
     auto uuid_gen = pod5::UuidRandomGenerator{gen};
-    auto input_read_id = uuid_gen();
     std::vector<int16_t> signal_1(10);
     std::iota(signal_1.begin(), signal_1.end(), -20000);
 
     std::vector<int16_t> signal_2(20);
     std::iota(signal_2.begin(), signal_2.end(), 0);
 
-    std::size_t read_count = 10037;
+    std::size_t const read_count = 10037;
 
-    std::int16_t adc_min = -4096;
-    std::int16_t adc_max = 4095;
+    std::int16_t const adc_min = -4096;
+    std::int16_t const adc_max = 4095;
+
+    std::vector<pod5::Uuid> read_id_array(read_count);
+    std::generate(read_id_array.begin(), read_id_array.end(), uuid_gen);
 
     // Write the file:
     {
@@ -552,7 +555,6 @@ SCENARIO("C API Many Reads")
         std::vector<std::uint8_t> well(read_count, 4);
         std::vector<pod5_end_reason_t> end_reason(read_count, POD5_END_REASON_MUX_CHANGE);
         std::vector<uint8_t> end_reason_forced(read_count, false);
-        std::vector<pod5::Uuid> read_id_array(read_count, input_read_id);
 
         std::vector<float> calibration_offset(read_count, 54.0f);
         std::vector<float> calibration_scale(read_count, 100.0f);
@@ -635,8 +637,21 @@ SCENARIO("C API Many Reads")
         CHECK_POD5_OK(pod5_get_read_count(file, &read_count_returned));
         REQUIRE(read_count_returned == read_count);
 
-        pod5_close_and_free_reader(file);
-        CHECK_POD5_OK(pod5_get_error_no());
+        // Randomise the order of the read IDs and then try and plan a path through them.
+        std::shuffle(read_id_array.begin(), read_id_array.end(), gen);
+        std::vector<std::uint32_t> batch_counts(read_count);
+        std::vector<std::uint32_t> batch_rows(read_count);
+        std::size_t find_success_count = 0;
+        CHECK_POD5_OK(pod5_plan_traversal(
+            file,
+            reinterpret_cast<uint8_t const *>(read_id_array.data()),
+            read_count,
+            batch_counts.data(),
+            batch_rows.data(),
+            &find_success_count));
+        REQUIRE(find_success_count == read_count);
+
+        CHECK_POD5_OK(pod5_close_and_free_reader(file));
     }
 }
 
