@@ -1,11 +1,13 @@
 #include <pod5_format/c_api.h>
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -122,10 +124,19 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
         return 0;
     }
 
+    // Check that we can query info about the file.
+    FileInfo_t file_info{};
+    CHECK_POD5_SUCCESS(pod5_get_file_info(file.get(), &file_info));
+
+    // If we need any more randomness, use the file's ID as a seed.
+    std::seed_seq seed(std::begin(file_info.file_identifier), std::end(file_info.file_identifier));
+    std::mt19937_64 rng(seed);
+
     // See what IDs there are
     std::size_t batch_count = 0;
     CHECK_POD5_SUCCESS(pod5_get_read_batch_count(&batch_count, file.get()));
 
+    std::size_t total_read_count = 0;
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
         Pod5ReadRecordBatch_t * batch = nullptr;
         CHECK_POD5_MAY_FAIL(pod5_get_read_batch(&batch, file.get(), batch_index));
@@ -135,6 +146,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
 
         std::size_t batch_row_count = 0;
         CHECK_POD5_SUCCESS(pod5_get_read_batch_row_count(&batch_row_count, batch));
+        total_read_count += batch_row_count;
 
         for (std::size_t row = 0; row < batch_row_count; ++row) {
             uint16_t read_table_version = 0;
@@ -213,6 +225,54 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
 
         // Cleanup.
         CHECK_POD5_SUCCESS(pod5_free_read_batch(batch));
+    }
+
+    {
+        // Check total read count matches.
+        std::size_t read_count = 0;
+        CHECK_POD5_MAY_FAIL(pod5_get_read_count(file.get(), &read_count));
+        if (pod5_get_error_no() == POD5_OK) {
+            assert(read_count == total_read_count);
+        } else {
+            read_count = 0;
+        }
+
+        if (read_count > 0) {
+            // Query all the reads IDs.
+            std::vector<uint8_t> read_ids(read_count * sizeof(read_id_t));
+            CHECK_POD5_SUCCESS(pod5_get_read_ids(
+                file.get(), read_count, reinterpret_cast<read_id_t *>(read_ids.data())));
+
+            // Randomise the order of the read IDs and then try and plan a path through them.
+            std::shuffle(read_ids.begin(), read_ids.end(), rng);
+            std::vector<std::uint32_t> batch_counts(read_count);
+            std::vector<std::uint32_t> batch_rows(read_count);
+            std::size_t find_success_count = 0;
+            CHECK_POD5_MAY_FAIL(pod5_plan_traversal(
+                file.get(),
+                reinterpret_cast<uint8_t const *>(read_ids.data()),
+                read_count,
+                batch_counts.data(),
+                batch_rows.data(),
+                &find_success_count));
+            assert(find_success_count <= read_count);
+        }
+    }
+
+    // Check embedded files.
+    {
+        for (auto * pod5_get_embedded_file : {
+                 pod5_get_file_read_table_location,
+                 pod5_get_file_signal_table_location,
+                 pod5_get_file_run_info_table_location,
+             })
+        {
+            EmbeddedFileData_t file_data{};
+            CHECK_POD5_SUCCESS(pod5_get_embedded_file(file.get(), &file_data));
+            validate_string(file_data.file_name);
+            assert(file_data.offset <= size);
+            assert(file_data.length <= size - file_data.offset);
+        }
     }
 
     return 0;
