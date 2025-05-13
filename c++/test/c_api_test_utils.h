@@ -7,28 +7,28 @@
 #include <string>
 
 #define CHECK_POD5_OK(statement)                                                    \
-    {                                                                               \
+    do {                                                                            \
         auto const & _res = (statement);                                            \
         CHECK_THAT(testutils::Pod5C_Result::capture(_res), testutils::IsPod5COk()); \
-    }
+    } while (false)
 
 #define REQUIRE_POD5_OK(statement)                                                    \
-    {                                                                                 \
+    do {                                                                              \
         auto const & _res = (statement);                                              \
         REQUIRE_THAT(testutils::Pod5C_Result::capture(_res), testutils::IsPod5COk()); \
-    }
+    } while (false)
 
 #define CHECK_POD5_NOT_OK(statement)                                                 \
-    {                                                                                \
+    do {                                                                             \
         auto const & _res = (statement);                                             \
         CHECK_THAT(testutils::Pod5C_Result::capture(_res), !testutils::IsPod5COk()); \
-    }
+    } while (false)
 
 #define REQUIRE_POD5_NOT_OK(statement)                                                 \
-    {                                                                                  \
+    do {                                                                               \
         auto const & _res = (statement);                                               \
         REQUIRE_THAT(testutils::Pod5C_Result::capture(_res), !testutils::IsPod5COk()); \
-    }
+    } while (false)
 
 namespace testutils {
 
