@@ -32,7 +32,7 @@ dependencies = [
   'pyarrow ~= 18.0.0',
   "pytz",
   "packaging",
-  "polars~=0.19",
+  "polars ~= 1.0",
   'h5py ~= 3.11',
   "vbz_h5py_plugin",
   "tqdm",
