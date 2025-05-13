@@ -26,7 +26,7 @@ from pod5.tools.utils import (
 
 logger = init_logging()
 
-pl.enable_string_cache(True)
+pl.enable_string_cache()
 
 
 class Field(NamedTuple):
