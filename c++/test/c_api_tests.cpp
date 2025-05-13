@@ -784,14 +784,15 @@ TEST_CASE("pod5_create_file with options")
     bool const with_options = GENERATE(false, true);
     if (with_options) {
         options = &test_options;
+    } else {
+        test_options.max_signal_chunk_size = GENERATE(0, 1, 2);
+        test_options.signal_compression_type = GENERATE(
+            CompressionOption::DEFAULT_SIGNAL_COMPRESSION,
+            CompressionOption::VBZ_SIGNAL_COMPRESSION,
+            CompressionOption::UNCOMPRESSED_SIGNAL);
+        test_options.signal_table_batch_size = GENERATE(0, 1, 2);
+        test_options.read_table_batch_size = GENERATE(0, 1, 2);
     }
-    test_options.max_signal_chunk_size = GENERATE(0, 1, 2);
-    test_options.signal_compression_type = GENERATE(
-        CompressionOption::DEFAULT_SIGNAL_COMPRESSION,
-        CompressionOption::VBZ_SIGNAL_COMPRESSION,
-        CompressionOption::UNCOMPRESSED_SIGNAL);
-    test_options.signal_table_batch_size = GENERATE(0, 1, 2);
-    test_options.read_table_batch_size = GENERATE(0, 1, 2);
 
     CAPTURE(
         with_options,
