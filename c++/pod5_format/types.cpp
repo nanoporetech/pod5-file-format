@@ -4,6 +4,8 @@
 #include <arrow/array/builder_binary.h>
 #include <arrow/util/logging.h>
 
+#include <mutex>
+
 namespace pod5 {
 
 Uuid const * UuidArray::raw_values() const
@@ -121,11 +123,24 @@ std::shared_ptr<UuidType> uuid()
     return uuid;
 }
 
-std::atomic<std::size_t> g_pod5_register_count(0);
+namespace {
+
+std::mutex & get_pod5_register_mutex()
+{
+    // Heap allocated so that it's safe for user code to call during static init
+    // and destruction, not that they should.
+    static std::mutex & m = *new std::mutex{};
+    return m;
+}
+
+std::size_t s_pod5_register_count(0);
+
+}  // namespace
 
 pod5::Status register_extension_types()
 {
-    if (++g_pod5_register_count == 1) {
+    std::lock_guard lock(get_pod5_register_mutex());
+    if (++s_pod5_register_count == 1) {
         ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(uuid()));
         ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(vbz_signal()));
     }
@@ -134,7 +149,8 @@ pod5::Status register_extension_types()
 
 pod5::Status unregister_extension_types()
 {
-    auto register_count = --g_pod5_register_count;
+    std::lock_guard lock(get_pod5_register_mutex());
+    auto register_count = --s_pod5_register_count;
     if (register_count == 0) {
         if (arrow::GetExtensionType("minknow.uuid")) {
             ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.uuid"));
@@ -146,6 +162,10 @@ pod5::Status unregister_extension_types()
     return pod5::Status::OK();
 }
 
-bool check_extension_types_registered() { return g_pod5_register_count > 0; }
+bool check_extension_types_registered()
+{
+    std::lock_guard lock(get_pod5_register_mutex());
+    return s_pod5_register_count > 0;
+}
 
 }  // namespace pod5
