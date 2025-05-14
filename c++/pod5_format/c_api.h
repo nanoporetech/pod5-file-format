@@ -45,9 +45,9 @@ enum pod5_error {
 };
 typedef enum pod5_error pod5_error_t;
 
-/// \brief Get the most recent error number from all pod5 api's.
+/// \brief Get the most recent error number from all pod5 api's on the current thread.
 POD5_FORMAT_EXPORT pod5_error_t pod5_get_error_no();
-/// \brief Get the most recent error description string from all pod5 api's.
+/// \brief Get the most recent error description string from all pod5 api's on the current thread.
 /// \note The string's lifetime is internally managed, a caller should not free it.
 POD5_FORMAT_EXPORT char const * pod5_get_error_string();
 

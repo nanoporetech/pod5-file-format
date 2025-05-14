@@ -45,8 +45,8 @@ struct Pod5ReadRecordBatch {
 
 namespace {
 //---------------------------------------------------------------------------------------------------------------------
-pod5_error_t g_pod5_error_no;
-std::string g_pod5_error_string;
+thread_local pod5_error_t g_pod5_error_no;
+thread_local std::string g_pod5_error_string;
 
 void pod5_set_error(arrow::Status status)
 {
