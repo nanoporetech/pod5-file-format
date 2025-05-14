@@ -68,20 +68,6 @@ TableSpecVersion ReadTableSchemaDescription::table_version_from_file_version(
     return ReadTableSpecVersion::latest();
 }
 
-Result<std::shared_ptr<arrow::StructType>> read_dict_value_struct_type(
-    std::shared_ptr<arrow::DataType> const & datatype)
-{
-    auto const dict_type = std::dynamic_pointer_cast<arrow::DictionaryType>(datatype);
-    if (!dict_type) {
-        return arrow::Status::Invalid("Dictionary type is not a dictionary");
-    }
-    auto const value_type = std::dynamic_pointer_cast<arrow::StructType>(dict_type->value_type());
-    if (!value_type) {
-        return arrow::Status::Invalid("Dictionary value type is not a struct");
-    }
-    return value_type;
-}
-
 Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(
     SchemaMetadataDescription const & schema_metadata,
     std::shared_ptr<arrow::Schema> const & schema)
@@ -90,16 +76,6 @@ Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema
     ARROW_RETURN_NOT_OK(ReadTableSchemaDescription::read_schema(result, schema_metadata, schema));
 
     return result;
-}
-
-Result<int> find_struct_field(std::shared_ptr<arrow::StructType> const & type, char const * name)
-{
-    int field_idx = type->GetFieldIndex(name);
-    if (field_idx == -1) {
-        return pod5::Status::Invalid("Missing ", name, " field in struct");
-    }
-
-    return field_idx;
 }
 
 }  // namespace pod5

@@ -1,7 +1,13 @@
 #pragma once
 
+#include <arrow/result.h>
 #include <arrow/status.h>
 #include <catch2/catch.hpp>
+
+template <typename T>
+struct Catch::StringMaker<arrow::Result<T>> {
+    static std::string convert(arrow::Result<T> const & value) { return value.status().ToString(); }
+};
 
 template <bool CheckOk>
 class IsStatusOk : public Catch::MatcherBase<arrow::Status> {
@@ -40,22 +46,25 @@ inline IsResultOk<false, T> _is_arrow_not_ok(arrow::Result<T> const &)
 inline IsStatusOk<false> _is_arrow_not_ok(arrow::Status const &) { return IsStatusOk<false>(); }
 
 #define CHECK_ARROW_STATUS_OK(statement)      \
-    {                                         \
+    do {                                      \
         auto const & _res = (statement);      \
         CHECK_THAT(_res, _is_arrow_ok(_res)); \
-    }
+    } while (false)
+
 #define REQUIRE_ARROW_STATUS_OK(statement)      \
-    {                                           \
+    do {                                        \
         auto const & _res = (statement);        \
         REQUIRE_THAT(_res, _is_arrow_ok(_res)); \
-    }
+    } while (false)
+
 #define CHECK_ARROW_STATUS_NOT_OK(statement)      \
-    {                                             \
+    do {                                          \
         auto const & _res = (statement);          \
         CHECK_THAT(_res, _is_arrow_not_ok(_res)); \
-    }
+    } while (false)
+
 #define REQUIRE_ARROW_STATUS_NOT_OK(statement)      \
-    {                                               \
+    do {                                            \
         auto const & _res = (statement);            \
         REQUIRE_THAT(_res, _is_arrow_not_ok(_res)); \
-    }
+    } while (false)

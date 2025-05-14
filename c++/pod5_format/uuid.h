@@ -145,6 +145,21 @@ public:
         std::copy(std::cbegin(m_data), std::cend(m_data), std::begin(arr));
     }
 
+    // Note: uustr must be at least 36 characters
+    template <typename CharT>
+    void write_to(CharT * uustr) const noexcept
+    {
+        for (size_t i = 0, index = 0; i < 36; ++i) {
+            if (i == 8 || i == 13 || i == 18 || i == 23) {
+                uustr[i] = uuid_detail::empty_guid<CharT>[i];
+                continue;
+            }
+            uustr[i] = uuid_detail::guid_encoder<CharT>[m_data[index] >> 4 & 0x0f];
+            uustr[++i] = uuid_detail::guid_encoder<CharT>[m_data[index] & 0x0f];
+            index++;
+        }
+    }
+
     template <typename StringType>
     [[nodiscard]] constexpr static std::optional<Uuid> from_string(
         StringType const & in_str) noexcept
@@ -229,16 +244,7 @@ template <class CharT, class Traits, class Allocator>
 [[nodiscard]] inline std::basic_string<CharT, Traits, Allocator> to_string(Uuid const & id)
 {
     std::basic_string<CharT, Traits, Allocator> uustr{uuid_detail::empty_guid<CharT>};
-
-    for (size_t i = 0, index = 0; i < 36; ++i) {
-        if (i == 8 || i == 13 || i == 18 || i == 23) {
-            continue;
-        }
-        uustr[i] = uuid_detail::guid_encoder<CharT>[id.m_data[index] >> 4 & 0x0f];
-        uustr[++i] = uuid_detail::guid_encoder<CharT>[id.m_data[index] & 0x0f];
-        index++;
-    }
-
+    id.write_to(uustr.data());
     return uustr;
 }
 

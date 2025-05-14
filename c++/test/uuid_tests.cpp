@@ -289,17 +289,17 @@ TEST_CASE("Test swap", "[ops]")
     pod5::Uuid guid = pod5::UuidRandomGenerator{engine}();
 
     REQUIRE(empty.is_nil());
-    REQUIRE(!guid.is_nil());
+    REQUIRE_FALSE(guid.is_nil());
 
     std::swap(empty, guid);
 
-    REQUIRE(!empty.is_nil());
+    REQUIRE_FALSE(empty.is_nil());
     REQUIRE(guid.is_nil());
 
     empty.swap(guid);
 
     REQUIRE(empty.is_nil());
-    REQUIRE(!guid.is_nil());
+    REQUIRE_FALSE(guid.is_nil());
 }
 
 TEST_CASE("Test constexpr", "[const]")

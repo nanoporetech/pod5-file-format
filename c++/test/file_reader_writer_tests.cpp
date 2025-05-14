@@ -775,7 +775,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             CAPTURE(result_message, expected_regex);
             REQUIRE_THAT(result_message, Catch::Matchers::Matches(expected_regex));
             if (cleanup) {
-                CHECK(!exists(recovered_file_path));
+                CHECK_FALSE(exists(recovered_file_path));
             }
             CHECK_FALSE(exists(path_to_recover));
             CHECK(exists(reads_path));
@@ -789,7 +789,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result9.ok());
             REQUIRE(recover_result9.status().ToString() == "IOError: Invalid signature in file");
             if (cleanup) {
-                CHECK(!exists(recovered_file_path));
+                CHECK_FALSE(exists(recovered_file_path));
                 CHECK_FALSE(exists(path_to_recover));
             } else {
                 CHECK(exists(path_to_recover));
@@ -805,7 +805,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result10.ok());
             REQUIRE(recover_result10.status().ToString() == "IOError: Invalid signature in file");
             if (cleanup) {
-                CHECK(!exists(recovered_file_path));
+                CHECK_FALSE(exists(recovered_file_path));
                 CHECK_FALSE(exists(path_to_recover));
             } else {
                 CHECK(exists(path_to_recover));
@@ -827,7 +827,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
             REQUIRE_FALSE(recover_result11.ok());
             REQUIRE(recover_result11.status().ToString() == "IOError: Invalid offset into SubFile");
             if (cleanup) {
-                CHECK(!exists(recovered_file_path));
+                CHECK_FALSE(exists(recovered_file_path));
             }
             CHECK(exists(path_to_recover));
             CHECK(exists(reads_path));
@@ -846,7 +846,7 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
                 == "Invalid: Failed whilst attempting to recover signal data sub file from file - "
                        + to_recover + ". Detail: Not an Arrow file");
             if (cleanup) {
-                CHECK(!exists(recovered_file_path));
+                CHECK_FALSE(exists(recovered_file_path));
             }
             CHECK(exists(path_to_recover));
             CHECK(exists(reads_path));

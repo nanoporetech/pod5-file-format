@@ -35,36 +35,12 @@ void check_file_contents(char const * filename)
 {
     auto contents = read_file(filename);
     auto expected_contents = get_test_data();
-    auto data_ptr = reinterpret_cast<char const *>(expected_contents->data());
-    std::vector<char> expected_contents_vec(data_ptr, data_ptr + expected_contents->size());
+    auto expected_contents_span = expected_contents->span_as<char>();
 
-    auto fail_and_dump_context = [&](std::size_t i) {
-        std::stringstream str;
-        str << "Difference at index " << i << "\n";
-        std::size_t min_index = 0, max_index = std::min(i + 16, expected_contents_vec.size() - 1);
-        if (i > 16) {
-            min_index = i - 16;
-        }
-
-        str << "Expected ";
-        for (std::size_t i = min_index; i <= max_index; ++i) {
-            str << std::hex << expected_contents_vec[i] << " ";
-        }
-
-        str << "Actual   ";
-        for (std::size_t i = min_index; i <= max_index; ++i) {
-            str << std::hex << contents[i] << " ";
-        }
-        FAIL(str.str().c_str());
-    };
-
-    for (std::size_t i = 0; i < expected_contents_vec.size(); i += 1) {
-        if (contents[i] != expected_contents_vec[i]) {
-            fail_and_dump_context(i);
-        }
+    REQUIRE(contents.size() == expected_contents_span.size());
+    for (std::size_t i = 0; i < expected_contents_span.size(); i += 1) {
+        CHECK(contents[i] == expected_contents_span[i]);
     }
-
-    CHECK(contents.size() == expected_contents_vec.size());
 }
 }  // namespace
 

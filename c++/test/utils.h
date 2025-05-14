@@ -1,17 +1,10 @@
 #pragma once
 
 #include "pod5_format/read_table_utils.h"
+#include "test_utils.h"
 
 #include <arrow/result.h>
 #include <arrow/util/io_util.h>
-#include <catch2/catch.hpp>
-
-namespace Catch {
-template <typename T>
-struct StringMaker<arrow::Result<T>> {
-    static std::string convert(arrow::Result<T> const & value) { return value.status().ToString(); }
-};
-}  // namespace Catch
 
 inline pod5::RunInfoData get_test_run_info_data(
     std::string suffix = "",
