@@ -241,9 +241,11 @@ TEST_CASE("NULL input doesn't crash")
         }
 
         // The rest of these functions require a reader.
-        Pod5FileReader_t * reader = pod5_open_file(temporary_filename);
-        REQUIRE(reader);
-        auto close_reader = gsl::finally([&reader] { pod5_close_and_free_reader(reader); });
+        Pod5FileReader_t * mutable_reader = pod5_open_file(temporary_filename);
+        REQUIRE(mutable_reader);
+        auto close_reader =
+            gsl::finally([&mutable_reader] { pod5_close_and_free_reader(mutable_reader); });
+        Pod5FileReader_t const * reader = mutable_reader;
 
         {
             INFO("pod5_get_file_info")
@@ -328,10 +330,11 @@ TEST_CASE("NULL input doesn't crash")
         }
 
         // The rest of these functions require a batch.
-        Pod5ReadRecordBatch_t * batch = nullptr;
-        CHECK_POD5_OK(pod5_get_read_batch(&batch, reader, 0));
-        REQUIRE(batch);
-        auto free_batch = gsl::finally([&batch] { pod5_free_read_batch(batch); });
+        Pod5ReadRecordBatch_t * mutable_batch = nullptr;
+        CHECK_POD5_OK(pod5_get_read_batch(&mutable_batch, reader, 0));
+        REQUIRE(mutable_batch);
+        auto free_batch = gsl::finally([&mutable_batch] { pod5_free_read_batch(mutable_batch); });
+        Pod5ReadRecordBatch_t const * batch = mutable_batch;
 
         {
             INFO("pod5_get_read_batch_row_count")
@@ -475,7 +478,11 @@ TEST_CASE("NULL input doesn't crash")
 
             std::array<int16_t, 10> samples{};
             call_with_nulls(
-                pod5_get_signal, reader, signal_row_info, samples.size(), samples.data());
+                pod5_get_signal,
+                reader,
+                static_cast<SignalRowInfo_t const *>(signal_row_info),
+                samples.size(),
+                samples.data());
         }
 
         {
