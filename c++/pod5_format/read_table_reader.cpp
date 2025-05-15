@@ -97,7 +97,7 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
 }
 
 Result<std::shared_ptr<arrow::UInt64Array>> ReadTableRecordBatch::get_signal_rows(
-    std::int64_t batch_row)
+    std::int64_t batch_row) const
 {
     auto signal_col = signal_column();
 
@@ -198,8 +198,8 @@ ReadTableReader::ReadTableReader(
 
 ReadTableReader::ReadTableReader(ReadTableReader && other)
 : TableReader(std::move(other))
-, m_field_locations(std::move(other.m_field_locations))
 , m_sorted_file_read_ids(std::move(other.m_sorted_file_read_ids))
+, m_field_locations(std::move(other.m_field_locations))
 {
 }
 
@@ -218,8 +218,10 @@ Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) c
     return ReadTableRecordBatch{std::move(record_batch), m_field_locations};
 }
 
-Status ReadTableReader::build_read_id_lookup()
+Status ReadTableReader::build_read_id_lookup() const
 {
+    std::lock_guard lock(m_sorted_file_read_ids_mutex);
+
     if (!m_sorted_file_read_ids.empty()) {
         return Status::OK();
     }
@@ -263,7 +265,7 @@ Status ReadTableReader::build_read_id_lookup()
 Result<std::size_t> ReadTableReader::search_for_read_ids(
     ReadIdSearchInput const & search_input,
     gsl::span<uint32_t> const & batch_counts,
-    gsl::span<uint32_t> const & batch_rows)
+    gsl::span<uint32_t> const & batch_rows) const
 {
     ARROW_RETURN_NOT_OK(build_read_id_lookup());
 

@@ -21,7 +21,7 @@
 struct Pod5FileReader {
     Pod5FileReader(std::shared_ptr<pod5::FileReader> && reader_) : reader(std::move(reader_)) {}
 
-    std::shared_ptr<pod5::FileReader> reader;
+    std::shared_ptr<pod5::FileReader const> reader;
 };
 
 struct Pod5FileWriter {
@@ -33,14 +33,14 @@ struct Pod5FileWriter {
 struct Pod5ReadRecordBatch {
     Pod5ReadRecordBatch(
         pod5::ReadTableRecordBatch && batch_,
-        std::shared_ptr<pod5::FileReader> const & reader)
+        std::shared_ptr<pod5::FileReader const> reader)
     : batch(std::move(batch_))
-    , reader(reader)
+    , reader(std::move(reader))
     {
     }
 
-    pod5::ReadTableRecordBatch batch;
-    std::shared_ptr<pod5::FileReader> reader;
+    pod5::ReadTableRecordBatch const batch;
+    std::shared_ptr<pod5::FileReader const> reader;
 };
 
 namespace {
@@ -211,7 +211,7 @@ pod5_error_t pod5_close_and_free_reader(Pod5FileReader * file)
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_file_info(Pod5FileReader_t * reader, FileInfo * file_info)
+pod5_error_t pod5_get_file_info(Pod5FileReader_t const * reader, FileInfo * file_info)
 {
     pod5_reset_error();
 
@@ -230,7 +230,7 @@ pod5_error_t pod5_get_file_info(Pod5FileReader_t * reader, FileInfo * file_info)
 }
 
 pod5_error_t pod5_get_file_read_table_location(
-    Pod5FileReader_t * reader,
+    Pod5FileReader_t const * reader,
     EmbeddedFileData_t * file_data)
 {
     pod5_reset_error();
@@ -247,7 +247,7 @@ pod5_error_t pod5_get_file_read_table_location(
 }
 
 pod5_error_t pod5_get_file_signal_table_location(
-    Pod5FileReader_t * reader,
+    Pod5FileReader_t const * reader,
     EmbeddedFileData_t * file_data)
 {
     pod5_reset_error();
@@ -264,7 +264,7 @@ pod5_error_t pod5_get_file_signal_table_location(
 }
 
 pod5_error_t pod5_get_file_run_info_table_location(
-    Pod5FileReader_t * reader,
+    Pod5FileReader_t const * reader,
     EmbeddedFileData_t * file_data)
 {
     pod5_reset_error();
@@ -280,7 +280,7 @@ pod5_error_t pod5_get_file_run_info_table_location(
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_count(Pod5FileReader_t * reader, size_t * count)
+pod5_error_t pod5_get_read_count(Pod5FileReader_t const * reader, size_t * count)
 {
     pod5_reset_error();
 
@@ -293,7 +293,7 @@ pod5_error_t pod5_get_read_count(Pod5FileReader_t * reader, size_t * count)
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_t * read_ids)
+pod5_error_t pod5_get_read_ids(Pod5FileReader_t const * reader, size_t count, read_id_t * read_ids)
 {
     pod5_reset_error();
 
@@ -324,7 +324,7 @@ pod5_error_t pod5_get_read_ids(Pod5FileReader_t * reader, size_t count, read_id_
 }
 
 pod5_error_t pod5_plan_traversal(
-    Pod5FileReader_t * reader,
+    Pod5FileReader_t const * reader,
     uint8_t const * read_id_array,
     size_t read_id_count,
     uint32_t * batch_counts,
@@ -357,7 +357,7 @@ pod5_error_t pod5_plan_traversal(
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_batch_count(size_t * count, Pod5FileReader * reader)
+pod5_error_t pod5_get_read_batch_count(size_t * count, Pod5FileReader const * reader)
 {
     pod5_reset_error();
 
@@ -370,7 +370,7 @@ pod5_error_t pod5_get_read_batch_count(size_t * count, Pod5FileReader * reader)
 }
 
 pod5_error_t
-pod5_get_read_batch(Pod5ReadRecordBatch ** batch, Pod5FileReader * reader, size_t index)
+pod5_get_read_batch(Pod5ReadRecordBatch ** batch, Pod5FileReader const * reader, size_t index)
 {
     pod5_reset_error();
 
@@ -396,7 +396,7 @@ pod5_error_t pod5_free_read_batch(Pod5ReadRecordBatch * batch)
     return POD5_OK;
 }
 
-pod5_error_t pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch * batch)
+pod5_error_t pod5_get_read_batch_row_count(size_t * count, Pod5ReadRecordBatch const * batch)
 {
     pod5_reset_error();
 
@@ -423,7 +423,7 @@ static pod5_error_t check_row_index_and_set_error(size_t row, int64_t batch_size
 }
 
 pod5_error_t pod5_get_read_batch_row_info_data(
-    Pod5ReadRecordBatch_t * batch,
+    Pod5ReadRecordBatch_t const * batch,
     size_t row,
     uint16_t struct_version,
     void * row_data,
@@ -491,7 +491,7 @@ pod5_error_t pod5_get_read_batch_row_info_data(
 }
 
 pod5_error_t pod5_get_signal_row_indices(
-    Pod5ReadRecordBatch * batch,
+    Pod5ReadRecordBatch const * batch,
     size_t row,
     int64_t signal_row_indices_count,
     uint64_t * signal_row_indices)
@@ -528,7 +528,7 @@ pod5_error_t pod5_get_signal_row_indices(
 }
 
 pod5_error_t pod5_get_calibration_extra_info(
-    Pod5ReadRecordBatch_t * batch,
+    Pod5ReadRecordBatch_t const * batch,
     size_t row,
     CalibrationExtraData_t * calibration_extra_data)
 {
@@ -614,8 +614,10 @@ struct RunInfoDataCHelper : public RunInfoDictData {
 
 }  // namespace
 
-pod5_error_t
-pod5_get_run_info(Pod5ReadRecordBatch * batch, int16_t run_info, RunInfoDictData ** run_info_data)
+pod5_error_t pod5_get_run_info(
+    Pod5ReadRecordBatch const * batch,
+    int16_t run_info,
+    RunInfoDictData ** run_info_data)
 {
     pod5_reset_error();
 
@@ -632,7 +634,7 @@ pod5_get_run_info(Pod5ReadRecordBatch * batch, int16_t run_info, RunInfoDictData
 }
 
 pod5_error_t pod5_get_file_run_info(
-    Pod5FileReader_t * file,
+    Pod5FileReader_t const * file,
     run_info_index_t run_info_index,
     RunInfoDictData_t ** run_info_data)
 {
@@ -665,7 +667,7 @@ pod5_error_t pod5_release_run_info(RunInfoDictData * run_info_data)
 }
 
 pod5_error_t pod5_get_file_run_info_count(
-    Pod5FileReader_t * file,
+    Pod5FileReader_t const * file,
     run_info_index_t * run_info_count)
 {
     pod5_reset_error();
@@ -680,7 +682,7 @@ pod5_error_t pod5_get_file_run_info_count(
 }
 
 pod5_error_t pod5_get_end_reason(
-    Pod5ReadRecordBatch_t * batch,
+    Pod5ReadRecordBatch_t const * batch,
     int16_t end_reason,
     pod5_end_reason * end_reason_value,
     char * end_reason_string_value,
@@ -742,7 +744,7 @@ pod5_error_t pod5_get_end_reason(
 }
 
 pod5_error_t pod5_get_pore_type(
-    Pod5ReadRecordBatch_t * batch,
+    Pod5ReadRecordBatch_t const * batch,
     int16_t pore_type,
     char * pore_type_string_value,
     size_t * pore_type_string_value_size)
@@ -773,13 +775,13 @@ class SignalRowInfoCHelper : public SignalRowInfo {
 public:
     SignalRowInfoCHelper(pod5::SignalTableRecordBatch && b) : batch(std::move(b)) {}
 
-    pod5::SignalTableRecordBatch batch;
+    pod5::SignalTableRecordBatch const batch;
 };
 
 }  // namespace
 
 pod5_error_t pod5_get_signal_row_info(
-    Pod5FileReader * reader,
+    Pod5FileReader const * reader,
     size_t signal_rows_count,
     uint64_t const * signal_rows,
     SignalRowInfo ** signal_row_info)
@@ -855,8 +857,8 @@ pod5_error_t pod5_free_signal_row_info(size_t signal_rows_count, SignalRowInfo_t
 }
 
 pod5_error_t pod5_get_signal(
-    Pod5FileReader * reader,
-    SignalRowInfo_t * row_info,
+    Pod5FileReader const * reader,
+    SignalRowInfo_t const * row_info,
     size_t sample_count,
     int16_t * sample_data)
 {
@@ -868,7 +870,7 @@ pod5_error_t pod5_get_signal(
         return g_pod5_error_no;
     }
 
-    SignalRowInfoCHelper * row_info_data = static_cast<SignalRowInfoCHelper *>(row_info);
+    auto * row_info_data = static_cast<SignalRowInfoCHelper const *>(row_info);
 
     POD5_C_RETURN_NOT_OK(row_info_data->batch.extract_signal_row(
         row_info->batch_row_index, gsl::make_span(sample_data, sample_count)));
@@ -877,8 +879,8 @@ pod5_error_t pod5_get_signal(
 }
 
 pod5_error_t pod5_get_read_complete_sample_count(
-    Pod5FileReader_t * reader,
-    Pod5ReadRecordBatch_t * batch,
+    Pod5FileReader_t const * reader,
+    Pod5ReadRecordBatch_t const * batch,
     size_t batch_row,
     size_t * sample_count)
 {
@@ -900,8 +902,8 @@ pod5_error_t pod5_get_read_complete_sample_count(
 }
 
 pod5_error_t pod5_get_read_complete_signal(
-    Pod5FileReader_t * reader,
-    Pod5ReadRecordBatch_t * batch,
+    Pod5FileReader_t const * reader,
+    Pod5ReadRecordBatch_t const * batch,
     size_t batch_row,
     size_t sample_count,
     int16_t * signal)

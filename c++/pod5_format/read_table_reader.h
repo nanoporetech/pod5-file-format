@@ -82,7 +82,7 @@ public:
 
     Result<ReadTableRecordColumns> columns() const;
 
-    Result<std::shared_ptr<arrow::UInt64Array>> get_signal_rows(std::int64_t batch_row);
+    Result<std::shared_ptr<arrow::UInt64Array>> get_signal_rows(std::int64_t batch_row) const;
 
 private:
     std::shared_ptr<ReadTableSchemaDescription const> m_field_locations;
@@ -103,12 +103,10 @@ public:
 
     Result<ReadTableRecordBatch> read_record_batch(std::size_t i) const;
 
-    Status build_read_id_lookup();
-
     Result<std::size_t> search_for_read_ids(
         ReadIdSearchInput const & search_input,
         gsl::span<uint32_t> const & batch_counts,
-        gsl::span<uint32_t> const & batch_rows);
+        gsl::span<uint32_t> const & batch_rows) const;
 
 private:
     struct IndexData {
@@ -117,8 +115,12 @@ private:
         std::size_t batch_row;
     };
 
+    Status build_read_id_lookup() const;
+    mutable std::vector<IndexData> m_sorted_file_read_ids;
+    mutable std::mutex m_sorted_file_read_ids_mutex;
+
+private:
     std::shared_ptr<ReadTableSchemaDescription const> m_field_locations;
-    std::vector<IndexData> m_sorted_file_read_ids;
 
     mutable std::mutex m_batch_get_mutex;
 };

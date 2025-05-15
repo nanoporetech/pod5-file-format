@@ -88,7 +88,7 @@ public:
     Result<std::size_t> search_for_read_ids(
         ReadIdSearchInput const & search_input,
         gsl::span<uint32_t> const & batch_counts,
-        gsl::span<uint32_t> const & batch_rows) override
+        gsl::span<uint32_t> const & batch_rows) const override
     {
         return m_read_table_reader.search_for_read_ids(search_input, batch_counts, batch_rows);
     }

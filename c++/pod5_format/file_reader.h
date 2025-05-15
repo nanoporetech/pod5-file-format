@@ -84,7 +84,7 @@ public:
     virtual Result<std::size_t> search_for_read_ids(
         ReadIdSearchInput const & search_input,
         gsl::span<uint32_t> const & batch_counts,
-        gsl::span<uint32_t> const & batch_rows) = 0;
+        gsl::span<uint32_t> const & batch_rows) const = 0;
 
     virtual Result<SignalTableRecordBatch> read_signal_record_batch(std::size_t i) const = 0;
     virtual std::size_t num_signal_record_batches() const = 0;
