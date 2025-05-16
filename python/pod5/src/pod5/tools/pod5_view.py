@@ -180,9 +180,9 @@ def format_view_table(
 
     # Replace potentially empty fields with "not_set"
     # This can't be done in the above expression due to the behaviour of
-    # keep_name()
+    # name.keep()
     lazyframe = lazyframe.with_columns(
-        pl_format_empty_string(pl.col(maybe_empty), "not_set").keep_name()
+        pl_format_empty_string(pl.col(maybe_empty), "not_set").name.keep()
     )
 
     # Apply the field selection
@@ -202,7 +202,7 @@ def write(
     """Write the polars.LazyFrame"""
 
     kwargs = dict(
-        has_header=False, separator=separator, null_value="", float_precision=8
+        include_header=False, separator=separator, null_value="", float_precision=8
     )
 
     # Write to the nominated output path

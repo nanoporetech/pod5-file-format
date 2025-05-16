@@ -121,7 +121,7 @@ def parse_table_mapping(
             summary_path,
             columns=columns,
             separator=get_separator(summary_path),
-            comment_char="#",
+            comment_prefix="#",
         )
         .lazy()
         .with_columns(
@@ -177,7 +177,7 @@ def parse_csv_mapping(csv_path: Path) -> pl.LazyFrame:
         pl.scan_csv(
             csv_path,
             has_header=False,
-            comment_char="#",
+            comment_prefix="#",
             new_columns=[PL_DEST_FNAME, PL_READ_ID],
             rechunk=False,
         )
@@ -232,7 +232,7 @@ def assert_overwrite_ok(targets: pl.LazyFrame, force_overwrite: bool) -> None:
     DEST_EXISTS = "__dest_exists"
     dests = (
         targets.select(pl.col(PL_DEST_FNAME).unique())
-        .with_columns(pl.col(PL_DEST_FNAME).apply(exists).alias(DEST_EXISTS))
+        .with_columns(pl.col(PL_DEST_FNAME).map_elements(exists).alias(DEST_EXISTS))
         .collect()
     )
 
@@ -247,7 +247,9 @@ def assert_overwrite_ok(targets: pl.LazyFrame, force_overwrite: bool) -> None:
             Path(path).unlink()
             return True
 
-        dests.select(pl.col(PL_DEST_FNAME).where(pl.col(DEST_EXISTS))).apply(unlinker)
+        dests.select(pl.col(PL_DEST_FNAME).where(pl.col(DEST_EXISTS))).map_rows(
+            unlinker
+        )
 
 
 @logged_all
@@ -390,7 +392,8 @@ class WorkQueue:
         self.size = 0
         groupby_dest = transfers.collect().group_by(PL_DEST_FNAME)
         for dest, sources in groupby_dest:
-            self.work.put((Path(dest), sources))
+            assert len(dest) == 1
+            self.work.put((Path(dest[0]), sources))
             self.size += 1
 
         self.progress: mp.Queue = context.Queue(maxsize=self.size + 1)
@@ -458,7 +461,9 @@ def launch_subsetting(
     Iterate over the transfers dataframe subsetting reads from sources to destinations
     """
     threads = limit_threads(threads)
-    assert {PL_READ_ID, PL_SRC_FNAME, PL_DEST_FNAME}.issubset(set(transfers.columns))
+    assert {PL_READ_ID, PL_SRC_FNAME, PL_DEST_FNAME}.issubset(
+        set(transfers.collect_schema().names())
+    )
 
     ctx = mp.get_context("spawn")
     work = WorkQueue(ctx, transfers)
@@ -543,6 +548,9 @@ def subset_reads(
         active_limit = 5
         # Copy selected reads from one file at a time
         for source, reads in sources.group_by(PL_SRC_FNAME):
+            assert len(source) == 1
+            source = source[0]
+
             while repacker.currently_open_file_reader_count >= active_limit:
                 pbar.update(repacker.reads_completed - pbar.n)
                 sleep(0.2)

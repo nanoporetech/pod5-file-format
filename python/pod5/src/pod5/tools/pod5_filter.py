@@ -43,7 +43,7 @@ def parse_read_id_targets(ids: Path, output: Path) -> pl.LazyFrame:
         pl.scan_csv(
             ids,
             has_header=False,  # Any header will be filtered out by is_uuid
-            comment_char="#",
+            comment_prefix="#",
             new_columns=[PL_READ_ID],
             rechunk=False,
         )
@@ -89,7 +89,8 @@ def filter_reads(dest: Path, sources: pl.DataFrame, duplicate_ok: bool) -> None:
 
         # Copy selected reads from one file at a time
         for source, reads in sources.group_by(PL_SRC_FNAME):
-            src = Path(source)
+            assert len(source) == 1
+            src = Path(source[0])
             read_ids = reads.get_column(PL_READ_ID).unique().to_list()
             logger.debug(f"Filtering: {src} - n_reads: {len(read_ids)}")
 
@@ -161,7 +162,8 @@ def filter_pod5(
     # There will only one output from this
     groupby_dest = transfers.collect().group_by(PL_DEST_FNAME)
     for dest, sources in groupby_dest:
-        filter_reads(dest=dest, sources=sources, duplicate_ok=duplicate_ok)
+        assert len(dest) == 1
+        filter_reads(dest=dest[0], sources=sources, duplicate_ok=duplicate_ok)
 
     return
 

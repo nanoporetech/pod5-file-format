@@ -23,4 +23,4 @@ def pl_format_read_id(read_id_col: pl.Expr) -> pl.Expr:
 
 def pl_format_empty_string(expr: pl.Expr, subst: Optional[str]) -> pl.Expr:
     """Empty strings are read as a pair of double-quotes which need to be removed"""
-    return pl.when(expr.str.lengths() == 0).then(pl.lit(subst)).otherwise(expr)
+    return pl.when(expr.str.len_bytes() == 0).then(pl.lit(subst)).otherwise(expr)
