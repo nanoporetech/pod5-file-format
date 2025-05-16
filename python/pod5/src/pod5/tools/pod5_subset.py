@@ -22,6 +22,7 @@ from pod5.tools.polars_utils import (
     PL_SRC_FNAME,
     PL_UUID_REGEX,
     pl_format_read_id,
+    pl_from_arrow,
 )
 from pod5.tools.utils import (
     DEFAULT_THREADS,
@@ -285,7 +286,7 @@ def parse_source(path: Path) -> pl.LazyFrame:
         pa_read_table = rdr.read_table.read_all()
 
     source = (
-        pl.from_arrow(pa_read_table, rechunk=False)
+        pl_from_arrow(pa_read_table, rechunk=False)
         .with_columns(
             pl_format_read_id(pl.col("read_id")).alias(PL_READ_ID),
             pl.lit(str(path.resolve())).alias(PL_SRC_FNAME),

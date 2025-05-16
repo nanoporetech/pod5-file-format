@@ -12,7 +12,12 @@ import polars as pl
 
 import pod5 as p5
 from pod5.tools.parsers import prepare_pod5_view_argparser, run_tool
-from pod5.tools.polars_utils import pl_format_empty_string, pl_format_read_id
+from pod5.tools.polars_utils import (
+    pl_format_empty_string,
+    pl_format_read_id,
+    pl_from_arrow,
+    pl_from_arrow_batch,
+)
 from pod5.tools.utils import (
     DEFAULT_THREADS,
     collect_inputs,
@@ -280,7 +285,7 @@ def parse_reads_table_all(reader: p5.Reader) -> pl.LazyFrame:
     logger.debug(f"Parsing {reader.path.name} records")
     read_table = reader.read_table.read_all()
     reads = (
-        pl.from_arrow(read_table, rechunk=False)
+        pl_from_arrow(read_table, rechunk=False)
         .drop(["signal"])
         .lazy()
         .with_columns(pl.col("run_info").cast(pl.Utf8))
@@ -296,14 +301,14 @@ def parse_reads_table_batch(
     polars LazyFrame and the number of records in it
     """
     logger.debug(f"Parsing {reader.path.name} record batch {batch_index}")
-    read_table = reader.read_table.get_batch(batch_index)
+    record_batch = reader.read_table.get_batch(batch_index)
     reads = (
-        pl.from_arrow(read_table, rechunk=False)
+        pl_from_arrow_batch(record_batch, rechunk=False)
         .drop(["signal"])
         .lazy()
         .with_columns(pl.col("run_info").cast(pl.Utf8))
     )
-    return reads, read_table.num_rows
+    return reads, record_batch.num_rows
 
 
 @logged_all
@@ -343,7 +348,7 @@ def parse_run_info_table(reader: p5.Reader) -> pl.LazyFrame:
     run_info_table = reader.run_info_table.read_all().drop(
         ["context_tags", "tracking_id"]
     )
-    run_info = pl.from_arrow(run_info_table, rechunk=False).lazy().unique()
+    run_info = pl_from_arrow(run_info_table, rechunk=False).lazy().unique()
     return run_info
 
 

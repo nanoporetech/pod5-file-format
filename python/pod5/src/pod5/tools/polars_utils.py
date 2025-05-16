@@ -1,5 +1,6 @@
 from typing import Optional
 import polars as pl
+import pyarrow as pa
 
 # Reserved column names used in polars dataframes
 PL_DEST_FNAME = "__dest_fname"
@@ -24,3 +25,19 @@ def pl_format_read_id(read_id_col: pl.Expr) -> pl.Expr:
 def pl_format_empty_string(expr: pl.Expr, subst: Optional[str]) -> pl.Expr:
     """Empty strings are read as a pair of double-quotes which need to be removed"""
     return pl.when(expr.str.len_bytes() == 0).then(pl.lit(subst)).otherwise(expr)
+
+
+def pl_from_arrow(table: pa.Table, rechunk: bool) -> pl.DataFrame:
+    """Workaround failure to read our arrow extension type"""
+    # Taken from https://github.com/pola-rs/polars/issues/20700
+    table = pa.Table.from_batches(
+        table.to_batches(),
+        schema=pa.schema([field.remove_metadata() for field in table.schema]),
+    )
+    return pl.from_arrow(table, rechunk=rechunk)
+
+
+def pl_from_arrow_batch(record_batch: pa.RecordBatch, rechunk: bool) -> pl.DataFrame:
+    """Workaround failure to read our arrow extension type"""
+    table = pa.Table.from_batches([record_batch])
+    return pl_from_arrow(table, rechunk=rechunk)
