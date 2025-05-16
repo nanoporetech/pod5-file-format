@@ -256,12 +256,17 @@ def parse_source_process(paths: mp.JoinableQueue, parsed_sources: mp.Queue):
     while True:
         path = paths.get(timeout=60)
 
-        # Seninel value of finished work
+        # Sentinel value of finished work
         if path is None:
             paths.task_done()
             break
 
-        parsed_sources.put(parse_source(path))
+        try:
+            source = parse_source(path)
+        except Exception as e:
+            source = e
+
+        parsed_sources.put(source)
         paths.task_done()
 
     parsed_sources.close()
@@ -324,7 +329,10 @@ def parse_sources(paths: Set[Path], threads: int = DEFAULT_THREADS) -> pl.LazyFr
     for _ in range(len(paths)):
         # After work is joined we will have len(paths) items in parsed_sources
         # shouldn't need to wait or seconds or ever see Empty.
-        items.append(parsed_sources.get(timeout=60))
+        item = parsed_sources.get(timeout=60)
+        if isinstance(item, Exception):
+            raise item
+        items.append(item)
 
     parsed_sources.close()
     parsed_sources.join_thread()
