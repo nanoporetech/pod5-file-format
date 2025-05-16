@@ -315,7 +315,7 @@ class TestParse:
             records.append([fname, list(rids)])
 
         expected = (
-            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID])
+            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID], orient="row")
             .explode(PL_READ_ID)
             .with_columns(pl.col(PL_DEST_FNAME).cast(pl.Categorical))
         )
@@ -369,7 +369,7 @@ class TestParse:
             records.append([fname, list(rids)])
 
         expected = (
-            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID])
+            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID], orient="row")
             .explode(PL_READ_ID)
             .with_columns(pl.col(PL_DEST_FNAME).cast(pl.Categorical))
         )
