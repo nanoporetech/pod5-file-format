@@ -166,8 +166,8 @@ class TestView:
         assert isinstance(run_info, pl.LazyFrame)
         run_info = run_info.collect()
         assert run_info.is_unique().all()
-        assert "context_tags" not in run_info.columns
-        assert "tracking_id" not in run_info.columns
+        assert "context_tags" not in run_info.collect_schema().names()
+        assert "tracking_id" not in run_info.collect_schema().names()
 
     def test_parse_reads_all(self, pod5_factory) -> None:
         """Test the reads table parser where the file is small enough to do in one go"""
@@ -176,8 +176,8 @@ class TestView:
             reads = parse_reads_table_all(reader)
 
         assert isinstance(reads, pl.LazyFrame)
-        assert "read_id" in reads.columns
-        assert "run_info" in reads.columns
+        assert "read_id" in reads.collect_schema().names()
+        assert "run_info" in reads.collect_schema().names()
         assert len(reads.collect()) == 10
 
     def test_parse_reads_multi_chunk(self, pod5_factory) -> None:
@@ -189,8 +189,8 @@ class TestView:
         assert len(tables) == 2
         for table in tables:
             assert isinstance(table, pl.LazyFrame)
-            assert "read_id" in table.columns
-            assert "run_info" in table.columns
+            assert "read_id" in table.collect_schema().names()
+            assert "run_info" in table.collect_schema().names()
 
         all_reads = pl.concat(tables)
         assert len(all_reads.collect()) == 1100

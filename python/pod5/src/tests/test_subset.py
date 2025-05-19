@@ -298,24 +298,24 @@ class TestParse:
         assert PL_DEST_FNAME in csv_channel.columns
 
         expected_mapping = {
-            "channel-109.pod5": {"0000173c-bf67-44e7-9a9c-1ad0bc728e74"},
-            "channel-126.pod5": {"007cc97e-6de2-4ff6-a0fd-1c1eca816425"},
-            "channel-147.pod5": {"00728efb-2120-4224-87d8-580fbb0bd4b2"},
-            "channel-199.pod5": {"00919556-e519-4960-8aa5-c2dfa020980c"},
-            "channel-2.pod5": {"008468c3-e477-46c4-a6e2-7d021a4ebf0b"},
-            "channel-452.pod5": {"009dc9bd-c5f4-487b-ba4c-b9ce7e3a711e"},
-            "channel-463.pod5": {"002fde30-9e23-4125-9eae-d112c18a81a7"},
-            "channel-474.pod5": {"008ed3dc-86c2-452f-b107-6877a473d177"},
-            "channel-489.pod5": {"006d1319-2877-4b34-85df-34de7250a47b"},
-            "channel-53.pod5": {"00925f34-6baf-47fc-b40c-22591e27fb5c"},
+            "channel-109.pod5": ["0000173c-bf67-44e7-9a9c-1ad0bc728e74"],
+            "channel-126.pod5": ["007cc97e-6de2-4ff6-a0fd-1c1eca816425"],
+            "channel-147.pod5": ["00728efb-2120-4224-87d8-580fbb0bd4b2"],
+            "channel-199.pod5": ["00919556-e519-4960-8aa5-c2dfa020980c"],
+            "channel-2.pod5": ["008468c3-e477-46c4-a6e2-7d021a4ebf0b"],
+            "channel-452.pod5": ["009dc9bd-c5f4-487b-ba4c-b9ce7e3a711e"],
+            "channel-463.pod5": ["002fde30-9e23-4125-9eae-d112c18a81a7"],
+            "channel-474.pod5": ["008ed3dc-86c2-452f-b107-6877a473d177"],
+            "channel-489.pod5": ["006d1319-2877-4b34-85df-34de7250a47b"],
+            "channel-53.pod5": ["00925f34-6baf-47fc-b40c-22591e27fb5c"],
         }
 
         records = []
         for fname, rids in expected_mapping.items():
-            records.append([fname, list(rids)])
+            records.append([fname, rids])
 
         expected = (
-            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID])
+            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID], orient="row")
             .explode(PL_READ_ID)
             .with_columns(pl.col(PL_DEST_FNAME).cast(pl.Categorical))
         )
@@ -348,28 +348,28 @@ class TestParse:
         assert "end_reason" in csv_df.columns
 
         expected_mapping = {
-            "well-2_end_reason-unknown.pod5": {
+            "well-2_end_reason-unknown.pod5": [
                 "002fde30-9e23-4125-9eae-d112c18a81a7",
                 "009dc9bd-c5f4-487b-ba4c-b9ce7e3a711e",
                 "008468c3-e477-46c4-a6e2-7d021a4ebf0b",
                 "00728efb-2120-4224-87d8-580fbb0bd4b2",
                 "007cc97e-6de2-4ff6-a0fd-1c1eca816425",
-            },
-            "well-4_end_reason-unknown.pod5": {
+            ],
+            "well-4_end_reason-unknown.pod5": [
                 "00919556-e519-4960-8aa5-c2dfa020980c",
                 "0000173c-bf67-44e7-9a9c-1ad0bc728e74",
                 "008ed3dc-86c2-452f-b107-6877a473d177",
                 "006d1319-2877-4b34-85df-34de7250a47b",
                 "00925f34-6baf-47fc-b40c-22591e27fb5c",
-            },
+            ],
         }
 
         records = []
         for fname, rids in expected_mapping.items():
-            records.append([fname, list(rids)])
+            records.append([fname, rids])
 
         expected = (
-            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID])
+            pl.from_records(records, schema=[PL_DEST_FNAME, PL_READ_ID], orient="row")
             .explode(PL_READ_ID)
             .with_columns(pl.col(PL_DEST_FNAME).cast(pl.Categorical))
         )

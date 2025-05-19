@@ -33,8 +33,8 @@ class TestFilterParseIds:
         return rids
 
     def _assert_columns(self, df: pl.LazyFrame) -> None:
-        assert PL_READ_ID in df.columns
-        assert PL_DEST_FNAME in df.columns
+        assert PL_READ_ID in df.collect_schema().names()
+        assert PL_DEST_FNAME in df.collect_schema().names()
 
     def _assert_all_expected(self, df: pl.LazyFrame) -> None:
         read_ids = df.select(PL_READ_ID).collect().to_series().to_list()

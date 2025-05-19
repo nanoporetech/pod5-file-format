@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dropped automated ARM+GCC8 builds.
 
+### Changed
+
+- Bumped polars to next major version (`~= 1.20`).
+
 ## [0.3.26]
 
 ### Changed
