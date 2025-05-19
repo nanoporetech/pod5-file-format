@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Bumped polars to next major version (`~= 1.0`).
+- Bumped polars to next major version (`~= 1.20`).
 
 ## [0.3.26]
 
