@@ -29,10 +29,21 @@ def pl_format_empty_string(expr: pl.Expr, subst: Optional[str]) -> pl.Expr:
 
 def pl_from_arrow(table: pa.Table, rechunk: bool) -> pl.DataFrame:
     """Workaround failure to read our arrow extension type"""
-    # Taken from https://github.com/pola-rs/polars/issues/20700
+    # Based on https://github.com/pola-rs/polars/issues/20700
+
+    def remove_pod5_metadata(field: pa.Field) -> pa.Field:
+        metadata = field.metadata
+        if metadata is not None and metadata.get(b"ARROW:extension:name") in [
+            b"minknow.uuid",
+            b"minknow.vbz",
+        ]:
+            del metadata[b"ARROW:extension:name"]
+            field = field.remove_metadata().with_metadata(metadata)
+        return field
+
     table = pa.Table.from_batches(
         table.to_batches(),
-        schema=pa.schema([field.remove_metadata() for field in table.schema]),
+        schema=pa.schema([remove_pod5_metadata(field) for field in table.schema]),
     )
     return pl.from_arrow(table, rechunk=rechunk)
 
