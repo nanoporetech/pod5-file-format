@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed some crashes when parsing corrupt POD5 files.
 - Fixed missing error handling when the C API is called incorrectly.
 - Fixed and clarified C API thread safety.
+- Fall back to regular IO if direct IO is requested, but file opening fails.
 
 ### Removed
 

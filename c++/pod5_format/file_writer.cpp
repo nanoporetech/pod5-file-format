@@ -53,7 +53,7 @@ arrow::Result<std::shared_ptr<pod5::FileOutputStream>> make_file_stream(
                     cached_values.io_manager, pod5::make_sync_io_manager(options.memory_pool()));
             }
         }
-        return pod5::LinuxOutputStream::make(
+        auto const ret = pod5::LinuxOutputStream::make(
             path,
             cached_values.io_manager,
             options.write_chunk_size(),
@@ -61,6 +61,12 @@ arrow::Result<std::shared_ptr<pod5::FileOutputStream>> make_file_stream(
             options.use_sync_io(),
             flush_mode == FlushMode::ForceFlushOnBatchComplete ? true
                                                                : options.flush_on_batch_complete());
+
+        // Failure could be due to direct IO used by LinuxOutputStream not being
+        // supported. On error drop-through to make a regular AsyncOutputStream.
+        if (ret.ok()) {
+            return ret;
+        }
     }
 
 #endif
