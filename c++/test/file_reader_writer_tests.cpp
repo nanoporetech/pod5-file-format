@@ -24,9 +24,10 @@
 #include <string>
 #include <thread>
 
-void run_file_reader_writer_tests()
+void run_file_reader_writer_tests(
+    char const * file,
+    pod5::FileWriterOptions const & extra_options = {})
 {
-    static constexpr char const * file = "./foo.pod5";
     REQUIRE_ARROW_STATUS_OK(remove_file_if_exists(file));
     (void)pod5::register_extension_types();
     auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
@@ -57,7 +58,7 @@ void run_file_reader_writer_tests()
 
     // Write a file:
     {
-        pod5::FileWriterOptions options;
+        pod5::FileWriterOptions options = extra_options;
         options.set_max_signal_chunk_size(20'480);
         options.set_read_table_batch_size(1);
         options.set_signal_table_batch_size(5);
@@ -173,7 +174,40 @@ void run_file_reader_writer_tests()
     }
 }
 
-SCENARIO("File Reader Writer Tests") { run_file_reader_writer_tests(); }
+SCENARIO("File Reader Writer Tests") { run_file_reader_writer_tests("./foo.pod5"); }
+
+#ifdef __linux__
+TEST_CASE("Additional make_file_stream() tests")
+{
+    // When the user filesystem doesn't support direct-io, but it is requested then
+    // make_file_stream() should fallback to a "regular" FileOutputStream
+
+    // This because of the disk mounting, this test can only be run by someone or something that
+    // is effectively a root user.
+    if (::geteuid() != 0) {
+        WARN("SKIPPING TEST: Need root privileges to mount a test drive.");
+        return;
+    }
+
+    // Create and mount tmpfs drive.
+    std::filesystem::path const dir_path = "./ramdisk";
+    std::filesystem::create_directory(dir_path);
+    auto remove_directory = gsl::finally([&] { std::filesystem::remove(dir_path); });
+    auto const mount_cmd = std::string{"mount -o size=500M -t tmpfs none "} + dir_path.string();
+    auto const umount_cmd = std::string{"umount "} + dir_path.string();
+    auto const mount_return = std::system(mount_cmd.c_str());
+    REQUIRE(mount_return == 0);
+    auto remove_mount = gsl::finally([&] { std::system(umount_cmd.c_str()); });
+
+    pod5::FileWriterOptions options_for_direct_io;
+    options_for_direct_io.set_use_directio(true);
+    options_for_direct_io.set_use_sync_io(true);
+    options_for_direct_io.set_write_chunk_size(524288);
+
+    auto const test_file_path = dir_path / "bar.pod5";
+    run_file_reader_writer_tests(test_file_path.c_str(), options_for_direct_io);
+}
+#endif
 
 SCENARIO("Opening older files")
 {
