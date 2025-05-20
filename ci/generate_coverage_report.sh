@@ -57,4 +57,5 @@ done
 generate_coverage "all" ""
 
 # CI wants to see a TOTAL line in order to report coverage, so give it the one from all tests.
-gcovr "${gcovr_args[@]}" | grep TOTAL
+# gcovr only has a resolution of 1%, so do the calculation ourselves.
+gcovr "${gcovr_args[@]}" | grep TOTAL | awk '{print $1, $2, $3, 100 * $3 / $2 "%"}'
