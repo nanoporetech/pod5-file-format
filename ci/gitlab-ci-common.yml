@@ -369,6 +369,42 @@ before_script:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
+.profile-linux-x86_64-gcc11-asan-static:
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc11-asan-static.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
+.profile-linux-x86_64-gcc11-ausan-static:
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc11-ausan-static.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
+.profile-linux-x86_64-gcc11-tsan-static:
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc11-tsan-static.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
+.profile-linux-x86_64-gcc11-usan-static:
+    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
+    tags:
+        - linux_x86
+        - docker
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc11-usan-static.jinja
+    parallel: !reference [.parallel-cppstd,parallel]
+
 .profile-linux-x86_64-gcc13:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc13:latest
     tags:
