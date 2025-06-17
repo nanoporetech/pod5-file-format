@@ -939,6 +939,17 @@ upload-conan:linux-x86_64-gcc11-asan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-asan" ]
 
+build-conan:linux-x86_64-gcc11-asan-static:
+    extends:
+        - .profile-linux-x86_64-gcc11-asan-static
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc11-asan-static:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-asan-static" ]
+
 build-conan:linux-x86_64-gcc11-tsan:
     extends:
         - .profile-linux-x86_64-gcc11
@@ -950,6 +961,17 @@ upload-conan:linux-x86_64-gcc11-tsan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-tsan" ]
 
+build-conan:linux-x86_64-gcc11-tsan-static:
+    extends:
+        - .profile-linux-x86_64-gcc11-tsan-static
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc11-tsan-static:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-tsan-static" ]
+
 build-conan:linux-x86_64-gcc11-ubsan:
     extends:
         - .profile-linux-x86_64-gcc11
@@ -960,6 +982,17 @@ build-conan:linux-x86_64-gcc11-ubsan:
 upload-conan:linux-x86_64-gcc11-ubsan:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-ubsan" ]
+
+build-conan:linux-x86_64-gcc11-usan-static:
+    extends:
+        - .profile-linux-x86_64-gcc11-usan-static
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc11-usan-static:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-usan-static" ]
 
 build-conan:linux-aarch64-gcc9:
     extends:
