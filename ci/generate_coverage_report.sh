@@ -24,6 +24,12 @@ project_root=$(dirname "${project_root}")
 project_root=$(dirname "${project_root}")
 cd "${project_root}"
 
+gcovr_args=(
+    # work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=68080
+    --gcov-ignore-parse-errors=negative_hits.warn
+    --filter "${project_root}/c\+\+"
+)
+
 function generate_coverage {
     test_name=$1
     regex=$2
@@ -38,8 +44,8 @@ function generate_coverage {
     ctest --test-dir "${build_dir}" ${regex}
 
     # Generate the coverage report for this test.
-    gcovr --filter "${project_root}/c\+\+" --cobertura "${project_root}/coverage-report-${test_name}.xml"
-    gcovr --filter "${project_root}/c\+\+" --html-single-page --html-details "${project_root}/coverage-report-${test_name}.html"
+    gcovr "${gcovr_args[@]}" --cobertura "${project_root}/coverage-report-${test_name}.xml"
+    gcovr "${gcovr_args[@]}" --html-single-page --html-details "${project_root}/coverage-report-${test_name}.html"
 }
 
 # Generate a report for each test.
@@ -51,4 +57,4 @@ done
 generate_coverage "all" ""
 
 # CI wants to see a TOTAL line in order to report coverage, so give it the one from all tests.
-gcovr --filter "${project_root}/c\+\+" | grep TOTAL
+gcovr "${gcovr_args[@]}" | grep TOTAL
