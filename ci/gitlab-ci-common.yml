@@ -297,18 +297,6 @@ before_script:
 #
 # Set up for MacOS versions
 #
-.profile-macos-x86_64-appleclang-14.0:
-    # Set up for MacOS x86 using clang 14.0, using conan and the profile
-    # macos-x86_64-appleclang-14.0, adapted for debug and release. To be called from individual
-    # packages by using "extends".
-    tags:
-        - osx
-        - appleclang-14.0
-        - conan
-    variables:
-        PROFILE_BASE: macos-x86_64-appleclang-14.0.jinja
-    parallel: !reference [.parallel-cppstd,parallel]
-
 .profile-macos-aarch64-appleclang-15.0:
     # Set up for MacOS arm 64 using clang 15.0, using conan and the profile
     # macos-aarch64-appleclang-15.0, adapted for debug and release. To be called from individual

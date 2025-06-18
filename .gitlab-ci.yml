@@ -353,25 +353,6 @@ linux-aarch64-gcc9-release-build:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
-osx-x64-clang14-release-build:
-  extends: [".build-osx-common"]
-  tags:
-    - osx_x86
-    - xcode-15.3
-    - high-cpu
-    - conan
-  variables:
-    CONAN_PROFILE: "macos-x86_64-appleclang-14.0.jinja"
-    CONAN_PROFILE_CPPSTD: 20
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.9.13"]
-        MACOSX_DEPLOYMENT_TARGET: "10.15"
-        OUTPUT_SKU: "osx-10.15-x64"
-      - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0", "3.13.0"]
-        MACOSX_DEPLOYMENT_TARGET: "10.15"
-        OUTPUT_SKU: "osx-10.15-x64"
-
 osx-arm64-clang15-release-build:
   extends: [".build-osx-common"]
   tags:
@@ -562,18 +543,6 @@ pytest-linux-aarch64:
     - high-cpu
   needs:
     - linux-aarch64-gcc9-release-build
-    - build-python-api
-
-pytest-osx-x64:
-  extends:
-    - .pytest
-    - .parallel-py-versions
-  tags:
-    - osx_x86
-    - high-cpu
-    - conan
-  needs:
-    - osx-x64-clang14-release-build
     - build-python-api
 
 pytest-win-x64:
@@ -829,17 +798,6 @@ upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
 
-build-conan:macos-x86_64-appleclang-14.0:
-    extends:
-        - .profile-macos-x86_64-appleclang-14.0
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-    needs: ["prepare_version", "osx-x64-clang14-release-build"]
-upload-conan:macos-x86_64-appleclang-14.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-x86_64-appleclang-14.0" ]
-
 build-conan:macos-aarch64-appleclang-15.0:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
@@ -1040,7 +998,6 @@ build-archive:
   needs:
     - linux-x64-gcc9-release-build
     - linux-aarch64-gcc9-release-build
-    - osx-x64-clang14-release-build
     - osx-arm64-clang15-release-build
     - win-x64-msvc2019-release-build
     - build-python-api
