@@ -823,7 +823,7 @@ upload-conan:macos-aarch64-appleclang-16.0:
 build-conan:macos-aarch64-appleclang-15.0-asan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
-        - .build-package-with-asan
+        - .build-package
         - .conan-build-common
         - .build-shared-and-static
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
@@ -834,7 +834,7 @@ upload-conan:macos-aarch64-appleclang-15.0-asan:
 build-conan:macos-aarch64-appleclang-15.0-tsan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
-        - .build-package-with-tsan
+        - .build-package
         - .conan-build-common
         - .build-shared-and-static
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
@@ -845,7 +845,7 @@ upload-conan:macos-aarch64-appleclang-15.0-tsan:
 build-conan:macos-aarch64-appleclang-15.0-ubsan:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
-        - .build-package-with-ubsan
+        - .build-package
         - .conan-build-common
         - .build-shared-and-static
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
@@ -889,7 +889,7 @@ upload-conan:linux-x86_64-gcc13:
 build-conan:linux-x86_64-gcc11-asan:
     extends:
         - .profile-linux-x86_64-gcc11
-        - .build-package-with-asan
+        - .build-package
         - .conan-build-common
         - .build-shared-and-static
     needs: ["prepare_version"]
@@ -911,7 +911,7 @@ upload-conan:linux-x86_64-gcc11-asan-static:
 build-conan:linux-x86_64-gcc11-tsan:
     extends:
         - .profile-linux-x86_64-gcc11
-        - .build-package-with-tsan
+        - .build-package
         - .conan-build-common
         - .build-shared-and-static
     needs: ["prepare_version"]
@@ -933,7 +933,7 @@ upload-conan:linux-x86_64-gcc11-tsan-static:
 build-conan:linux-x86_64-gcc11-ubsan:
     extends:
         - .profile-linux-x86_64-gcc11
-        - .build-package-with-ubsan
+        - .build-package
         - .conan-build-common
         - .build-shared-and-static
     needs: ["prepare_version"]
