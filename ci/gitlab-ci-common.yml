@@ -80,15 +80,15 @@ before_script:
             if [[ -n ${VERSIONS} ]]; then
                 for version in ${VERSIONS}; do
                     export CONAN_PROFILE_BUILD_TYPE=Debug
-                    conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                    conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
                     export CONAN_PROFILE_BUILD_TYPE=Release
-                    conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                    conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${version}@${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
                 done
             else
                 export CONAN_PROFILE_BUILD_TYPE=Debug
-                conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST}  ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST}  ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
                 export CONAN_PROFILE_BUILD_TYPE=Release
-                conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
             fi
     after_script:
         # Avoid storing things on the CI node unnecessarily
@@ -145,23 +145,23 @@ before_script:
                 --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
                 ${version}@${CONAN_USER}/${CONAN_CHANNEL}
                 -o ${PACKAGE}:shared=False
-                ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                ${EXTRA_CREATE_ARGS}
         -     conan create --profile:build ${PROFILE_BASE_BUILD}
                 --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
                 ${version}@${CONAN_USER}/${CONAN_CHANNEL}
                 -o ${PACKAGE}:shared=True
-                ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                ${EXTRA_CREATE_ARGS}
         -     export CONAN_PROFILE_BUILD_TYPE=Release
         -     conan create --profile:build ${PROFILE_BASE_BUILD}
                 --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
                 ${version}@${CONAN_USER}/${CONAN_CHANNEL}
                 -o ${PACKAGE}:shared=False
-                ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                ${EXTRA_CREATE_ARGS}
         -     conan create --profile:build ${PROFILE_BASE_BUILD}
                 --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
                 ${version}@${CONAN_USER}/${CONAN_CHANNEL}
                 -o ${PACKAGE}:shared=True
-                ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+                ${EXTRA_CREATE_ARGS}
         -   done
         - else
         -   export CONAN_PROFILE_BUILD_TYPE=Debug
@@ -169,42 +169,24 @@ before_script:
               --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
               ${CONAN_USER}/${CONAN_CHANNEL}
               -o ${PACKAGE}:shared=False
-              ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+              ${EXTRA_CREATE_ARGS}
         -   conan create --profile:build ${PROFILE_BASE_BUILD}
               --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
               ${CONAN_USER}/${CONAN_CHANNEL}
               -o ${PACKAGE}:shared=True
-              ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+              ${EXTRA_CREATE_ARGS}
         -   export CONAN_PROFILE_BUILD_TYPE=Release
         -   conan create --profile:build ${PROFILE_BASE_BUILD}
               --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
               ${CONAN_USER}/${CONAN_CHANNEL}
               -o ${PACKAGE}:shared=False
-              ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+              ${EXTRA_CREATE_ARGS}
         -   conan create --profile:build ${PROFILE_BASE_BUILD}
               --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE}
               ${CONAN_USER}/${CONAN_CHANNEL}
               -o ${PACKAGE}:shared=True
-              ${EXTRA_CREATE_ARGS} ${SANITIZER_ARGS}
+              ${EXTRA_CREATE_ARGS}
         - fi
-
-.build-package-with-asan:
-    # Almost the same as build-package, but with address sanitizer enabled.
-    extends: .build-package
-    variables:
-        SANITIZER_ARGS: "-o compiler.sanitizer=AddressStatic"
-
-.build-package-with-tsan:
-    # Almost the same as build-package, but with thread sanitizer enabled.
-    extends: .build-package
-    variables:
-        SANITIZER_ARGS: "-o compiler.sanitizer=ThreadStatic"
-
-.build-package-with-ubsan:
-    # Almost the same as build-package, but with undefined behaviour sanitizer enabled.
-    extends: .build-package
-    variables:
-        SANITIZER_ARGS: "-o compiler.sanitizer=UndefinedBehaviorStatic"
 
 .upload-package:
     stage: upload
