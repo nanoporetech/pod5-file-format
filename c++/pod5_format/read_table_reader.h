@@ -43,12 +43,12 @@ struct ReadTableRecordColumns {
 
     std::shared_ptr<arrow::UInt64Array> num_minknow_events;
 
-    std::shared_ptr<arrow::FloatArray> tracked_scaling_scale;
-    std::shared_ptr<arrow::FloatArray> tracked_scaling_shift;
-    std::shared_ptr<arrow::FloatArray> predicted_scaling_scale;
-    std::shared_ptr<arrow::FloatArray> predicted_scaling_shift;
-    std::shared_ptr<arrow::UInt32Array> num_reads_since_mux_change;
-    std::shared_ptr<arrow::FloatArray> time_since_mux_change;
+    [[deprecated]] std::shared_ptr<arrow::FloatArray> tracked_scaling_scale;
+    [[deprecated]] std::shared_ptr<arrow::FloatArray> tracked_scaling_shift;
+    [[deprecated]] std::shared_ptr<arrow::FloatArray> predicted_scaling_scale;
+    [[deprecated]] std::shared_ptr<arrow::FloatArray> predicted_scaling_shift;
+    [[deprecated]] std::shared_ptr<arrow::UInt32Array> num_reads_since_mux_change;
+    [[deprecated]] std::shared_ptr<arrow::FloatArray> time_since_mux_change;
 
     std::shared_ptr<arrow::UInt64Array> num_samples;
 

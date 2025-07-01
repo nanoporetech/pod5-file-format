@@ -5,14 +5,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef _WIN32
-#define POD5_DEPRECATED __attribute__((deprecated))
-#else
-#define POD5_DEPRECATED
-#endif
-
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifndef _WIN32
+#define POD5_DEPRECATED __attribute__((deprecated))
+#elif (__STDC_VERSION__ >= 202000)
+#define POD5_DEPRECATED [[deprecated]]
+#else
+#define POD5_DEPRECATED
 #endif
 
 /// All functions are thread safe unless otherwise stated. Types may be used by multiple
@@ -119,17 +121,21 @@ struct ReadBatchRowInfoV3 {
     uint64_t num_minknow_events;
 
     // Scale/Shift for tracked read scaling values (based on previous reads)
-    float tracked_scaling_scale;
-    float tracked_scaling_shift;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float tracked_scaling_scale;
+    POD5_DEPRECATED float tracked_scaling_shift;
 
     // Scale/Shift for predicted read scaling values (based on this read's raw signal)
-    float predicted_scaling_scale;
-    float predicted_scaling_shift;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float predicted_scaling_scale;
+    POD5_DEPRECATED float predicted_scaling_shift;
 
     // How many reads have been selected prior to this read on the channel-well since it was made active.
-    uint32_t num_reads_since_mux_change;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED uint32_t num_reads_since_mux_change;
     // How many seconds have passed since the channel-well was made active
-    float time_since_mux_change;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float time_since_mux_change;
 
     // Number of signal row entries for the read.
     int64_t signal_row_count;
@@ -174,17 +180,21 @@ struct ReadBatchRowInfoArrayV3 {
     uint64_t const * num_minknow_events;
 
     // Scale/Shift for tracked read scaling values (based on previous reads)
-    float const * tracked_scaling_scale;
-    float const * tracked_scaling_shift;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float const * tracked_scaling_scale;
+    POD5_DEPRECATED float const * tracked_scaling_shift;
 
     // Scale/Shift for predicted read scaling values (based on this read's raw signal)
-    float const * predicted_scaling_scale;
-    float const * predicted_scaling_shift;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float const * predicted_scaling_scale;
+    POD5_DEPRECATED float const * predicted_scaling_shift;
 
     // How many reads have been selected prior to this read on the channel-well since it was made active.
-    uint32_t const * num_reads_since_mux_change;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED uint32_t const * num_reads_since_mux_change;
     // How many seconds have passed since the channel-well was made active
-    float const * time_since_mux_change;
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float const * time_since_mux_change;
 };
 
 // Typedef for latest batch row info structure.

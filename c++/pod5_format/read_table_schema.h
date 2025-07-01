@@ -64,12 +64,12 @@ public:
 
     // V1 fields
     Field<5, arrow::UInt64Array> num_minknow_events;
-    Field<6, arrow::FloatArray> tracked_scaling_scale;
-    Field<7, arrow::FloatArray> tracked_scaling_shift;
-    Field<8, arrow::FloatArray> predicted_scaling_scale;
-    Field<9, arrow::FloatArray> predicted_scaling_shift;
-    Field<10, arrow::UInt32Array> num_reads_since_mux_change;
-    Field<11, arrow::FloatArray> time_since_mux_change;
+    [[deprecated]] Field<6, arrow::FloatArray> tracked_scaling_scale;
+    [[deprecated]] Field<7, arrow::FloatArray> tracked_scaling_shift;
+    [[deprecated]] Field<8, arrow::FloatArray> predicted_scaling_scale;
+    [[deprecated]] Field<9, arrow::FloatArray> predicted_scaling_shift;
+    [[deprecated]] Field<10, arrow::UInt32Array> num_reads_since_mux_change;
+    [[deprecated]] Field<11, arrow::FloatArray> time_since_mux_change;
 
     // V2 fields
     Field<12, arrow::UInt64Array> num_samples;

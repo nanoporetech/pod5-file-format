@@ -82,12 +82,12 @@ public:
 
     // V2 Fields
     std::uint64_t num_minknow_events;
-    float tracked_scaling_scale;
-    float tracked_scaling_shift;
-    float predicted_scaling_scale;
-    float predicted_scaling_shift;
-    std::uint32_t num_reads_since_mux_change;
-    float time_since_mux_change;
+    [[deprecated]] float tracked_scaling_scale;
+    [[deprecated]] float tracked_scaling_shift;
+    [[deprecated]] float predicted_scaling_scale;
+    [[deprecated]] float predicted_scaling_shift;
+    [[deprecated]] std::uint32_t num_reads_since_mux_change;
+    [[deprecated]] float time_since_mux_change;
 
     // V3 Fields
     std::uint16_t channel;
