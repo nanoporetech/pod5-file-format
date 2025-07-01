@@ -864,6 +864,17 @@ upload-conan:linux-x86_64-gcc11-asan-static:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-asan-static" ]
 
+build-conan:linux-x86_64-gcc13-asan-static:
+    extends:
+        - .profile-linux-x86_64-gcc13-asan-static
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc13-asan-static:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-asan-static" ]
+
 build-conan:linux-x86_64-gcc11-tsan-static:
     extends:
         - .profile-linux-x86_64-gcc11-tsan-static
@@ -875,6 +886,17 @@ upload-conan:linux-x86_64-gcc11-tsan-static:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-tsan-static" ]
 
+build-conan:linux-x86_64-gcc13-tsan-static:
+    extends:
+        - .profile-linux-x86_64-gcc13-tsan-static
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc13-tsan-static:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-tsan-static" ]
+
 build-conan:linux-x86_64-gcc11-usan-static:
     extends:
         - .profile-linux-x86_64-gcc11-usan-static
@@ -885,6 +907,17 @@ build-conan:linux-x86_64-gcc11-usan-static:
 upload-conan:linux-x86_64-gcc11-usan-static:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-usan-static" ]
+
+build-conan:linux-x86_64-gcc13-usan-static:
+    extends:
+        - .profile-linux-x86_64-gcc13-usan-static
+        - .build-package
+        - .conan-build-common
+        - .build-shared-and-static
+    needs: ["prepare_version"]
+upload-conan:linux-x86_64-gcc13-usan-static:
+    extends: .conan-upload
+    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-usan-static" ]
 
 build-conan:linux-aarch64-gcc9:
     extends:
