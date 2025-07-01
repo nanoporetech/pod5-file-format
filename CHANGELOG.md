@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Dropped incorrect sanitized conan jobs.
+- Deprecated support for unused read scaling values "tracked_scaling_scale", "tracked_scaling_shift", "predicted_scaling_scale", "predicted_scaling_shift", "num_reads_since_mux_change" and "time_since_mux_change". These will be removed from stored data and writer API in 0.4.0, with accessing API remaining in place until 0.5.0.
 
 ## [0.3.29]
 

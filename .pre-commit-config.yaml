@@ -39,6 +39,7 @@ repos:
         files: 'python/pod5/src/'
         args: [ --check-untyped-defs, --ignore-missing-imports ]
         additional_dependencies:
+          - types-Deprecated
           - types-setuptools
           - types-pytz
 

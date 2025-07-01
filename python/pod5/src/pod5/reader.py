@@ -5,6 +5,7 @@ Tools for accessing POD5 data from PyArrow files
 import mmap
 from collections import namedtuple
 from dataclasses import fields
+from deprecated import deprecated
 from io import BufferedReader, IOBase
 import os
 from pathlib import Path
@@ -59,11 +60,17 @@ ReadRecordV3Columns = namedtuple(
         "run_info",
         "signal",
         "num_minknow_events",
+        # Deprecated: will be removed in 0.4.0
         "tracked_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
         "tracked_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
         "predicted_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
         "predicted_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
         "num_reads_since_mux_change",
+        # Deprecated: will be removed in 0.4.0
         "time_since_mux_change",
         "num_samples",
     ],
@@ -140,6 +147,9 @@ class ReadRecord:
         return self._batch.columns.num_minknow_events[self._row].as_py()  # type: ignore
 
     @property
+    @deprecated(
+        version="0.4.0", reason="Scaling fields were unused and will be removed"
+    )
     def tracked_scaling(self) -> ShiftScalePair:
         """
         Find the tracked scaling value in the read.
@@ -150,6 +160,9 @@ class ReadRecord:
         )
 
     @property
+    @deprecated(
+        version="0.4.0", reason="Scaling fields were unused and will be removed"
+    )
     def predicted_scaling(self) -> ShiftScalePair:
         """
         Find the predicted scaling value in the read.
@@ -160,6 +173,9 @@ class ReadRecord:
         )
 
     @property
+    @deprecated(
+        version="0.4.0", reason="Scaling fields were unused and will be removed"
+    )
     def num_reads_since_mux_change(self) -> int:
         """
         Number of selected reads since the last mux change on this reads channel.
@@ -167,6 +183,9 @@ class ReadRecord:
         return self._batch.columns.num_reads_since_mux_change[self._row].as_py()  # type: ignore
 
     @property
+    @deprecated(
+        version="0.4.0", reason="Scaling fields were unused and will be removed"
+    )
     def time_since_mux_change(self) -> float:
         """
         Time in seconds since the last mux change on this reads channel.

@@ -24,6 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
+  "deprecated ~= 1.2.18",
   "lib_pod5 == 0.3.30",
   "iso8601",
   "more_itertools",
@@ -47,6 +48,7 @@ dev = [
   "pytest ~= 7.3",
   "pytest-cov ~= 4.0",
   "pytest-mock",
+  "types-Deprecated",
   "types-setuptools",
   "types-pytz",
 ]
