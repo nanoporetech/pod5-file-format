@@ -384,6 +384,22 @@ before_script:
         PROFILE_BASE: linux-x86_64-gcc13.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
+.profile-linux-x86_64-gcc13-asan-static:
+    extends: .profile-linux-x86_64-gcc13
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc13-asan-static.jinja
+
+.profile-linux-x86_64-gcc13-tsan-static:
+    extends: .profile-linux-x86_64-gcc13
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc13-tsan-static.jinja
+
+.profile-linux-x86_64-gcc13-usan-static:
+    extends: .profile-linux-x86_64-gcc13
+    variables:
+        PROFILE_BASE: linux-x86_64-gcc13-usan-static.jinja
+
+
 .profile-linux-aarch64-gcc9:
     # Set up for linux arm64 using gcc9, using docker and the profile linux-aarch64-gcc9, adapted
     # for debug and release. To be called from individual packages by using "extends".
