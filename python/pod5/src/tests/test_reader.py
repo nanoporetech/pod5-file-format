@@ -124,7 +124,7 @@ class TestPod5Reader:
         with p5.Reader(POD5_PATH) as reader:
             assert isinstance(reader.path, Path)
             assert reader.path == POD5_PATH
-            assert reader.reads_table_version == 3
+            assert reader.reads_table_version == 4
 
             # File handles
             assert isinstance(reader.inner_file_reader, p5b.Pod5FileReader)

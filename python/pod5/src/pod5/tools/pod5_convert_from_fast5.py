@@ -560,6 +560,7 @@ def convert_fast5_read(
         ),
         num_reads_since_mux_change=raw.attrs.get("num_reads_since_mux_change", 0),
         time_since_mux_change=raw.attrs.get("time_since_mux_change", 0.0),
+        open_pore_level=float("nan"),  # Not supported in fast5
         end_reason=end_reason,
         run_info=run_info_cache[acq_id],
         signal_chunks=signal_chunks,

@@ -208,6 +208,13 @@ EXPECTED_POD5_RESULTS = {
 }
 
 
+def unraisablehook(unraisable):
+    print(unraisable.exc_type, unraisable.exc_value, unraisable.exc_traceback)
+
+
+sys.unraisablehook = unraisablehook
+
+
 class TestFast5Conversion:
     """Test the fast5 to pod5 conversion"""
 
@@ -665,7 +672,7 @@ class TestConvertLoop:
             raise exc
 
     def test_convert_fast5_files_breaks_loop(self) -> None:
-        threads, timeout = 5, 0.05
+        threads, timeout = 1, 0.05
         ctx = mp.get_context("spawn")
         qm = QueueManager(ctx, [], threads, timeout)
         convert_fast5_files(qm)

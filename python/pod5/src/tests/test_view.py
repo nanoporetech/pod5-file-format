@@ -47,6 +47,7 @@ ALL_FIELDS = [
     "tracked_scaling_shift",
     "num_reads_since_mux_change",
     "time_since_mux_change",
+    "open_pore_level",
     "run_id",
     "sample_id",
     "experiment_id",
@@ -90,6 +91,7 @@ class TestView:
             row["num_reads_since_mux_change"]
         )
         pytest.approx(record.time_since_mux_change, float(row["time_since_mux_change"]))
+        pytest.approx(record.open_pore_level, float(row["open_pore_level"]))
         assert record.run_info.protocol_run_id == row["run_id"]
         self.is_equal_or_not_set(record.run_info.sample_id, row["sample_id"])
         self.is_equal_or_not_set(record.run_info.experiment_name, row["experiment_id"])

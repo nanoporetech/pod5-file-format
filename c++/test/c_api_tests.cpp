@@ -57,6 +57,7 @@ SCENARIO("C API Reads")
     float tracked_shift = 15.0f;
     std::uint32_t num_reads_since_mux_change = 1234;
     float time_since_mux_change = 2.4f;
+    float open_pore_level = 123.0f;
     std::uint64_t num_minknow_events = 104;
 
     // Write the file:
@@ -94,7 +95,7 @@ SCENARIO("C API Reads")
         auto read_id_array = (read_id_t const *)input_read_id.data();
 
         std::int16_t run_info_id = 0;
-        ReadBatchRowInfoArrayV3 row_data{
+        ReadBatchRowInfoArrayV4 row_data{
             read_id_array,
             &read_number,
             &start_sample,
@@ -113,7 +114,8 @@ SCENARIO("C API Reads")
             &predicted_scale,
             &predicted_shift,
             &num_reads_since_mux_change,
-            &time_since_mux_change};
+            &time_since_mux_change,
+            &open_pore_level};
 
         std::int16_t const * signal_arr[] = {signal_1.data()};
         std::uint32_t signal_size[] = {(std::uint32_t)signal_1.size()};
@@ -121,7 +123,7 @@ SCENARIO("C API Reads")
         // Referencing a non-existent run id should fail:
         CHECK(
             pod5_add_reads_data(
-                file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data, signal_arr, signal_size)
+                file, 1, READ_BATCH_ROW_INFO_VERSION_4, &row_data, signal_arr, signal_size)
             == POD5_ERROR_INVALID);
 
         // Now actually add the run info:
@@ -154,10 +156,8 @@ SCENARIO("C API Reads")
             tracking_id_values.data()));
         CHECK(run_info_id == 0);
 
-        {
-            CHECK_POD5_OK(pod5_add_reads_data(
-                file, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data, signal_arr, signal_size));
-        }
+        CHECK_POD5_OK(pod5_add_reads_data(
+            file, 1, READ_BATCH_ROW_INFO_VERSION_4, &row_data, signal_arr, signal_size));
 
         {
             auto compressed_read_max_size = pod5_vbz_compressed_signal_max_size(signal_2.size());
@@ -174,13 +174,32 @@ SCENARIO("C API Reads")
             std::size_t signal_counts = 1;
 
             auto read_id_array = (read_id_t const *)input_read_id_2.data();
-            row_data.read_id = read_id_array;
+            ReadBatchRowInfoArrayV3 row_data_v3{
+                read_id_array,
+                &read_number,
+                &start_sample,
+                &median_before,
+                &channel,
+                &well,
+                &pore_type_id,
+                &calibration_offset,
+                &calibration_scale,
+                &end_reason,
+                &end_reason_forced,
+                &run_info_id,
+                &num_minknow_events,
+                &tracked_scale,
+                &tracked_shift,
+                &predicted_scale,
+                &predicted_shift,
+                &num_reads_since_mux_change,
+                &time_since_mux_change};
 
             CHECK_POD5_OK(pod5_add_reads_data_pre_compressed(
                 file,
                 1,
                 READ_BATCH_ROW_INFO_VERSION_3,
-                &row_data,
+                &row_data_v3,
                 &compressed_data_ptr,
                 &compressed_size_ptr,
                 &signal_size_ptr,
@@ -234,7 +253,7 @@ SCENARIO("C API Reads")
 
         // Check out of bounds accesses get errors
         {
-            ReadBatchRowInfoV3 v3_struct;
+            ReadBatchRowInfoV4 v3_struct;
             uint16_t input_version = 0;
             CHECK(
                 pod5_get_read_batch_row_info_data(
@@ -254,47 +273,65 @@ SCENARIO("C API Reads")
         }
 
         for (std::size_t row = 0; row < row_count; ++row) {
+            CAPTURE(row);
             auto signal = signal_1;
             if (row == 1) {
                 signal = signal_2;
             }
 
             static_assert(
-                std::is_same<ReadBatchRowInfoV3, ReadBatchRowInfo_t>::value,
+                std::is_same<ReadBatchRowInfoV4, ReadBatchRowInfo_t>::value,
                 "Update this if new structs added");
 
             ReadBatchRowInfoV3 v3_struct;
+            ReadBatchRowInfoV4 v4_struct;
             uint16_t input_version = 0;
             CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
-                batch_0, row, READ_BATCH_ROW_INFO_VERSION, &v3_struct, &input_version));
-            CHECK(input_version == 3);
-
-            std::string formatted_uuid(36, '\0');
-            CHECK_POD5_OK(pod5_format_read_id(v3_struct.read_id, &formatted_uuid[0]));
+                batch_0, row, READ_BATCH_ROW_INFO_VERSION_3, &v3_struct, &input_version));
             CHECK(
-                formatted_uuid
-                == to_string(*reinterpret_cast<pod5::Uuid const *>(v3_struct.read_id)));
+                input_version
+                == 4);  // We're reading from a v4 file, even if the input struct is v3.
+            CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
+                batch_0, row, READ_BATCH_ROW_INFO_VERSION_4, &v4_struct, &input_version));
+            CHECK(input_version == 4);
 
-            CHECK(v3_struct.read_number == 12);
-            CHECK(v3_struct.start_sample == 10245);
-            CHECK(v3_struct.median_before == 200.0f);
-            CHECK(v3_struct.channel == 43);
-            CHECK(v3_struct.well == 4);
-            CHECK(v3_struct.pore_type == 0);
-            CHECK(v3_struct.calibration_offset == calibration_offset);
-            CHECK(v3_struct.calibration_scale == calibration_scale);
-            CHECK(v3_struct.end_reason == 1);
-            CHECK(v3_struct.end_reason_forced == uint8_t{false});
-            CHECK(v3_struct.run_info == 0);
-            CHECK(v3_struct.num_minknow_events == num_minknow_events);
-            CHECK(v3_struct.tracked_scaling_scale == tracked_scale);
-            CHECK(v3_struct.tracked_scaling_shift == tracked_shift);
-            CHECK(v3_struct.predicted_scaling_scale == predicted_scale);
-            CHECK(v3_struct.predicted_scaling_shift == predicted_shift);
-            CHECK(v3_struct.num_reads_since_mux_change == num_reads_since_mux_change);
-            CHECK(v3_struct.time_since_mux_change == time_since_mux_change);
-            CHECK(v3_struct.signal_row_count == 1);
-            CHECK(v3_struct.num_samples == signal.size());
+            auto check_v3_or_v4 = [&](auto name, auto const & input_struct) {
+                CAPTURE(name);
+                std::string formatted_uuid(36, '\0');
+                CHECK_POD5_OK(pod5_format_read_id(input_struct.read_id, &formatted_uuid[0]));
+                CHECK(
+                    formatted_uuid
+                    == to_string(*reinterpret_cast<pod5::Uuid const *>(input_struct.read_id)));
+
+                CHECK(input_struct.read_number == 12);
+                CHECK(input_struct.start_sample == 10245);
+                CHECK(input_struct.median_before == 200.0f);
+                CHECK(input_struct.channel == 43);
+                CHECK(input_struct.well == 4);
+                CHECK(input_struct.pore_type == 0);
+                CHECK(input_struct.calibration_offset == calibration_offset);
+                CHECK(input_struct.calibration_scale == calibration_scale);
+                CHECK(input_struct.end_reason == 1);
+                CHECK(input_struct.end_reason_forced == uint8_t{false});
+                CHECK(input_struct.run_info == 0);
+                CHECK(input_struct.num_minknow_events == num_minknow_events);
+                CHECK(input_struct.tracked_scaling_scale == tracked_scale);
+                CHECK(input_struct.tracked_scaling_shift == tracked_shift);
+                CHECK(input_struct.predicted_scaling_scale == predicted_scale);
+                CHECK(input_struct.predicted_scaling_shift == predicted_shift);
+                CHECK(input_struct.num_reads_since_mux_change == num_reads_since_mux_change);
+                CHECK(input_struct.time_since_mux_change == time_since_mux_change);
+                CHECK(input_struct.signal_row_count == 1);
+                CHECK(input_struct.num_samples == signal.size());
+            };
+
+            check_v3_or_v4("v3", v3_struct);
+            check_v3_or_v4("v4", v4_struct);
+            if (row == 0) {
+                CHECK(v4_struct.open_pore_level == open_pore_level);
+            } else {
+                CHECK(std::isnan(v4_struct.open_pore_level));
+            }
 
             std::vector<uint64_t> signal_row_indices(v3_struct.signal_row_count);
             CHECK_POD5_OK(pod5_get_signal_row_indices(
@@ -565,6 +602,7 @@ SCENARIO("C API Many Reads")
         std::vector<float> tracked_shift(read_count, 15.0f);
         std::vector<std::uint32_t> num_reads_since_mux_change(read_count, 1234);
         std::vector<float> time_since_mux_change(read_count, 2.4f);
+        std::vector<float> open_pore_level(read_count, 123.0f);
         std::vector<std::uint64_t> num_minknow_events(read_count, 104);
 
         std::vector<std::int16_t> pore_type_ids(read_count, pore_type_id);
@@ -572,7 +610,7 @@ SCENARIO("C API Many Reads")
 
         std::vector<std::int16_t const *> signal_arr;
         std::vector<std::uint32_t> signal_size;
-        ReadBatchRowInfoArrayV3 row_data{
+        ReadBatchRowInfoArrayV4 row_data{
             (read_id_t *)read_id_array.data(),
             read_number.data(),
             start_sample.data(),
@@ -591,7 +629,8 @@ SCENARIO("C API Many Reads")
             predicted_scale.data(),
             predicted_shift.data(),
             num_reads_since_mux_change.data(),
-            time_since_mux_change.data()};
+            time_since_mux_change.data(),
+            open_pore_level.data()};
 
         for (std::size_t i = 0; i < read_count; ++i) {
             signal_arr.push_back(signal_1.data());

@@ -172,8 +172,42 @@ TEST_CASE("NULL input doesn't crash")
         float const predicted_scaling_shift{};
         uint32_t const num_reads_since_mux_change{};
         float const time_since_mux_change{};
+        float const open_pore_level{};
 
-        ReadBatchRowInfoArrayV3 const row_data{
+        ReadBatchRowInfoArrayV3 const row_data_v3{
+            &read_id,
+            &read_number,
+            &start_sample,
+            &median_before,
+            &channel,
+            &well,
+            &pore_type_id,
+            &calibration_offset,
+            &calibration_scale,
+            &end_reason,
+            &end_reason_forced,
+            &run_info_id,
+            &num_minknow_events,
+            &tracked_scaling_scale,
+            &tracked_scaling_shift,
+            &predicted_scaling_scale,
+            &predicted_scaling_shift,
+            &num_reads_since_mux_change,
+            &time_since_mux_change};
+
+        int16_t const signal_data[]{1, 2, 3, 4, 5};
+        uint32_t const signal_size = std::size(signal_data);
+        auto * signal_data_ptr = signal_data;
+
+        REQUIRE_POD5_OK(pod5_add_reads_data(
+            writer,
+            1,
+            READ_BATCH_ROW_INFO_VERSION_3,
+            &row_data_v3,
+            &signal_data_ptr,
+            &signal_size));
+
+        ReadBatchRowInfoArrayV4 const row_data_v4{
             &read_id,
             &read_number,
             &start_sample,
@@ -193,14 +227,15 @@ TEST_CASE("NULL input doesn't crash")
             &predicted_scaling_shift,
             &num_reads_since_mux_change,
             &time_since_mux_change,
-        };
-
-        int16_t const signal_data[]{1, 2, 3, 4, 5};
-        uint32_t const signal_size = std::size(signal_data);
-        auto * signal_data_ptr = signal_data;
+            &open_pore_level};
 
         REQUIRE_POD5_OK(pod5_add_reads_data(
-            writer, 1, READ_BATCH_ROW_INFO_VERSION_3, &row_data, &signal_data_ptr, &signal_size));
+            writer,
+            1,
+            READ_BATCH_ROW_INFO_VERSION_4,
+            &row_data_v4,
+            &signal_data_ptr,
+            &signal_size));
 
         REQUIRE_POD5_OK(pod5_close_and_free_writer(writer));
     }
@@ -346,7 +381,7 @@ TEST_CASE("NULL input doesn't crash")
         {
             INFO("pod5_get_read_batch_row_info_data")
 
-            ReadBatchRowInfoV3 row_info{};
+            ReadBatchRowInfoV4 row_info{};
             size_t row = 0;
             uint16_t struct_version = READ_BATCH_ROW_INFO_VERSION;
             uint16_t read_table_version{};

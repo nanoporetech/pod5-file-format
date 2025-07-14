@@ -76,6 +76,40 @@ ReadRecordV3Columns = namedtuple(
     ],
 )
 
+ReadRecordV4Columns = namedtuple(
+    "ReadRecordV4Columns",
+    [
+        "read_id",
+        "read_number",
+        "start",
+        "channel",
+        "well",
+        "median_before",
+        "pore_type",
+        "calibration_offset",
+        "calibration_scale",
+        "end_reason",
+        "end_reason_forced",
+        "run_info",
+        "signal",
+        "num_minknow_events",
+        # Deprecated: will be removed in 0.4.0
+        "tracked_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
+        "tracked_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
+        "predicted_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
+        "predicted_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
+        "num_reads_since_mux_change",
+        # Deprecated: will be removed in 0.4.0
+        "time_since_mux_change",
+        "num_samples",
+        "open_pore_level",
+    ],
+)
+
 
 Signal = namedtuple("Signal", ["signal", "samples"])
 SignalRowInfo = namedtuple(
@@ -191,6 +225,15 @@ class ReadRecord:
         Time in seconds since the last mux change on this reads channel.
         """
         return self._batch.columns.time_since_mux_change[self._row].as_py()  # type: ignore
+
+    @property
+    def open_pore_level(self) -> float:
+        """
+        Get the open pore level for the read.
+
+        This is a float value representing the open pore level of the well prior to the read starting.
+        """
+        return self._batch.columns.open_pore_level[self._row].as_py()
 
     @property
     def pore(self) -> Pore:
@@ -452,6 +495,7 @@ class ReadRecord:
             predicted_scaling=self.predicted_scaling,
             num_reads_since_mux_change=self.num_reads_since_mux_change,
             time_since_mux_change=self.time_since_mux_change,
+            open_pore_level=self.open_pore_level,
             signal=self.signal,
         )
 
@@ -469,13 +513,13 @@ class ReadRecordBatch:
 
         self._signal_cache: Optional[p5b.Pod5SignalCacheBatch] = None
         self._selected_batch_rows: Optional[Iterable[int]] = None
-        self._columns: Optional[ReadRecordV3Columns] = None
+        self._columns: Optional[ReadRecordV4Columns] = None
 
     @property
-    def columns(self) -> ReadRecordV3Columns:
+    def columns(self) -> ReadRecordV4Columns:
         """Return the data from this batch as a ReadRecordColumns instance"""
         if self._columns is None:
-            self._columns = ReadRecordV3Columns(
+            self._columns = ReadRecordV4Columns(
                 *[
                     self._batch.column(name)
                     for name in self._reader._columns_type._fields
@@ -726,8 +770,8 @@ class Reader:
         writing_version_str = schema_metadata[b"MINKNOW:pod5_version"].decode("utf-8")
         writing_version = packaging.version.parse(writing_version_str)
 
-        self._columns_type = ReadRecordV3Columns
-        self._reads_table_version = 3
+        self._columns_type = ReadRecordV4Columns
+        self._reads_table_version = 4
 
         self._file_version = writing_version
         self._file_version_pre_migration = packaging.version.Version(

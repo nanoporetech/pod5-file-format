@@ -212,6 +212,7 @@ def write_pod5_record_to_fast5(read: p5.ReadRecord, fast5: h5py.File) -> None:
         read.time_since_mux_change,
         dtype=numpy.float32,
     )
+    # Note dropping the 'open_pore_level' attribute as it is not supported in fast5
 
 
 def convert_pod5_to_fast5(

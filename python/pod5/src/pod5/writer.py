@@ -379,6 +379,9 @@ class Writer:
         time_since_mux_change = np.array(
             [read.time_since_mux_change for read in reads], dtype=np.float32
         )
+        open_pore_level = np.array(
+            [read.open_pore_level for read in reads], dtype=np.float32
+        )
 
         return [
             read_id.shape[0],
@@ -401,4 +404,5 @@ class Writer:
             predicted_scaling_shift,
             num_reads_since_mux_change,
             time_since_mux_change,
+            open_pore_level,
         ]

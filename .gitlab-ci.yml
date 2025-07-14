@@ -493,6 +493,7 @@ tools-linux-x64:
   script:
     - pip install ./lib_pod5*cp${PYTHON_VERSION/./}*.whl pod5-*.whl
     - pod5 convert fast5 ./test_data/ --output ./output_files --one-to-one ./test_data
+    - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v4.pod5
     - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v3.pod5
     - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v2.pod5
     - python${PYTHON_VERSION} python/pod5/test_utils/check_pod5_files_equal.py ./output_files/multi_fast5_zip.pod5 ./test_data/multi_fast5_zip_v1.pod5

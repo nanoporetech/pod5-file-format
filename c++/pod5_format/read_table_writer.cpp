@@ -84,7 +84,10 @@ Result<std::size_t> ReadTableWriter::add_read(
         read_data.calibration_scale,
         read_data.end_reason,
         read_data.end_reason_forced,
-        read_data.run_info));
+        read_data.run_info,
+
+        // V4 Fields
+        read_data.open_pore_level));
 
     ++m_current_batch_row_count;
 
