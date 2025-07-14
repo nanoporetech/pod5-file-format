@@ -89,6 +89,10 @@ FIELDS: Dict[str, Field] = {
         pl.col("time_since_mux_change"),
         "Seconds since the last mux change on this channel",
     ),
+    "open_pore_level": Field(
+        pl.col("open_pore_level"),
+        "The tracked open pore level for this read",
+    ),
     "run_id": Field(pl.col("protocol_run_id").alias("run_id"), "Run UUID"),
     "sample_id": Field(pl.col("sample_id"), "User-supplied name for the sample"),
     "experiment_id": Field(

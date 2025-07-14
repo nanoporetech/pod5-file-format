@@ -43,7 +43,13 @@ public:
         return TableSpecVersion::at_version(3);
     }
 
-    static TableSpecVersion latest() { return v3(); }
+    static TableSpecVersion v4()
+    {
+        // Flattening of dictionaries into separate table.
+        return TableSpecVersion::at_version(4);
+    }
+
+    static TableSpecVersion latest() { return v4(); }
 };
 
 class ReadTableSchemaDescription : public SchemaDescriptionBase {
@@ -84,6 +90,9 @@ public:
     Field<19, arrow::BooleanArray> end_reason_forced;
     Field<20, arrow::DictionaryArray> run_info;
 
+    // V4 fields
+    Field<21, arrow::FloatArray> open_pore_level;
+
     // Field Builders only for fields we write in newly generated files.
     // Should not include fields which are removed in the latest version:
     using FieldBuilders = FieldBuilder<
@@ -114,7 +123,10 @@ public:
         decltype(calibration_scale),
         decltype(end_reason),
         decltype(end_reason_forced),
-        decltype(run_info)>;
+        decltype(run_info),
+
+        // V4 fields
+        decltype(open_pore_level)>;
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(

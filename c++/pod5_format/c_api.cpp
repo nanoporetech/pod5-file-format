@@ -438,16 +438,11 @@ pod5_error_t pod5_get_read_batch_row_info_data(
     }
 
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
         "New versions must be explicitly loaded");
 
-    if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
-        auto typed_row_data = static_cast<ReadBatchRowInfoV3 *>(row_data);
-
-        POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
-
+    auto load_common_v3_v4_fields = [](auto const & cols, std::size_t row, auto * typed_row_data) {
         // Inform the caller of the version of the input table.
-        *read_table_version = cols.table_version.as_int();
 
         if (check_row_index_and_set_error(row, cols.read_id->length()) != POD5_OK) {
             return g_pod5_error_no;
@@ -481,6 +476,32 @@ pod5_error_t pod5_get_read_batch_row_info_data(
 
         typed_row_data->signal_row_count = cols.signal->value_length(row);
         typed_row_data->num_samples = cols.num_samples->Value(row);
+        return POD5_OK;
+    };
+
+    if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
+        auto typed_row_data = static_cast<ReadBatchRowInfoV3 *>(row_data);
+
+        POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
+        *read_table_version = cols.table_version.as_int();
+
+        auto result = load_common_v3_v4_fields(cols, row, typed_row_data);
+        if (result != POD5_OK) {
+            return result;
+        }
+    } else if (struct_version == READ_BATCH_ROW_INFO_VERSION_4) {
+        auto typed_row_data = static_cast<ReadBatchRowInfoV4 *>(row_data);
+
+        POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
+        *read_table_version = cols.table_version.as_int();
+
+        auto result = load_common_v3_v4_fields(cols, row, typed_row_data);
+        if (result != POD5_OK) {
+            return result;
+        }
+
+        // This is the only difference between v3 and v4.
+        typed_row_data->open_pore_level = cols.open_pore_level->Value(row);
     } else {
         pod5_set_error(
             arrow::Status::Invalid("Invalid struct version '", struct_version, "' passed"));
@@ -1072,7 +1093,7 @@ pod5_error_t pod5_add_run_info(
 static bool check_read_data_struct(std::uint16_t struct_version, void const * row_data)
 {
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
         "New versions must be explicitly loaded");
 
     if (!check_not_null(row_data)) {
@@ -1084,26 +1105,40 @@ static bool check_read_data_struct(std::uint16_t struct_version, void const * ro
         return false;
     }
 
+    auto check_common_v3_v4_fields = [](auto typed_row_data) -> bool {
+        return check_not_null(typed_row_data->read_id)
+               && check_not_null(typed_row_data->read_number)
+               && check_not_null(typed_row_data->start_sample)
+               && check_not_null(typed_row_data->median_before)
+               && check_not_null(typed_row_data->channel) && check_not_null(typed_row_data->well)
+               && check_not_null(typed_row_data->pore_type)
+               && check_not_null(typed_row_data->calibration_offset)
+               && check_not_null(typed_row_data->calibration_scale)
+               && check_not_null(typed_row_data->end_reason)
+               && check_not_null(typed_row_data->end_reason_forced)
+               && check_not_null(typed_row_data->run_info_id)
+               && check_not_null(typed_row_data->num_minknow_events)
+               && check_not_null(typed_row_data->tracked_scaling_scale)
+               && check_not_null(typed_row_data->tracked_scaling_shift)
+               && check_not_null(typed_row_data->predicted_scaling_scale)
+               && check_not_null(typed_row_data->predicted_scaling_shift)
+               && check_not_null(typed_row_data->num_reads_since_mux_change)
+               && check_not_null(typed_row_data->time_since_mux_change);
+    };
+
     if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const *>(row_data);
 
-        if (!check_not_null(typed_row_data->read_id) || !check_not_null(typed_row_data->read_number)
-            || !check_not_null(typed_row_data->start_sample)
-            || !check_not_null(typed_row_data->median_before)
-            || !check_not_null(typed_row_data->channel) || !check_not_null(typed_row_data->well)
-            || !check_not_null(typed_row_data->pore_type)
-            || !check_not_null(typed_row_data->calibration_offset)
-            || !check_not_null(typed_row_data->calibration_scale)
-            || !check_not_null(typed_row_data->end_reason)
-            || !check_not_null(typed_row_data->end_reason_forced)
-            || !check_not_null(typed_row_data->run_info_id)
-            || !check_not_null(typed_row_data->num_minknow_events)
-            || !check_not_null(typed_row_data->tracked_scaling_scale)
-            || !check_not_null(typed_row_data->tracked_scaling_shift)
-            || !check_not_null(typed_row_data->predicted_scaling_scale)
-            || !check_not_null(typed_row_data->predicted_scaling_shift)
-            || !check_not_null(typed_row_data->num_reads_since_mux_change)
-            || !check_not_null(typed_row_data->time_since_mux_change))
+        if (!check_common_v3_v4_fields(typed_row_data)) {
+            return false;
+        }
+    }
+
+    if (struct_version == READ_BATCH_ROW_INFO_VERSION_4) {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV4 const *>(row_data);
+
+        if (!check_common_v3_v4_fields(typed_row_data)
+            || !check_not_null(typed_row_data->open_pore_level))
         {
             return false;
         }
@@ -1120,13 +1155,13 @@ static bool load_struct_row_into_read_data(
     std::uint32_t row_id)
 {
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_3,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
         "New versions must be explicitly loaded");
 
-    // Version 0-2 are no longer supported for writing.
-    if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
-        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const *>(row_data);
-
+    auto load_common_v3_v4_fields = [](std::unique_ptr<pod5::FileWriter> const & writer,
+                                       auto const * typed_row_data,
+                                       std::uint32_t row_id,
+                                       pod5::ReadData & read_data) {
         pod5::Uuid read_id_uuid{typed_row_data->read_id[row_id]};
 
         std::optional<pod5::ReadEndReason> end_reason_internal;
@@ -1197,7 +1232,25 @@ static bool load_struct_row_into_read_data(
             typed_row_data->predicted_scaling_shift[row_id],
             typed_row_data->num_reads_since_mux_change[row_id],
             typed_row_data->time_since_mux_change[row_id],
-        };
+            // open_pore_level is only present in v4.
+            std::numeric_limits<float>::quiet_NaN()};
+        return true;
+    };
+
+    // Version 0-2 are no longer supported for writing.
+    if (struct_version == READ_BATCH_ROW_INFO_VERSION_4) {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV4 const *>(row_data);
+
+        if (!load_common_v3_v4_fields(writer, typed_row_data, row_id, read_data)) {
+            return false;
+        }
+        read_data.open_pore_level = typed_row_data->open_pore_level[row_id];
+    } else if (struct_version == READ_BATCH_ROW_INFO_VERSION_3) {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV3 const *>(row_data);
+
+        if (!load_common_v3_v4_fields(writer, typed_row_data, row_id, read_data)) {
+            return false;
+        }
     } else {
         pod5_set_error(
             arrow::Status::Invalid("Invalid writer struct version '", struct_version, "' passed"));

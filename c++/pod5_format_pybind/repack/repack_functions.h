@@ -78,6 +78,7 @@ arrow::Result<ReadReadData> read_read_data(
         auto const & num_reads_since_mux_change =
             columns.num_reads_since_mux_change->Value(batch_row);
         auto const & time_since_mux_change = columns.time_since_mux_change->Value(batch_row);
+        auto const & open_pore_level = columns.open_pore_level->Value(batch_row);
         auto const & num_samples = columns.num_samples->Value(batch_row);
 
         auto const & pore_type_index = source_reads_pore_type_column->Value(batch_row);
@@ -112,7 +113,8 @@ arrow::Result<ReadReadData> read_read_data(
             predicted_scaling_scale,
             predicted_scaling_shift,
             num_reads_since_mux_change,
-            time_since_mux_change);
+            time_since_mux_change,
+            open_pore_level);
         result.signal_durations.emplace_back(num_samples);
 
         auto const signal_rows = std::static_pointer_cast<arrow::UInt64Array>(

@@ -41,6 +41,7 @@ def do_reads_command(reader: p5.Reader, write_header: bool):
         "predicted_scaling",
         "num_reads_since_mux_change",
         "time_since_mux_change",
+        "open_pore_level",
     ]
 
     csv_read_writer = csv.DictWriter(sys.stdout, keys)
@@ -67,6 +68,7 @@ def do_reads_command(reader: p5.Reader, write_header: bool):
             "predicted_scaling": format_shift_scale_pair_num(read.predicted_scaling),
             "num_reads_since_mux_change": read.num_reads_since_mux_change,
             "time_since_mux_change": read.time_since_mux_change,
+            "open_pore_level": read.open_pore_level,
         }
 
         try:

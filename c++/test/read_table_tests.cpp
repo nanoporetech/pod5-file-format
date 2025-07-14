@@ -70,8 +70,7 @@ SCENARIO("Read table Tests")
                 index * 0.5f,
                 std::uint32_t(index + 10),
                 index * 50.0f,
-
-            },
+                index * 0.7f},
             std::vector<std::uint64_t>{index + 2, index + 3});
     };
 

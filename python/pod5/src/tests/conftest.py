@@ -21,7 +21,7 @@ import pod5 as p5
 TEST_UUID = uuid4()
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 
 POD5_TEST_SEED = int(os.getenv("POD5_TEST_SEED", numpy.random.randint(1, 9999)))
 

@@ -93,6 +93,10 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
         result.run_info = find_column(bat, m_field_locations->run_info);
     }
 
+    if (result.table_version >= ReadTableSpecVersion::v4()) {
+        result.open_pore_level = find_column(bat, m_field_locations->open_pore_level);
+    }
+
     return result;
 }
 

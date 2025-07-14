@@ -54,6 +54,9 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
 arrow::Result<MigrationResult> migrate_v2_to_v3(
     MigrationResult && v2_input,
     arrow::MemoryPool * pool);
+arrow::Result<MigrationResult> migrate_v3_to_v4(
+    MigrationResult && v2_input,
+    arrow::MemoryPool * pool);
 
 inline arrow::Result<MigrationResult> migrate_if_required(
     Version writer_version,
@@ -76,6 +79,10 @@ inline arrow::Result<MigrationResult> migrate_if_required(
     if (writer_version < Version(0, 0, 38)) {
         // Flattening fields
         ARROW_ASSIGN_OR_RAISE(result, migrate_v2_to_v3(std::move(result), pool));
+    }
+    if (writer_version < Version(0, 3, 30)) {
+        // Flattening fields
+        ARROW_ASSIGN_OR_RAISE(result, migrate_v3_to_v4(std::move(result), pool));
     }
     return result;
 }

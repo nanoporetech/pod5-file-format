@@ -87,3 +87,7 @@ description = "The run (acquisition) this read came from. Must match the acquisi
 [fields.num_samples]
 type = "uint64"
 description = "The full length of the signal for this read in samples (equal to the sum of all 'samples' fields of signal chunks)"
+
+[fields.open_pore_level]
+type = "float"
+description = "The open pore level for the read. A value value in pA showing the open pore level of the well prior to the read starting. If the information is not available (feature not enabled in MinKNOW, or sequencing run on an old version) this value will be NaN."

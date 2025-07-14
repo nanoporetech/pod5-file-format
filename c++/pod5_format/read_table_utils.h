@@ -48,7 +48,8 @@ public:
         float predicted_scaling_scale,
         float predicted_scaling_shift,
         std::uint32_t num_reads_since_mux_change,
-        float time_since_mux_change)
+        float time_since_mux_change,
+        float open_pore_level)
     : read_id(read_id)
     , read_number(read_number)
     , start_sample(start_sample)
@@ -68,6 +69,7 @@ public:
     , pore_type(pore_type)
     , calibration_offset(calibration_offset)
     , calibration_scale(calibration_scale)
+    , open_pore_level(open_pore_level)
     {
     }
 
@@ -95,6 +97,9 @@ public:
     PoreDictionaryIndex pore_type;
     float calibration_offset;
     float calibration_scale;
+
+    // V4 Fields
+    float open_pore_level;
 };
 
 inline bool operator==(ReadData const & a, ReadData const & b)
@@ -111,7 +116,7 @@ inline bool operator==(ReadData const & a, ReadData const & b)
            && a.time_since_mux_change == b.time_since_mux_change && a.channel == b.channel
            && a.well == b.well && a.pore_type == b.pore_type
            && a.calibration_offset == b.calibration_offset
-           && a.calibration_scale == b.calibration_scale;
+           && a.calibration_scale == b.calibration_scale && a.open_pore_level == b.open_pore_level;
 }
 
 class RunInfoData {

@@ -52,6 +52,7 @@ void run_file_reader_writer_tests(
     float predicted_scaling_shift = 50.0f;
     std::uint32_t num_reads_since_mux_change = 3;
     float time_since_mux_change = 200.0f;
+    float open_pore_level = 150.0f;
 
     std::vector<std::int16_t> signal_1(100'000);
     std::iota(signal_1.begin(), signal_1.end(), 0);
@@ -91,7 +92,8 @@ void run_file_reader_writer_tests(
                  predicted_scaling_scale,
                  predicted_scaling_shift,
                  num_reads_since_mux_change,
-                 time_since_mux_change},
+                 time_since_mux_change,
+                 open_pore_level},
                 gsl::make_span(signal_1)));
         }
     }
@@ -309,7 +311,8 @@ SCENARIO("Opening older files")
         *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),
         *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
         *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"));
+        *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"));
     auto reader = pod5::open_file_reader(path.ToString(), {});
     CHECK_ARROW_STATUS_OK(reader);
 
@@ -468,6 +471,7 @@ static std::filesystem::path create_files_for_recovery(
     float predicted_scaling_shift = 50.0f;
     std::uint32_t num_reads_since_mux_change = 3;
     float time_since_mux_change = 200.0f;
+    float open_pore_level = 150.0f;
 
     std::vector<std::int16_t> signal_1(100'000);
     std::iota(signal_1.begin(), signal_1.end(), 0);
@@ -512,7 +516,8 @@ static std::filesystem::path create_files_for_recovery(
              predicted_scaling_scale,
              predicted_scaling_shift,
              num_reads_since_mux_change,
-             time_since_mux_change},
+             time_since_mux_change,
+             open_pore_level},
             gsl::make_span(signal_1)));
     }
 

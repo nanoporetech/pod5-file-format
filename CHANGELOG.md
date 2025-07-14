@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Build with sanitization on GCC13
 
+### Added
+
+- Added new field `open_pore_level`, containing the level of the open pore as tracked by MinKNOW for this channel/well.
+
 ### Removed
 
 - Dropped incorrect sanitized conan jobs.
