@@ -47,12 +47,12 @@ ALL_FIELDS = [
     "tracked_scaling_shift",
     "num_reads_since_mux_change",
     "time_since_mux_change",
-    "open_pore_level",
     "run_id",
     "sample_id",
     "experiment_id",
     "flow_cell_id",
     "pore_type",
+    "open_pore_level",
 ]
 
 
