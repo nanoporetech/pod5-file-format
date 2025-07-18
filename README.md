@@ -15,6 +15,7 @@ users to consume data in many languages using standard tools.
 
 What does this project contain
 ------------------------------
+========
 
 This project contains a core library for reading and writing POD5 data, and a toolkit for
 accessing this data in other languages.
