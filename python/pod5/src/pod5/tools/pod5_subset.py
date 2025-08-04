@@ -233,7 +233,11 @@ def assert_overwrite_ok(targets: pl.LazyFrame, force_overwrite: bool) -> None:
     DEST_EXISTS = "__dest_exists"
     dests = (
         targets.select(pl.col(PL_DEST_FNAME).unique())
-        .with_columns(pl.col(PL_DEST_FNAME).map_elements(exists).alias(DEST_EXISTS))
+        .with_columns(
+            pl.col(PL_DEST_FNAME)
+            .map_elements(exists, return_dtype=bool)
+            .alias(DEST_EXISTS)
+        )
         .collect()
     )
 

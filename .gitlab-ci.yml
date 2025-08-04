@@ -336,14 +336,14 @@ linux-aarch64-gcc9-release-build:
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
     - export PATH="$(pwd)/python/Python.framework/Versions/Current/bin/:${PATH}"
     - python3 -m venv .venv/
     - source .venv/bin/activate
-    - pip install --upgrade pip build
+    - pip install --upgrade pip build "conan<2"
     - which python
     - python --version
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
   script:
     - python3 -c "import sysconfig; print(sysconfig.get_platform())"
     - !reference [".conan-build-and-test"]
