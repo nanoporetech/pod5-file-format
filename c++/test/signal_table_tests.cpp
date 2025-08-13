@@ -44,8 +44,8 @@ SCENARIO("Signal table Tests")
         auto signal_type = GENERATE(SignalType::UncompressedSignal, SignalType::VbzSignal);
 
         {
-            auto file_out = *pod5::AsyncOutputStream::make(
-                *arrow::io::FileOutputStream::Open(filename), pod5::make_thread_pool(1));
+            auto file_out =
+                *pod5::AsyncOutputStream::make(filename, pod5::make_thread_pool(1), true);
             auto schema_metadata = make_schema_key_value_metadata(
                 {file_identifier, "test_software", *parse_version_number(Pod5Version)});
             REQUIRE_ARROW_STATUS_OK(schema_metadata);

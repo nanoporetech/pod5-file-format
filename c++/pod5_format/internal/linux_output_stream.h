@@ -33,7 +33,8 @@ public:
         std::size_t write_chunk_size,
         bool use_directio,
         bool use_syncio,
-        bool flush_on_batch_complete)
+        bool flush_on_batch_complete,
+        bool keep_file_open = true)
     {
         auto flags = O_RDWR | O_CREAT;
         if (use_directio) {
@@ -44,14 +45,20 @@ public:
             flags |= O_SYNC;
         }
 
-        int fd = open(file_path.c_str(), flags, 0644);
-
-        if (fd < 0) {
+        auto const initial_file_descriptor = open(file_path.c_str(), flags, 0644);
+        if (initial_file_descriptor < 0) {
             return arrow::Status::Invalid("Failed to open file");
         }
 
         return std::make_shared<LinuxOutputStream>(
-            fd, io_manager, write_chunk_size, flush_on_batch_complete, PrivateDummy{});
+            file_path,
+            initial_file_descriptor,
+            flags,
+            io_manager,
+            write_chunk_size,
+            keep_file_open,
+            flush_on_batch_complete,
+            PrivateDummy{});
     }
 
     ~LinuxOutputStream() { (void)Close(); }
@@ -69,26 +76,33 @@ public:
             }
         }
 
-        // truncate excess data
-        ARROW_RETURN_NOT_OK(truncate_file());
+        std::lock_guard<std::mutex> l{m_file_handle_mutex};
+        ARROW_ASSIGN_OR_RAISE(auto const file_descriptor, get_or_open_fd(l));
 
-        ARROW_RETURN_NOT_OK(close_fd());
+        // truncate excess data
+        if (::ftruncate(file_descriptor, m_bytes_written) < 0) {
+            return arrow::Status::IOError("Failed to truncate file");
+        }
 
         // and close stream
-        return arrow::Status::OK();
+        return close_fd(l, true);
     }
 
     arrow::Future<> CloseAsync() override { return Close(); }
 
-    arrow::Status Abort() override { return close_fd(); }
+    arrow::Status Abort() override
+    {
+        std::lock_guard<std::mutex> l{m_file_handle_mutex};
+        return close_fd(l, true);
+    }
 
     arrow::Result<int64_t> Tell() const override { return m_bytes_written - m_file_start_offset; }
 
-    bool closed() const override { return m_file_descriptor == 0; }
+    bool closed() const override { return m_file_descriptor == -1; }
 
     arrow::Status Write(void const * data, int64_t nbytes) override
     {
-        allocate_file_space(nbytes);
+        ARROW_RETURN_NOT_OK(allocate_file_space(nbytes));
 
         auto remaining_data = gsl::make_span(reinterpret_cast<std::uint8_t const *>(data), nbytes);
         while (!remaining_data.empty()) {
@@ -107,7 +121,7 @@ public:
 
     arrow::Status Write(std::shared_ptr<arrow::Buffer> const & data) override
     {
-        allocate_file_space(data->size());
+        ARROW_RETURN_NOT_OK(allocate_file_space(data->size()));
 
         auto remaining_data = gsl::make_span(data->data(), data->size());
         while (!remaining_data.empty()) {
@@ -136,6 +150,11 @@ public:
     {
         ARROW_RETURN_NOT_OK(flush_writes(FlushMode::AllWrites));
 
+        std::lock_guard<std::mutex> l{m_file_handle_mutex};
+        if (m_file_descriptor < 0) {
+            return arrow::Status::OK();
+        }
+
         if (fsync(m_file_descriptor) < 0) {
             return arrow::Status::IOError("Error flushing file");
         }
@@ -151,16 +170,26 @@ public:
     }
 
     LinuxOutputStream(
-        int file_descriptor,
+        std::string const & file_path,
+        int initial_file_descriptor,
+        int flags,
         std::shared_ptr<IOManager> const & io_manager,
         std::size_t write_chunk_size,
+        bool keep_file_open,
         bool flush_on_batch_complete,
         PrivateDummy)
-    : m_file_descriptor{file_descriptor}
+    : m_file_path(file_path)
+    , m_flags(flags)
+    , m_file_descriptor(initial_file_descriptor)
+    , m_keep_file_open(keep_file_open)
     , m_aligned_buffer(write_chunk_size, io_manager)
     , m_io_manager(io_manager)
     , m_flush_on_batch_complete(flush_on_batch_complete)
     {
+        if (!m_keep_file_open) {
+            close(m_file_descriptor);
+            m_file_descriptor = -1;
+        }
     }
 
 protected:
@@ -277,12 +306,29 @@ protected:
         std::size_t m_capacity;
     };
 
-    arrow::Status close_fd()
+    arrow::Result<int> get_or_open_fd([[maybe_unused]] std::lock_guard<std::mutex> & lock)
     {
+        if (m_file_descriptor >= 0) {
+            return m_file_descriptor;
+        }
+
+        m_file_descriptor = open(m_file_path.c_str(), m_flags, 0644);
+        if (m_file_descriptor < 0) {
+            return arrow::Status::IOError("Failed to open file for writing");
+        }
+        return m_file_descriptor;
+    }
+
+    arrow::Status close_fd([[maybe_unused]] std::lock_guard<std::mutex> & lock, bool force = false)
+    {
+        if (m_keep_file_open && !force) {
+            return arrow::Status::OK();
+        }
+
         if (close(m_file_descriptor) != 0) {
             return arrow::Status::IOError("Error closing file");
         }
-        m_file_descriptor = 0;
+        m_file_descriptor = -1;
         return arrow::Status::OK();
     }
 
@@ -312,21 +358,21 @@ protected:
             return arrow::Status::OK();
         }
 
-        released_data->prepare_for_write(m_file_descriptor, write_offset);
+        std::lock_guard<std::mutex> lock(m_file_handle_mutex);
+        ARROW_ASSIGN_OR_RAISE(auto const file_descriptor, get_or_open_fd(lock));
+        released_data->prepare_for_write(file_descriptor, write_offset);
 
         m_queued_writes.emplace_back(released_data);
         ARROW_RETURN_NOT_OK(m_io_manager->write_buffer(std::move(released_data)));
 
-        return process_queued_writes();
-    }
+        ARROW_RETURN_NOT_OK(process_queued_writes());
 
-    arrow::Status truncate_file()
-    {
-        if (::ftruncate(m_file_descriptor, m_bytes_written) < 0) {
-            return arrow::Status::IOError("Failed to truncate file");
+        if (m_queued_writes.empty()) {
+            return close_fd(lock);
+        } else {
+            // If we have queued writes, we keep the file open.
+            return arrow::Status::OK();
         }
-
-        return arrow::Status::OK();
     }
 
     arrow::Status process_queued_writes()
@@ -343,19 +389,29 @@ protected:
         return arrow::Status::OK();
     }
 
-    void allocate_file_space(std::size_t new_write_size)
+    arrow::Status allocate_file_space(std::size_t new_write_size)
     {
         auto new_total_size = m_bytes_written + new_write_size;
         if (new_total_size > m_fallocate_offset) {
             // reserve more space before continuing
             m_fallocate_offset += fallocate_chunk;
 
+            std::lock_guard<std::mutex> lock(m_file_handle_mutex);
+            ARROW_ASSIGN_OR_RAISE(auto const file_descriptor, get_or_open_fd(lock));
+
             // If this fails, we will just write less optimially, so we ignore the result.
-            ::fallocate(m_file_descriptor, 0, m_fallocate_offset, fallocate_chunk);
+            ::fallocate(file_descriptor, 0, m_fallocate_offset, fallocate_chunk);
         }
+
+        return arrow::Status::OK();
     }
 
+    std::string m_file_path;
+    int m_flags;
+    std::mutex m_file_handle_mutex;
     int m_file_descriptor;
+    bool m_keep_file_open{false};
+
     AlignedBuffer m_aligned_buffer;
     std::vector<std::shared_ptr<QueuedWrite>> m_queued_writes;
     std::shared_ptr<IOManager> m_io_manager;

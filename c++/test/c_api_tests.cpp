@@ -440,12 +440,12 @@ SCENARIO("C API Reads")
         SECTION("Embedded files")
         {
             for (auto [get_file_location, name] : {
-                     std::tuple(
+                     std::make_tuple(
                          pod5_get_file_read_table_location, "pod5_get_file_read_table_location"),
-                     std::tuple(
+                     std::make_tuple(
                          pod5_get_file_signal_table_location,
                          "pod5_get_file_signal_table_location"),
-                     std::tuple(
+                     std::make_tuple(
                          pod5_get_file_run_info_table_location,
                          "pod5_get_file_run_info_table_location"),
                  })

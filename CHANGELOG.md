@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.32]
 
+### Added
+
+- Option to allow users of C++ API to not keep file handles open if required.
+
 ### Changed
 
 - Order of `pod5 view` is backwards compatible with 0.3.30, new `open_pore_level` field is at the end of the list.

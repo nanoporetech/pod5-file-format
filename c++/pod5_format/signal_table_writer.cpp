@@ -1,6 +1,6 @@
 #include "pod5_format/signal_table_writer.h"
 
-#include "pod5_format/internal/async_output_stream.h"
+#include "pod5_format/file_output_stream.h"
 #include "pod5_format/internal/tracing/tracing.h"
 #include "pod5_format/types.h"
 

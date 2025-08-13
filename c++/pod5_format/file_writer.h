@@ -30,6 +30,7 @@ public:
     static constexpr bool DEFAULT_USE_SYNC_IO = false;
     static constexpr bool DEFAULT_FLUSH_ON_BATCH_COMPLETE = true;
     static constexpr std::size_t DEFAULT_WRITE_CHUNK_SIZE = 2 * 1024 * 1024;
+    static constexpr std::size_t DEFAULT_KEEP_FILES_OPEN = true;
 
     FileWriterOptions();
 
@@ -99,6 +100,27 @@ public:
 
     bool flush_on_batch_complete() const { return m_flush_on_batch_complete; }
 
+    bool keep_signal_file_open() const { return m_keep_signal_file_open; }
+
+    void set_keep_signal_file_open(bool keep_signal_file_open)
+    {
+        m_keep_signal_file_open = keep_signal_file_open;
+    }
+
+    bool keep_run_info_file_open() const { return m_keep_run_info_file_open; }
+
+    void set_keep_run_info_file_open(bool keep_run_info_file_open)
+    {
+        m_keep_run_info_file_open = keep_run_info_file_open;
+    }
+
+    bool keep_read_table_file_open() const { return m_keep_read_table_file_open; }
+
+    void set_keep_read_table_file_open(bool keep_read_table_file_open)
+    {
+        m_keep_read_table_file_open = keep_read_table_file_open;
+    }
+
 private:
     std::shared_ptr<ThreadPool> m_writer_thread_pool;
     std::shared_ptr<IOManager> m_io_manager;
@@ -112,6 +134,9 @@ private:
     std::size_t m_write_chunk_size;
     bool m_use_sync_io;
     bool m_flush_on_batch_complete;
+    bool m_keep_signal_file_open;
+    bool m_keep_run_info_file_open;
+    bool m_keep_read_table_file_open;
 };
 
 class FileWriterImpl;

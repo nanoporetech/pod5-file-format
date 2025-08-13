@@ -20,12 +20,19 @@ class AsyncOutputStream : public FileOutputStream {
 
 public:
     static arrow::Result<std::shared_ptr<AsyncOutputStream>> make(
-        std::shared_ptr<OutputStream> const & main_stream,
+        std::string const & file_path,
         std::shared_ptr<ThreadPool> const & thread_pool,
-        arrow::MemoryPool * memory_pool = arrow::default_memory_pool())
+        bool flush_on_batch_complete,
+        arrow::MemoryPool * memory_pool = arrow::default_memory_pool(),
+        bool keep_file_open = true)
     {
         return std::make_shared<AsyncOutputStream>(
-            main_stream, thread_pool, memory_pool, PrivateDummy{});
+            file_path,
+            thread_pool,
+            flush_on_batch_complete,
+            memory_pool,
+            keep_file_open,
+            PrivateDummy{});
     }
 
     ~AsyncOutputStream() { (void)Close(); }
@@ -35,33 +42,37 @@ public:
         // flush all output
         ARROW_RETURN_NOT_OK(Flush());
 
-        // truncate excess data
-        ARROW_RETURN_NOT_OK(truncate_file());
-
         // and close stream
-        return m_main_stream->Close();
+        std::lock_guard<std::mutex> l{m_file_handle_mutex};
+        if (m_file_handle) {
+            fclose(m_file_handle);
+            m_file_handle = nullptr;
+        }
+        return arrow::Status::OK();
     }
 
     arrow::Future<> CloseAsync() override
     {
-        // flush all output
-        ARROW_RETURN_NOT_OK(Flush());
-
-        // truncate excess data
-        ARROW_RETURN_NOT_OK(truncate_file());
-
-        // and close stream
-        return m_main_stream->CloseAsync();
+        ARROW_RETURN_NOT_OK(Close());
+        return FileOutputStream::CloseAsync();
     }
 
-    arrow::Status Abort() override { return m_main_stream->Abort(); }
+    arrow::Status Abort() override
+    {
+        std::lock_guard<std::mutex> l{m_file_handle_mutex};
+        if (m_file_handle) {
+            fclose(m_file_handle);
+            m_file_handle = nullptr;
+        }
+        return arrow::Status::OK();
+    }
 
     arrow::Result<int64_t> Tell() const override
     {
         return m_actual_bytes_written - m_file_start_offset;
     }
 
-    bool closed() const override { return m_main_stream->closed(); }
+    bool closed() const override { return m_file_handle == nullptr; }
 
     arrow::Status Write(void const * data, int64_t nbytes) override
     {
@@ -95,16 +106,28 @@ public:
                 return;
             }
 
-            auto result = m_main_stream->Write(data);
-            m_completed_byte_writes += data->size();
-
-            if (!result.ok()) {
-                set_error(std::move(result));
+            std::lock_guard<std::mutex> l{m_file_handle_mutex};
+            auto file_handle = get_or_open_file_handle(l);
+            if (!file_handle) {
+                set_error(arrow::Status::IOError("Failed to open file handle for writing"));
+                return;
             }
+            if (fwrite(data->data(), 1, (std::size_t)data->size(), file_handle)
+                != (std::size_t)data->size())
+            {
+                set_error(arrow::Status::IOError("Failed to write data to file"));
+                return;
+            }
+            m_completed_byte_writes += data->size();
 
             // Ensure we do this after editing all the other members, in order to prevent `Flush`
             // returning until we are done.
             m_completed_writes += 1;
+
+            // Close the file handle if we do not have further writes pending:
+            if (m_submitted_writes == m_completed_writes) {
+                close_file_handle(l);
+            }
         });
 
         return arrow::Status::OK();
@@ -124,20 +147,34 @@ public:
             return error();
         }
 
-        return m_main_stream->Flush();
-    }
+        // No file handle so nothing to flush
+        std::lock_guard<std::mutex> l{m_file_handle_mutex};
+        if (!m_file_handle) {
+            return arrow::Status::OK();
+        }
 
-    int get_file_descriptor() const
-    {
-        return static_cast<arrow::io::FileOutputStream *>(m_main_stream.get())->file_descriptor();
+        if (fflush(m_file_handle) != 0) {
+            return arrow::Status::IOError("Error flushing file");
+        }
+        return arrow::Status::OK();
     }
 
     void set_file_start_offset(std::size_t val) override { m_file_start_offset = val; }
 
+    arrow::Status batch_complete() override
+    {
+        if (m_flush_on_batch_complete) {
+            return Flush();
+        }
+        return arrow::Status::OK();
+    }
+
     AsyncOutputStream(
-        std::shared_ptr<OutputStream> const & main_stream,
+        std::string const & file_path,
         std::shared_ptr<ThreadPool> const & thread_pool,
+        bool flush_on_batch_complete,
         arrow::MemoryPool * memory_pool,
+        bool keep_file_open,
         PrivateDummy)
     : m_has_error{false}
     , m_submitted_writes{0}
@@ -145,21 +182,43 @@ public:
     , m_submitted_byte_writes{0}
     , m_completed_byte_writes{0}
     , m_actual_bytes_written{0}
-    , m_main_stream{main_stream}
+    , m_flush_on_batch_complete(flush_on_batch_complete)
+    , m_file_path(file_path)
+    , m_keep_file_open(keep_file_open)
     , m_file_start_offset{0}
     , m_strand{thread_pool->create_strand()}
     , m_memory_pool(memory_pool)
     {
+        m_file_handle = fopen(m_file_path.c_str(), "wb");
+        if (!m_file_handle) {
+            set_error(arrow::Status::IOError("Failed to open file for writing: ", errno));
+        }
+        if (!m_keep_file_open) {
+            fclose(m_file_handle);
+            m_file_handle = nullptr;
+        }
     }
 
-protected:
-    virtual arrow::Status write_final_chunk() { return arrow::Status::OK(); }
-
-    virtual arrow::Status write_cache() { return arrow::Status::OK(); }
-
-    virtual arrow::Status truncate_file() { return arrow::Status::OK(); }
-
+private:
     arrow::MemoryPool * memory_pool() { return m_memory_pool; }
+
+    FILE * get_or_open_file_handle([[maybe_unused]] std::lock_guard<std::mutex> & lock)
+    {
+        if (m_file_handle) {
+            return m_file_handle;
+        }
+
+        m_file_handle = fopen(m_file_path.c_str(), "ab");
+        return m_file_handle;
+    }
+
+    void close_file_handle([[maybe_unused]] std::lock_guard<std::mutex> & lock)
+    {
+        if (m_file_handle && !m_keep_file_open) {
+            fclose(m_file_handle);
+            m_file_handle = nullptr;
+        }
+    }
 
     void set_error(arrow::Status status)
     {
@@ -187,9 +246,13 @@ protected:
     // used for truncating the file for instance
     std::int64_t m_actual_bytes_written;
 
-    std::shared_ptr<OutputStream> m_main_stream;
+    bool m_flush_on_batch_complete;
 
-private:
+    std::string m_file_path;
+    std::mutex m_file_handle_mutex;
+    FILE * m_file_handle{nullptr};
+    bool m_keep_file_open{false};
+
     mutable std::mutex m_error_mutex;
     arrow::Status m_error;
 
