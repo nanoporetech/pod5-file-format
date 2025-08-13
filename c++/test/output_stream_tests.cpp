@@ -38,6 +38,7 @@ void check_file_contents(char const * filename)
     auto expected_contents_span = expected_contents->span_as<char>();
 
     REQUIRE(contents.size() == expected_contents_span.size());
+
     for (std::size_t i = 0; i < expected_contents_span.size(); i += 1) {
         CHECK(contents[i] == expected_contents_span[i]);
     }
@@ -95,10 +96,11 @@ TEST_CASE("AsyncOutputStream", "[OutputStream]")
         std::ofstream f(filename, std::ios_base::trunc);
     }
     {
-        auto res = arrow::io::FileOutputStream::Open(filename);
-        REQUIRE_ARROW_STATUS_OK(res);
+        bool keep_file_open = GENERATE(true, false);
+
         auto thread_pool = make_thread_pool(1);
-        auto stream = *AsyncOutputStream::make(*res, thread_pool, arrow::default_memory_pool());
+        auto stream = *AsyncOutputStream::make(
+            filename, thread_pool, true, arrow::default_memory_pool(), keep_file_open);
 
         run_output_stream_test(stream);
     }
@@ -110,6 +112,9 @@ TEST_CASE("LinuxOutputStream IOManagerSyncImpl", "[OutputStream]")
 {
     using namespace pod5;
 
+    bool keep_file_open = GENERATE(true, false);
+    CAPTURE(keep_file_open);
+
     auto filename = "./test_file.bin";
     {
         std::ofstream f(filename, std::ios_base::trunc);
@@ -117,8 +122,8 @@ TEST_CASE("LinuxOutputStream IOManagerSyncImpl", "[OutputStream]")
     {
         auto io_manager = pod5::make_sync_io_manager();
         REQUIRE_ARROW_STATUS_OK(io_manager);
-        auto stream =
-            *LinuxOutputStream::make(filename, *io_manager, 10 * 1024 * 1024, true, false, true);
+        auto stream = *LinuxOutputStream::make(
+            filename, *io_manager, 10 * 1024 * 1024, true, false, true, keep_file_open);
 
         run_output_stream_test(stream);
     }

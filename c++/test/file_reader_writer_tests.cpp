@@ -19,7 +19,6 @@
 
 #include <chrono>
 #include <fstream>
-#include <iostream>
 #include <numeric>
 #include <string>
 #include <thread>
@@ -191,23 +190,32 @@ TEST_CASE("Additional make_file_stream() tests")
         return;
     }
 
-    // Create and mount tmpfs drive.
-    std::filesystem::path const dir_path = "./ramdisk";
-    std::filesystem::create_directory(dir_path);
-    auto remove_directory = gsl::finally([&] { std::filesystem::remove(dir_path); });
-    auto const mount_cmd = std::string{"mount -o size=500M -t tmpfs none "} + dir_path.string();
+    std::filesystem::path const dir_path = "./ramdisk_" + std::to_string(std::time(nullptr));
+
     auto const umount_cmd = std::string{"umount "} + dir_path.string();
-    auto const mount_return = std::system(mount_cmd.c_str());
-    REQUIRE(mount_return == 0);
-    auto remove_mount = gsl::finally([&] { std::system(umount_cmd.c_str()); });
+    // Create and mount tmpfs drive.
+    auto remove_directory = gsl::finally([&] { std::filesystem::remove(dir_path); });
+    auto remove_mount = gsl::finally([&] { std::ignore = std::system(umount_cmd.c_str()); });
+    try {
+        std::filesystem::create_directory(dir_path);
+        auto const mount_cmd = std::string{"mount -o size=500M -t tmpfs none "} + dir_path.string();
+        auto const mount_return = std::system(mount_cmd.c_str());
+        REQUIRE(mount_return == 0);
+    } catch (std::exception const & e) {
+        FAIL("Failed to create and mount a tmpfs drive: " << e.what());
+    }
 
     pod5::FileWriterOptions options_for_direct_io;
     options_for_direct_io.set_use_directio(true);
     options_for_direct_io.set_use_sync_io(true);
     options_for_direct_io.set_write_chunk_size(524288);
 
-    auto const test_file_path = dir_path / "bar.pod5";
-    run_file_reader_writer_tests(test_file_path.c_str(), options_for_direct_io);
+    try {
+        auto const test_file_path = dir_path / "bar.pod5";
+        run_file_reader_writer_tests(test_file_path.c_str(), options_for_direct_io);
+    } catch (std::exception const & e) {
+        FAIL("Failed to run file reader/writer tests: " << e.what());
+    }
 }
 #endif
 
@@ -413,7 +421,7 @@ static bool file_writing_started(std::filesystem::path const & file_path)
     // empty or populated with nulls if writing has not been done.
     auto const MINIMUM_BYTES_WRITTEN = 3;
     if (file_size(file_path) < 3) {
-        return MINIMUM_BYTES_WRITTEN;
+        return false;
     }
     std::ifstream file{file_path, std::ios::in | std::ios::binary};
     for (auto byte_index = 0; byte_index < MINIMUM_BYTES_WRITTEN; ++byte_index) {
@@ -443,6 +451,7 @@ static void wait_for_files_to_recover(std::filesystem::path const & directory_pa
     auto const time_waited = [&]() {
         return std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - begin_waiting);
     };
+
     while (!files_ready_to_recover(directory_path)) {
         REQUIRE(time_waited() < std::chrono::milliseconds{100000});
         // Give any asynchronous file writing threads a chance to write to disk, before we continue.

@@ -41,8 +41,11 @@ arrow::Result<std::shared_ptr<pod5::FileOutputStream>> make_file_stream(
     std::string const & path,
     pod5::FileWriterOptions const & options,
     CachedFileValues & cached_values,
+    bool keep_file_open,
     FlushMode flush_mode = FlushMode::Default)
 {
+    auto const flush_on_batch_complete =
+        flush_mode == FlushMode::ForceFlushOnBatchComplete || options.flush_on_batch_complete();
 #ifdef __linux__
     if (options.use_directio() || options.use_sync_io()) {
         if (!cached_values.io_manager) {
@@ -59,8 +62,8 @@ arrow::Result<std::shared_ptr<pod5::FileOutputStream>> make_file_stream(
             options.write_chunk_size(),
             options.use_directio(),
             options.use_sync_io(),
-            flush_mode == FlushMode::ForceFlushOnBatchComplete ? true
-                                                               : options.flush_on_batch_complete());
+            flush_on_batch_complete,
+            keep_file_open);
 
         // Failure could be due to direct IO used by LinuxOutputStream not being
         // supported. On error drop-through to make a regular AsyncOutputStream.
@@ -78,9 +81,12 @@ arrow::Result<std::shared_ptr<pod5::FileOutputStream>> make_file_stream(
         }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto file, arrow::io::FileOutputStream::Open(path, false));
-
-    return pod5::AsyncOutputStream::make(file, cached_values.thread_pool, options.memory_pool());
+    return pod5::AsyncOutputStream::make(
+        path,
+        cached_values.thread_pool,
+        flush_on_batch_complete,
+        options.memory_pool(),
+        keep_file_open);
 }
 }  // namespace
 
@@ -97,6 +103,9 @@ FileWriterOptions::FileWriterOptions()
 , m_write_chunk_size(DEFAULT_WRITE_CHUNK_SIZE)
 , m_use_sync_io(DEFAULT_USE_SYNC_IO)
 , m_flush_on_batch_complete(DEFAULT_FLUSH_ON_BATCH_COMPLETE)
+, m_keep_signal_file_open(DEFAULT_KEEP_FILES_OPEN)
+, m_keep_run_info_file_open(DEFAULT_KEEP_FILES_OPEN)
+, m_keep_read_table_file_open(DEFAULT_KEEP_FILES_OPEN)
 {
 }
 
@@ -569,7 +578,9 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
 
     // Prepare the temporary reads file:
     ARROW_ASSIGN_OR_RAISE(
-        auto read_table_file_async, make_file_stream(reads_tmp_path, options, cached_values));
+        auto read_table_file_async,
+        make_file_stream(
+            reads_tmp_path, options, cached_values, options.keep_read_table_file_open()));
     ARROW_ASSIGN_OR_RAISE(
         auto read_table_tmp_writer,
         make_read_table_writer(
@@ -588,7 +599,11 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_file_async,
         make_file_stream(
-            run_info_tmp_path, options, cached_values, FlushMode::ForceFlushOnBatchComplete));
+            run_info_tmp_path,
+            options,
+            cached_values,
+            options.keep_run_info_file_open(),
+            FlushMode::ForceFlushOnBatchComplete));
 
     ARROW_ASSIGN_OR_RAISE(
         auto run_info_table_tmp_writer,
@@ -599,7 +614,9 @@ pod5::Result<std::unique_ptr<FileWriter>> create_file_writer(
             pool));
 
     // Prepare the main file - and set up the signal table to write here:
-    ARROW_ASSIGN_OR_RAISE(auto signal_file, make_file_stream(path, options, cached_values));
+    ARROW_ASSIGN_OR_RAISE(
+        auto signal_file,
+        make_file_stream(path, options, cached_values, options.keep_signal_file_open()));
 
     // Write the initial header to the combined file:
     ARROW_RETURN_NOT_OK(combined_file_utils::write_combined_header(signal_file, section_marker));
