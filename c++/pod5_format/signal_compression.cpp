@@ -17,6 +17,21 @@ namespace {
 // SVB is designed around 32 bit sizes, so that's the maximum uncompressed samples allowed.
 constexpr std::size_t max_uncompressed_samples = std::numeric_limits<std::uint32_t>::max();
 
+class DecompressContext {
+    struct DCtxDeleter {
+        void operator()(ZSTD_DCtx * ctx) { ZSTD_freeDCtx(ctx); }
+    };
+
+    std::unique_ptr<ZSTD_DCtx, DCtxDeleter> m_context;
+
+public:
+    DecompressContext() { m_context.reset(ZSTD_createDCtx()); }
+
+    ZSTD_DCtx * get() { return m_context.get(); }
+
+    explicit operator bool() const { return static_cast<bool>(m_context); }
+};
+
 }  // namespace
 
 arrow::Result<std::size_t> compressed_signal_max_size(std::size_t sample_count)
@@ -169,12 +184,18 @@ arrow::Status decompress_signal(
         return arrow::Status::Invalid("Skipping huge sizes when fuzzing");
     }
 
+    thread_local DecompressContext decompress_context;
+    if (!decompress_context) {
+        return arrow::Status::OutOfMemory("Failed to create zstd decompress context");
+    }
+
     // Decompress the data using zstd.
     auto const allocation_padding = svb16::decode_input_buffer_padding_byte_count();
     ARROW_ASSIGN_OR_RAISE(
         auto intermediate,
         arrow::AllocateResizableBuffer(decompressed_zstd_size + allocation_padding, pool));
-    size_t const decompress_res = ZSTD_decompress(
+    size_t const decompress_res = ZSTD_decompressDCtx(
+        decompress_context.get(),
         intermediate->mutable_data(),
         intermediate->size(),
         compressed_bytes.data(),
