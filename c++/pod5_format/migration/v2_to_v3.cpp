@@ -30,7 +30,7 @@ struct StringDictBuilder {
 
         // Re append the finished items to the now blank list
         for (std::int64_t i = 0; i < finished_items_val.length(); ++i) {
-            ARROW_RETURN_NOT_OK(items.Append(finished_items_val.GetString(i)));
+            ARROW_RETURN_NOT_OK(items.Append(finished_items_val.GetView(i)));
         }
 
         return arrow::DictionaryArray::FromArrays(finished_indices, finished_items);

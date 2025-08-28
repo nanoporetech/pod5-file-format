@@ -164,8 +164,9 @@ Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reas
     }
 
     auto str_value = end_reason_data.GetString(end_reason_index);
+    auto reason = end_reason_from_string(str_value);
 
-    return std::make_pair(end_reason_from_string(str_value), str_value);
+    return std::make_pair(reason, std::move(str_value));
 }
 
 Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const
