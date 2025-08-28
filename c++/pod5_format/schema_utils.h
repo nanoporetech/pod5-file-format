@@ -70,8 +70,8 @@ std::shared_ptr<typename FieldType::ArrayType> find_column(
     std::shared_ptr<arrow::RecordBatch> const & batch,
     FieldType const & field)
 {
-    auto const field_base = batch->column(field.field_index());
-    return std::static_pointer_cast<typename FieldType::ArrayType>(field_base);
+    auto field_base = batch->column(field.field_index());
+    return std::static_pointer_cast<typename FieldType::ArrayType>(std::move(field_base));
 }
 
 class FieldBase;

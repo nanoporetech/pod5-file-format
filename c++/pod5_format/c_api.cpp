@@ -456,16 +456,17 @@ pod5_error_t pod5_get_read_batch_row_info_data(
         typed_row_data->median_before = cols.median_before->Value(row);
         typed_row_data->channel = cols.channel->Value(row);
         typed_row_data->well = cols.well->Value(row);
-        auto pore_type_col = std::static_pointer_cast<arrow::Int16Array>(cols.pore_type->indices());
-        typed_row_data->pore_type = pore_type_col->Value(row);
+        auto const & pore_type_col = cols.pore_type->indices();
+        typed_row_data->pore_type =
+            static_cast<arrow::Int16Array const &>(*pore_type_col).Value(row);
         typed_row_data->calibration_offset = cols.calibration_offset->Value(row);
         typed_row_data->calibration_scale = cols.calibration_scale->Value(row);
-        auto end_reason_col =
-            std::static_pointer_cast<arrow::Int16Array>(cols.end_reason->indices());
-        typed_row_data->end_reason = end_reason_col->Value(row);
+        auto const & end_reason_col = cols.end_reason->indices();
+        typed_row_data->end_reason =
+            static_cast<arrow::Int16Array const &>(*end_reason_col).Value(row);
         typed_row_data->end_reason_forced = cols.end_reason_forced->Value(row);
-        auto run_info_col = std::static_pointer_cast<arrow::Int16Array>(cols.run_info->indices());
-        typed_row_data->run_info = run_info_col->Value(row);
+        auto const & run_info_col = cols.run_info->indices();
+        typed_row_data->run_info = static_cast<arrow::Int16Array const &>(*run_info_col).Value(row);
         typed_row_data->num_minknow_events = cols.num_minknow_events->Value(row);
         typed_row_data->tracked_scaling_scale = cols.tracked_scaling_scale->Value(row);
         typed_row_data->tracked_scaling_shift = cols.tracked_scaling_shift->Value(row);
@@ -528,7 +529,7 @@ pod5_error_t pod5_get_signal_row_indices(
         return g_pod5_error_no;
     }
 
-    auto const & row_data =
+    auto const row_data =
         std::static_pointer_cast<arrow::UInt64Array>(signal_col->value_slice(row));
 
     if (signal_row_indices_count != row_data->length()) {
@@ -566,8 +567,9 @@ pod5_error_t pod5_get_calibration_extra_info(
     }
 
     auto scale = cols.calibration_scale->Value(row);
+    auto const & run_info_indices = cols.run_info->indices();
     auto const run_info_dict_index =
-        std::static_pointer_cast<arrow::Int16Array>(cols.run_info->indices())->Value(row);
+        static_cast<arrow::Int16Array const &>(*run_info_indices).Value(row);
 
     POD5_C_ASSIGN_OR_RAISE(
         auto const acquisition_id, batch->batch.get_run_info(run_info_dict_index));
