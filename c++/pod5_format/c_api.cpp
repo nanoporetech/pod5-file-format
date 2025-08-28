@@ -441,7 +441,9 @@ pod5_error_t pod5_get_read_batch_row_info_data(
         READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
         "New versions must be explicitly loaded");
 
-    auto load_common_v3_v4_fields = [](auto const & cols, std::size_t row, auto * typed_row_data) {
+    auto load_common_v3_v4_fields = [](pod5::ReadTableRecordColumns const & cols,
+                                       std::size_t row,
+                                       auto * typed_row_data) {
         // Inform the caller of the version of the input table.
 
         if (check_row_index_and_set_error(row, cols.read_id->length()) != POD5_OK) {
