@@ -51,9 +51,9 @@ Result<SignalTableSchemaDescription> read_signal_table_schema(
 
         auto const signal_arrow_type = signal_field->type();
         if (signal_arrow_type->id() == arrow::Type::LARGE_LIST) {
-            auto const signal_list_field =
-                std::static_pointer_cast<arrow::LargeListType>(signal_field->type());
-            if (signal_list_field->value_type()->id() != arrow::Type::INT16) {
+            auto const & signal_list_field =
+                static_cast<arrow::LargeListType const &>(*signal_arrow_type);
+            if (signal_list_field.value_type()->id() != arrow::Type::INT16) {
                 return Status::TypeError("Schema field 'signal' list value type is incorrect type");
             }
         } else if (signal_arrow_type->Equals(vbz_signal())) {

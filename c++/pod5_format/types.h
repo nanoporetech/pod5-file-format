@@ -73,8 +73,8 @@ public:
 
 std::unique_ptr<arrow::FixedSizeBinaryBuilder> make_read_id_builder(arrow::MemoryPool * pool);
 
-std::shared_ptr<VbzSignalType> vbz_signal();
-std::shared_ptr<UuidType> uuid();
+std::shared_ptr<VbzSignalType> const & vbz_signal();
+std::shared_ptr<UuidType> const & uuid();
 
 /// \brief Register all required extension types.
 POD5_FORMAT_EXPORT pod5::Status register_extension_types();

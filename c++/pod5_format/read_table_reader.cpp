@@ -24,17 +24,8 @@ ReadTableRecordBatch::ReadTableRecordBatch(
 
 ReadTableRecordBatch::ReadTableRecordBatch(ReadTableRecordBatch && other)
 : TableRecordBatch(std::move(other))
+, m_field_locations(std::move(other.m_field_locations))
 {
-    m_field_locations = std::move(other.m_field_locations);
-}
-
-ReadTableRecordBatch & ReadTableRecordBatch::operator=(ReadTableRecordBatch && other)
-{
-    TableRecordBatch & base = *this;
-    base = other;
-
-    m_field_locations = std::move(other.m_field_locations);
-    return *this;
 }
 
 std::shared_ptr<UuidArray> ReadTableRecordBatch::read_id_column() const
@@ -122,69 +113,80 @@ Result<std::shared_ptr<arrow::UInt64Array>> ReadTableRecordBatch::get_signal_row
     return std::static_pointer_cast<arrow::UInt64Array>(values->Slice(offset, length));
 }
 
+template <ReadTableRecordBatch::Dict which>
+auto & ReadTableRecordBatch::get_dictionary(
+    std::shared_ptr<arrow::DictionaryArray> const & array) const
+{
+    auto & initialised = m_dictionary_initialised[static_cast<std::size_t>(which)];
+    if (initialised.load(std::memory_order_acquire)) {
+        return array->dictionary();
+    }
+
+    std::lock_guard lock(m_dictionary_access_lock);
+    auto & dict = array->dictionary();
+    initialised.store(true, std::memory_order_release);
+    return dict;
+}
+
 Result<std::string> ReadTableRecordBatch::get_pore_type(std::int16_t pore_index) const
 {
-    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
-
     if (!m_field_locations->pore_type.found_field()) {
         return arrow::Status::Invalid("pore field is not present in the file");
     }
 
     auto pore_column = find_column(batch(), m_field_locations->pore_type);
-    auto pore_data = std::static_pointer_cast<arrow::StringArray>(pore_column->dictionary());
-    if (pore_index < 0 || pore_index >= pore_data->length()) {
+    auto const & pore_dict = get_dictionary<Dict::Pore>(pore_column);
+    auto const & pore_data = static_cast<arrow::StringArray const &>(*pore_dict);
+    if (pore_index < 0 || pore_index >= pore_data.length()) {
         return arrow::Status::IndexError(
-            "Invalid index ", pore_index, " for pore array of length ", pore_data->length());
+            "Invalid index ", pore_index, " for pore array of length ", pore_data.length());
     }
 
-    return pore_data->GetString(pore_index);
+    return pore_data.GetString(pore_index);
 }
 
 Result<std::pair<ReadEndReason, std::string>> ReadTableRecordBatch::get_end_reason(
     std::int16_t end_reason_index) const
 {
-    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
-
     if (!m_field_locations->end_reason.found_field()) {
         return arrow::Status::Invalid("end_reason field is not present in the file");
     }
 
     auto end_reason_column = find_column(batch(), m_field_locations->end_reason);
-    auto end_reason_data =
-        std::static_pointer_cast<arrow::StringArray>(end_reason_column->dictionary());
-    if (end_reason_index >= end_reason_data->length()) {
+    auto const & end_reason_dict = get_dictionary<Dict::EndReason>(end_reason_column);
+    auto const & end_reason_data = static_cast<arrow::StringArray const &>(*end_reason_dict);
+    if (end_reason_index >= end_reason_data.length()) {
         return arrow::Status::IndexError(
             "Invalid index ",
             end_reason_index,
             " for end reason array of length ",
-            end_reason_data->length());
+            end_reason_data.length());
     }
 
-    auto str_value = end_reason_data->GetString(end_reason_index);
+    auto str_value = end_reason_data.GetString(end_reason_index);
+    auto reason = end_reason_from_string(str_value);
 
-    return std::make_pair(end_reason_from_string(str_value), str_value);
+    return std::make_pair(reason, std::move(str_value));
 }
 
 Result<std::string> ReadTableRecordBatch::get_run_info(std::int16_t run_info_index) const
 {
-    std::lock_guard<std::mutex> l(m_dictionary_access_lock);
-
     if (!m_field_locations->run_info.found_field()) {
         return arrow::Status::Invalid("end_reason field is not present in the file");
     }
 
     auto run_info_column = find_column(batch(), m_field_locations->run_info);
-    auto run_info_data =
-        std::static_pointer_cast<arrow::StringArray>(run_info_column->dictionary());
-    if (run_info_index < 0 || run_info_index >= run_info_data->length()) {
+    auto const & run_info_dict = get_dictionary<Dict::RunInfo>(run_info_column);
+    auto const & run_info_data = static_cast<arrow::StringArray const &>(*run_info_dict);
+    if (run_info_index < 0 || run_info_index >= run_info_data.length()) {
         return arrow::Status::IndexError(
             "Invalid index ",
             run_info_index,
             " for run info array of length ",
-            run_info_data->length());
+            run_info_data.length());
     }
 
-    return run_info_data->GetString(run_info_index);
+    return run_info_data.GetString(run_info_index);
 }
 
 //---------------------------------------------------------------------------------------------------------------------

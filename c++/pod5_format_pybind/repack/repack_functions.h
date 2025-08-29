@@ -38,12 +38,15 @@ arrow::Result<ReadReadData> read_read_data(
 
     ARROW_ASSIGN_OR_RAISE(auto columns, source_read_table_batch.columns());
 
-    auto source_reads_pore_type_column =
-        std::static_pointer_cast<arrow::Int16Array>(columns.pore_type->indices());
-    auto source_reads_end_reason_column =
-        std::static_pointer_cast<arrow::Int16Array>(columns.end_reason->indices());
-    auto source_reads_run_info_column =
-        std::static_pointer_cast<arrow::Int16Array>(columns.run_info->indices());
+    auto const & pore_type_columns = columns.pore_type->indices();
+    auto const & source_reads_pore_type_column =
+        static_cast<arrow::Int16Array const &>(*pore_type_columns);
+    auto const & end_reason_columns = columns.end_reason->indices();
+    auto const & source_reads_end_reason_column =
+        static_cast<arrow::Int16Array const &>(*end_reason_columns);
+    auto const & run_info_columns = columns.run_info->indices();
+    auto const & source_reads_run_info_column =
+        static_cast<arrow::Int16Array const &>(*run_info_columns);
     auto source_reads_signal_column = source_read_table_batch.signal_column();
 
     auto batch_rows = std::move(in_batch.batch_rows);
@@ -81,9 +84,9 @@ arrow::Result<ReadReadData> read_read_data(
         auto const & open_pore_level = columns.open_pore_level->Value(batch_row);
         auto const & num_samples = columns.num_samples->Value(batch_row);
 
-        auto const & pore_type_index = source_reads_pore_type_column->Value(batch_row);
-        auto const & end_reason_index = source_reads_end_reason_column->Value(batch_row);
-        auto const & run_info_index = source_reads_run_info_column->Value(batch_row);
+        auto const & pore_type_index = source_reads_pore_type_column.Value(batch_row);
+        auto const & end_reason_index = source_reads_end_reason_column.Value(batch_row);
+        auto const & run_info_index = source_reads_run_info_column.Value(batch_row);
 
         ARROW_ASSIGN_OR_RAISE(
             auto dest_pore_index,

@@ -30,8 +30,8 @@ public:
         std::shared_ptr<arrow::DataType> const & uuid_type)
     {
         assert(uuid_type->id() == arrow::Type::EXTENSION);
-        auto uuid_extension = std::static_pointer_cast<arrow::ExtensionType>(uuid_type);
-        return uuid_extension->storage_type();
+        auto const & uuid_extension = static_cast<arrow::ExtensionType const &>(*uuid_type);
+        return uuid_extension.storage_type();
     }
 
     arrow::Status Append(Uuid const & uuid)

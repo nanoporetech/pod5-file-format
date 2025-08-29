@@ -124,46 +124,46 @@ public:
     using MapType = std::vector<std::pair<std::string, std::string>>;
 
     RunInfoData(
-        std::string const & acquisition_id,
+        std::string acquisition_id,
         std::int64_t acquisition_start_time,
         std::int16_t adc_max,
         std::int16_t adc_min,
-        MapType const & context_tags,
-        std::string const & experiment_name,
-        std::string const & flow_cell_id,
-        std::string const & flow_cell_product_code,
-        std::string const & protocol_name,
-        std::string const & protocol_run_id,
+        MapType context_tags,
+        std::string experiment_name,
+        std::string flow_cell_id,
+        std::string flow_cell_product_code,
+        std::string protocol_name,
+        std::string protocol_run_id,
         std::int64_t protocol_start_time,
-        std::string const & sample_id,
+        std::string sample_id,
         std::uint16_t sample_rate,
-        std::string const & sequencing_kit,
-        std::string const & sequencer_position,
-        std::string const & sequencer_position_type,
-        std::string const & software,
-        std::string const & system_name,
-        std::string const & system_type,
-        MapType const & tracking_id)
-    : acquisition_id(acquisition_id)
-    , acquisition_start_time(acquisition_start_time)
-    , adc_max(adc_max)
-    , adc_min(adc_min)
-    , context_tags(context_tags)
-    , experiment_name(experiment_name)
-    , flow_cell_id(flow_cell_id)
-    , flow_cell_product_code(flow_cell_product_code)
-    , protocol_name(protocol_name)
-    , protocol_run_id(protocol_run_id)
-    , protocol_start_time(protocol_start_time)
-    , sample_id(sample_id)
-    , sample_rate(sample_rate)
-    , sequencing_kit(sequencing_kit)
-    , sequencer_position(sequencer_position)
-    , sequencer_position_type(sequencer_position_type)
-    , software(software)
-    , system_name(system_name)
-    , system_type(system_type)
-    , tracking_id(tracking_id)
+        std::string sequencing_kit,
+        std::string sequencer_position,
+        std::string sequencer_position_type,
+        std::string software,
+        std::string system_name,
+        std::string system_type,
+        MapType tracking_id)
+    : acquisition_id(std::move(acquisition_id))
+    , acquisition_start_time(std::move(acquisition_start_time))
+    , adc_max(std::move(adc_max))
+    , adc_min(std::move(adc_min))
+    , context_tags(std::move(context_tags))
+    , experiment_name(std::move(experiment_name))
+    , flow_cell_id(std::move(flow_cell_id))
+    , flow_cell_product_code(std::move(flow_cell_product_code))
+    , protocol_name(std::move(protocol_name))
+    , protocol_run_id(std::move(protocol_run_id))
+    , protocol_start_time(std::move(protocol_start_time))
+    , sample_id(std::move(sample_id))
+    , sample_rate(std::move(sample_rate))
+    , sequencing_kit(std::move(sequencing_kit))
+    , sequencer_position(std::move(sequencer_position))
+    , sequencer_position_type(std::move(sequencer_position_type))
+    , software(std::move(software))
+    , system_name(std::move(system_name))
+    , system_type(std::move(system_type))
+    , tracking_id(std::move(tracking_id))
     {
     }
 

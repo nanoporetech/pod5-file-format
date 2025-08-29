@@ -36,8 +36,8 @@ Status SchemaDescriptionBase::read_schema(
         auto const & datatype = field->datatype();
         int field_index = 0;
         if (datatype->id() == arrow::Type::DICTIONARY) {
-            auto dict_type = std::static_pointer_cast<arrow::DictionaryType>(datatype);
-            if (dict_type->value_type()->id() == arrow::Type::STRUCT) {
+            auto const & dict_type = static_cast<arrow::DictionaryType const &>(*datatype);
+            if (dict_type.value_type()->id() == arrow::Type::STRUCT) {
                 std::shared_ptr<arrow::StructType> value_type;
                 ARROW_ASSIGN_OR_RAISE(
                     field_index,

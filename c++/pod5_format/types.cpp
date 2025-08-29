@@ -10,14 +10,14 @@ namespace pod5 {
 
 Uuid const * UuidArray::raw_values() const
 {
-    auto const array = std::static_pointer_cast<arrow::FixedSizeBinaryArray const>(storage());
-    return reinterpret_cast<Uuid const *>(array->GetValue(0));
+    auto const & array = static_cast<arrow::FixedSizeBinaryArray const &>(*storage_);
+    return reinterpret_cast<Uuid const *>(array.GetValue(0));
 }
 
 Uuid UuidArray::Value(int64_t i) const
 {
-    auto const array = std::static_pointer_cast<arrow::FixedSizeBinaryArray const>(storage());
-    return *reinterpret_cast<Uuid const *>(array->GetValue(i));
+    auto const & array = static_cast<arrow::FixedSizeBinaryArray const &>(*storage_);
+    return *reinterpret_cast<Uuid const *>(array.GetValue(i));
 }
 
 bool UuidType::ExtensionEquals(ExtensionType const & other) const
@@ -52,20 +52,20 @@ arrow::Result<std::shared_ptr<arrow::DataType>> UuidType::Deserialize(
 
 gsl::span<std::uint8_t const> VbzSignalArray::Value(int64_t i) const
 {
-    auto const array = std::static_pointer_cast<arrow::LargeBinaryArray const>(storage());
+    auto const & array = static_cast<arrow::LargeBinaryArray const &>(*storage_);
 
     arrow::LargeBinaryArray::offset_type value_length = 0;
-    auto value_ptr = array->GetValue(i, &value_length);
+    auto value_ptr = array.GetValue(i, &value_length);
     return gsl::make_span(value_ptr, value_length);
 }
 
 std::shared_ptr<arrow::Buffer> VbzSignalArray::ValueAsBuffer(int64_t i) const
 {
-    auto const array = std::static_pointer_cast<arrow::LargeBinaryArray const>(storage());
+    auto const & array = static_cast<arrow::LargeBinaryArray const &>(*storage_);
 
-    auto offset = array->value_offset(i);
-    auto length = array->value_length(i);
-    auto const value_data = array->value_data();
+    auto offset = array.value_offset(i);
+    auto length = array.value_length(i);
+    auto const value_data = array.value_data();
 
     return arrow::SliceBuffer(value_data, offset, length);
 }
@@ -102,22 +102,20 @@ arrow::Result<std::shared_ptr<arrow::DataType>> VbzSignalType::Deserialize(
 
 std::unique_ptr<arrow::FixedSizeBinaryBuilder> make_read_id_builder(arrow::MemoryPool * pool)
 {
-    auto uuid_type = uuid();
+    auto const & uuid_type = uuid();
     assert(uuid_type->id() == arrow::Type::EXTENSION);
-    auto uuid_extension = std::static_pointer_cast<arrow::ExtensionType>(uuid_type);
-    auto result =
-        std::make_unique<arrow::FixedSizeBinaryBuilder>(uuid_extension->storage_type(), pool);
+    auto result = std::make_unique<arrow::FixedSizeBinaryBuilder>(uuid_type->storage_type(), pool);
     assert(result->byte_width() == 16);
     return result;
 }
 
-std::shared_ptr<VbzSignalType> vbz_signal()
+std::shared_ptr<VbzSignalType> const & vbz_signal()
 {
     static auto vbz_signal = std::make_shared<VbzSignalType>();
     return vbz_signal;
 }
 
-std::shared_ptr<UuidType> uuid()
+std::shared_ptr<UuidType> const & uuid()
 {
     static auto uuid = std::make_shared<UuidType>();
     return uuid;

@@ -26,11 +26,11 @@ struct StringDictBuilder {
         ARROW_ASSIGN_OR_RAISE(auto finished_indices, indices.Finish());
         ARROW_ASSIGN_OR_RAISE(auto finished_items, items.Finish());
 
-        auto finished_items_val = std::static_pointer_cast<arrow::StringArray>(finished_items);
+        auto const & finished_items_val = static_cast<arrow::StringArray const &>(*finished_items);
 
         // Re append the finished items to the now blank list
-        for (std::int64_t i = 0; i < finished_items_val->length(); ++i) {
-            ARROW_RETURN_NOT_OK(items.Append(finished_items_val->GetString(i)));
+        for (std::int64_t i = 0; i < finished_items_val.length(); ++i) {
+            ARROW_RETURN_NOT_OK(items.Append(finished_items_val.GetView(i)));
         }
 
         return arrow::DictionaryArray::FromArrays(finished_indices, finished_items);
