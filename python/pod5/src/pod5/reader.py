@@ -641,6 +641,7 @@ class ArrowTableHandle:
         self._path = Path(self._location.file_path)
 
         self._fh: Union[BufferedReader, None] = None
+        self._mmap: Union[mmap.mmap, None] = None
         self._reader: Union[pa.RecordBatchFileReader, None] = None
         self._stream: Union[pa.PythonFile, pa.NativeFile, None] = None
 
@@ -686,14 +687,25 @@ class ArrowTableHandle:
         return pa.PythonFile(File(self._fh, self._location))
 
     def _open_with_mmap(self) -> pa.BufferReader:
+        loc = self._location
+        # Get the page-aligned offset of this table.
+        # If the inner file doesn't align to a page, get the offset to the
+        # previous page and extend the length accordingly.
+        alignment_remainder = loc.offset % mmap.ALLOCATIONGRANULARITY
+        aligned_offset = loc.offset - alignment_remainder
+        aligned_length = loc.length + alignment_remainder
+
         # Temporarily open file to reduce open file handles
         with self._path.open("rb") as fh:
-            _mmap = mmap.mmap(fh.fileno(), length=0, access=mmap.ACCESS_READ)
-            file_view = memoryview(_mmap)
-
-            arrow_table_view = file_view[
-                self._location.offset : self._location.offset + self._location.length
-            ]
+            self._mmap = mmap.mmap(
+                fh.fileno(),
+                offset=aligned_offset,
+                length=aligned_length,
+                access=mmap.ACCESS_READ,
+            )
+            # Slice to remove any leading bytes which are not in the table
+            # added from page-alignment
+            arrow_table_view = memoryview(self._mmap)[alignment_remainder:]
 
         try:
             return pa.BufferReader(arrow_table_view)
@@ -725,6 +737,9 @@ class ArrowTableHandle:
 
         safe_close(self, "_stream")
         self._stream = None
+
+        safe_close(self, "_mmap")
+        self._mmap = None
 
         safe_close(self, "_fh")
         self._fh = None
