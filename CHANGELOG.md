@@ -7,6 +7,13 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.33]
+
+### Changed
+
+- Reduced virtual memory usage when opening POD5 files by 75%.
+- Python API now memory maps inner tables using the `mmap.mmap` `offset` and `length` arguments directly instead of taking a slice of the whole file.
+
 ## [0.3.32]
 
 ### Added
