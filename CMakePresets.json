@@ -1,0 +1,451 @@
+{
+    "version": 4,
+    "include": [
+        "cmake/presets/conan-provider.json",
+        "cmake/presets/conan-build-options.json",
+        "cmake/presets/conan-profiles.json"
+    ],
+    "configurePresets": [
+        {
+            "name": "conan2-linux-gcc9-x86_64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc9-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-x86_64-cppstd20-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc9-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-x86_64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc9-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-x86_64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc9-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-x86_64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc13-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-x86_64-cppstd20-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc13-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-x86_64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc13-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-x86_64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc13-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-x86_64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-x86_64-cppstd20-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-x86_64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-x86_64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-asan-static-x86_64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-asan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-asan-static-x86_64-cppstd20-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-asan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-usan-static-x86_64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-usan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-usan-static-x86_64-cppstd20-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-usan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-tsan-static-x86_64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-tsan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-tsan-static-x86_64-cppstd20-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-tsan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-asan-static-x86_64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-asan-static-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-asan-static-x86_64-cppstd17-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-asan-static-x86_64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-usan-static-x86_64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-usan-static-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-usan-static-x86_64-cppstd17-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-usan-static-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-tsan-static-x86_64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-tsan-static-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-tsan-static-x86_64-cppstd17-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-tsan-static-x86_64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-aarch64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc13-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-aarch64-cppstd20-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc13-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-aarch64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc13-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc13-aarch64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc13-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-aarch64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-aarch64-cppstd20-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-aarch64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc11-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc11-aarch64-cppstd17-release",
+            "hidden": false,
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc11-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-aarch64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc9-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-aarch64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc9-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-aarch64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-gcc9-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-linux-gcc9-aarch64-cppstd20-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-gcc9-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-15.0-aarch64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-appleclang-15.0-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-15.0-aarch64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-appleclang-15.0-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-15.0-aarch64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-appleclang-15.0-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-15.0-aarch64-cppstd20-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-appleclang-15.0-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-16.0-aarch64-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-appleclang-16.0-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-16.0-aarch64-cppstd17-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-appleclang-16.0-aarch64-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-16.0-aarch64-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-debug",
+                "conan2-appleclang-16.0-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-macos-appleclang-16.0-aarch64-cppstd20-release",
+            "inherits": [
+                "conan2-provider-unix",
+                "conan2-release",
+                "conan2-appleclang-16.0-aarch64-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-windows-x86_64-vs2019-cppstd17-debug",
+            "inherits": [
+                "conan2-provider-windows",
+                "conan2-debug",
+                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-windows-x86_64-vs2019-cppstd17-release",
+            "inherits": [
+                "conan2-provider-windows",
+                "conan2-release",
+                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-cppstd17"
+            ]
+        },
+        {
+            "name": "conan2-windows-x86_64-vs2019-cppstd20-debug",
+            "inherits": [
+                "conan2-provider-windows",
+                "conan2-debug",
+                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-cppstd20"
+            ]
+        },
+        {
+            "name": "conan2-windows-x86_64-vs2019-cppstd20-release",
+            "inherits": [
+                "conan2-provider-windows",
+                "conan2-release",
+                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-cppstd20"
+            ]
+        }
+    ]
+}

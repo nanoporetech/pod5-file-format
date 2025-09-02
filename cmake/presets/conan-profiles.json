@@ -1,0 +1,105 @@
+{
+    "version": 4,
+    "configurePresets": [
+        {
+            "name": "conan2-gcc9-x86_64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-x86_64-gcc9.jinja",
+                "CONAN_BUILD_PROFILE": "linux-x86_64-gcc9.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc11-x86_64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-x86_64-gcc11.jinja",
+                "CONAN_BUILD_PROFILE": "linux-x86_64-gcc11.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc11-asan-static-x86_64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-x86_64-gcc11-asan-static.jinja",
+                "CONAN_BUILD_PROFILE": "linux-x86_64-gcc11-asan-static.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc11-usan-static-x86_64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-x86_64-gcc11-usan-static.jinja",
+                "CONAN_BUILD_PROFILE": "linux-x86_64-gcc11-usan-static.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc11-tsan-static-x86_64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-x86_64-gcc11-tsan-static.jinja",
+                "CONAN_BUILD_PROFILE": "linux-x86_64-gcc11-tsan-static.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc13-x86_64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-x86_64-gcc13.jinja",
+                "CONAN_BUILD_PROFILE": "linux-x86_64-gcc13.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc13-aarch64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-aarch64-gcc13.jinja",
+                "CONAN_BUILD_PROFILE": "linux-aarch64-gcc13.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc11-aarch64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-aarch64-gcc11.jinja",
+                "CONAN_BUILD_PROFILE": "linux-aarch64-gcc11.jinja"
+            }
+        },
+        {
+            "name": "conan2-gcc9-aarch64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "linux-aarch64-gcc9.jinja",
+                "CONAN_BUILD_PROFILE": "linux-aarch64-gcc9.jinja"
+            }
+        },
+        {
+            "name": "conan2-appleclang-15.0-aarch64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "macos-aarch64-appleclang-15.0.jinja",
+                "CONAN_BUILD_PROFILE": "macos-aarch64-appleclang-15.0.jinja"
+            }
+        },
+        {
+            "name": "conan2-appleclang-16.0-aarch64-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "macos-aarch64-appleclang-16.0.jinja",
+                "CONAN_BUILD_PROFILE": "macos-aarch64-appleclang-16.0.jinja"
+            }
+        },
+        {
+            "name": "conan2-windows-x86_64-vs2019-profile",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_HOST_PROFILE": "windows-x86_64-vs2019.jinja",
+                "CONAN_BUILD_PROFILE": "windows-x86_64-vs2019.jinja"
+            },
+            "environment": {
+                "CMAKE_GENERATOR": "Visual Studio 16 2019",
+                "CONAN_MANUAL_OVERRIDES": "boost/*: boost/1.86.0"
+            }
+        }
+    ]
+}

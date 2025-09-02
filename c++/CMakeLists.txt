@@ -16,8 +16,10 @@ else()
     find_package(ZLIB REQUIRED)
 
     # Our non-conan ubuntu CI build has a different name for this target
-    add_library(arrow::arrow INTERFACE IMPORTED)
-    target_link_libraries(arrow::arrow INTERFACE Arrow::arrow_shared)
+    if (NOT CONAN2)
+        add_library(arrow::arrow INTERFACE IMPORTED)
+        target_link_libraries(arrow::arrow INTERFACE Arrow::arrow_shared)
+    endif()
 endif()
 
 find_package(Threads REQUIRED)

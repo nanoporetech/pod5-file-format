@@ -1,0 +1,47 @@
+{
+    "version": 4,
+    "configurePresets": [
+        {
+            "name": "conan2-debug",
+            "binaryDir": "${sourceDir}/build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "environment": {
+                "CONAN_PROFILE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "conan2-release",
+            "binaryDir": "${sourceDir}/build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            },
+            "environment": {
+                "CONAN_PROFILE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "conan2-cppstd20",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_STANDARD": "20"
+            },
+            "environment": {
+                "CONAN_PROFILE_CPPSTD": "20"
+            }
+        },
+        {
+            "name": "conan2-cppstd17",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_STANDARD": "17"
+            },
+            "environment": {
+                "CONAN_PROFILE_CPPSTD": "17"
+            }
+        }
+    ]
+}
