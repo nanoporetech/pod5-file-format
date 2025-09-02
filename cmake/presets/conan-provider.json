@@ -1,0 +1,31 @@
+{
+    "version": 4,
+    "configurePresets": [
+        {
+            "name": "conan2-provider-common",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/conan_provider.cmake",
+                "CONAN2": "ON"
+            }
+        },
+        {
+            "name": "conan2-provider-unix",
+            "inherits": "conan2-provider-common",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_INSTALL_ARGS":
+                    "--build=never;-o:a=arrow/*:with_boost=False;-o:a=arrow/*:with_thrift=False;-o:a=arrow/*:parquet=False;-o:a=arrow/*:with_zstd=True;"
+            }
+        },
+        {
+            "name": "conan2-provider-windows",
+            "inherits": "conan2-provider-common",
+            "hidden": true,
+            "cacheVariables": {
+                "CONAN_INSTALL_ARGS":
+                    "--build=missing;-o:a=arrow/*:with_thrift=False;-o:a=arrow/*:parquet=False;-o:a=boost/*:without_locale=True"
+            }
+        }
+    ]
+}

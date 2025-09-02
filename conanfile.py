@@ -2,6 +2,8 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps
 from conan.tools.files import collect_libs, copy
 from conan.tools.build import cross_building
+from conan.tools.cmake import cmake_layout
+import os
 
 
 class Pod5Conan(ConanFile):
@@ -51,17 +53,20 @@ class Pod5Conan(ConanFile):
                 f"{self.build_folder}/third_party/libs",
             )
 
+    def layout(self):
+        cmake_layout(self, "Ninja Multi-Config")
+
     def requirements(self):
-        self.requires("arrow/18.0.0@")
-        self.requires("flatbuffers/2.0.0@")
-        self.requires("zstd/1.5.5@")
-        self.requires("zlib/1.2.13@")
+        self.requires("arrow/18.0.0")
+        self.requires("flatbuffers/2.0.0")
+        self.requires("zstd/[>=1.4.8 <=2.0.0]")
+        self.requires("zlib/[>=1.2.11 <=2.0.0]")
         if not (
             self.settings.os == "Windows"
             or self.settings.os == "Macos"
             or self.settings.os == "iOS"
         ):
-            self.requires("jemalloc/5.2.1@")
+            self.requires("jemalloc/5.2.1")
 
     """
     When cross compiling we need pre compiled flatbuffers for flatc to run on the build machine
@@ -78,7 +83,7 @@ class Pod5Conan(ConanFile):
             # @TODO: Update to a version that exists in CCI
             # When this line changes a corresponding change in .gitlab-ci.yml is required where this
             # package is uninstalled.
-            self.build_requires("flatbuffers/2.0.0@")
+            self.tool_requires("flatbuffers/2.0.0")
 
     def generate(self):
         if not self.options.shared:
@@ -110,12 +115,17 @@ class Pod5Conan(ConanFile):
         cmake.install()
 
         # Copy the license files
-        copy(self, "LICENSE.md", ".", "licenses")
+        copy(
+            self,
+            "LICENSE.md",
+            self.source_folder,
+            os.path.join(self.package_folder, "licenses"),
+        )
 
         # Package the required third party libs after installing pod5 static
         if not self.options.shared:
             src = f"{self.build_folder}/third_party/libs/"
-            dst = f"{self.build_folder}/{self.settings.build_type}/lib/"
+            dst = f"{self.build_folder}/lib/"
             copy(self, "*", src, dst)
 
     def package_info(self):
@@ -141,6 +151,17 @@ class Pod5Conan(ConanFile):
             "zstd::zstd",
             "zlib::zlib",
         ]
+
+        # Workaround for broken Arrow package - ensure transitive includes are available
+        # Since our headers include Arrow headers, we need Arrow's includes to be transitively available
+        try:
+            arrow_dep = self.dependencies["arrow"]
+            arrow_include_path = os.path.join(arrow_dep.package_folder, "include")
+            if os.path.exists(arrow_include_path):
+                self.cpp_info.includedirs.append(arrow_include_path)
+        except Exception:
+            # Arrow dependency not found or other issue - let it fail naturally
+            pass
 
         # self.cpp
         if self.settings.os == "Linux":

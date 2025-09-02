@@ -24,6 +24,11 @@ endif()
 if (NOT DEFINED ENABLE_CONAN)
     option(ENABLE_CONAN "Enable conan for dependency installation" OFF)
 endif()
+
+if (NOT DEFINED CONAN2)
+    option(CONAN2 "Temp flag until we fully migrate to conan2" OFF)
+endif()
+
 option(BUILD_SHARED_LIB "Build a shared library" OFF)
 
 option(POD5_DISABLE_TESTS "Disable building all tests" ON)

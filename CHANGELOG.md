@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.33]
 
+### Added
+
+- Added Conan 2 CI
+
 ### Changed
 
 - Reduced virtual memory usage when opening POD5 files by 75%.

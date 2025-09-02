@@ -238,6 +238,8 @@ build-standalone-ubu22:
 
 # Takes CMAKE_ARGS, AUDITWHEEL_PLATFORM, and PYTHON_VERSION.
 .conan-build-and-test:
+  - |
+  - export TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
   - cd build
@@ -248,7 +250,7 @@ build-standalone-ubu22:
     -D POD5_DISABLE_TESTS=OFF
     -D POD5_BUILD_EXAMPLES=ON
     -D BUILD_PYTHON_WHEEL=OFF
-    -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+    -D CMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}
     ..
   - cmake --build . --config Release --parallel
   - ctest -C Release -VV
@@ -260,7 +262,7 @@ build-standalone-ubu22:
     -D POD5_BUILD_EXAMPLES=ON
     -D BUILD_PYTHON_WHEEL=ON
     -D PYTHON_VERSION=${PYTHON_VERSION}
-    -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+    -D CMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}
     ..
   - cmake --build . --config Release --parallel
   - ctest -C Release -VV
@@ -341,6 +343,7 @@ linux-aarch64-gcc9-release-build:
     - python3 -m venv .venv/
     - source .venv/bin/activate
     - pip install --upgrade pip build "conan<2"
+    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - which python
     - python --version
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
@@ -679,7 +682,7 @@ benchmark-linux-aarch64:
           -o arrow:parquet=False
           ..
     -   cmake
-          -D CMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake
+          -D CMAKE_TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake
           -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
           -D BUILD_PYTHON_WHEEL=OFF
           ${CMAKE_EXTRA_ARGS}
@@ -757,9 +760,30 @@ linux-x64-gcc11-coverage:
   - fi
   - pip install 'conan<2'
 
+.setup-conan2-venv:
+  - KERNEL=$(uname -s)
+  - if [[ ! ${KERNEL} =~ "Linux" ]]; then
+      # Must use an explicit version here otherwise we get the windows store one.
+      # Can be any version since it's only for installing conan.
+  -   python3.13 -m venv .venv
+  -   source .venv/*/activate
+  - fi
+  - pip install --upgrade conan
+
 .conan-setup-common:
   - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
   - !reference [".setup-conan-venv"]
+  - cat cmake/POD5Version.cmake
+  - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
+  - echo "Found versions ${VERSIONS}"
+  # This is needed to enforce lf line-endings in the pybind submodule
+  # otherwise conan generates different revisions for windows and unix
+  - git rm -rf :/
+  - git checkout HEAD -- :/
+
+.conan2-setup-common:
+  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".setup-conan2-venv"]
   - cat cmake/POD5Version.cmake
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - echo "Found versions ${VERSIONS}"
@@ -776,6 +800,51 @@ linux-x64-gcc11-coverage:
     - !reference [".conan-setup-common"]
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+
+.conan2-build-common:
+  stage: build-conan
+  dependencies:
+    - "prepare_version"
+  before_script:
+    - !reference [".conan2-setup-common"]
+    - conan remove "*" -c
+    - conan config install --verify-ssl=no "${CONAN2_CONFIG_URL}"
+
+.conan2-build-unix:
+  script:
+  # Set CONAN_EXTRA_ARGS (for macOS and Linux), use the defined env var for Windows.
+  - |
+    if [ -z "${CONAN_EXTRA_ARGS+x}" ]; then
+      export CONAN_EXTRA_ARGS='-o:a=arrow/*:with_boost=False -o:a=arrow/*:with_thrift=False -o:a=arrow/*:parquet=False -o:a=arrow/*:with_zstd=True'
+    fi
+  - cmake --preset ${CMAKE_PRESET}
+  - cmake --build build --parallel --config Release
+  - |
+    if [[ "$CMAKE_PRESET" =~ cppstd([0-9]+) ]]; then
+      CPPSTD="${BASH_REMATCH[1]}"
+      export CONAN_PROFILE_CPPSTD=${CPPSTD}
+    else
+      export CONAN_PROFILE_CPPSTD=20
+    fi
+  - |
+    if [[ -n ${VERSIONS} ]]; then
+      for version in ${VERSIONS}; do
+        base_version=$(echo "$version" | cut -d. -f1-3)
+        conan export-pkg . --name=pod5_file_format --version=${base_version} --user=nanopore --channel=stable -s:a build_type=Release -pr:a ${PROFILE_BASE} ${CONAN_EXTRA_ARGS}
+      done
+    fi
+  - conan cache save "*" --file=conan-${CMAKE_PRESET}.tgz
+  artifacts:
+      paths:
+        - 'conan-*.tgz'
+
+.conan2-upload:
+  stage: deploy
+  only: ["tags"]
+  script:
+    - conan cache restore conan-${CMAKE_PRESET}.tgz
+    - conan remote auth ONT-Conan-V2 --force
+    - conan upload "*:*" -c -r ONT-Conan-V2
 
 .conan-upload:
   extends: .upload-package # from informatics/conan-config
@@ -799,6 +868,19 @@ upload-conan:windows-x86_64-vs2019:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
 
+build-conan2:windows-x86_64-vs2019:
+    extends:
+        - .conan2-build-common
+        - .profile-windows-x86_64-vs2019-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version", "win-x64-msvc2019-release-build"]
+upload-conan2:windows-x86_64-vs2019:
+    extends:
+      - .conan2-build-common
+      - .profile-windows-x86_64-vs2019-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:windows-x86_64-vs2019" ]
+
 build-conan:macos-aarch64-appleclang-15.0:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
@@ -821,6 +903,32 @@ upload-conan:macos-aarch64-appleclang-16.0:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-16.0" ]
 
+build-conan2:macos-aarch64-appleclang-15.0:
+    extends:
+        - .conan2-build-common
+        - .profile-macos-aarch64-appleclang-15.0-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version", "osx-arm64-clang15-release-build"]
+upload-conan2:macos-aarch64-appleclang-15.0:
+    extends:
+      - .conan2-build-common
+      - .profile-macos-aarch64-appleclang-15.0-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:macos-aarch64-appleclang-15.0" ]
+
+build-conan2:macos-aarch64-appleclang-16.0:
+    extends:
+        - .conan2-build-common
+        - .profile-macos-aarch64-appleclang-16.0-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:macos-aarch64-appleclang-16.0:
+      extends:
+      - .conan2-build-common
+      - .profile-macos-aarch64-appleclang-16.0-conan2
+      - .conan2-upload
+      dependencies: [ "prepare_version", "build-conan2:macos-aarch64-appleclang-16.0" ]
+
 build-conan:linux-x86_64-gcc9:
     extends:
         - .profile-linux-x86_64-gcc9
@@ -831,6 +939,19 @@ build-conan:linux-x86_64-gcc9:
 upload-conan:linux-x86_64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
+
+build-conan2:linux-x86_64-gcc9:
+    extends:
+        - .conan2-build-common
+        - .profile-linux-x86_64-gcc9-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-x86_64-gcc9:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-x86_64-gcc9-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc9"]
 
 build-conan:linux-x86_64-gcc11:
     extends:
@@ -843,6 +964,58 @@ upload-conan:linux-x86_64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
 
+build-conan2:linux-x86_64-gcc11:
+    extends:
+        - .conan2-build-common
+        - .profile-linux-x86_64-gcc11-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-x86_64-gcc11:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-x86_64-gcc11-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11" ]
+
+build-conan2:linux-x86_64-gcc11-asan-static:
+    extends:
+        - .conan2-build-common
+        - .profile-linux-x86_64-gcc11-asan-static-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-x86_64-gcc11-asan-static:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-x86_64-gcc11-asan-static-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11-asan-static" ]
+
+build-conan2:linux-x86_64-gcc11-usan-static:
+    extends:
+        - .conan2-build-common
+        - .profile-linux-x86_64-gcc11-usan-static-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-x86_64-gcc11-usan-static:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-x86_64-gcc11-usan-static-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11-usan-static" ]
+
+build-conan2:linux-x86_64-gcc11-tsan-static:
+    extends:
+        - .conan2-build-common
+        - .profile-linux-x86_64-gcc11-tsan-static-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-x86_64-gcc11-tsan-static:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-x86_64-gcc11-tsan-static-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11-tsan-static" ]
+
 build-conan:linux-x86_64-gcc13:
     extends:
         - .profile-linux-x86_64-gcc13
@@ -853,6 +1026,19 @@ build-conan:linux-x86_64-gcc13:
 upload-conan:linux-x86_64-gcc13:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13" ]
+
+build-conan2:linux-x86_64-gcc13:
+    extends:
+        - .conan2-build-common
+        - .profile-linux-x86_64-gcc13-conan2
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-x86_64-gcc13:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-x86_64-gcc13-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc13" ]
 
 build-conan:linux-x86_64-gcc11-asan-static:
     extends:
@@ -931,6 +1117,19 @@ upload-conan:linux-aarch64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc9" ]
 
+build-conan2:linux-aarch64-gcc9:
+    extends:
+        - .profile-linux-aarch64-gcc9-conan2
+        - .conan2-build-common
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-aarch64-gcc9:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-aarch64-gcc9-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-aarch64-gcc9" ]
+
 build-conan:linux-aarch64-gcc11:
     extends:
         - .profile-linux-aarch64-gcc11
@@ -941,6 +1140,19 @@ build-conan:linux-aarch64-gcc11:
 upload-conan:linux-aarch64-gcc11:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]
+
+build-conan2:linux-aarch64-gcc11:
+    extends:
+        - .profile-linux-aarch64-gcc11-conan2
+        - .conan2-build-common
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-aarch64-gcc11:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-aarch64-gcc11-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-aarch64-gcc11" ]
 
 build-conan:linux-aarch64-gcc13:
     extends:
@@ -953,6 +1165,18 @@ upload-conan:linux-aarch64-gcc13:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc13" ]
 
+build-conan2:linux-aarch64-gcc13:
+    extends:
+        - .profile-linux-aarch64-gcc13-conan2
+        - .conan2-build-common
+        - .conan2-build-unix
+    needs: ["prepare_version"]
+upload-conan2:linux-aarch64-gcc13:
+    extends:
+      - .conan2-build-common
+      - .profile-linux-aarch64-gcc13-conan2
+      - .conan2-upload
+    dependencies: [ "prepare_version", "build-conan2:linux-aarch64-gcc13" ]
 
 # ======================================
 #

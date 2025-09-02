@@ -15,6 +15,7 @@ POD5Version.cmake
 *.swp
 test_package/CMakeUserPresets.json
 .vscode/
+.devcontainer/
 __pycache__
 python/Python.framework/
 /fuzz/corpus_*
