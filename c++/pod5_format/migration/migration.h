@@ -6,15 +6,32 @@
 
 #include <arrow/util/io_util.h>
 
+#include <iostream>
+
 namespace pod5 {
 
 class TemporaryDir {
 public:
     TemporaryDir(arrow::internal::PlatformFilename && path) : m_path(path) {}
 
-    ~TemporaryDir() { (void)::arrow::internal::DeleteDirTree(m_path); }
+    ~TemporaryDir() { cleanup(); }
 
     arrow::internal::PlatformFilename const & path() { return m_path; };
+
+    void cleanup()
+    {
+        if (m_path.ToString().empty()) {
+            return;
+        }
+
+        auto result = ::arrow::internal::DeleteDirTree(m_path);
+        if (!result.ok()) {
+            std::cerr << "Failed to remove temporary migration directory: " << result.status()
+                      << "\n";
+        } else {
+            m_path = {};
+        }
+    }
 
 private:
     arrow::internal::PlatformFilename m_path;
@@ -41,8 +58,10 @@ public:
     }
 
 private:
-    combined_file_utils::ParsedFooter m_footer;
+    // This is first so we clean it up last, after the
+    // footer and any open files it contains is destroyed.
     std::vector<std::unique_ptr<TemporaryDir>> m_temp_dirs;
+    combined_file_utils::ParsedFooter m_footer;
 };
 
 arrow::Result<MigrationResult> migrate_v0_to_v1(

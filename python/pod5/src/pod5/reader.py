@@ -887,10 +887,12 @@ class Reader:
 
     @property
     def file_version(self) -> packaging.version.Version:
+        """The version of pod5 that originally generated this file, this is not updated when updating the file."""
         return self._file_version
 
     @property
     def file_version_pre_migration(self) -> packaging.version.Version:
+        """The version of pod5 that is stored with the file on disk."""
         return self._file_version_pre_migration
 
     @property
@@ -1225,3 +1227,6 @@ class Reader:
 
         self._cached_run_infos[acquisition_id] = run_info
         return run_info
+
+    def __del__(self):
+        self.close()

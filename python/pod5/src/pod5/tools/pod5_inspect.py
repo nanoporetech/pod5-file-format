@@ -175,7 +175,7 @@ def do_summary_command(reader: p5.Reader, **kwargs):
     total_read_count = 0
 
     print(
-        f"File version in memory {reader.file_version}, read table version {reader.reads_table_version}."
+        f"Originating file version {reader.file_version}, in memory read table version {reader.reads_table_version}."
     )
     print(f"File version on disk {reader.file_version_pre_migration}.")
     if reader.is_vbz_compressed:
