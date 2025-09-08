@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Fixed migration behaviour on nfs systems, where migrated tables could be left orphaned on disk.
+- Limited polars install version to "~=1.20,<1.32" following breaking changes
 
 ## [0.3.33]
 
@@ -41,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new field `open_pore_level`, containing the level of the open pore as tracked by MinKNOW for this channel/well.
 
 ### Removed
+
 - Deprecated support for unused read scaling values "tracked_scaling_scale", "tracked_scaling_shift", "predicted_scaling_scale", "predicted_scaling_shift", "num_reads_since_mux_change" and "time_since_mux_change". These will be removed from stored data and writer API in 0.4.0, with accessing API remaining in place until 0.5.0.
 
 ## [0.3.30]
