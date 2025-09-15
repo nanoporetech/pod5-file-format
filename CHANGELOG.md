@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.34]
 
+### Added
+
+- `open_pore_level` to `pod5 inspect read`
+
 ### Changed
 
 - Fixed migration behaviour on nfs systems, where migrated tables could be left orphaned on disk.
