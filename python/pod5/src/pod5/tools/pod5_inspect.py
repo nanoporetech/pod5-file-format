@@ -106,6 +106,7 @@ def do_read_command(reader: p5.Reader, read_id: str, **_):
         print(f"read_number:\t{read.read_number}")
         print(f"start_sample:\t{read.start_sample}")
         print(f"median_before:\t{read.median_before}")
+        print(f"open_pore_level:\t{read.open_pore_level}")
         print("channel data:")
         print(f"\tchannel: {read.pore.channel}")
         print(f"\twell: {read.pore.well}")
