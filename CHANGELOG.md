@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed migration behaviour on nfs systems, where migrated tables could be left orphaned on disk.
 - Limited polars install version to "~=1.20,<1.32" following breaking changes
+- Tidied up how tmp files are named, used a larger set of numbers for naming.
 
 ## [0.3.33]
 
