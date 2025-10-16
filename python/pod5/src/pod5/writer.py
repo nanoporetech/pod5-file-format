@@ -42,7 +42,9 @@ from pod5.pod5_types import (
 DEFAULT_SOFTWARE_NAME = "Python API"
 
 SignalType: TypeAlias = p5b.SignalType
+"""The type of compression applied to a signal `SignalType::{UncompressedSignal, VbzSignal}`"""
 PoreType = str
+"""The name of a Pore"""
 T = TypeVar("T", bound=Union[EndReason, PoreType, RunInfo])
 
 
@@ -159,13 +161,13 @@ class Writer:
 
     def add(self, obj: Union[EndReason, PoreType, RunInfo]) -> int:
         """
-        Add a :py:class:`EndReason`, :py:class:`PoreType`, or
-        :py:class:`RunInfo` object to the Pod5 file (if it doesn't already
+        Add a `EndReason`, `PoreType`, or
+        `RunInfo` object to the Pod5 file (if it doesn't already
         exist) and return the index of this object in the Pod5 file.
 
         Parameters
         ----------
-        obj : :py:class:`EndReason`, :py:class:`PoreType`, :py:class:`RunInfo`
+        obj : Union[EndReason, PoreType, RunInfo]
             Object to find in this Pod5 file, adding it if it doesn't exist already
 
         Returns
@@ -234,12 +236,13 @@ class Writer:
 
         Parameters
         ----------
-        obj: :py:class:`EndReason`, :py:class:`RunInfo`
+        obj: Union[EndReason, RunInfo]
             Object to find in this Pod5 file
 
         Returns
         -------
-        True if obj has already been added to this file
+        bool
+            True if obj has already been added to this file
         """
         return obj in self._index_caches[type(obj)]
 
@@ -249,12 +252,13 @@ class Writer:
 
         Parameters
         ----------
-        obj: :py:class:`EndReason`, :py:class:`RunInfo`
+        obj: Union[EndReason, RunInfo]
             Obj instance to find in this Pod5 file
 
         Returns
         -------
-        The index of the object in this Pod5 file
+        int
+            The index of the object in this Pod5 file
 
         Raises
         ------
@@ -275,8 +279,8 @@ class Writer:
 
         Parameters
         ----------
-        read : :py:class:`Read`, :py:class:`CompressedRead`
-            POD5 Read or CompressedRead object to add as a record to the POD5 file.
+        read : Union[Read, CompressedRead]
+            POD5 `Read` or `CompressedRead` object to add as a record to the POD5 file.
         """
         self.add_reads([read])
 
@@ -287,8 +291,8 @@ class Writer:
 
         Parameters
         ----------
-        reads : Sequence of :py:class:`Read` or :py:class:`CompressedRead` exclusively
-            List of Read object to be added to this POD5 file
+        reads : Sequence[Union[Read, CompressedRead]
+            Sequence of Read or CompressedRead objects to be added to this POD5 file
         """
 
         # Nothing to do

@@ -154,18 +154,6 @@ api_lib_version_check:
     - echo "If this jobs fails then we have forgotten to match the api and lib version in the api python/pod5/pyproject.toml"
     - grep "lib_pod5\s*==\s*$NO_DEV_VERSION" python/pod5/pyproject.toml
 
-docs_version_check:
-  stage: .pre
-  needs:
-    - "prepare_version"
-  image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc9:latest
-  script:
-    - cat _version.py
-    - NO_DEV_VERSION=$(grep "__version__" _version.py | awk '{print $5}' | tr -d "'" | cut -d'+' -f1 | sed 's/\([0-9]\+\.[0-9]\+\.[0-9]\+\).*$/\1/')
-    - echo $NO_DEV_VERSION
-    - cat docs/requirements.txt
-    - echo "If this jobs fails then we have forgotten to update the pod5 version in the docs/requirements.txt"
-    - grep "pod5\s*==\s*$NO_DEV_VERSION" docs/requirements.txt
 
 pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
@@ -1269,25 +1257,3 @@ mlhub:
       - PYTHON_VERSION:
         - "3.9"
         - "3.12"
-
-
-# ======================================
-#
-#     Pages
-#
-# ======================================
-
-
-pages:
-  stage: deploy
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
-  needs: []
-  tags:
-    - linux
-  script:
-    - make -f docs/Makefile all
-    - mv _build/html public
-  artifacts:
-    paths:
-      - public
-  when: manual

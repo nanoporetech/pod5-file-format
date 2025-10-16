@@ -156,7 +156,7 @@ class DatasetReader:
 
         Yields
         ------
-        :py:class:`ReadRecord`
+        ReadRecord
         """
 
         def _get_reads_iter(path: Path) -> Generator[ReadRecord, None, None]:
@@ -188,7 +188,7 @@ class DatasetReader:
 
         Returns
         -------
-        A :py:class:`ReadRecord` or `None`
+        Optional[ReadRecord]
         """
         path = self.get_path(read_id)
         if path is None:
@@ -224,7 +224,7 @@ class DatasetReader:
 
         Returns
         -------
-        A :py:class:`Reader`
+        Reader
         """
         return self._get_reader(Path(path))
 
@@ -249,7 +249,7 @@ class DatasetReader:
 
         Returns
         -------
-        A `Path` or `None`
+        Optional[Path]
         """
 
         self.index_read_ids()

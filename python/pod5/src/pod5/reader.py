@@ -474,12 +474,11 @@ class ReadRecord:
 
     def to_read(self) -> Read:
         """
-        Create a mutable :py:class:`pod5.pod5_types.Read` from this
-        :py:class:`ReadRecord` instance.
+        Create a mutable `Read` from this `ReadRecord` instance.
 
         Returns
         -------
-            :py:class:`pod5.pod5_types.Read`
+        Read
         """
         return Read(
             read_id=self.read_id,
@@ -977,7 +976,7 @@ class Reader:
 
         Returns
         -------
-        :py:class:`ReadRecordBatch`
+        ReadRecordBatch
             The requested batch as a ReadRecordBatch.
         """
         return ReadRecordBatch(self, self.read_table.get_batch(index))
@@ -1005,7 +1004,8 @@ class Reader:
 
         Returns
         -------
-        An iterable of :py:class:`ReadRecordBatch` in the file.
+        Generator[ReadRecordBatch, None, None]
+            A generator yielding `ReadRecordBatch`s
         """
         if selection is not None:
             if batch_selection is not None:
@@ -1039,7 +1039,8 @@ class Reader:
 
         Returns
         -------
-        An iterable of :py:class:`ReadRecord` in the file.
+        Generator[ReadRecord, None, None]
+            A generator yielding `ReadRecord`s
         """
         if selection is None:
             yield from self._reads(preload=preload)
@@ -1184,7 +1185,7 @@ class Reader:
         return successful_find_count, per_batch_counts, batch_rows
 
     def _get_signal_batch(self, batch_id: int) -> Signal:
-        """Get the :py:class:`Signal` from the signal_reader batch at batch_id"""
+        """Get the `Signal` from the signal_reader batch at batch_id"""
         if batch_id in self._cached_signal_batches:
             return self._cached_signal_batches[batch_id]
 
@@ -1196,7 +1197,7 @@ class Reader:
         return signal_batch
 
     def _lookup_run_info(self, batch: ReadRecordBatch, batch_row_id: int) -> RunInfo:
-        """Get the :py:class:`RunInfo` from the batch at batch_row_id"""
+        """Get the `RunInfo` from the batch at `batch_row_id`"""
 
         acquisition_id = batch.columns.run_info[batch_row_id].as_py()
 

@@ -25,7 +25,7 @@ classifiers = [
 
 dependencies = [
   "deprecated ~= 1.2.18",
-  "lib_pod5 == 0.3.34",
+  "lib_pod5 == 0.3.35",
   "iso8601",
   "more_itertools",
   "numpy >= 1.21.0",
