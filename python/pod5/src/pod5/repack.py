@@ -43,11 +43,11 @@ class Repacker:
         into it.
 
         Once a user has added an output, it can be passed as an output
-        to :py:meth:`add_selected_reads_to_output` or :py:meth:`add_reads_to_output`
+        to `add_selected_reads_to_output` or `add_reads_to_output`
 
         Parameters
         ----------
-        output_file: :py:class:`writer.Writer`
+        output_file: Writer
             The output file writer to use
         check_duplicate_read_ids: bool
             Check the output for duplicate read ids, and raise an error if found.
@@ -55,8 +55,8 @@ class Repacker:
         Returns
         -------
         repacker_object: p5b.Pod5RepackerOutput
-            Use this as "output_ref" in calls to :py:meth:`add_selected_reads_to_output`
-            or :py:meth:`add_reads_to_output`
+            Use this as `output_ref` in calls to `add_selected_reads_to_output`
+            or `add_reads_to_output`
         """
         assert output_file._writer is not None
         return self._repacker.add_output(output_file._writer, check_duplicate_read_ids)
@@ -68,14 +68,14 @@ class Repacker:
         selected_read_ids: Collection[str],
     ):
         """
-        Copy the selected read_ids from the given :py:class:`Reader` into the
-        Repacker output reference which was returned by :py:meth:`add_output`
+        Copy the selected read_ids from the given `Reader` into the
+        Repacker output reference which was returned by `add_output`
 
         Parameters
         ----------
         output_ref : lib_pod5.pod5_format_pybind.Pod5RepackerOutput
-            The repacker handle reference returned from :py:meth:`add_output`
-        reader : :py:class:`Reader`
+            The repacker handle reference returned from `add_output`
+        reader : Reader
             The Pod5 file reader to copy reads from
         selected_read_ids: Collection[str]
             A Collection of read_ids as strings
@@ -105,14 +105,14 @@ class Repacker:
         self, output_ref: p5b.Pod5RepackerOutput, reader: p5.Reader
     ) -> None:
         """
-        Copy the every read from the given :py:class:`Reader` into the
-        Repacker output reference which was returned by :py:meth:`add_output`
+        Copy the every read from the given `Reader` into the
+        Repacker output reference which was returned by `add_output`
 
         Parameters
         ----------
         output_ref : lib_pod5.pod5_format_pybind.Pod5RepackerOutput
-            The repacker handle reference returned from :py:meth:`add_output`
-        reader : :py:class:`Reader`
+            The repacker handle reference returned from `add_output`
+        reader : Reader
             The Pod5 file reader to copy reads from
         """
         self._reads_requested += reader.num_reads
