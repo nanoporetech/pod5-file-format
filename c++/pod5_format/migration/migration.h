@@ -10,6 +10,8 @@
 
 namespace pod5 {
 
+void register_delete_at_exit(arrow::internal::PlatformFilename const & path);
+
 class TemporaryDir {
 public:
     TemporaryDir(arrow::internal::PlatformFilename && path) : m_path(path) {}
@@ -26,8 +28,8 @@ public:
 
         auto result = ::arrow::internal::DeleteDirTree(m_path);
         if (!result.ok()) {
-            std::cerr << "Failed to remove temporary migration directory: " << result.status()
-                      << "\n";
+            // Push the delete of this directory off to exit, when all open file handles should be closed.
+            register_delete_at_exit(m_path);
         } else {
             m_path = {};
         }

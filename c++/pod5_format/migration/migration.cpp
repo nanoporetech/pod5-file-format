@@ -4,6 +4,32 @@
 
 namespace pod5 {
 
+static bool registered_delete_at_exit_called = false;
+std::vector<arrow::internal::PlatformFilename> registered_delete_at_exit_paths;
+
+void register_delete_at_exit(arrow::internal::PlatformFilename const & path)
+{
+    registered_delete_at_exit_paths.push_back(path);
+
+    if (!registered_delete_at_exit_called) {
+        std::atexit([] {
+            std::size_t delete_failed = 0;
+            for (auto const & path : registered_delete_at_exit_paths) {
+                auto result = ::arrow::internal::DeleteDirTree(path);
+                if (!result.ok()) {
+                    delete_failed += 1;
+                }
+            }
+
+            if (delete_failed > 0) {
+                std::cerr << "Warning: Failed to remove " << delete_failed
+                          << " temporary migration directories at exit.\n";
+            }
+        });
+        registered_delete_at_exit_called = true;
+    }
+}
+
 Result<std::unique_ptr<TemporaryDir>> MakeTmpDir(char const * suffix)
 {
     std::default_random_engine gen(

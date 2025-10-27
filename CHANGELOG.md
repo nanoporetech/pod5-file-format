@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed sphinx-style python docstrings references
 - Removed most documentation as part of migration to https://software-docs.nanoporetech.com/pod5
 
+### Changed
+- Moved filter + subset implementation into C++ for improved performance.
+
 ## [0.3.34]
 
 ### Added

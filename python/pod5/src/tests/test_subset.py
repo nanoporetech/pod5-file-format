@@ -13,18 +13,16 @@ from pod5.tools.pod5_subset import (
     PL_DEST_FNAME,
     PL_READ_ID,
     assert_filename_template,
-    assert_overwrite_ok,
-    calculate_transfers,
+    build_targets_dict,
     column_keys_from_template,
     create_default_filename_template,
     fstring_to_polars,
     get_separator,
-    launch_subsetting,
     parse_csv_mapping,
-    parse_sources,
     parse_table_mapping,
     subset_pod5,
 )
+import lib_pod5 as p5b
 
 CSV_RESULT_1 = {
     "repeated_name": {"r1", "r2"},
@@ -90,10 +88,18 @@ class TestSubset:
     def _test_subset(self, tmp: Path, csv: Path, mapping: Dict[str, Set[str]]) -> None:
         # Known good mapping
 
-        sources = parse_sources(set([POD5_PATH]), threads=1)
         targets = parse_csv_mapping(csv)
-        transfers = calculate_transfers(sources, targets, missing_ok=False)
-        launch_subsetting(transfers, duplicate_ok=False, threads=1)
+        targets_dict = build_targets_dict(targets)
+
+        p5b.subset_pod5s_with_mapping(
+            [POD5_PATH],
+            tmp,
+            targets_dict,
+            # threads=threads,
+            False,
+            False,
+            False,
+        )
 
         # Assert only the expected files are output
         expected_outnames = list(mapping.keys())
@@ -158,20 +164,13 @@ class TestSubset:
 
     def test_assert_overwrite(self, tmp_path: Path) -> None:
         """Test overwriting existing files if requested"""
-        no_exists = tmp_path / "no_exists"
-        exists = tmp_path / "exists"
-        exists.touch()
 
-        ldf = pl.DataFrame({PL_DEST_FNAME: map(str, [no_exists, exists])}).lazy()
-        with pytest.raises(FileExistsError, match="--force-overwrite"):
-            assert_overwrite_ok(ldf, force_overwrite=False)
+        # Create a file we know will be written to in `test_subset_base`:
+        (tmp_path / "well-2.pod5").touch()
 
-        assert not no_exists.exists()
-        assert exists.exists()
-
-        assert_overwrite_ok(ldf, force_overwrite=True)
-        assert not no_exists.exists()
-        assert not exists.exists()
+        # Run the test, expecting an error
+        with pytest.raises(RuntimeError):
+            self.test_subset_base(tmp_path)
 
 
 class TestFilenameTemplating:

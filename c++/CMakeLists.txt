@@ -234,7 +234,7 @@ flatbuffers_generate_headers(
 )
 
 if (NOT MSVC)
-    set(pod5_warning_options -Werror -Wall -Wno-comment -Wno-error=deprecated-declarations)
+    set(pod5_warning_options -Werror -Wall -Wno-comment -Wno-error=deprecated-declarations -Wno-deprecated-declarations)
     target_compile_options(pod5_format PRIVATE ${pod5_warning_options})
 endif()
 generate_export_header(pod5_format EXPORT_FILE_NAME pod5_format/pod5_format_export.h)

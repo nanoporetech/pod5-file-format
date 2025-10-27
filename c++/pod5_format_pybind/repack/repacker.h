@@ -28,11 +28,17 @@ public:
         std::shared_ptr<Pod5RepackerOutput> const & output,
         Pod5FileReaderPtr const & input);
 
-    void add_selected_reads_to_output(
+    void py_add_selected_reads_to_output(
         std::shared_ptr<Pod5RepackerOutput> const & output,
         Pod5FileReaderPtr const & input,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && all_batch_rows);
+
+    void add_selected_reads_to_output(
+        std::shared_ptr<Pod5RepackerOutput> const & output,
+        std::shared_ptr<pod5::FileReader> const & input,
+        gsl::span<std::uint32_t const> batch_counts,
+        gsl::span<std::uint32_t const> all_batch_rows);
 
     bool is_complete() const;
     std::size_t reads_completed() const;
@@ -67,10 +73,10 @@ private:
         m_file_readers.erase(new_end, m_file_readers.end());
     }
 
-    void register_submitted_reader(Pod5FileReaderPtr const & input)
+    void register_submitted_reader(std::shared_ptr<pod5::FileReader> const & input)
     {
         cleanup_submitted_readers();
-        m_file_readers.emplace_back(input.reader);
+        m_file_readers.emplace_back(input);
     }
 
     std::shared_ptr<pod5::ThreadPool> m_thread_pool;
