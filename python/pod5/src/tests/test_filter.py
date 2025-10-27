@@ -172,7 +172,7 @@ class TestFilter:
             _fh.write(f"\n{UUID(bytes=b'0'*16)}\n")
 
         output = tmp_path / "output.pod5"
-        with pytest.raises(AssertionError):
+        with pytest.raises(RuntimeError):
             filter_pod5(
                 [POD5_PATH],
                 output,

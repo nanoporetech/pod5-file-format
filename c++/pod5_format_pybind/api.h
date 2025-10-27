@@ -564,7 +564,7 @@ inline std::size_t load_read_id_iterable(
 
     std::string temp_uuid;
     for (auto & read_id : read_ids_str) {
-        if (out_idx >= read_ids_out_len) {
+        if (out_idx >= (std::size_t)read_ids_out_len) {
             throw std::runtime_error("Too many input uuids for output container");
         }
 

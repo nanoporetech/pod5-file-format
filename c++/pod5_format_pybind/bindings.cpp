@@ -2,6 +2,7 @@
 #include "pod5_format/c_api.h"
 #include "repack/repack_output.h"
 #include "repack/repacker.h"
+#include "subset.h"
 
 PYBIND11_MODULE(pod5_format_pybind, m)
 {
@@ -138,7 +139,7 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         .def("add_output", &repack::Pod5Repacker::add_output)
         .def("set_output_finished", &repack::Pod5Repacker::set_output_finished)
         .def("add_all_reads_to_output", &repack::Pod5Repacker::add_all_reads_to_output)
-        .def("add_selected_reads_to_output", &repack::Pod5Repacker::add_selected_reads_to_output)
+        .def("add_selected_reads_to_output", &repack::Pod5Repacker::py_add_selected_reads_to_output)
         .def("finish", &repack::Pod5Repacker::finish)
         .def_property_readonly("is_complete", &repack::Pod5Repacker::is_complete)
         .def_property_readonly(
@@ -152,4 +153,9 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         &load_read_id_iterable,
         "Load an iterable of read ids into a numpy array of data");
     m.def("format_read_id_to_str", &format_read_id_to_str, "Format an array of read ids to string");
+
+    m.def(
+        "subset_pod5s_with_mapping",
+        &subset_pod5s_with_mapping,
+        "Subset pod5 files given a mapping");
 }

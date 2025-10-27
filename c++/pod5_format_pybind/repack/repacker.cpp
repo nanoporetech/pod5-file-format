@@ -76,23 +76,33 @@ void Pod5Repacker::add_all_reads_to_output(
         output->register_new_reads(input.reader, i);
     }
 
-    register_submitted_reader(input);
+    register_submitted_reader(input.reader);
 }
 
-void Pod5Repacker::add_selected_reads_to_output(
+void Pod5Repacker::py_add_selected_reads_to_output(
     std::shared_ptr<Pod5RepackerOutput> const & output,
     Pod5FileReaderPtr const & input,
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && all_batch_rows)
 {
-    POD5_TRACE_FUNCTION();
     repacker_add_reads_preconditions(shared_from_this(), output, input);
 
     auto batch_counts_span = gsl::make_span(batch_counts.data(), batch_counts.size());
     auto all_batch_rows_span = gsl::make_span(all_batch_rows.data(), all_batch_rows.size());
 
+    add_selected_reads_to_output(output, input.reader, batch_counts_span, all_batch_rows_span);
+}
+
+void Pod5Repacker::add_selected_reads_to_output(
+    std::shared_ptr<Pod5RepackerOutput> const & output,
+    std::shared_ptr<pod5::FileReader> const & input,
+    gsl::span<std::uint32_t const> batch_counts_span,
+    gsl::span<std::uint32_t const> all_batch_rows_span)
+{
+    POD5_TRACE_FUNCTION();
+
     std::size_t current_start_point = 0;
-    for (std::size_t i = 0; i < input.reader->num_read_record_batches(); ++i) {
+    for (std::size_t i = 0; i < input->num_read_record_batches(); ++i) {
         std::vector<std::uint32_t> batch_rows;
         auto const batch_rows_span =
             all_batch_rows_span.subspan(current_start_point, batch_counts_span[i]);
@@ -105,7 +115,7 @@ void Pod5Repacker::add_selected_reads_to_output(
         batch_rows.insert(batch_rows.end(), batch_rows_span.begin(), batch_rows_span.end());
         current_start_point += batch_counts_span[i];
 
-        output->register_new_reads(input.reader, i, std::move(batch_rows));
+        output->register_new_reads(input, i, std::move(batch_rows));
     }
 
     register_submitted_reader(input);

@@ -14,7 +14,7 @@ namespace repack {
 
 class Pod5Repacker;
 
-class Pod5RepackerOutputState;
+struct Pod5RepackerOutputState;
 
 class Pod5RepackerOutput {
 public:

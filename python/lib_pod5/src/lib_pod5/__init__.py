@@ -22,6 +22,7 @@ from .pod5_format_pybind import (
     load_read_id_iterable,
     open_file,
     update_file,
+    subset_pod5s_with_mapping,
     vbz_compressed_signal_max_size,
 )
 
@@ -48,5 +49,6 @@ __all__ = [
     "load_read_id_iterable",
     "open_file",
     "update_file",
+    "subset_pod5s_with_mapping",
     "vbz_compressed_signal_max_size",
 ]

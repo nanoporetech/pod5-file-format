@@ -3,6 +3,8 @@ pybind11_add_module(pod5_format_pybind
     api.h
     bindings.cpp
     utils.h
+    subset.cpp
+    subset.h
 
     repack/repack_functions.h
     repack/repack_states.h
@@ -18,6 +20,9 @@ target_link_libraries(pod5_format_pybind
         pod5_format
 )
 
+if (NOT MSVC)
+    target_compile_options(pod5_format_pybind PRIVATE ${pod5_warning_options})
+endif()
 
 set_target_properties(pod5_format_pybind
     PROPERTIES
