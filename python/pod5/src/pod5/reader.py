@@ -937,7 +937,12 @@ class Reader:
         """
         Find the number of reads in the file.
         """
-        return sum(batch.num_reads for batch in self.read_batches())
+        # We write constant size batches except for the last.
+        num_batches = self.read_table.num_record_batches
+        return (
+            self.read_table.get_batch(0).num_rows * max(num_batches - 1, 0)
+            + self.read_table.get_batch(num_batches - 1).num_rows
+        )
 
     @property
     def read_ids_raw(self) -> pa.ChunkedArray:

@@ -15,7 +15,7 @@ import pytest
 
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 READ_IDS_PATH = TEST_DATA_PATH / "subset_mapping_examples/read_ids.txt"
 
 EXPECTED_READ_IDS = [

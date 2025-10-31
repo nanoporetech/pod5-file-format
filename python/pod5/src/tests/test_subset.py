@@ -69,7 +69,7 @@ MAPPING_DUPLICATED = {
 }
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 
 
 class TestSubset:

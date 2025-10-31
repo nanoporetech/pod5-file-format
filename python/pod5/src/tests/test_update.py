@@ -8,7 +8,7 @@ import pytest
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 POD5_V1_PATH = TEST_DATA_PATH / "multi_fast5_zip_v1.pod5"
 POD5_V2_PATH = TEST_DATA_PATH / "multi_fast5_zip_v2.pod5"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 
 
 class TestUpdate:

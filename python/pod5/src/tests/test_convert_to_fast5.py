@@ -13,7 +13,7 @@ from pod5.tools.pod5_convert_to_fast5 import convert_to_fast5
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 
 
 class TestPod5ConversionRoundTrip:
@@ -31,7 +31,7 @@ class TestPod5ConversionRoundTrip:
         assert len(fast5_paths) == 1
 
         # Expected filename has input filename with some extra indexing data
-        expected_fast5_name = "multi_fast5_zip_v3.0_0.fast5"
+        expected_fast5_name = "multi_fast5_zip_v4.0_0.fast5"
         assert fast5_paths[0].name == expected_fast5_name
 
         # Convert back to pod5
@@ -77,7 +77,7 @@ class TestConvertBehaviour:
     def test_no_unforced_overwrite(self, tmp_path: Path):
         """Assert that the conversion tool will not overwrite existing files"""
 
-        existing = tmp_path / "multi_fast5_zip_v3.0_0.fast5"
+        existing = tmp_path / "multi_fast5_zip_v4.0_0.fast5"
         existing.touch()
         with pytest.raises(FileExistsError):
             convert_to_fast5(inputs=[POD5_PATH], output=tmp_path, force_overwrite=False)
@@ -85,7 +85,7 @@ class TestConvertBehaviour:
     def test_forced_overwrite(self, tmp_path: Path):
         """Assert that the conversion tool will overwrite existing file if forced"""
 
-        existing = tmp_path / "multi_fast5_zip_v3.0_0.fast5"
+        existing = tmp_path / "multi_fast5_zip_v4.0_0.fast5"
         existing.touch()
         created_time = existing.stat().st_mtime_ns
         convert_to_fast5(inputs=[POD5_PATH], output=tmp_path, force_overwrite=True)
@@ -110,8 +110,8 @@ class TestConvertBehaviour:
         files-read-count is low
         """
         expect = [
-            tmp_path / "multi_fast5_zip_v3.0_0.fast5",
-            tmp_path / "multi_fast5_zip_v3.1_0.fast5",
+            tmp_path / "multi_fast5_zip_v4.0_0.fast5",
+            tmp_path / "multi_fast5_zip_v4.1_0.fast5",
         ]
 
         assert len(list(tmp_path.rglob("*"))) == 0
