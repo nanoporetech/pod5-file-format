@@ -235,9 +235,13 @@ void subset_pod5s_with_mapping(
 
     // Wait for repacker to complete:
     progress_bar.set_task("Waiting for IO to complete...");
-    while (!repacker->is_complete()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        progress_bar.update(repacker->reads_completed());
+    try {
+        while (!repacker->is_complete()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            progress_bar.update(repacker->reads_completed());
+        }
+    } catch (std::exception const & e) {
+        std::cout << "\nError during repacking: " << e.what() << std::endl;
     }
 
     finisher.join();
