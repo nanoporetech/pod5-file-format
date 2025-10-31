@@ -22,7 +22,7 @@ from pod5.tools import main, parsers
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 FAST5_PATH = TEST_DATA_PATH / "multi_fast5_zip.fast5"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 SUBSET_CSV_PATH = TEST_DATA_PATH / "subset_mapping_examples/subset.csv"
 READ_IDS_PATH = TEST_DATA_PATH / "subset_mapping_examples/read_ids.txt"
 

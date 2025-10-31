@@ -9,6 +9,7 @@ import pod5 as p5
 from pod5.tools.pod5_view import (
     Field,
     assert_unique_acquisition_id,
+    get_included_reads_table_fields,
     get_reads_tables,
     join_reads_to_run_info,
     parse_read_table_chunks,
@@ -25,7 +26,7 @@ from pod5.tools.pod5_view import (
 
 
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
-POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 
 ALL_FIELDS = [
     "read_id",
@@ -161,38 +162,60 @@ class TestView:
 
     def test_parse_run_info(self, pod5_factory) -> None:
         """Test the run_info table parser"""
+        selection = select_fields()
         a_pod5 = pod5_factory(10)
         with p5.Reader(a_pod5) as reader:
-            run_info = parse_run_info_table(reader)
+            run_info = parse_run_info_table(reader, selection)
 
         assert isinstance(run_info, pl.LazyFrame)
         run_info = run_info.collect()
         assert run_info.is_unique().all()
-        assert "context_tags" not in run_info.collect_schema().names()
-        assert "tracking_id" not in run_info.collect_schema().names()
+
+        schema_names = run_info.collect_schema().names()
+        assert "context_tags" not in schema_names
+        assert "tracking_id" not in schema_names
+        for run_info_field in selection.info_fields:
+            assert run_info_field in schema_names
 
     def test_parse_reads_all(self, pod5_factory) -> None:
         """Test the reads table parser where the file is small enough to do in one go"""
+        selection = select_fields()
         a_pod5 = pod5_factory(10)
         with p5.Reader(a_pod5) as reader:
-            reads = parse_reads_table_all(reader)
+            included_fields = get_included_reads_table_fields(reader, selection)
+            reads = parse_reads_table_all(reader, included_fields)
 
         assert isinstance(reads, pl.LazyFrame)
-        assert "read_id" in reads.collect_schema().names()
-        assert "run_info" in reads.collect_schema().names()
+
+        schema_names = reads.collect_schema().names()
+        assert "read_id" in schema_names
+        assert "run_info" in schema_names
+        for reads_field in selection.reads_fields:
+            reads_field in schema_names
+
         assert len(reads.collect()) == 10
 
     def test_parse_reads_multi_chunk(self, pod5_factory) -> None:
         """Test the reads table parser"""
+        selection = select_fields()
         a_pod5 = pod5_factory(1100)
         with p5.Reader(a_pod5) as reader:
-            tables = [t for t in parse_read_table_chunks(reader, approx_size=999)]
+            included_fields = get_included_reads_table_fields(reader, selection)
+            tables = [
+                t
+                for t in parse_read_table_chunks(
+                    reader, included_fields, approx_size=999
+                )
+            ]
 
         assert len(tables) == 2
         for table in tables:
             assert isinstance(table, pl.LazyFrame)
-            assert "read_id" in table.collect_schema().names()
-            assert "run_info" in table.collect_schema().names()
+            schema_names = table.collect_schema().names()
+            assert "read_id" in schema_names
+            assert "run_info" in schema_names
+            for reads_field in selection.reads_fields:
+                reads_field in schema_names
 
         all_reads = pl.concat(tables)
         assert len(all_reads.collect()) == 1100
@@ -220,26 +243,34 @@ class TestSelection:
 
     def test_select(self) -> None:
         """Test select options"""
-        assert set(ALL_FIELDS) == select_fields()
+        assert set(ALL_FIELDS) == select_fields().selected
 
-        assert {"read_id"} == select_fields(group_read_id=True)
+        assert {"read_id"} == select_fields(group_read_id=True).selected
 
-        assert {"read_id"} == select_fields(include="read_id")
-        assert {"read_id", "filename"} == select_fields(include="read_id,filename")
-        assert {"read_id", "filename"} == select_fields(include=",read_id,filename,,,")
-        assert {"read_id", "filename"} == select_fields(include=" read_id ,  filename ")
-        assert {"mux", "channel"} == select_fields(include=" mux,  channel")
-        assert set(ALL_FIELDS) == select_fields(include=",".join(ALL_FIELDS))
-        assert set(ALL_FIELDS) == select_fields(include="")
+        assert {"read_id"} == select_fields(include="read_id").selected
+        assert {"read_id", "filename"} == select_fields(
+            include="read_id,filename"
+        ).selected
+        assert {"read_id", "filename"} == select_fields(
+            include=",read_id,filename,,,"
+        ).selected
+        assert {"read_id", "filename"} == select_fields(
+            include=" read_id ,  filename "
+        ).selected
+        assert {"mux", "channel"} == select_fields(include=" mux,  channel").selected
+        assert set(ALL_FIELDS) == select_fields(include=",".join(ALL_FIELDS)).selected
+        assert set(ALL_FIELDS) == select_fields(include="").selected
 
-        assert "read_id" not in select_fields(exclude="read_id")
-        assert {"pore_type", "mux"} not in select_fields(exclude="pore_type,mux")
-        assert set(ALL_FIELDS) == select_fields(exclude="")
-        assert set(ALL_FIELDS) == select_fields(exclude=", ,")
+        assert "read_id" not in select_fields(exclude="read_id").selected
+        assert {"pore_type", "mux"} not in select_fields(
+            exclude="pore_type,mux"
+        ).selected
+        assert set(ALL_FIELDS) == select_fields(exclude="").selected
+        assert set(ALL_FIELDS) == select_fields(exclude=", ,").selected
 
         drop_rid = set(ALL_FIELDS) - {"read_id"}
-        assert drop_rid == select_fields(exclude="read_id")
-        assert drop_rid == select_fields(exclude=",read_id,,   ,")
+        assert drop_rid == select_fields(exclude="read_id").selected
+        assert drop_rid == select_fields(exclude=",read_id,,   ,").selected
 
     @pytest.mark.parametrize("field", ["read_i", "mix", "ed_reason", "_", "channell"])
     def test_misspelling(self, field: str) -> None:
@@ -258,7 +289,9 @@ class TestSelection:
             include = ",".join(incl)
             exclude = ",".join(excl)
             try:
-                assert expected == select_fields(include=include, exclude=exclude)
+                assert (
+                    expected == select_fields(include=include, exclude=exclude).selected
+                )
             except RuntimeError:
                 assert len(expected) == 0
 

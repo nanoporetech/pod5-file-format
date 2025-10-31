@@ -6,9 +6,11 @@ import os
 from pathlib import Path
 from queue import Empty
 import sys
-from typing import Dict, Generator, List, NamedTuple, Optional, Set, Tuple
+from typing import Callable, Dict, Generator, List, NamedTuple, Optional, Set, Tuple
 
+from pod5.reader import ArrowTableHandle
 import polars as pl
+import pyarrow as pa
 
 import pod5 as p5
 from pod5.tools.parsers import prepare_pod5_view_argparser, run_tool
@@ -34,71 +36,131 @@ logger = init_logging()
 pl.enable_string_cache()
 
 
-class Field(NamedTuple):
-    """Container class for storing the polars expression for a named field"""
+class Selection(NamedTuple):
+    selected: Set[str]  # The set of column names selected
+    reads_fields: Set[str]  # The set of read table fields required
+    info_fields: Set[str]  # The set of run info table fields required
 
-    expr: pl.Expr
+    def __contains__(self, key):
+        return key in self.selected
+
+    def union(self) -> Set[str]:
+        return self.reads_fields.union(self.info_fields)
+
+
+class Field(NamedTuple):
+    """Container class for storing the expression for a named field"""
+
     docs: str
+    reads_fields: Optional[List[str]] = None
+    info_fields: Optional[List[str]] = None
 
 
 # This dict defines the order of the fields
 FIELDS: Dict[str, Field] = {
-    "read_id": Field(pl.col("read_id"), "Read UUID"),
-    "filename": Field(pl.col("filename"), "Source pod5 filename"),
-    "read_number": Field(pl.col("read_number"), "Read number"),
-    "channel": Field(pl.col("channel"), "1-indexed channel"),
-    "mux": Field(pl.col("mux"), "1-indexed well"),
-    "end_reason": Field(pl.col("end_reason"), "End reason string"),
+    "read_id": Field(
+        "Read UUID",
+        ["read_id"],
+    ),
+    "filename": Field(
+        "Source pod5 filename",
+    ),
+    "read_number": Field(
+        "Read number",
+        ["read_number"],
+    ),
+    "channel": Field(
+        "1-indexed channel",
+        ["channel"],
+    ),
+    "mux": Field(
+        "1-indexed well",
+        ["well"],
+    ),
+    "end_reason": Field(
+        "End reason string",
+        ["end_reason"],
+    ),
     "start_time": Field(
-        pl.col("start_time"),
         "Seconds since the run start to the first sample of this read",
+        ["start"],
+        ["sample_rate"],
     ),
     "start_sample": Field(
-        pl.col("start").alias("start_sample"),
         "Samples recorded on this channel since run start to the first sample of this read",
+        ["start"],
     ),
-    "duration": Field(pl.col("duration"), "Seconds of sampling for this read"),
-    "num_samples": Field(pl.col("num_samples"), "Number of signal samples"),
+    "duration": Field(
+        "Seconds of sampling for this read",
+        ["num_samples", "sample_rate"],
+    ),
+    "num_samples": Field(
+        "Number of signal samples",
+        ["num_samples"],
+    ),
     "minknow_events": Field(
-        pl.col("minknow_events"),
         "Number of minknow events that this read contains",
+        ["num_minknow_events"],
     ),
     "sample_rate": Field(
-        pl.col("sample_rate"), "Number of samples recorded each second"
+        "Number of samples recorded each second",
+        ["sample_rate"],
     ),
     "median_before": Field(
-        pl.col("median_before"), "Current level in this well before the read"
+        "Current level in this well before the read",
+        ["median_before"],
     ),
+    # DEPRECATED
     "predicted_scaling_scale": Field(
-        pl.col("predicted_scaling_scale"), "Scale for predicted read scaling"
+        "Scale for predicted read scaling",
+        ["predicted_scaling_scale"],
     ),
+    # DEPRECATED
     "predicted_scaling_shift": Field(
-        pl.col("predicted_scaling_shift"), "Shift for predicted read scaling"
+        "Shift for predicted read scaling",
+        ["predicted_scaling_shift"],
     ),
+    # DEPRECATED
     "tracked_scaling_scale": Field(
-        pl.col("tracked_scaling_scale"), "Scale for tracked read scaling"
+        "Scale for tracked read scaling",
+        ["tracked_scaling_scale"],
     ),
+    # DEPRECATED
     "tracked_scaling_shift": Field(
-        pl.col("tracked_scaling_shift"), "Shift for tracked read scaling"
+        "Shift for tracked read scaling",
+        ["tracked_scaling_shift"],
     ),
     "num_reads_since_mux_change": Field(
-        pl.col("num_reads_since_mux_change"),
         "Number of selected reads since the last mux change on this channel",
+        ["num_reads_since_mux_change"],
     ),
     "time_since_mux_change": Field(
-        pl.col("time_since_mux_change"),
         "Seconds since the last mux change on this channel",
+        ["time_since_mux_change"],
     ),
-    "run_id": Field(pl.col("protocol_run_id").alias("run_id"), "Run UUID"),
-    "sample_id": Field(pl.col("sample_id"), "User-supplied name for the sample"),
+    "run_id": Field("Run UUID", None, ["protocol_run_id"]),
+    "sample_id": Field(
+        "User-supplied name for the sample",
+        None,
+        ["sample_id"],
+    ),
     "experiment_id": Field(
-        pl.col("experiment_id"), "User-supplied name for the experiment"
+        "User-supplied name for the experiment",
+        None,
+        ["experiment_name"],
     ),
-    "flow_cell_id": Field(pl.col("flow_cell_id"), "The flow cell id"),
-    "pore_type": Field(pl.col("pore_type"), "Name of the pore in this well"),
+    "flow_cell_id": Field(
+        "The flow cell id",
+        None,
+        ["flow_cell_id"],
+    ),
+    "pore_type": Field(
+        "Name of the pore in this well",
+        ["pore_type"],
+    ),
     "open_pore_level": Field(
-        pl.col("open_pore_level"),
         "The tracked open pore level for this read",
+        ["open_pore_level"],
     ),
 }
 
@@ -129,14 +191,14 @@ def select_fields(
     group_read_id: bool = False,
     include: Optional[str] = None,
     exclude: Optional[str] = None,
-) -> Set[str]:
+) -> Selection:
     """Select fields to write"""
     selected: Set[str] = set([])
 
     # Select only read ids
     if group_read_id:
         selected.add("read_id")
-        return selected
+        return Selection(selected, selected, set())
 
     if include:
         for key in include.split(","):
@@ -148,7 +210,7 @@ def select_fields(
 
     # Default selection - All fields
     if not selected:
-        selected.update(FIELDS)
+        selected.update(FIELDS.keys())
 
     if exclude:
         for key in exclude.split(","):
@@ -164,42 +226,77 @@ def select_fields(
     if not selected:
         raise RuntimeError("Zero Fields selected. Please select at least one field")
 
-    return selected
+    reads_fields: Set[str] = set()
+    info_fields: Set[str] = set()
+
+    for field_name in selected:
+        field = FIELDS[field_name]
+        if field.reads_fields:
+            reads_fields.update(field.reads_fields)
+        if field.info_fields:
+            info_fields.update(field.info_fields)
+
+    # If we use the anything from run_info - add fields to perform the join
+    if info_fields:
+        reads_fields.update(["run_info"])
+        info_fields.update(["acquisition_id"])
+
+    return Selection(selected, reads_fields, info_fields)
 
 
-def format_view_table(
-    lazyframe: pl.LazyFrame, path: Path, selected_fields: Set[str]
-) -> pl.LazyFrame:
+def get_format_view_table_fn(
+    path: Path, selection: Selection
+) -> Callable[[pl.LazyFrame], pl.LazyFrame]:
     """Format the view table based on the selected fields"""
+    drop: Set[str] = set()
+    exprs: List[pl.Expr] = []
+    if "filename" in selection:
+        exprs.append(pl.lit(path.name).alias("filename"))
+    if "read_id" in selection:
+        exprs.append(pl_format_read_id(pl.col("read_id")))
+    if "mux" in selection:
+        exprs.append(pl.col("well").alias("mux"))
+    if "start_time" in selection:
+        exprs.append((pl.col("start") / pl.col("sample_rate")).alias("start_time"))
+        if "start" not in selection:
+            drop.add("start")
+        if "sample_rate" not in selection:
+            drop.add("sample_rate")
+    if "start_sample" in selection:
+        exprs.append(pl.col("start").alias("start_sample"))
+    if "duration" in selection:
+        exprs.append((pl.col("num_samples") / pl.col("sample_rate")).alias("duration"))
+        if "num_samples" not in selection:
+            drop.add("num_samples")
+        if "sample_rate" not in selection:
+            drop.add("sample_rate")
+    if "minknow_events" in selection:
+        exprs.append(pl.col("num_minknow_events").alias("minknow_events"))
+    if "run_id" in selection:
+        exprs.append(pl.col("protocol_run_id").alias("run_id"))
+    if "experiment_id" in selection:
+        exprs.append(pl.col("experiment_name").alias("experiment_id"))
+
     maybe_empty = ["experiment_id", "protocol_run_id", "sample_id", "flow_cell_id"]
+    order = [key for key in FIELDS.keys() if key in selection.selected]
 
-    lazyframe = lazyframe.with_columns(
-        # Add the source filename
-        pl.lit(path.name).alias("filename"),
-        pl_format_read_id(pl.col("read_id")),
-        # Rename fields to better match legacy sequencing summary
-        (pl.col("well").alias("mux")),
-        (pl.col("num_minknow_events").alias("minknow_events")),
-        pl.col("experiment_name").alias("experiment_id"),
-        # Compute the start_time in seconds
-        (pl.col("start") / pl.col("sample_rate")).alias("start_time"),
-        # Compute the duration of the read in seconds
-        (pl.col("num_samples") / pl.col("sample_rate")).alias("duration"),
-    )
+    # All tables are the same so we can compute this work ONCE
+    def format_view_table(lf: pl.LazyFrame) -> pl.LazyFrame:
+        lf = lf.with_columns(exprs)
 
-    # Replace potentially empty fields with "not_set"
-    # This can't be done in the above expression due to the behaviour of
-    # name.keep()
-    lazyframe = lazyframe.with_columns(
-        pl_format_empty_string(pl.col(maybe_empty), "not_set").name.keep()
-    )
+        # Replace potentially empty fields with "not_set"
+        # This can't be done in the above expression due to the behaviour of
+        # name.keep()
+        empty_cols = [f for f in maybe_empty if f in lf.collect_schema().names()]
+        if empty_cols:
+            lf = lf.with_columns(
+                pl_format_empty_string(pl.col(empty_cols), "not_set").name.keep()
+            )
 
-    # Apply the field selection
-    lazyframe = lazyframe.select(
-        field.expr for key, field in FIELDS.items() if key in selected_fields
-    )
+        # Apply the field selection order
+        return lf.select(order)
 
-    return lazyframe
+    return format_view_table
 
 
 @logged(log_time=True)
@@ -234,10 +331,10 @@ def write(
 
 
 def write_header(
-    output: Optional[Path], selected: Set[str], separator: str = "\t"
+    output: Optional[Path], selection: Selection, separator: str = "\t"
 ) -> None:
     """Write the header line"""
-    header = separator.join(key for key in FIELDS if key in selected)
+    header = separator.join(key for key in FIELDS if key in selection.selected)
     if output is None:
         print(header, file=sys.stdout, flush=True)
     else:
@@ -282,42 +379,49 @@ def assert_unique_acquisition_id(run_info: pl.LazyFrame, path: Path) -> None:
         )
 
 
-def parse_reads_table_all(reader: p5.Reader) -> pl.LazyFrame:
+def parse_reads_table_all(
+    reader: p5.Reader, included_fields: List[int]
+) -> pl.LazyFrame:
     """
     Parse all records in the reads table returning a polars LazyFrame
     """
-    logger.debug(f"Parsing {reader.path.name} records")
-    read_table = reader.read_table.read_all()
-    reads = (
-        pl_from_arrow(read_table, rechunk=False)
-        .drop(["signal"])
-        .lazy()
-        .with_columns(pl.col("run_info").cast(pl.Utf8))
-    )
-    return reads
+    logger.debug(f"Parsing {reader.path.name} records {included_fields=}")
+
+    options = pa.ipc.IpcReadOptions(included_fields=included_fields)
+    with ArrowTableHandle(
+        reader.inner_file_reader.get_file_read_table_location(), options=options
+    ) as handle:
+        reads_table = handle.reader.read_all()
+        reads_table = pl_from_arrow(reads_table, rechunk=False).lazy()
+
+    return reads_table
 
 
 def parse_reads_table_batch(
-    reader: p5.Reader, batch_index: int
+    reader: p5.Reader, included_fields: List[int], batch_index: int
 ) -> Tuple[pl.LazyFrame, int]:
     """
     Parse the reads table record batch at `batch_index` from a pod5 file returning a
     polars LazyFrame and the number of records in it
     """
-    logger.debug(f"Parsing {reader.path.name} record batch {batch_index}")
-    record_batch = reader.read_table.get_batch(batch_index)
-    reads = (
-        pl_from_arrow_batch(record_batch, rechunk=False)
-        .drop(["signal"])
-        .lazy()
-        .with_columns(pl.col("run_info").cast(pl.Utf8))
+    logger.debug(
+        f"Parsing {reader.path.name} record batch {batch_index} {included_fields=}"
     )
-    return reads, record_batch.num_rows
+
+    options = pa.ipc.IpcReadOptions(included_fields=included_fields)
+    with ArrowTableHandle(
+        reader.inner_file_reader.get_file_read_table_location(), options=options
+    ) as handle:
+        reads_batch = handle.reader.get_record_batch(batch_index)
+        num_reads = reads_batch.num_rows
+        reads_batch = pl_from_arrow_batch(reads_batch, rechunk=False).lazy()
+
+    return reads_batch, num_reads
 
 
 @logged_all
 def parse_read_table_chunks(
-    reader: p5.Reader, approx_size: int = 99_999
+    reader: p5.Reader, included_fields: List[int], approx_size: int = 99_999
 ) -> Generator[pl.LazyFrame, None, None]:
     """
     Read record batches and yield polars lazyframes of `approx_size` records.
@@ -327,7 +431,7 @@ def parse_read_table_chunks(
     chunk_rows = 0
 
     for batch_index in range(reader.read_table.num_record_batches):
-        reads, n_rows = parse_reads_table_batch(reader, batch_index)
+        reads, n_rows = parse_reads_table_batch(reader, included_fields, batch_index)
 
         chunks.append(reads)
         chunk_rows += n_rows
@@ -347,46 +451,85 @@ def parse_read_table_chunks(
 
 
 @logged()
-def parse_run_info_table(reader: p5.Reader) -> pl.LazyFrame:
+def parse_run_info_table(
+    reader: p5.Reader, selection: Selection
+) -> Optional[pl.LazyFrame]:
     """Parse the reads table from a pod5 file returning a polars LazyFrame"""
-    run_info_table = reader.run_info_table.read_all().drop(
-        ["context_tags", "tracking_id"]
-    )
-    run_info = pl_from_arrow(run_info_table, rechunk=False).lazy().unique()
-    return run_info
+    included_fields: List[int] = []
+    for field_idx, name in enumerate(reader.run_info_table.schema.names):
+        if name in selection.info_fields:
+            included_fields.append(field_idx)
+
+    if not included_fields:
+        return None
+
+    options = pa.ipc.IpcReadOptions(included_fields=included_fields)
+
+    with ArrowTableHandle(
+        reader.inner_file_reader.get_file_run_info_table_location(), options=options
+    ) as handle:
+        table = handle.reader.read_all()
+        table = pl_from_arrow(table, rechunk=False).lazy()
+
+    assert_unique_acquisition_id(table, reader.path)
+    return table
 
 
 @logged()
 def join_reads_to_run_info(reads: pl.LazyFrame, run_info: pl.LazyFrame) -> pl.LazyFrame:
     """Join the reads and run_info tables"""
-    return reads.join(
+    return reads.with_columns(pl.col("run_info").cast(pl.Utf8)).join(
         run_info.unique(),
         left_on="run_info",
         right_on="acquisition_id",
     )
 
 
+def get_included_reads_table_fields(reader: p5.Reader, selection: Selection):
+    included_fields: List[int] = []
+    for field_idx, name in enumerate(reader.read_table.schema.names):
+        if name in selection.reads_fields:
+            included_fields.append(field_idx)
+
+    if not included_fields:
+        raise KeyError(
+            f"No reads fields set in {selection.selected=} {selection.reads_fields=}"
+        )
+    return included_fields
+
+
 def get_reads_tables(
-    path: Path, selected_fields: Set[str], threshold: int = 100_000
+    path: Path, selection: Selection, threshold: int = 100_000
 ) -> Generator[pl.LazyFrame, None, None]:
     """
     Generate lazy dataframes from pod5 records. If the number of records
     is greater than `threshold` then yield chunks to limit memory consumption and
     improve overall performance
     """
+
     with p5.Reader(path) as reader:
-        run_info = parse_run_info_table(reader)
-        assert_unique_acquisition_id(run_info, path)
+        included_fields = get_included_reads_table_fields(reader, selection)
+
+        format_view_table_fn: Callable[[pl.LazyFrame], pl.LazyFrame] = (
+            get_format_view_table_fn(path, selection)
+        )
+
+        run_info = parse_run_info_table(reader, selection)
 
         if reader.num_reads <= threshold:
-            reads_table = parse_reads_table_all(reader)
-            joined = join_reads_to_run_info(reads_table, run_info)
-            yield format_view_table(joined, path, selected_fields)
+            reads_table = parse_reads_table_all(reader, included_fields)
+            if run_info is not None:
+                reads_table = join_reads_to_run_info(reads_table, run_info)
+
+            yield format_view_table_fn(reads_table)
             return
 
-        for reads_chunk in parse_read_table_chunks(reader, approx_size=threshold - 1):
-            joined = join_reads_to_run_info(reads_chunk, run_info)
-            yield format_view_table(joined, path, selected_fields)
+        for reads_chunk in parse_read_table_chunks(
+            reader, included_fields, approx_size=threshold - 1
+        ):
+            if run_info is not None:
+                reads_chunk = join_reads_to_run_info(reads_chunk, run_info)
+            yield format_view_table_fn(reads_chunk)
 
 
 def join_workers(processes: List[SpawnProcess], exceptions: mp.JoinableQueue) -> None:
@@ -432,7 +575,7 @@ def worker_process(
     lock: Lock,
     output: Path,
     separator: bool,
-    selection: Set[str],
+    selection: Selection,
 ) -> None:
     """
     Consume pod5 paths from `paths` queue, parse the records and write to `output` after
@@ -462,7 +605,7 @@ def worker_process(
 def launch_view_workers(
     paths: Set[Path],
     output: Path,
-    selection: Set[str],
+    selection: Selection,
     separator: str,
     num_workers: int,
 ):
@@ -539,7 +682,7 @@ def view_pod5(
     num_workers = min(len(collected_paths), threads)
 
     if not no_header:
-        write_header(output=output_path, selected=selection, separator=sep)
+        write_header(output=output_path, selection=selection, separator=sep)
 
     launch_view_workers(
         paths=collected_paths,
