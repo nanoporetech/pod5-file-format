@@ -114,7 +114,8 @@ include(GenerateExportHeader)
 enable_testing()
 
 if (BUILD_PYTHON_WHEEL)
-    find_package (Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
+    find_package(Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
+    set(PYBIND11_FINDPYTHON ON)
     add_subdirectory(third_party/pybind11)
 endif()
 
