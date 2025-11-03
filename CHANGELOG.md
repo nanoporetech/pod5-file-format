@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Python 3.14 support
+
 ### Removed
 
 - Removed sphinx-style python docstrings references
@@ -19,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved filter + subset implementation into C++ for improved performance.
 - Performance improvements to `pod5 view` especially when reading read ids from large files.
 - Updated polars version from "~=1.20,<1.32" to "~= 1.30"
+- Switch to uv for managing CI python environments
+- Updated to pyarrow 22.0.0
 
 ## [0.3.34]
 

@@ -14,6 +14,7 @@ variables:
   STABLE_BRANCH_NAME: master
   DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
   CONAN_PROFILE_BUILD_TYPE: Release
+  CONAN_VENV_PYTHON: 3.13
 before_script:
   - ""
 
@@ -21,7 +22,7 @@ before_script:
 .parallel-py-versions:
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
 
 # ======================================
@@ -231,7 +232,7 @@ build-standalone-ubu22:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
   - cd build
-  - conan install --profile ${CONAN_PROFILE} ${EXTRA_INSTALL_ARGS} ..
+  - ${conan_exe} install --profile ${CONAN_PROFILE} ${EXTRA_INSTALL_ARGS} ..
   - cmake ${CMAKE_ARGS}
     -D BUILD_SHARED_LIB=ON
     -D CMAKE_BUILD_TYPE=Release
@@ -276,6 +277,7 @@ build-standalone-ubu22:
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+    - conan_exe=$(which conan)
   script:
     - !reference [".conan-build-and-test"]
   artifacts:
@@ -326,15 +328,16 @@ linux-aarch64-gcc9-release-build:
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
-    - ci/setup_python_osx.sh ${PYTHON_VERSION} ./python
-    - export PATH="$(pwd)/python/Python.framework/Versions/Current/bin/:${PATH}"
-    - python3 -m venv .venv/
-    - source .venv/bin/activate
-    - pip install --upgrade pip build "conan<2"
+    - uv venv .venv_conan --python ${CONAN_VENV_PYTHON} --seed
+    - source .venv_conan/bin/activate
+    - pip install -U pip 'conan<2'
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - conan_exe=$(which conan)
+    - uv python install ${PYTHON_VERSION}
+    - uv venv --python "python${PYTHON_VERSION}" .venv --seed
+    - source .venv/bin/activate
     - which python
     - python --version
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
   script:
     - python3 -c "import sysconfig; print(sysconfig.get_platform())"
     - !reference [".conan-build-and-test"]
@@ -356,11 +359,11 @@ osx-arm64-clang15-release-build:
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.9.13"]
+      - PYTHON_VERSION: ["3.9"]
         MACOSX_DEPLOYMENT_TARGET: "10.15"
         OUTPUT_SKU: "osx-10.15-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
-      - PYTHON_VERSION: ["3.10.10", "3.11.2", "3.12.0", "3.13.0"]
+      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         MACOSX_DEPLOYMENT_TARGET: "11.0"
         OUTPUT_SKU: "osx-11.0-arm64"
         FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
@@ -382,10 +385,14 @@ osx-arm64-clang15-release-build:
     # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
     EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
   before_script:
-    - python${PYTHON_VERSION} -m venv .venv
-    - source .venv/Scripts/activate
-    - pip install 'conan<2'
+    - uv venv .venv_conan --python ${CONAN_VENV_PYTHON} --seed
+    - source .venv_conan/Scripts/activate
+    - pip install -U pip 'conan<2'
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - conan_exe=$(which conan)
+    - uv python install ${PYTHON_VERSION}
+    - uv venv --python "python${PYTHON_VERSION}" .venv --seed
+    - source .venv/Scripts/activate
   script:
     - pip install build
     - !reference [".conan-build-and-test"]
@@ -514,6 +521,14 @@ tools-linux-x64:
     - pytest
     - POD5_DISABLE_MMAP_OPEN=1 pytest
 
+.pytest-with-uv:
+  extends:
+    - .pytest
+  before_script:
+    - uv python install ${PYTHON_VERSION}
+    - uv venv --python "python${PYTHON_VERSION}" .venv --seed
+    - source .venv/*/activate
+
 pytest-linux-x64:
   extends:
     - .pytest
@@ -537,10 +552,20 @@ pytest-linux-aarch64:
     - linux-aarch64-gcc9-release-build
     - build-python-api
 
+pytest-osx-arm64:
+  extends:
+    - .pytest-with-uv
+    - .parallel-py-versions
+  tags:
+    - osx_arm64
+  needs:
+    - osx-arm64-clang15-release-build
+    - build-python-api
+
 pytest-win-x64:
   retry: 1
   extends:
-    - .pytest
+    - .pytest-with-uv
     - .parallel-py-versions
   tags:
     - windows
