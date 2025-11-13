@@ -127,6 +127,16 @@ if (ENABLE_FUZZERS OR NOT POD5_DISABLE_TESTS)
     add_subdirectory(fuzz)
 endif()
 
+# Install licences.
+install(
+    DIRECTORY ${CMAKE_BINARY_DIR}/pod5_conan_licences/
+    DESTINATION licences
+)
+install(
+    FILES LICENSE.md
+    DESTINATION licences
+)
+
 if (ENABLE_POD5_PACKAGING)
     include(pod5_packaging)
 endif()

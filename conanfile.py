@@ -54,7 +54,8 @@ class Pod5Conan(ConanFile):
             )
 
     def _licences_path(self):
-        return os.path.join(self.build_folder, "temp_licences")
+        # This needs to match the install step inside CMake.
+        return os.path.join(self.build_folder, "pod5_conan_licences")
 
     def _copy_licences(self):
         # Copy each dependency's licences.
