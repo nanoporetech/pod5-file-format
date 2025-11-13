@@ -53,6 +53,29 @@ class Pod5Conan(ConanFile):
                 f"{self.build_folder}/third_party/libs",
             )
 
+    def _licences_path(self):
+        return os.path.join(self.build_folder, "temp_licences")
+
+    def _copy_licences(self):
+        # Copy each dependency's licences.
+        for require, dependency in self.dependencies.items():
+            # package_folder will be None if this dependency isn't used.
+            if dependency.package_folder is not None:
+                copy(
+                    self,
+                    "license*",
+                    dependency.package_folder,
+                    os.path.join(self._licences_path(), dependency.ref.name),
+                    ignore_case=True,
+                )
+        # Copy the ones in third_party
+        copy(
+            self,
+            "*",
+            os.path.join(self.source_folder, "third_party/licenses"),
+            self._licences_path(),
+        )
+
     def layout(self):
         cmake_layout(self, "Ninja Multi-Config")
 
@@ -89,6 +112,8 @@ class Pod5Conan(ConanFile):
         if not self.options.shared:
             self._setup_third_party_deps_packaging()
 
+        self._copy_licences()
+
         tc = CMakeToolchain(self)
         tc.variables["ENABLE_CONAN"] = "ON"
         tc.variables["BUILD_PYTHON_WHEEL"] = "OFF"
@@ -115,12 +140,9 @@ class Pod5Conan(ConanFile):
         cmake.install()
 
         # Copy the license files
-        copy(
-            self,
-            "LICENSE.md",
-            self.source_folder,
-            os.path.join(self.package_folder, "licenses"),
-        )
+        licence_dst = os.path.join(self.package_folder, "licenses")
+        copy(self, "LICENSE.md", self.source_folder, licence_dst)
+        copy(self, "*", self._licences_path(), licence_dst)
 
         # Package the required third party libs after installing pod5 static
         if not self.options.shared:
