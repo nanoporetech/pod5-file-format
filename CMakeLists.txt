@@ -117,6 +117,11 @@ if (BUILD_PYTHON_WHEEL)
     find_package(Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
     set(PYBIND11_FINDPYTHON ON)
     add_subdirectory(third_party/pybind11)
+    install(
+        FILES third_party/pybind11/LICENSE
+        DESTINATION licences
+        RENAME pybind11.txt
+    )
 endif()
 
 add_subdirectory(c++)
@@ -133,8 +138,11 @@ install(
     DESTINATION licences
 )
 install(
-    FILES LICENSE.md
-    DESTINATION licences
+    FILES
+        LICENSE.md
+        third_party/licenses/gsl-lite.txt
+    DESTINATION
+        licences
 )
 
 if (ENABLE_POD5_PACKAGING)

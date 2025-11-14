@@ -69,13 +69,6 @@ class Pod5Conan(ConanFile):
                     os.path.join(self._licences_path(), dependency.ref.name),
                     ignore_case=True,
                 )
-        # Copy the ones in third_party
-        copy(
-            self,
-            "*",
-            os.path.join(self.source_folder, "third_party/licenses"),
-            self._licences_path(),
-        )
 
     def layout(self):
         cmake_layout(self, "Ninja Multi-Config")
@@ -141,9 +134,12 @@ class Pod5Conan(ConanFile):
         cmake.install()
 
         # Copy the license files
-        licence_dst = os.path.join(self.package_folder, "licenses")
-        copy(self, "LICENSE.md", self.source_folder, licence_dst)
-        copy(self, "*", self._licences_path(), licence_dst)
+        copy(
+            self,
+            "*",
+            self._licences_path(),
+            os.path.join(self.package_folder, "licenses"),
+        )
 
         # Package the required third party libs after installing pod5 static
         if not self.options.shared:
