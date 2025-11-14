@@ -30,6 +30,19 @@ set_target_properties(pod5_format_pybind
         CXX_STANDARD 17
 )
 
+# Non-conan licence files to copy.
+set(pod5_cxx_licences_src
+    "${CMAKE_SOURCE_DIR}/LICENSE.md"
+    "${CMAKE_SOURCE_DIR}/third_party/licenses/gsl-lite.txt"
+    "${CMAKE_SOURCE_DIR}/third_party/pybind11/LICENSE"
+)
+# Destination name for the above files.
+set(pod5_cxx_licences_dst
+    "LICENSE.md"
+    "gsl-lite.txt"
+    "pybind11.txt"
+)
+
 set(python_project_root "${CMAKE_SOURCE_DIR}/python/lib_pod5/")
 
 configure_file(
@@ -50,6 +63,9 @@ add_custom_command(
         -D "PYTHON_PROJECT_DIR=${python_project_root}"
         -D "PYBIND_INPUT_LIB=$<TARGET_FILE:pod5_format_pybind>"
         -D "WHEEL_OUTPUT_DIR=${wheel_output_dir}"
+        -D "POD5_CONAN_LICENCES=${CMAKE_BINARY_DIR}/pod5_conan_licences"
+        -D "POD5_CXX_LICENCES_SRC=${pod5_cxx_licences_src}"
+        -D "POD5_CXX_LICENCES_DST=${pod5_cxx_licences_dst}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/build_wheel.cmake"
     DEPENDS
         pod5_format_pybind
