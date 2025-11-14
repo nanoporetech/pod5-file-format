@@ -3,14 +3,9 @@ message("Building python lib-pod5 wheel using ${PYTHON_EXECUTABLE}")
 message("  project dir ${PYTHON_PROJECT_DIR}")
 message("  with lib ${PYBIND_INPUT_LIB}")
 message("  into ${WHEEL_OUTPUT_DIR}")
-
-set(output_dir "./dist")
-
-set(ENV{POD5_PYBIND_LIB} "${PYBIND_INPUT_LIB}")
+message("  using: ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}")
 
 file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5")
-
-message("  using: ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}")
 
 execute_process(
     COMMAND ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT_DIR}

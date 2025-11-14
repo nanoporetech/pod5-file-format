@@ -15,8 +15,6 @@ set -o nounset
             cp "../build/third_party/libs"/* "archive/lib"
         fi
     fi
-
-
 )
 
 # Find the wheel:
