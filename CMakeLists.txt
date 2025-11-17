@@ -117,6 +117,11 @@ if (BUILD_PYTHON_WHEEL)
     find_package(Python ${PYTHON_VERSION} EXACT COMPONENTS Interpreter Development)
     set(PYBIND11_FINDPYTHON ON)
     add_subdirectory(third_party/pybind11)
+    install(
+        FILES third_party/pybind11/LICENSE
+        DESTINATION licenses
+        RENAME pybind11.txt
+    )
 endif()
 
 add_subdirectory(c++)
@@ -126,6 +131,19 @@ add_subdirectory(c++)
 if (ENABLE_FUZZERS OR NOT POD5_DISABLE_TESTS)
     add_subdirectory(fuzz)
 endif()
+
+# Install licenses.
+install(
+    DIRECTORY ${CMAKE_BINARY_DIR}/pod5_conan_licenses/
+    DESTINATION licenses
+)
+install(
+    FILES
+        LICENSE.md
+        third_party/licenses/gsl-lite.txt
+    DESTINATION
+        licenses
+)
 
 if (ENABLE_POD5_PACKAGING)
     include(pod5_packaging)

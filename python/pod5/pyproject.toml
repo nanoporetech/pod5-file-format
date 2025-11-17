@@ -17,15 +17,15 @@ classifiers = [
   'Environment :: Console',
   'Intended Audience :: Developers',
   'Intended Audience :: Science/Research',
-  'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
   'Natural Language :: English',
   'Programming Language :: Python :: 3',
   'Topic :: Scientific/Engineering :: Bio-Informatics',
 ]
+license="MPL-2.0"
 
 dependencies = [
   "deprecated ~= 1.2.18",
-  "lib_pod5 == 0.3.35",
+  "lib_pod5 == 0.3.36",
   "iso8601",
   "more_itertools",
   "numpy >= 1.21.0",

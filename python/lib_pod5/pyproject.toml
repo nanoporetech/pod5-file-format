@@ -15,12 +15,13 @@ classifiers=[
     'Environment :: Console',
     'Intended Audience :: Developers',
     'Intended Audience :: Science/Research',
-    'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
     'Natural Language :: English',
     'Programming Language :: Python :: 3',
     'Topic :: Scientific/Engineering :: Bio-Informatics',
 ]
 dependencies = ["numpy>=1.21.0"]
+license="MPL-2.0"
+license-files = ["licenses/**/*"]
 
 
 [project.optional-dependencies]

@@ -3,3 +3,4 @@ __pycache__/
 *.whl
 *.so
 .DS_Store
+licenses/
