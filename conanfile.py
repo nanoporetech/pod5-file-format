@@ -53,12 +53,12 @@ class Pod5Conan(ConanFile):
                 f"{self.build_folder}/third_party/libs",
             )
 
-    def _licences_path(self):
+    def _licenses_path(self):
         # This needs to match the install step inside CMake.
-        return os.path.join(self.build_folder, "pod5_conan_licences")
+        return os.path.join(self.build_folder, "pod5_conan_licenses")
 
-    def _copy_licences(self):
-        # Copy each dependency's licences.
+    def _copy_licenses(self):
+        # Copy each dependency's licenses.
         for require, dependency in self.dependencies.items():
             # package_folder will be None if this dependency isn't used.
             if dependency.package_folder is not None:
@@ -66,7 +66,7 @@ class Pod5Conan(ConanFile):
                     self,
                     "license*",
                     dependency.package_folder,
-                    os.path.join(self._licences_path(), dependency.ref.name),
+                    os.path.join(self._licenses_path(), dependency.ref.name),
                     ignore_case=True,
                 )
 
@@ -106,7 +106,7 @@ class Pod5Conan(ConanFile):
         if not self.options.shared:
             self._setup_third_party_deps_packaging()
 
-        self._copy_licences()
+        self._copy_licenses()
 
         tc = CMakeToolchain(self)
         tc.variables["ENABLE_CONAN"] = "ON"
@@ -137,7 +137,7 @@ class Pod5Conan(ConanFile):
         copy(
             self,
             "*",
-            self._licences_path(),
+            self._licenses_path(),
             os.path.join(self.package_folder, "licenses"),
         )
 

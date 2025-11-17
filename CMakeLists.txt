@@ -119,7 +119,7 @@ if (BUILD_PYTHON_WHEEL)
     add_subdirectory(third_party/pybind11)
     install(
         FILES third_party/pybind11/LICENSE
-        DESTINATION licences
+        DESTINATION licenses
         RENAME pybind11.txt
     )
 endif()
@@ -132,17 +132,17 @@ if (ENABLE_FUZZERS OR NOT POD5_DISABLE_TESTS)
     add_subdirectory(fuzz)
 endif()
 
-# Install licences.
+# Install licenses.
 install(
-    DIRECTORY ${CMAKE_BINARY_DIR}/pod5_conan_licences/
-    DESTINATION licences
+    DIRECTORY ${CMAKE_BINARY_DIR}/pod5_conan_licenses/
+    DESTINATION licenses
 )
 install(
     FILES
         LICENSE.md
         third_party/licenses/gsl-lite.txt
     DESTINATION
-        licences
+        licenses
 )
 
 if (ENABLE_POD5_PACKAGING)
