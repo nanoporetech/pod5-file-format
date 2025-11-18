@@ -624,7 +624,7 @@ conda_pytest:
     - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl setuptools
     - pip install -r ./benchmarks/image/requirements-benchmarks.txt
     - ./benchmarks/image/install_slow5.sh
-    - export PATH="$(pwd)/slow5tools-v*/:$PATH"
+    - export PATH="$(pwd)/slow5tools-v1.3.0/:$PATH"
     - ./benchmarks/run_benchmarks.py ./test_data/ ./benchmark-outputs
 
 benchmark-linux-x64:
