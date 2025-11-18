@@ -26,7 +26,7 @@ git clone -b "${SLOW_5_LIB_VERSION}" https://github.com/hasindu2008/slow5lib
     echo "Installing numpy"
     pip install numpy
 
-    make pyslow5 -j "$(nproc)"
+    make pyslow5 -j "$(nproc)" 2> build_log.txt || (cat build_log.txt && exit)
     echo "Installing pyslow5"
     PYSLOW5_ZSTD=1 pip install dist/*.tar.gz
 
