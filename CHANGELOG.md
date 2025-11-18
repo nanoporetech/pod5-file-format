@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added missing licence files.
 
+### Removed
+
+- Removed Python 3.9 and macOS 10.15 support since they're EOL.
+
 
 ## [0.3.35]
 
