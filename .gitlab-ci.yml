@@ -22,7 +22,7 @@ before_script:
 .parallel-py-versions:
   parallel:
     matrix:
-      - PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 
 # ======================================
@@ -348,7 +348,9 @@ linux-aarch64-gcc9-release-build:
       - "lib_pod5*.whl"
 
 osx-arm64-clang15-release-build:
-  extends: [".build-osx-common"]
+  extends:
+    - .build-osx-common
+    - .parallel-py-versions
   tags:
     - osx_arm64
     - xcode-15.3
@@ -357,16 +359,9 @@ osx-arm64-clang15-release-build:
     CONAN_PROFILE: "macos-aarch64-appleclang-15.0.jinja"
     CONAN_PROFILE_CPPSTD: 20
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
-  parallel:
-    matrix:
-      - PYTHON_VERSION: ["3.9"]
-        MACOSX_DEPLOYMENT_TARGET: "10.15"
-        OUTPUT_SKU: "osx-10.15-arm64"
-        FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
-      - PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        MACOSX_DEPLOYMENT_TARGET: "11.0"
-        OUTPUT_SKU: "osx-11.0-arm64"
-        FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    OUTPUT_SKU: "osx-11.0-arm64"
+    FORCE_PYTHON_PLATFORM: macosx_11_0_arm64
 
 
 # ======================================
@@ -635,18 +630,18 @@ conda_pytest:
 
 benchmark-linux-x64:
   extends: [".benchmark"]
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.9
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
   tags:
     - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
   variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp314*.whl"
 
 benchmark-linux-aarch64:
   extends: [".benchmark"]
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.9
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
   tags:
     - linux_aarch64
     - high-cpu
@@ -654,7 +649,7 @@ benchmark-linux-aarch64:
     - linux-aarch64-gcc9-release-build
     - build-python-api
   variables:
-    LIB_WHEEL_GLOB: "lib_pod5*cp39*.whl"
+    LIB_WHEEL_GLOB: "lib_pod5*cp314*.whl"
 
 
 # ======================================
@@ -1277,8 +1272,5 @@ mlhub:
       }' \
       ${MLHUB_TRIGGER_URL}
   when: manual
-  parallel:
-    matrix:
-      - PYTHON_VERSION:
-        - "3.9"
-        - "3.12"
+  extends:
+    - .parallel-py-versions
