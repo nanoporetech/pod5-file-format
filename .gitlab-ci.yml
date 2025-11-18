@@ -621,11 +621,10 @@ conda_pytest:
     - python3 -m venv .venv/
     - source .venv/bin/activate
   script:
-    - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl
+    - pip install ./${LIB_WHEEL_GLOB} pod5-*.whl setuptools
     - pip install -r ./benchmarks/image/requirements-benchmarks.txt
-    - export SLOW_5_VERSION=v1.0.0
     - ./benchmarks/image/install_slow5.sh
-    - export PATH="$(pwd)/slow5tools-${SLOW_5_VERSION}/:$PATH"
+    - export PATH="$(pwd)/slow5tools-v*/:$PATH"
     - ./benchmarks/run_benchmarks.py ./test_data/ ./benchmark-outputs
 
 benchmark-linux-x64:
