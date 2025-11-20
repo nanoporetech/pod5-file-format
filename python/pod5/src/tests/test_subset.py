@@ -152,7 +152,6 @@ class TestSubset:
             template="",
             read_id_column="read_id",
             missing_ok=False,
-            duplicate_ok=False,
             ignore_incomplete_template=False,
             force_overwrite=False,
             recursive=True,

@@ -2,6 +2,7 @@
 Tool for subsetting pod5 files into one or more outputs
 """
 
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from string import Formatter
@@ -186,18 +187,17 @@ def parse_csv_mapping(csv_path: Path) -> pl.LazyFrame:
     return targets
 
 
+@logged(log_time=True)
 def build_targets_dict(
     targets: pl.LazyFrame,
 ) -> dict[str, list[str]]:
     """Build a dictionary of output filename to read_ids from the targets dataframe"""
-    targets_dict: dict[str, list[str]] = {}
+    targets_dict = defaultdict(set)
     for row in targets.select([PL_READ_ID, PL_DEST_FNAME]).collect().iter_rows():
-        read_id = row[0]
-        fname = row[1]
-        if fname not in targets_dict:
-            targets_dict[fname] = list()
-        targets_dict[fname].append(read_id)
-    return targets_dict
+        read_id, fname = row
+        targets_dict[fname].add(read_id)
+
+    return {k: list(v) for k, v in targets_dict.items()}
 
 
 @logged(log_time=True)
@@ -211,7 +211,6 @@ def subset_pod5(
     template: str = "",
     read_id_column: str = DEFAULT_READ_ID_COLUMN,
     missing_ok: bool = False,
-    duplicate_ok: bool = False,
     ignore_incomplete_template: bool = False,
     force_overwrite: bool = False,
     recursive: bool = False,
@@ -248,7 +247,7 @@ def subset_pod5(
         targets_dict,
         # threads=threads,
         missing_ok,
-        duplicate_ok,
+        False,
         force_overwrite,
     )
 

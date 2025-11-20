@@ -25,7 +25,6 @@ logger = init_logging()
 def merge_pod5(
     inputs: Iterable[Path],
     output: Path,
-    duplicate_ok: bool = False,
     force_overwrite: bool = False,
     recursive: bool = False,
     threads: int = DEFAULT_THREADS,
@@ -58,7 +57,7 @@ def merge_pod5(
     with p5.Writer(output.absolute()) as writer:
         # Attach the writer to the repacker
         repacker = p5_repack.Repacker()
-        repacker_output = repacker.add_output(writer, not duplicate_ok)
+        repacker_output = repacker.add_output(writer, True)
 
         pbar = tqdm(
             total=len(_inputs),
