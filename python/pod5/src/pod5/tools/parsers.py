@@ -277,12 +277,6 @@ def prepare_pod5_filter_argparser(
         action="store_true",
         help="Allow missing read_ids",
     )
-    content_group.add_argument(
-        "-D",
-        "--duplicate-ok",
-        action="store_true",
-        help="Allow duplicate read_ids",
-    )
 
     def run(**kwargs):
         from pod5.tools.pod5_filter import filter_pod5
@@ -404,12 +398,6 @@ def prepare_pod5_merge_argparser(
         type=int,
         default=20,
         help="number of merge readers TESTING ONLY",
-    )
-    parser.add_argument(
-        "-D",
-        "--duplicate-ok",
-        action="store_true",
-        help="Allow duplicate read_ids",
     )
 
     def run(**kwargs):
@@ -564,12 +552,6 @@ def prepare_pod5_subset_argparser(
         "--missing-ok",
         action="store_true",
         help="Allow missing read_ids",
-    )
-    content_group.add_argument(
-        "-D",
-        "--duplicate-ok",
-        action="store_true",
-        help="Allow duplicate read_ids",
     )
 
     def run(**kwargs):

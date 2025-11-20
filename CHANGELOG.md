@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed sphinx-style python docstrings references
 - Removed most documentation as part of migration to <https://software-docs.nanoporetech.com/pod5>
+- Deprecated `--duplicate-ok` argument from pod5 tools - duplicating reads is now always invalid.
 
 ### Changed
 

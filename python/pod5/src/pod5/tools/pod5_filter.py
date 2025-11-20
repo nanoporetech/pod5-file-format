@@ -60,7 +60,6 @@ def filter_pod5(
     output: Path,
     ids: Path,
     missing_ok: bool = False,
-    duplicate_ok: bool = False,
     force_overwrite: bool = False,
     recursive: bool = False,
     threads: int = DEFAULT_THREADS,
@@ -94,7 +93,7 @@ def filter_pod5(
         targets_dict,
         # threads=threads,
         missing_ok,
-        duplicate_ok,
+        False,
         force_overwrite,
     )
     return

@@ -118,7 +118,6 @@ class TestFilter:
             output,
             read_ids,
             missing_ok=False,
-            duplicate_ok=False,
             force_overwrite=False,
             recursive=False,
         )
@@ -150,7 +149,6 @@ class TestFilter:
             output,
             read_ids,
             missing_ok=False,
-            duplicate_ok=False,
             force_overwrite=False,
             recursive=False,
         )
@@ -178,7 +176,6 @@ class TestFilter:
                 output,
                 read_ids,
                 missing_ok=False,
-                duplicate_ok=False,
                 force_overwrite=False,
                 recursive=False,
             )
@@ -189,7 +186,6 @@ class TestFilter:
             output,
             read_ids,
             missing_ok=True,
-            duplicate_ok=False,
             force_overwrite=False,
             recursive=False,
         )
@@ -206,7 +202,6 @@ class TestFilter:
                 output,
                 READ_IDS_PATH,
                 missing_ok=False,
-                duplicate_ok=False,
                 force_overwrite=False,
                 recursive=False,
             )
@@ -217,7 +212,6 @@ class TestFilter:
             output,
             READ_IDS_PATH,
             missing_ok=False,
-            duplicate_ok=False,
             force_overwrite=True,
             recursive=False,
         )
@@ -238,7 +232,6 @@ class TestFilter:
                 output,
                 empty_file,
                 missing_ok=False,
-                duplicate_ok=False,
                 force_overwrite=False,
                 recursive=False,
             )
@@ -263,7 +256,6 @@ class TestFilter:
             output,
             ids=filter_path,
             missing_ok=False,
-            duplicate_ok=False,
             force_overwrite=False,
             recursive=False,
         )
@@ -282,7 +274,6 @@ class TestFilter:
             output,
             READ_IDS_PATH,
             missing_ok=False,
-            duplicate_ok=False,
             force_overwrite=False,
             recursive=False,
         )
@@ -306,7 +297,6 @@ class TestFilter:
             output,
             READ_IDS_PATH,
             missing_ok=False,
-            duplicate_ok=False,
             force_overwrite=False,
             recursive=True,
         )
