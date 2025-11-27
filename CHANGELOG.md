@@ -7,6 +7,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.37] Unreleased
+
+### Changed
+
+- Improve file_reader_writer unit-tests robustness
+
 ## [0.3.36]
 
 ### Added
