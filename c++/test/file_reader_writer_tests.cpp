@@ -192,18 +192,24 @@ TEST_CASE("Additional make_file_stream() tests")
 
     std::filesystem::path const dir_path = "./ramdisk_" + std::to_string(std::time(nullptr));
 
-    auto const umount_cmd = std::string{"umount "} + dir_path.string();
     // Create and mount tmpfs drive.
-    auto remove_directory = gsl::finally([&] { std::filesystem::remove(dir_path); });
-    auto remove_mount = gsl::finally([&] { std::ignore = std::system(umount_cmd.c_str()); });
     try {
         std::filesystem::create_directory(dir_path);
         auto const mount_cmd = std::string{"mount -o size=500M -t tmpfs none "} + dir_path.string();
         auto const mount_return = std::system(mount_cmd.c_str());
-        REQUIRE(mount_return == 0);
+        if (mount_return != 0) {
+            // we have seen this fail in CI where the test thinks it can mount
+            // but CI fails to mount, just skip the test
+            WARN("SKIPPING TEST: Need root privileges to mount a test drive.");
+            return;
+        }
     } catch (std::exception const & e) {
         FAIL("Failed to create and mount a tmpfs drive: " << e.what());
     }
+
+    auto const umount_cmd = std::string{"umount "} + dir_path.string();
+    auto remove_directory = gsl::finally([&] { std::filesystem::remove(dir_path); });
+    auto remove_mount = gsl::finally([&] { std::ignore = std::system(umount_cmd.c_str()); });
 
     pod5::FileWriterOptions options_for_direct_io;
     options_for_direct_io.set_use_directio(true);
