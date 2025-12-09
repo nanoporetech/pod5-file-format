@@ -26,7 +26,15 @@ void repacker_add_reads_preconditions(
 
 Pod5Repacker::Pod5Repacker() : m_thread_pool{pod5::make_thread_pool(10)} {}
 
-Pod5Repacker::~Pod5Repacker() { finish(); }
+Pod5Repacker::~Pod5Repacker() {
+    try {
+        finish();
+    }
+    catch (std::exception const & e) {
+        std::cerr << "Exception caught in Pod5Repacker destructor: "
+                  << e.what() << std::endl;
+    }
+}
 
 void Pod5Repacker::finish()
 {
