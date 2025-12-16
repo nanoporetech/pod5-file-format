@@ -936,17 +936,6 @@ upload-conan2:macos-aarch64-appleclang-16.0:
       - .conan2-upload
       dependencies: [ "prepare_version", "build-conan2:macos-aarch64-appleclang-16.0" ]
 
-build-conan:linux-x86_64-gcc9:
-    extends:
-        - .profile-linux-x86_64-gcc9
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-    needs: ["prepare_version"]
-upload-conan:linux-x86_64-gcc9:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
-
 build-conan:linux-x86_64-gcc11:
     extends:
         - .profile-linux-x86_64-gcc11
@@ -1099,17 +1088,6 @@ build-conan:linux-x86_64-gcc13-usan-static:
 upload-conan:linux-x86_64-gcc13-usan-static:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-usan-static" ]
-
-build-conan:linux-aarch64-gcc9:
-    extends:
-        - .profile-linux-aarch64-gcc9
-        - .build-package
-        - .conan-build-common
-        - .build-shared-and-static
-    needs: ["prepare_version", "linux-aarch64-gcc9-release-build"]
-upload-conan:linux-aarch64-gcc9:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc9" ]
 
 build-conan:linux-aarch64-gcc11:
     extends:
