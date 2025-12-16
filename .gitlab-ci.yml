@@ -947,19 +947,6 @@ upload-conan:linux-x86_64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc9" ]
 
-build-conan2:linux-x86_64-gcc9:
-    extends:
-        - .conan2-build-common
-        - .profile-linux-x86_64-gcc9-conan2
-        - .conan2-build-unix
-    needs: ["prepare_version"]
-upload-conan2:linux-x86_64-gcc9:
-    extends:
-      - .conan2-build-common
-      - .profile-linux-x86_64-gcc9-conan2
-      - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc9"]
-
 build-conan:linux-x86_64-gcc11:
     extends:
         - .profile-linux-x86_64-gcc11
@@ -1123,19 +1110,6 @@ build-conan:linux-aarch64-gcc9:
 upload-conan:linux-aarch64-gcc9:
     extends: .conan-upload
     dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc9" ]
-
-build-conan2:linux-aarch64-gcc9:
-    extends:
-        - .profile-linux-aarch64-gcc9-conan2
-        - .conan2-build-common
-        - .conan2-build-unix
-    needs: ["prepare_version"]
-upload-conan2:linux-aarch64-gcc9:
-    extends:
-      - .conan2-build-common
-      - .profile-linux-aarch64-gcc9-conan2
-      - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-aarch64-gcc9" ]
 
 build-conan:linux-aarch64-gcc11:
     extends:
