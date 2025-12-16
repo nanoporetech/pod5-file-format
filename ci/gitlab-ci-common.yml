@@ -287,11 +287,7 @@ before_script:
     variables:
         CMAKE_GENERATOR: "Visual Studio 16 2019"
         PROFILE_BASE: windows-x86_64-vs2019.jinja
-        CONAN_MANUAL_OVERRIDES: "boost/*: boost/1.86.0"
-        CONAN_EXTRA_ARGS: -o:a=arrow/*:with_thrift=False -o:a=arrow/*:parquet=False -o:a=boost/*:without_locale=True
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-windows-x86_64-vs2019-cppstd20-release, conan2-windows-x86_64-vs2019-cppstd17-release]
+        CMAKE_PRESET: "conan2-windows-x86_64-vs2019-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 #
 # Set up for MacOS versions
@@ -330,9 +326,7 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: macos-aarch64-appleclang-15.0.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-macos-appleclang-15.0-aarch64-cppstd20-release, conan2-macos-appleclang-15.0-aarch64-cppstd17-release]
+        CMAKE_PRESET: "conan2-macos-appleclang-15.0-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-macos-aarch64-appleclang-16.0-conan2:
     # Set up for MacOS arm 64 using clang 16.0, using conan and the profile
@@ -344,9 +338,7 @@ before_script:
         - conan
     variables:
         PROFILE_BASE: macos-aarch64-appleclang-16.0.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-macos-appleclang-16.0-aarch64-cppstd20-release, conan2-macos-appleclang-16.0-aarch64-cppstd17-release]
+        CMAKE_PRESET: "conan2-macos-appleclang-16.0-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 #
 # Set up for linux versions
 #
@@ -373,9 +365,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc9.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-linux-gcc9-x86_64-cppstd20-release, conan2-linux-gcc9-x86_64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc9-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 
 .profile-linux-x86_64-gcc11:
@@ -402,9 +392,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-linux-gcc11-x86_64-cppstd20-release, conan2-linux-gcc11-x86_64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc11-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-x86_64-gcc11-asan-static-conan2:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
@@ -413,9 +401,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-asan-static.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-linux-gcc11-asan-static-x86_64-cppstd20-release, conan2-linux-gcc11-asan-static-x86_64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc11-asan-static-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-x86_64-gcc11-usan-static-conan2:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
@@ -424,9 +410,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-usan-static.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-linux-gcc11-usan-static-x86_64-cppstd20-release, conan2-linux-gcc11-usan-static-x86_64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc11-usan-static-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-x86_64-gcc11-tsan-static-conan2:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
@@ -435,9 +419,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-tsan-static.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-linux-gcc11-tsan-static-x86_64-cppstd20-release, conan2-linux-gcc11-tsan-static-x86_64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc11-tsan-static-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-x86_64-gcc11-asan-static:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
@@ -491,9 +473,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc13.jinja
-    parallel:
-        matrix:
-        - CMAKE_PRESET: [conan2-linux-gcc13-x86_64-cppstd20-release, conan2-linux-gcc13-x86_64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc13-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-x86_64-gcc13-asan-static:
     extends: .profile-linux-x86_64-gcc13
@@ -534,9 +514,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc9.jinja
-    parallel:
-        matrix:
-            - CMAKE_PRESET: [conan2-linux-gcc9-aarch64-cppstd20-release, conan2-linux-gcc9-aarch64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc9-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-aarch64-gcc11:
     # Set up for linux arm64 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
@@ -562,9 +540,7 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc11.jinja
-    parallel:
-        matrix:
-            - CMAKE_PRESET: [conan2-linux-gcc11-aarch64-cppstd20-release, conan2-linux-gcc11-aarch64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc11-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-aarch64-gcc13:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc13:latest
@@ -582,6 +558,4 @@ before_script:
         - docker
     variables:
         PROFILE_BASE: linux-aarch64-gcc13.jinja
-    parallel:
-        matrix:
-            - CMAKE_PRESET: [conan2-linux-gcc13-aarch64-cppstd20-release, conan2-linux-gcc13-aarch64-cppstd17-release]
+        CMAKE_PRESET: "conan2-linux-gcc13-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
