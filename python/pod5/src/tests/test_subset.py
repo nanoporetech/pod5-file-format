@@ -380,3 +380,38 @@ class TestParse:
             expected.get_column(PL_READ_ID).sort(),
             csv_df.get_column(PL_READ_ID).sort(),
         )
+
+    def test_parse_csv_filters_invalid_read_ids(self, tmp_path: Path) -> None:
+        csv = tmp_path / "invalid.csv"
+        valid_id = "00000000-0000-0000-0000-000000000000"
+        invalid_id = "not-a-uuid"
+        with csv.open("w") as writer:
+            writer.write(f"{tmp_path/'valid.pod5'},{valid_id}\n")
+            writer.write(f"{tmp_path/'invalid.pod5'},{invalid_id}\n")
+
+        parsed = parse_csv_mapping(csv).collect()
+
+        assert parsed.height == 1
+        assert parsed.get_column(PL_READ_ID).to_list() == [valid_id]
+        assert parsed.get_column(PL_DEST_FNAME).to_list() == [
+            str(tmp_path / "valid.pod5")
+        ]
+
+    def test_parse_table_filters_invalid_read_ids(self, tmp_path: Path) -> None:
+        table = tmp_path / "table.csv"
+        valid_id = "11111111-1111-1111-1111-111111111111"
+        invalid_id = "1234"
+        with table.open("w") as writer:
+            writer.writelines(
+                [
+                    "sample,read_id\n",
+                    f"A,{valid_id}\n",
+                    f"B,{invalid_id}\n",
+                ]
+            )
+
+        parsed = parse_table_mapping(table, None, ["sample"]).collect()
+
+        assert parsed.height == 1
+        assert parsed.get_column(PL_READ_ID).to_list() == [valid_id]
+        assert parsed.get_column(PL_DEST_FNAME).to_list() == ["sample-A.pod5"]

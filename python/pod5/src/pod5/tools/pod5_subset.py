@@ -119,6 +119,13 @@ def parse_table_mapping(
                 pl.col(read_id_column).alias(PL_READ_ID),
             ]
         )
+        .with_columns(
+            [
+                pl.col(PL_READ_ID).str.contains(PL_UUID_REGEX).alias("is_uuid"),
+            ]
+        )
+        .filter(pl.col("is_uuid"))
+        .drop("is_uuid")
     )
     return targets
 
