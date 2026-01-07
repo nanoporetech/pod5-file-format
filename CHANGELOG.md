@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve file_reader_writer unit-tests robustness
 
+### Fixed
+
+- Fixed bug where invalid read ids could be passed into pod5 subset via summary table.
+
 ## [0.3.36]
 
 ### Added
@@ -22,7 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed Python 3.9 and macOS 10.15 support since they're EOL.
-
 
 ## [0.3.35]
 
