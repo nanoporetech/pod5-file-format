@@ -776,27 +776,28 @@ linux-x64-gcc11-coverage:
   - fi
   - pip install --upgrade conan
 
+.reset-line-endings:
+  # This is needed to enforce LF line-endings in the pybind submodule
+  # otherwise conan generates different revisions for windows and unix
+  - re='^(MINGW|CYGWIN|MSYS).*'
+  - if [[ $(uname -s) =~ $re ]]; then
+  -   git rm -rf :/
+  -   git checkout HEAD -- :/
+  - fi
+
 .conan-setup-common:
-  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".reset-line-endings"]
   - !reference [".setup-conan-venv"]
   - cat cmake/POD5Version.cmake
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - echo "Found versions ${VERSIONS}"
-  # This is needed to enforce lf line-endings in the pybind submodule
-  # otherwise conan generates different revisions for windows and unix
-  - git rm -rf :/
-  - git checkout HEAD -- :/
 
 .conan2-setup-common:
-  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".reset-line-endings"]
   - !reference [".setup-conan2-venv"]
   - cat cmake/POD5Version.cmake
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - echo "Found versions ${VERSIONS}"
-  # This is needed to enforce lf line-endings in the pybind submodule
-  # otherwise conan generates different revisions for windows and unix
-  - git rm -rf :/
-  - git checkout HEAD -- :/
 
 .conan-build-common:
   stage: build-conan
