@@ -200,12 +200,12 @@ build-standalone-ubu22:
     - "prepare_version"
   script:
     - export DEBIAN_FRONTEND=noninteractive
-    - apt update
-    - apt install -y -V ca-certificates lsb-release wget
+    - apt-get update
+    - apt-get install -y -V ca-certificates lsb-release wget
     - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-    - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-    - apt update
-    - apt install -y cmake build-essential libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=18.0.0-1
+    - apt-get install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+    - apt-get update
+    - apt-get install -y cmake build-essential libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=18.0.0-1
     - mkdir -p build
     - cd build
     - cmake
@@ -669,8 +669,8 @@ benchmark-linux-aarch64:
     - "prepare_version"
   script:
     # Install requirements.
-    - apt update
-    - apt install -y pip cmake
+    - apt-get update
+    - apt-get install -y pip cmake
     - pip install -U pip 'conan<2' auditwheel build
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
     # Setup build.
@@ -706,8 +706,8 @@ linux-x64-gcc11-fuzz:
     CMAKE_EXTRA_ARGS: "-D ENABLE_FUZZERS=ON -D FUZZER_RUN_TIME=600"
   script:
     # We need clang for libFuzzer.
-    - apt update
-    - apt install -y clang
+    - apt-get update
+    - apt-get install -y clang
     # Do the build.
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Remove the zipped corpora now that we've extracted it, since we
@@ -733,8 +733,8 @@ linux-x64-gcc11-coverage:
     CMAKE_EXTRA_ARGS: "-D POD5_DISABLE_TESTS=OFF -D ENABLE_COVERAGE_REPORT=ON"
   script:
     # We need a venv.
-    - apt update
-    - apt install -y python3-venv
+    - apt-get update
+    - apt-get install -y python3-venv
     # Do the build.
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Run the coverage report.
