@@ -286,7 +286,7 @@ build-standalone-ubu22:
       - "lib_pod5*.whl"
 
 linux-x64-gcc9-release-build:
-  image: quay.io/pypa/manylinux2014_x86_64
+  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux2014_x86_64
   extends:
     - .build-linux
     - .parallel-py-versions
@@ -299,7 +299,7 @@ linux-x64-gcc9-release-build:
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
 
 linux-aarch64-gcc9-release-build:
-  image: quay.io/pypa/manylinux2014_aarch64
+  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux2014_aarch64
   extends:
     - .build-linux
     - .parallel-py-versions
@@ -658,7 +658,7 @@ benchmark-linux-aarch64:
 
 .generic-linux-x64-gcc11-build:
   stage: build
-  image: "ubuntu:jammy"
+  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:jammy
   tags:
     - linux
   variables:
