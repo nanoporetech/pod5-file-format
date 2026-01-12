@@ -101,7 +101,6 @@ prepare_version:
     - git tag -d $(git tag -l "*dev*")
     - if [[ ${CI_COMMIT_TAG/#v/} && -z $( git tag -l "${CI_COMMIT_TAG/#v/}" ) ]]; then git tag ${CI_COMMIT_TAG/#v/}; fi
     - pip install --upgrade pip setuptools_scm~=7.1
-    - apt update && apt install -y git-lfs
     - git status --porcelain
     - python -m setuptools_scm
     - cat _version.py
@@ -201,12 +200,12 @@ build-standalone-ubu22:
     - "prepare_version"
   script:
     - export DEBIAN_FRONTEND=noninteractive
-    - apt update
-    - apt install -y -V ca-certificates lsb-release wget
+    - apt-get update
+    - apt-get install -y -V ca-certificates lsb-release wget
     - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-    - apt install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-    - apt update
-    - apt install -y cmake build-essential libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=18.0.0-1
+    - apt-get install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
+    - apt-get update
+    - apt-get install -y cmake build-essential libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=18.0.0-1
     - mkdir -p build
     - cd build
     - cmake
@@ -287,7 +286,7 @@ build-standalone-ubu22:
       - "lib_pod5*.whl"
 
 linux-x64-gcc9-release-build:
-  image: quay.io/pypa/manylinux2014_x86_64
+  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux2014_x86_64
   extends:
     - .build-linux
     - .parallel-py-versions
@@ -300,7 +299,7 @@ linux-x64-gcc9-release-build:
     AUDITWHEEL_PLATFORM: manylinux2014_x86_64
 
 linux-aarch64-gcc9-release-build:
-  image: quay.io/pypa/manylinux2014_aarch64
+  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux2014_aarch64
   extends:
     - .build-linux
     - .parallel-py-versions
@@ -659,7 +658,7 @@ benchmark-linux-aarch64:
 
 .generic-linux-x64-gcc11-build:
   stage: build
-  image: "ubuntu:jammy"
+  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:jammy
   tags:
     - linux
   variables:
@@ -670,8 +669,8 @@ benchmark-linux-aarch64:
     - "prepare_version"
   script:
     # Install requirements.
-    - apt update
-    - apt install -y pip cmake
+    - apt-get update
+    - apt-get install -y pip cmake
     - pip install -U pip 'conan<2' auditwheel build
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
     # Setup build.
@@ -707,8 +706,8 @@ linux-x64-gcc11-fuzz:
     CMAKE_EXTRA_ARGS: "-D ENABLE_FUZZERS=ON -D FUZZER_RUN_TIME=600"
   script:
     # We need clang for libFuzzer.
-    - apt update
-    - apt install -y clang
+    - apt-get update
+    - apt-get install -y clang
     # Do the build.
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Remove the zipped corpora now that we've extracted it, since we
@@ -734,8 +733,8 @@ linux-x64-gcc11-coverage:
     CMAKE_EXTRA_ARGS: "-D POD5_DISABLE_TESTS=OFF -D ENABLE_COVERAGE_REPORT=ON"
   script:
     # We need a venv.
-    - apt update
-    - apt install -y python3-venv
+    - apt-get update
+    - apt-get install -y python3-venv
     # Do the build.
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Run the coverage report.
@@ -777,27 +776,28 @@ linux-x64-gcc11-coverage:
   - fi
   - pip install --upgrade conan
 
+.reset-line-endings:
+  # This is needed to enforce LF line-endings in the pybind submodule
+  # otherwise conan generates different revisions for windows and unix
+  - re='^(MINGW|CYGWIN|MSYS).*'
+  - if [[ $(uname -s) =~ $re ]]; then
+  -   git rm -rf :/
+  -   git checkout HEAD -- :/
+  - fi
+
 .conan-setup-common:
-  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".reset-line-endings"]
   - !reference [".setup-conan-venv"]
   - cat cmake/POD5Version.cmake
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - echo "Found versions ${VERSIONS}"
-  # This is needed to enforce lf line-endings in the pybind submodule
-  # otherwise conan generates different revisions for windows and unix
-  - git rm -rf :/
-  - git checkout HEAD -- :/
 
 .conan2-setup-common:
-  - git-lfs > /dev/null || (apt update && apt install -y git-lfs)
+  - !reference [".reset-line-endings"]
   - !reference [".setup-conan2-venv"]
   - cat cmake/POD5Version.cmake
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - echo "Found versions ${VERSIONS}"
-  # This is needed to enforce lf line-endings in the pybind submodule
-  # otherwise conan generates different revisions for windows and unix
-  - git rm -rf :/
-  - git checkout HEAD -- :/
 
 .conan-build-common:
   stage: build-conan
