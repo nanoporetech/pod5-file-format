@@ -97,8 +97,7 @@
                 "CONAN_BUILD_PROFILE": "windows-x86_64-vs2019.jinja"
             },
             "environment": {
-                "CMAKE_GENERATOR": "Visual Studio 16 2019",
-                "CONAN_MANUAL_OVERRIDES": "boost/*: boost/1.86.0"
+                "CMAKE_GENERATOR": "Visual Studio 16 2019"
             }
         }
     ]
