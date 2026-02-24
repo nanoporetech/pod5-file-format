@@ -1,18 +1,19 @@
 """Main entry point for pod5 tools"""
 
 import argparse
+import sys
 from typing import Any
 
 from pod5 import __version__
 from pod5.tools.parsers import (
     SubcommandHelpFormatter,
     prepare_pod5_convert,
+    prepare_pod5_filter_argparser,
     prepare_pod5_inspect_argparser,
     prepare_pod5_merge_argparser,
+    prepare_pod5_recover_argparser,
     prepare_pod5_repack_argparser,
     prepare_pod5_subset_argparser,
-    prepare_pod5_filter_argparser,
-    prepare_pod5_recover_argparser,
     prepare_pod5_update_argparser,
     prepare_pod5_view_argparser,
     run_tool,
@@ -62,4 +63,4 @@ def main() -> Any:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

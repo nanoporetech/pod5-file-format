@@ -4,8 +4,8 @@
 
 #include <pybind11/pybind11.h>
 
-#include <iostream>
 #include <memory>
+#include <set>
 #include <vector>
 
 namespace repack {
@@ -46,21 +46,8 @@ public:
     std::size_t currently_open_file_reader_count()
     {
         check_for_error();
-        std::size_t reader_count = 0;
-        bool any_expired = false;
-        for (auto const & weak_reader : m_file_readers) {
-            if (!weak_reader.expired()) {
-                reader_count += 1;
-            } else {
-                any_expired = true;
-            }
-        }
-
-        if (any_expired) {
-            cleanup_submitted_readers();
-        }
-
-        return reader_count;
+        cleanup_submitted_readers();
+        return m_file_readers.size();
     }
 
 private:
@@ -68,20 +55,17 @@ private:
 
     void cleanup_submitted_readers()
     {
-        auto new_end = std::remove_if(
-            m_file_readers.begin(), m_file_readers.end(), [](auto & ptr) { return ptr.expired(); });
-        m_file_readers.erase(new_end, m_file_readers.end());
+        std::erase_if(m_file_readers, [](auto const & ptr) { return ptr.expired(); });
     }
 
     void register_submitted_reader(std::shared_ptr<pod5::FileReader> const & input)
     {
         cleanup_submitted_readers();
-        m_file_readers.emplace_back(input);
+        m_file_readers.insert(input);
     }
 
     std::shared_ptr<pod5::ThreadPool> m_thread_pool;
-
-    mutable std::vector<std::weak_ptr<pod5::FileReader>> m_file_readers;
+    std::set<std::weak_ptr<pod5::FileReader>, std::owner_less<>> m_file_readers;
     std::vector<std::shared_ptr<Pod5RepackerOutput>> m_outputs;
 
     std::size_t m_reads_complete_deleted_outputs{0};

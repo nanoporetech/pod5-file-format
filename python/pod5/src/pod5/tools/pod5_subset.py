@@ -6,9 +6,12 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from string import Formatter
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
+import lib_pod5 as p5b
 import polars as pl
+
+from pod5.tools.parsers import prepare_pod5_subset_argparser, run_tool
 from pod5.tools.polars_utils import (
     PL_DEST_FNAME,
     PL_READ_ID,
@@ -21,9 +24,6 @@ from pod5.tools.utils import (
     logged,
     logged_all,
 )
-from pod5.tools.parsers import prepare_pod5_subset_argparser, run_tool
-import lib_pod5 as p5b
-
 
 DEFAULT_READ_ID_COLUMN = "read_id"
 
@@ -221,7 +221,7 @@ def subset_pod5(
     ignore_incomplete_template: bool = False,
     force_overwrite: bool = False,
     recursive: bool = False,
-) -> Any:
+) -> int:
     """Prepare the subsampling mapping and run the repacker"""
 
     if csv:
@@ -248,15 +248,20 @@ def subset_pod5(
     if len(_inputs) == 0:
         raise ValueError("Found no input pod5 files")
 
-    p5b.subset_pod5s_with_mapping(
-        list(_inputs),
-        output,
-        targets_dict,
-        # threads=threads,
-        missing_ok,
-        False,
-        force_overwrite,
-    )
+    try:
+        p5b.subset_pod5s_with_mapping(
+            list(_inputs),
+            output,
+            targets_dict,
+            # threads=threads,
+            missing_ok,
+            False,
+            force_overwrite,
+        )
+    except KeyboardInterrupt:
+        print("Stopped POD5 subset following keyboard interrupt.")
+        return 1
+    return 0
 
 
 @logged()

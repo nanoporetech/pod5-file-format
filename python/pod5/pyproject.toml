@@ -9,7 +9,7 @@ authors = [
   { name = "Oxford Nanopore Technologies plc", email = "support@nanoporetech.com" },
 ]
 readme = "README.md"
-requires-python = "~= 3.9"
+requires-python=">= 3.9, < 4.0"
 description = "Oxford Nanopore Technologies Pod5 File Format Python API and Tools"
 dynamic = ["version"]
 keywords = ['nanopore']

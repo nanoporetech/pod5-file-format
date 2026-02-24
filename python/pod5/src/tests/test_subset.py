@@ -1,13 +1,15 @@
+import subprocess
+import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Dict, List, Set
 
-import pod5
-
+import lib_pod5 as p5b
 import polars as pl
+import pytest
 from polars.testing import assert_frame_equal, assert_series_equal
 
-import pytest
-
+import pod5
 from pod5.tools.pod5_inspect import inspect_pod5
 from pod5.tools.pod5_subset import (
     PL_DEST_FNAME,
@@ -22,7 +24,21 @@ from pod5.tools.pod5_subset import (
     parse_table_mapping,
     subset_pod5,
 )
-import lib_pod5 as p5b
+
+
+def get_resource_module() -> ModuleType | None:
+    # resource module only available in posix platforms
+    # This module is used to set the resource limits when testing subset's
+    # file handle / resource management
+    try:
+        import resource
+
+        return resource
+    except ModuleNotFoundError:
+        return None
+
+
+HAS_RLIMIT = hasattr(get_resource_module(), "RLIMIT_NOFILE")
 
 CSV_RESULT_1 = {
     "repeated_name": {"r1", "r2"},
@@ -82,7 +98,7 @@ class TestSubset:
         with output.open("w") as _fh:
             for target, read_ids in mapping.items():
                 for read_id in read_ids:
-                    _fh.write(f"{path/target},{read_id}\n")
+                    _fh.write(f"{path / target},{read_id}\n")
         return output
 
     def _test_subset(self, tmp: Path, csv: Path, mapping: Dict[str, Set[str]]) -> None:
@@ -170,6 +186,122 @@ class TestSubset:
         # Run the test, expecting an error
         with pytest.raises(RuntimeError):
             self.test_subset_base(tmp_path)
+
+    def _pod5s_with_view_table(
+        self, num_input_pod5s: int, tmp_path: Path, pod5_factory
+    ) -> tuple[Path, Path]:
+        """Create cached pod5s and the view table"""
+        pod5_path = Path.cwd()
+        num_reads = 0
+        print(f"Creating {num_input_pod5s} pod5s for tests")
+        for n in range(1, num_input_pod5s):
+            num_reads += n
+            pod5_path = Path(pod5_factory(n))
+        print(f"Finished creating {num_input_pod5s} pod5s for tests")
+        # Run pod5 view to create the view table
+        from pod5.tools.pod5_view import view_pod5
+
+        table = tmp_path / "view.table"
+        view_pod5(
+            inputs=[pod5_path.parent],
+            output=table,
+            recursive=True,
+        )
+
+        return pod5_path.parent, table
+
+    @pytest.mark.skipif(not HAS_RLIMIT, reason="POSIX only")
+    def test_subset_ulimit_below_num_outputs(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture, pod5_factory
+    ):
+        resource = get_resource_module()
+        assert resource is not None
+
+        num_input_pod5s = 50
+        pod5_dir, table = self._pod5s_with_view_table(
+            num_input_pod5s, tmp_path, pod5_factory
+        )
+        num_reads = sum(range(num_input_pod5s + 1))  # T(50)=1275
+
+        output = tmp_path / "output_dir"
+        cmd = [
+            sys.executable,
+            "-m",
+            "pod5.tools.main",
+            "subset",
+            "--table",
+            str(table),
+            "--columns",
+            "channel",  # assuming channel * mux is mostly unique
+            "mux",
+            "--output",
+            str(output),
+            "--recursive",
+            "--force-overwrite",
+            str(pod5_dir),
+        ]
+
+        def set_nofile_le_num_outputs():
+            # Set ulimit below max number of output handles.
+            # Using (num_reads / 2) as channel * mux should be unique per read
+            soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+            rlimit_soft, rlimit_hard = min(num_reads // 3, soft), hard
+            resource.setrlimit(resource.RLIMIT_NOFILE, (rlimit_soft, rlimit_hard))
+
+        r = subprocess.run(
+            cmd,
+            preexec_fn=set_nofile_le_num_outputs,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert r.returncode == 0, r.stderr
+
+    @pytest.mark.skipif(not HAS_RLIMIT, reason="POSIX only")
+    def test_subset_ulimit_below_num_inputs(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture, pod5_factory
+    ):
+        resource = get_resource_module()
+        assert resource is not None
+
+        num_input_pod5s = 50
+        pod5_dir, table = self._pod5s_with_view_table(
+            num_input_pod5s, tmp_path, pod5_factory
+        )
+
+        output = tmp_path / "output_dir"
+        cmd = [
+            sys.executable,
+            "-m",
+            "pod5.tools.main",
+            "subset",
+            "--table",
+            str(table),
+            "--columns",
+            "mux",
+            "--output",
+            str(output),
+            "--recursive",
+            "--force-overwrite",
+            str(pod5_dir),
+        ]
+
+        def set_nofile_le_num_inputs():
+            # Set ulimit below max number of input handles.
+            soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+            rlimit_soft, rlimit_hard = min(num_input_pod5s - 4, soft), hard
+            resource.setrlimit(resource.RLIMIT_NOFILE, (rlimit_soft, rlimit_hard))
+
+        r = subprocess.run(
+            cmd,
+            preexec_fn=set_nofile_le_num_inputs,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert r.returncode == 0, r.stderr
 
 
 class TestFilenameTemplating:
@@ -386,8 +518,8 @@ class TestParse:
         valid_id = "00000000-0000-0000-0000-000000000000"
         invalid_id = "not-a-uuid"
         with csv.open("w") as writer:
-            writer.write(f"{tmp_path/'valid.pod5'},{valid_id}\n")
-            writer.write(f"{tmp_path/'invalid.pod5'},{invalid_id}\n")
+            writer.write(f"{tmp_path / 'valid.pod5'},{valid_id}\n")
+            writer.write(f"{tmp_path / 'invalid.pod5'},{invalid_id}\n")
 
         parsed = parse_csv_mapping(csv).collect()
 

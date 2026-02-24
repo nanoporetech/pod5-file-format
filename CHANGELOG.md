@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Improve file_reader_writer unit-tests robustness
+- Scale number of open input file handles during pod5 subset / filter by the system limits and number of output files.
 
 ### Fixed
 
