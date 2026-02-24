@@ -27,7 +27,7 @@ endif()
 set_target_properties(pod5_format_pybind
     PROPERTIES
         POSITION_INDEPENDENT_CODE 1
-        CXX_STANDARD 17
+        CXX_STANDARD 20
 )
 
 # Non-conan license files to copy.

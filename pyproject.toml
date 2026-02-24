@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pod5version"
-requires-python = "~= 3.7"
+requires-python = ">= 3.9, < 4.0"
 dynamic = ["version"]
 description="Oxford Nanopore Technologies Pod5 File Format VCS Versioning"
 

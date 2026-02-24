@@ -1,4 +1,5 @@
 build*/
+.conan/
 cmake-build*/
 _build/
 .cache/

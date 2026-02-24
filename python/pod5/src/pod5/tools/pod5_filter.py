@@ -4,6 +4,12 @@ Tool for subsetting pod5 files into one or more outputs using a list of read ids
 
 from pathlib import Path
 from typing import List
+
+import lib_pod5 as p5b
+import polars as pl
+
+from pod5.tools.parsers import prepare_pod5_filter_argparser, run_tool
+from pod5.tools.pod5_subset import build_targets_dict
 from pod5.tools.polars_utils import PL_DEST_FNAME, PL_READ_ID, PL_UUID_REGEX
 from pod5.tools.utils import (
     DEFAULT_THREADS,
@@ -12,13 +18,6 @@ from pod5.tools.utils import (
     limit_threads,
     logged_all,
 )
-
-import polars as pl
-
-from pod5.tools.parsers import prepare_pod5_filter_argparser, run_tool
-from pod5.tools.pod5_subset import build_targets_dict
-import lib_pod5 as p5b
-
 
 logger = init_logging()
 
@@ -63,7 +62,7 @@ def filter_pod5(
     force_overwrite: bool = False,
     recursive: bool = False,
     threads: int = DEFAULT_THREADS,
-) -> None:
+) -> int:
     """Prepare the pod5 filter mapping and run the repacker"""
     # Remove output file
     if output.exists():
@@ -87,16 +86,21 @@ def filter_pod5(
 
     targets_dict = build_targets_dict(targets)
 
-    p5b.subset_pod5s_with_mapping(
-        list(_inputs),
-        output,
-        targets_dict,
-        # threads=threads,
-        missing_ok,
-        False,
-        force_overwrite,
-    )
-    return
+    try:
+        p5b.subset_pod5s_with_mapping(
+            list(_inputs),
+            output,
+            targets_dict,
+            # threads=threads,
+            missing_ok,
+            False,
+            force_overwrite,
+        )
+    except KeyboardInterrupt:
+        print("Stopped POD5 filter following keyboard interrupt.")
+        return 1
+
+    return 0
 
 
 @logged_all
