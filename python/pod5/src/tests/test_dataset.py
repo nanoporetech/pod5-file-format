@@ -1,10 +1,11 @@
 import random
 import shutil
-from uuid import uuid4
-from pathlib import Path
-
-import pytest
 import warnings
+from pathlib import Path
+from uuid import uuid4
+
+import numpy as np
+import pytest
 
 import pod5 as p5
 from pod5.api_utils import Pod5ApiException
@@ -224,6 +225,74 @@ class TestDatasetReader:
 
         assert dataset.get_read("") is None
         assert dataset.get_read("foo") is None
+
+    def test_duplicate_read_selection(self, nested_dataset: Path) -> None:
+        """Test explicitly selecting a read multiple times"""
+        dataset = p5.DatasetReader(nested_dataset, recursive=True)
+        all_read_ids = list(dataset.read_ids)
+        assert len(all_read_ids) > 0
+        read_id = random.choice(all_read_ids)
+
+        selection = [read_id, read_id, read_id]
+
+        loaded_reads = list(dataset.reads(selection=selection))
+        assert len(loaded_reads) == len(selection)
+
+        for read in loaded_reads:
+            assert str(read.read_id) == read_id
+            assert np.array_equal(read.signal, loaded_reads[0].signal)
+
+    def test_missing_id_does_not_return_member(self, nested_dataset: Path) -> None:
+        """
+        Test that a valid read_id (uuid4) which is not in the dataset doesn't return
+        a previously loaded member of the dataset
+        """
+        dataset = p5.DatasetReader(nested_dataset, recursive=True)
+        all_read_ids = list(dataset.read_ids)
+        assert len(all_read_ids) > 0
+
+        for _ in range(1_000):
+            member_ids = set(random.sample(all_read_ids, len(all_read_ids) // 5))
+            assert len(member_ids) > 0
+
+            # Create a read id which is not in the dataset
+            missing_id = uuid4()
+            assert missing_id not in member_ids, "statistically impossible"
+            # Add the missing (but valid) read id to the selection
+            selection = list(member_ids)
+            selection.append(str(missing_id))
+
+            # Assert only the member read_ids are loaded
+            loaded_reads = list(dataset.reads(selection=selection))
+            loaded_ids = set(str(read.read_id) for read in loaded_reads)
+            assert missing_id not in loaded_ids
+            assert loaded_ids == member_ids
+
+    def test_invalid_id_does_not_return_member(self, nested_dataset: Path) -> None:
+        """
+        Test that invalid selections after valid ones do not return a previous
+        valid read
+        """
+        dataset = p5.DatasetReader(nested_dataset, recursive=True)
+        all_read_ids = list(dataset.read_ids)
+        assert len(all_read_ids) > 0
+
+        for _ in range(100):
+            valid_ids = set(random.sample(all_read_ids, len(all_read_ids) // 5))
+
+            selection = list(valid_ids)
+            selection.append("")
+
+            loaded_reads = list(dataset.reads(selection=selection))
+            loaded_ids = list(str(read.read_id) for read in loaded_reads)
+            assert len(loaded_ids) == len(valid_ids)
+            assert set(loaded_ids) == valid_ids
+
+    def test_empty_read_selection(self, nested_dataset: Path) -> None:
+        """Test empty selection returns no reads"""
+        dataset = p5.DatasetReader(nested_dataset, recursive=True)
+        loaded_reads = list(dataset.reads(selection=[]))
+        assert len(loaded_reads) == 0
 
     def test_prompt_read_indexing(self, nested_dataset: Path) -> None:
         """Test prompt indexing"""

@@ -37,7 +37,7 @@ def pack_read_ids(
     if invalid_ok is False and count != len(read_ids):
         raise RuntimeError("Invalid read id passed")
 
-    return read_id_data
+    return read_id_data[:count]
 
 
 def format_read_ids(
