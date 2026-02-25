@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Use standard file IO to read POD5 header and footer metadata before memory mapping (if not disabled e.g. `POD5_DISABLE_MMAP_OPEN=1`). This should to avoid SIGBUS errors caused by memory mapping file stubs (archive artefacts).
 - Improve file_reader_writer unit-tests robustness
 - Scale number of open input file handles during pod5 subset / filter by the system limits and number of output files.
 
@@ -667,7 +668,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Renamed `EndReason.name` to `EndReason.reason` to access the inner enum and added
-    `EndReason.name` as a property to return the string representation of this enum value.
+  `EndReason.name` as a property to return the string representation of this enum value.
 - `BaseRead`, `Read`, `CompressedRead`, `Calibration` and `Pore` dataclasses are now mutable.
 
 ### Removed
@@ -736,7 +737,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pod5-convert-from-fast5` `--output-one-to-one` reworked so that output files maintain the input structure making this argument more flexible and avoid filename clobbering.
 - Added missing `lib_pod5.update_file` function to pyi.
 - `pod5-convert-from-fast5` `output` now takes existing directories and
-writes `output.pod5` (current behaviour) or creates a new file with the given name if it doesn't exist.
+  writes `output.pod5` (current behaviour) or creates a new file with the given name if it doesn't exist.
 - Renamed arguments in tools relating to multi-processing / multi-threading from `-p/--processes` to the mode common `-t/--threads`.
 
 ## [0.0.41] - 2022-10-27
@@ -763,8 +764,8 @@ writes `output.pod5` (current behaviour) or creates a new file with the given na
 ### Changed
 
 - All data in the read table that was previously contained in dictionaries of structs is now stored in the read table, or a new "run info" table.
-    This change simplifies data access into the pod5 files, and helps users who want to convert the pod5 data to pandas or other arrow-compatible reader formats.
-    Old data is migrated on load, and will continue to work, data can be permanently migrated using the tool `pod5-migrate`
+  This change simplifies data access into the pod5 files, and helps users who want to convert the pod5 data to pandas or other arrow-compatible reader formats.
+  Old data is migrated on load, and will continue to work, data can be permanently migrated using the tool `pod5-migrate`
 
 ### Removed
 

@@ -3,18 +3,17 @@ Testing Pod5Reader
 """
 
 import random
+from pathlib import Path
 from typing import Type
 from unittest import mock
 from uuid import UUID, uuid4
 
+import lib_pod5 as p5b
 import numpy
 import numpy.typing
 import packaging
-from pathlib import Path
 import pyarrow as pa
-
 import pytest
-import lib_pod5 as p5b
 
 import pod5 as p5
 from pod5.api_utils import format_read_ids
@@ -166,6 +165,34 @@ class TestPod5Reader:
 
         # Clean reader resources
         del pod5_file_reader
+
+    def test_sparse_file_warns_during_preflight(self, tmp_path: Path, capfd) -> None:
+        """Assert sparse/offloaded-like files emit a preflight warning."""
+        sparse_path = tmp_path / "sparse-warning.pod5"
+        sparse_size_bytes = 128 * 1024 * 1024
+        with sparse_path.open("wb") as sparse_file:
+            sparse_file.seek(sparse_size_bytes - 1)
+            sparse_file.write(b"\0")
+
+        sparse_stats = sparse_path.stat()
+        if not hasattr(sparse_stats, "st_blocks"):
+            pytest.skip("filesystem does not expose st_blocks")
+
+        allocated_bytes = sparse_stats.st_blocks * 512
+        missing_fraction = 1.0 - (allocated_bytes / sparse_stats.st_size)
+        if missing_fraction < 0.8:
+            pytest.skip("test file is not sparse enough on this filesystem")
+
+        with pytest.raises(RuntimeError):
+            p5b.open_file(str(sparse_path))
+
+        captured = capfd.readouterr()
+        assert "Warning: POD5 file" in captured.err
+        assert "has st_size=" in captured.err
+        assert (
+            "The file may be sparse or offloaded and open/read operations may fail."
+            in captured.err
+        )
 
     def test_iter_selection_in_file_order(self, reader: p5.Reader) -> None:
         """Tests iteration order is on-disk order"""

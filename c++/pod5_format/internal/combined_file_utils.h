@@ -158,6 +158,15 @@ struct ParsedFooter {
     ParsedFileInfo signal_table;
 };
 
+inline void bind_footer_file(
+    ParsedFooter & footer,
+    std::shared_ptr<arrow::io::RandomAccessFile> const & file)
+{
+    footer.reads_table.file = file;
+    footer.run_info_table.file = file;
+    footer.signal_table.file = file;
+}
+
 inline pod5::Status check_signature(
     std::shared_ptr<arrow::io::RandomAccessFile> const & file,
     std::int64_t offset_in_file)
