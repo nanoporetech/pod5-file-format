@@ -1,13 +1,16 @@
 build*/
 .conan/
 cmake-build*/
+CMakeUserPresets.json
 _build/
+.conan/
 .cache/
 dist/
 .DS_Store
 .pod5
 venv/
 *.venv/
+uv.lock
 docs/public/
 .tmp_pod5*
 _version.py

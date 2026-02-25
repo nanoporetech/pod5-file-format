@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed bug where invalid read ids could be passed into pod5 subset via summary table.
+- Fixed bug where invalid read ids in `DatasetReader.reads` selection could return valid read records.
 
 ## [0.3.36]
 
