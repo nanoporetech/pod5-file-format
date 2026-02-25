@@ -11,7 +11,53 @@
 #include <arrow/io/file.h>
 #include <arrow/ipc/reader.h>
 
+#include <cstdint>
+#include <iostream>
+#if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
+#include <sys/stat.h>
+#endif
+
 namespace pod5 {
+
+namespace {
+#if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
+constexpr std::uint64_t kStatBlockBytes = S_BLKSIZE;
+// Issue warning if the majority of the file is missing to avoid false positives
+constexpr double kMinMissingFractionThreshold = 0.8;
+
+void warn_if_stat_size_and_blocks_differ_significantly(std::string const & path)
+{
+    struct stat file_stat = {};
+    if (::stat(path.c_str(), &file_stat) != 0 || file_stat.st_size <= 0 || file_stat.st_blocks < 0)
+    {
+        return;
+    }
+
+    auto const logical_size_bytes = static_cast<std::uint64_t>(file_stat.st_size);
+    auto const allocated_size_bytes =
+        static_cast<std::uint64_t>(file_stat.st_blocks) * kStatBlockBytes;
+
+    if (allocated_size_bytes >= logical_size_bytes) {
+        return;
+    }
+
+    auto const missing_bytes = logical_size_bytes - allocated_size_bytes;
+    auto const missing_fraction =
+        static_cast<double>(missing_bytes) / static_cast<double>(logical_size_bytes);
+    if (missing_fraction < kMinMissingFractionThreshold) {
+        return;
+    }
+
+    std::cerr << "Warning: POD5 file '" << path << "' has st_size=" << logical_size_bytes
+              << " bytes but only approximately " << allocated_size_bytes
+              << " bytes allocated via st_blocks. The file may be sparse or offloaded and "
+                 "open/read operations may fail."
+              << std::endl;
+}
+#else
+void warn_if_stat_size_and_blocks_differ_significantly(std::string const &) {}
+#endif
+}  // namespace
 
 FileReaderOptions::FileReaderOptions()
 : m_memory_pool(pod5::default_memory_pool())
@@ -178,22 +224,27 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
         return Status::Invalid("Invalid memory pool specified for file writer");
     }
 
-    std::shared_ptr<arrow::io::RandomAccessFile> file;
+    // Issue warning if the file appears to be a stub
+    warn_if_stat_size_and_blocks_differ_significantly(path);
+
+    // "Preflight" file reads are done via standard file I/O first to prevent SIGBUS errors
+    // if the file is not resident (e.g. stub remains when file is archived).
+    // If mmap succeeds afterwards, use it for normal table reads otherwise continue
+    // using this preflight file handle.
+    ARROW_ASSIGN_OR_RAISE(auto preflight_file, arrow::io::ReadableFile::Open(path, pool));
+    ARROW_ASSIGN_OR_RAISE(
+        auto original_footer_metadata, combined_file_utils::read_footer(path, preflight_file));
+
+    std::shared_ptr<arrow::io::RandomAccessFile> file = preflight_file;
     if (!options.force_disable_file_mapping() && getenv("POD5_DISABLE_MMAP_OPEN") == nullptr) {
-        // Try to open the file with mmap, if we fail fall back to a traditional open.
         auto file_opt = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
         if (file_opt.ok()) {
             file = *file_opt;
+            // Downstream handles are extracted from the `footer.{table}.file`, update them
+            // to use the mmap handle.
+            combined_file_utils::bind_footer_file(original_footer_metadata, file);
         }
     }
-
-    if (!file) {
-        ARROW_ASSIGN_OR_RAISE(auto file_reader, arrow::io::ReadableFile::Open(path, pool));
-        file = file_reader;
-    }
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto original_footer_metadata, combined_file_utils::read_footer(path, file));
 
     ARROW_ASSIGN_OR_RAISE(
         auto const original_writer_version,
