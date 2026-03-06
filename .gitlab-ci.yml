@@ -778,6 +778,7 @@ linux-x64-gcc11-coverage:
   - !reference [".reset-line-endings"]
   - !reference [".setup-venv"]
   - pip install 'conan<2'
+  - conan --version
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
 
 .conan-build-common:
@@ -794,6 +795,7 @@ linux-x64-gcc11-coverage:
     - !reference [".reset-line-endings"]
     - !reference [".setup-venv"]
     - pip install --upgrade conan
+    - conan --version
     - conan remove "*" --confirm
     - conan config install --verify-ssl=no "${CONAN2_CONFIG_URL}"
 
