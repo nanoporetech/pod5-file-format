@@ -91,6 +91,9 @@ before_script:
                 conan create --profile:build ${PROFILE_BASE_BUILD} --profile:host ${PROFILE_BASE_HOST} ${CONAN_REFERENCE} ${CONAN_USER}/${CONAN_CHANNEL} ${EXTRA_CREATE_ARGS}
             fi
     after_script:
+        # Re-load the venv if it exists
+        - if ls .venv/*/activate >/dev/null 2>&1; then source .venv/*/activate; fi
+        - conan --version
         # Avoid storing things on the CI node unnecessarily
         - conan remove "*" --builds --src --force
         - *tarball-package
