@@ -14,7 +14,8 @@ variables:
   STABLE_BRANCH_NAME: master
   DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
   CONAN_PROFILE_BUILD_TYPE: Release
-  CONAN_VENV_PYTHON: 3.13
+  CONAN_VENV_PYTHON: "3.13"
+  CMAKE_VERSION: "4.2.3"
 before_script:
   - ""
 
@@ -134,6 +135,9 @@ tag_version_check:
     - tags
   image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc9:latest
   script:
+    - uv venv .venv
+    - source .venv/bin/activate
+    - uv pip install "cmake==${CMAKE_VERSION}"
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - tag_version="${CI_COMMIT_TAG/#v/}"
     - if [[ "${pod5_version}" != "${tag_version}" ]]; then
@@ -272,7 +276,7 @@ build-standalone-ubu22:
   variables:
     EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install -U pip 'conan<2' auditwheel build
+    - /opt/python/cp310-cp310/bin/pip install -U pip 'conan<2' auditwheel build "cmake==${CMAKE_VERSION}"
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
@@ -329,7 +333,9 @@ linux-aarch64-gcc9-release-build:
   before_script:
     - uv venv .venv_conan --python ${CONAN_VENV_PYTHON} --seed
     - source .venv_conan/bin/activate
-    - pip install -U pip 'conan<2'
+    # Note that cmake 3.31+ do not work properly on macOS 14 (and earlier)
+    # Pinning to 3.30 avoid SSL issues when connecting to internal servers
+    - uv pip install -U pip 'conan<2' 'cmake==3.30.9'
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - conan_exe=$(which conan)
     - uv python install ${PYTHON_VERSION}
@@ -381,14 +387,14 @@ osx-arm64-clang15-release-build:
   before_script:
     - uv venv .venv_conan --python ${CONAN_VENV_PYTHON} --seed
     - source .venv_conan/Scripts/activate
-    - pip install -U pip 'conan<2'
+    - uv pip install 'conan<2' "cmake==${CMAKE_VERSION}"
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
     - conan_exe=$(which conan)
     - uv python install ${PYTHON_VERSION}
     - uv venv --python "python${PYTHON_VERSION}" .venv --seed
     - source .venv/Scripts/activate
   script:
-    - pip install build
+    - uv pip install build
     - !reference [".conan-build-and-test"]
   after_script:
     # HACK: for some reason, pod5_unit_tests.exe is sticking around; deleting it works, but it
@@ -409,7 +415,6 @@ win-x64-msvc2019-release-build:
     - .parallel-py-versions
   tags:
     - windows
-    - cmake
     - VS2019
     - conan
   variables:
@@ -670,8 +675,8 @@ benchmark-linux-aarch64:
   script:
     # Install requirements.
     - apt-get update
-    - apt-get install -y pip cmake
-    - pip install -U pip 'conan<2' auditwheel build
+    - apt-get install -y pip
+    - pip install -U pip 'conan<2' auditwheel build "cmake==${CMAKE_VERSION}"
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
     # Setup build.
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
@@ -842,7 +847,7 @@ linux-x64-gcc11-coverage:
   stage: deploy
   only: ["tags"]
   before_script:
-    - pip install cmake
+    - pip install "cmake==${CMAKE_VERSION}"
     - !reference [".conan-setup-common"]
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
