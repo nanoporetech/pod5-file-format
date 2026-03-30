@@ -12,7 +12,10 @@ file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5"
 
 # Copy the licenses into the wheel src.
 # Note: the trailing / on src is important since it tells cmake to copy only the contents.
-file(INSTALL "${POD5_CONAN_LICENSES}/" DESTINATION "${PYTHON_PROJECT_DIR}/licenses")
+if(EXISTS "${POD5_CONAN_LICENSES}")
+    file(INSTALL "${POD5_CONAN_LICENSES}/" DESTINATION "${PYTHON_PROJECT_DIR}/licenses")
+endif()
+
 foreach(license_src license_dst IN ZIP_LISTS POD5_CXX_LICENSES_SRC POD5_CXX_LICENSES_DST)
     file(COPY_FILE "${license_src}" "${PYTHON_PROJECT_DIR}/licenses/${license_dst}")
 endforeach()
