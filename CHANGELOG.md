@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix python bindings build without Conan.
 
+### Changed
+
+- CI Stabilisation
+
 ## [0.3.38]
 
 ### Changed

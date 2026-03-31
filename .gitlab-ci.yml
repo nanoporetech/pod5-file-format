@@ -134,7 +134,7 @@ tag_version_check:
     - "prepare_version"
   only:
     - tags
-  image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc9:latest
+  image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc13:latest
   script:
     - uv venv .venv
     - source .venv/bin/activate
@@ -150,7 +150,7 @@ api_lib_version_check:
   stage: .pre
   needs:
     - "prepare_version"
-  image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc9:latest
+  image: ${CI_REGISTRY}/minknow/images/build-x86_64-gcc13:latest
   script:
     - cat _version.py
     - NO_DEV_VERSION=$(grep "__version__" _version.py | awk '{print $5}' | tr -d "'" | cut -d'+' -f1 | sed 's/\([0-9]\+\.[0-9]\+\.[0-9]\+\).*$/\1/')
