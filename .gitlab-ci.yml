@@ -7,7 +7,7 @@ stages:
   - deploy
 
 include:
-    - local: '/ci/gitlab-ci-common.yml'
+  - local: '/ci/gitlab-ci-common.yml'
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -16,8 +16,6 @@ variables:
   CONAN_PROFILE_BUILD_TYPE: Release
   CONAN_VENV_PYTHON: "3.13"
   CMAKE_VERSION: "4.2.3"
-before_script:
-  - ""
 
 # The versions that we build and test.
 .parallel-py-versions:

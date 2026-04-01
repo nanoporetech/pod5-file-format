@@ -14,9 +14,6 @@ stages:
     - build
     - upload
 
-before_script:
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
-
 #
 # use the extends keyword to inherit the job templates defined below
 #
