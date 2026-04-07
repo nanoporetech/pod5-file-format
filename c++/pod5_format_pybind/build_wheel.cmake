@@ -10,6 +10,9 @@ message("  using: ${PYTHON_EXECUTABLE} -m pip wheel . --wheel-dir ${WHEEL_OUTPUT
 # Copy the prebuilt lib into the wheel src.
 file(COPY "${PYBIND_INPUT_LIB}" DESTINATION "${PYTHON_PROJECT_DIR}/src/lib_pod5")
 
+# Create a licenses directory.
+file(MAKE_DIRECTORY "${PYTHON_PROJECT_DIR}/licenses")
+
 # Copy the licenses into the wheel src.
 # Note: the trailing / on src is important since it tells cmake to copy only the contents.
 if(EXISTS "${POD5_CONAN_LICENSES}")
