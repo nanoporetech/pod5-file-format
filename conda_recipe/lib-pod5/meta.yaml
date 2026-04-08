@@ -1,0 +1,60 @@
+{% set version = "0.2.4" %} # UPDATE for each version
+
+package:
+  name: lib-pod5
+  version: {{ version }}
+
+build:
+  number: 0
+  script: pip install https://files.pythonhosted.org/packages/cp37/l/lib_pod5/lib_pod5-{{ version }}-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl # [py==37]
+  script: pip install https://files.pythonhosted.org/packages/cp38/l/lib_pod5/lib_pod5-{{ version }}-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl # [py==38]
+  script: pip install https://files.pythonhosted.org/packages/cp39/l/lib_pod5/lib_pod5-{{ version }}-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl # [py==39]
+  script: pip install https://files.pythonhosted.org/packages/cp310/l/lib_pod5/lib_pod5-{{ version }}-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl # [py==310]
+  script: pip install https://files.pythonhosted.org/packages/cp311/l/lib_pod5/lib_pod5-{{ version }}-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl # [py==311]
+
+requirements:
+  host:
+    - python
+    - pip
+  run:
+    - python
+    - numpy >=1.21
+    - libstdcxx-ng
+
+test:
+  imports:
+    - lib_pod5
+  ## TODO add your test command here
+  ## e.g.
+  #   - pytest -vv
+  # 
+  ## TODO add test-files used by your tests here
+  # source_files: 
+  #   - test_data
+
+about:
+  home: https://github.com/nanoporetech/pod5-file-format
+  license: Mozilla Public License Version 2.0
+  summary: 'Python bindings for the POD5 file format.'
+  description: |
+    [![Documentation Status](https://readthedocs.org/projects/pod5-file-format/badge/?version=latest)](https://pod5-file-format.readthedocs.io/)
+
+    **Python bindings for the POD5 file format**
+
+    What does this project contain
+    ------------------------------
+
+    This project contains the low-level core library (extension modules) for reading and writing POD5 files.
+    This project forms the basis of the pure-python [pod5 package](https://github.com/nanoporetech/pod5-file-format) which is probably the project you want.
+
+    Documentation
+    -------------
+
+    Full documentation is found at https://pod5-file-format.readthedocs.io/
+  dev_url: https://github.com/nanoporetech/pod5-file-format
+  doc_url: https://pod5-file-format.readthedocs.io/vscode-remote://ssh-remote%2Bcheers.bioinf.uni-jena.de/home/yi98suv/conda_recipes/local_recipes/local/lib-pod5/conda_build_config.yaml
+
+extra:
+  recipe-maintainers:
+    - 38325576 # github id
+    - JannesSP # github name
