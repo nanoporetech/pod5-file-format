@@ -2,7 +2,20 @@ include:
   - local: '/.gitlab/gitlab-ci-common.yml'
 
 
-.setup-venv:
+.reset-line-endings:
+  # This is needed to enforce LF line-endings in the pybind submodule
+  # otherwise conan generates different revisions for windows and unix
+  - re='^(MINGW|CYGWIN|MSYS).*'
+  - if [[ $(uname -s) =~ $re ]]; then
+  -   cd third_party/pybind11
+  -   git rm -rfq :/
+  -   git config core.autocrlf false
+  -   git checkout HEAD -- :/
+  -   cd "${CI_PROJECT_DIR}"
+  - fi
+
+.conan1-setup-common:
+  - !reference [".reset-line-endings"]
   - KERNEL=$(uname -s)
   - if [[ ! ${KERNEL} =~ "Linux" ]]; then
       # Must use an explicit version here otherwise we get the windows store one.
@@ -10,47 +23,38 @@ include:
   -   python3.13 -m venv .venv
   -   source .venv/*/activate
   - fi
-
-.reset-line-endings:
-  # This is needed to enforce LF line-endings in the pybind submodule
-  # otherwise conan generates different revisions for windows and unix
-  - re='^(MINGW|CYGWIN|MSYS).*'
-  - if [[ $(uname -s) =~ $re ]]; then
-  -   git rm -rf :/
-  -   git checkout HEAD -- :/
-  - fi
-
-.conan-setup-common:
-  - !reference [".reset-line-endings"]
-  - !reference [".setup-venv"]
-  - pip install 'conan<2'
+  - pip install 'conan<2' cmake
   - conan --version
   - VERSIONS="$(cmake -P ci/get_tag_version.cmake 2>&1)"
 
-.conan-build-common:
+.conan1-build:
   stage: build-conan
   dependencies:
     - "prepare_version"
   before_script:
-    - !reference [".conan-setup-common"]
+    - !reference [".conan1-setup-common"]
     - conan remove "*" -f
     - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
 
-.conan2-common:
-  before_script:
+.conan2-build:
+  stage: build-conan
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: on_success
+      variables:
+        UPLOAD_ARGS: "--force"
+    - when: on_success
+      variables:
+        UPLOAD_ARGS: "--dry-run"
+  needs: ["prepare_version"]
+  script:
     - !reference [".reset-line-endings"]
-    - !reference [".setup-venv"]
-    - pip install --upgrade conan
+    - uv venv --python=3.14 .venv
+    - source .venv/*/activate
+    - uv pip install conan cmake
     - conan --version
     - conan remove "*" --confirm
     - conan config install --verify-ssl=no "${CONAN2_CONFIG_URL}"
-
-.conan2-build:
-  extends: .conan2-common
-  stage: build-conan
-  dependencies:
-    - "prepare_version"
-  script:
     - version=$(cmake -P ci/get_tag_version.cmake 2>&1 | cut -d. -f1-3)
       # set up the correct ref
     - opts=("--version=${version}" --user=nanopore --channel=stable)
@@ -62,287 +66,221 @@ include:
     - opts+=('-o:a=arrow/*:with_thrift=False' '-o:a=arrow/*:parquet=False' '-o:a=arrow/*:with_zstd=True' '-o:a=arrow/*:with_boost=False')
     - echo "Running conan create . ${opts[@]}"
     - conan create . "${opts[@]}"
-    - conan cache save "*/*:*" --file=conan-${CI_JOB_ID}.tgz
+    - conan remote enable ONTDev-Conan-V2
+    - conan remote auth ONTDev-Conan-V2 --force
+    - conan upload "pod5_file_format/*:*" --check --confirm --remote=ONTDev-Conan-V2 ${UPLOAD_ARGS}
   variables:
     # use an arrow package that doesn't use Boost, even on Windows
     CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/18.0.0@nanopore/noboost"
     CONAN_PROFILE_CPPSTD: "20"
-  artifacts:
-    paths:
-      - 'conan-*.tgz'
   parallel:
     matrix:
       - CONAN_PROFILE_BUILD_TYPE: ["Debug", "Release"]
 
-.conan2-upload:
-  extends: .conan2-common
-  stage: deploy
-  #only: ["tags"]
-  script:
-    - for f in conan-*.tgz; do conan cache restore "$f"; done
-    - conan remote auth ONT-Conan-V2 --force
-    - conan upload "*:*" --check --confirm --remote=ONT-Conan-V2 --dry-run
-
-.conan-upload:
+.conan1-upload:
   extends: .upload-package # from informatics/conan-config
   stage: deploy
-  only: ["tags"]
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: on_success
+      variables:
+        DO_UPLOAD: "yes"
+    - when: on_success
+      variables:
+        DO_UPLOAD: "no"
   before_script:
     - pip install "cmake==${CMAKE_VERSION}"
-    - !reference [".conan-setup-common"]
+    - !reference [".conan1-setup-common"]
   variables:
       EXPECTED_PACKAGE_COUNT: "4" # Expect shared and static packages
 
 # Conan: build and upload packages:
-build-conan:windows-x86_64-vs2019:
+build-conan1:windows-x86_64-vs2019:
     extends:
         - .profile-windows-x86_64-vs2019
         - .build-package-win
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version", "win-x64-msvc2019-release-build"]
 upload-conan:windows-x86_64-vs2019:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:windows-x86_64-vs2019" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:windows-x86_64-vs2019" ]
 
-build-conan2:windows-x86_64-vs2019:
-    extends:
-        - .conan2-build
-        - .profile-windows-x86_64-vs2019-conan2
-    needs: ["prepare_version", "win-x64-msvc2019-release-build"]
-upload-conan2:windows-x86_64-vs2019:
-    extends:
-        - .conan2-upload
-        - .profile-windows-x86_64-vs2019-conan2
-    dependencies: [ "prepare_version", "build-conan2:windows-x86_64-vs2019" ]
-
-build-conan:macos-aarch64-appleclang-15.0:
+build-conan1:macos-aarch64-appleclang-15.0:
     extends:
         - .profile-macos-aarch64-appleclang-15.0
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version", "osx-arm64-clang15-release-build"]
 upload-conan:macos-aarch64-appleclang-15.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-15.0" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:macos-aarch64-appleclang-15.0" ]
 
-build-conan:macos-aarch64-appleclang-16.0:
+build-conan1:macos-aarch64-appleclang-16.0:
     extends:
         - .profile-macos-aarch64-appleclang-16.0
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:macos-aarch64-appleclang-16.0:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:macos-aarch64-appleclang-16.0" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:macos-aarch64-appleclang-16.0" ]
 
-build-conan2:macos-aarch64-appleclang-15.0:
-    extends:
-        - .profile-macos-aarch64-appleclang-15.0-conan2
-        - .conan2-build
-    needs: ["prepare_version", "osx-arm64-clang15-release-build"]
-upload-conan2:macos-aarch64-appleclang-15.0:
-    extends:
-      - .profile-macos-aarch64-appleclang-15.0-conan2
-      - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:macos-aarch64-appleclang-15.0" ]
-
-build-conan2:macos-aarch64-appleclang-16.0:
-    extends:
-        - .profile-macos-aarch64-appleclang-16.0-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:macos-aarch64-appleclang-16.0:
-    extends:
-        - .profile-macos-aarch64-appleclang-16.0-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:macos-aarch64-appleclang-16.0" ]
-
-build-conan:linux-x86_64-gcc11:
+build-conan1:linux-x86_64-gcc11:
     extends:
         - .profile-linux-x86_64-gcc11
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc11" ]
 
-build-conan2:linux-x86_64-gcc11:
-    extends:
-        - .profile-linux-x86_64-gcc11-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-x86_64-gcc11:
-    extends:
-        - .profile-linux-x86_64-gcc11-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11" ]
-
-build-conan2:linux-x86_64-gcc11-asan-static:
-    extends:
-        - .profile-linux-x86_64-gcc11-asan-static-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-x86_64-gcc11-asan-static:
-    extends:
-        - .profile-linux-x86_64-gcc11-asan-static-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11-asan-static" ]
-
-build-conan2:linux-x86_64-gcc11-usan-static:
-    extends:
-        - .profile-linux-x86_64-gcc11-usan-static-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-x86_64-gcc11-usan-static:
-    extends:
-        - .profile-linux-x86_64-gcc11-usan-static-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11-usan-static" ]
-
-build-conan2:linux-x86_64-gcc11-tsan-static:
-    extends:
-        - .profile-linux-x86_64-gcc11-tsan-static-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-x86_64-gcc11-tsan-static:
-    extends:
-        - .profile-linux-x86_64-gcc11-tsan-static-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc11-tsan-static" ]
-
-build-conan:linux-x86_64-gcc13:
+build-conan1:linux-x86_64-gcc13:
     extends:
         - .profile-linux-x86_64-gcc13
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc13:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc13" ]
 
-build-conan2:linux-x86_64-gcc13:
-    extends:
-        - .profile-linux-x86_64-gcc13-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-x86_64-gcc13:
-    extends:
-        - .profile-linux-x86_64-gcc13-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-x86_64-gcc13" ]
-
-build-conan:linux-x86_64-gcc11-asan-static:
+build-conan1:linux-x86_64-gcc11-asan-static:
     extends:
         - .profile-linux-x86_64-gcc11-asan-static
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11-asan-static:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-asan-static" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc11-asan-static" ]
 
-build-conan:linux-x86_64-gcc13-asan-static:
+build-conan1:linux-x86_64-gcc13-asan-static:
     extends:
         - .profile-linux-x86_64-gcc13-asan-static
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc13-asan-static:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-asan-static" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc13-asan-static" ]
 
-build-conan:linux-x86_64-gcc11-tsan-static:
+build-conan1:linux-x86_64-gcc11-tsan-static:
     extends:
         - .profile-linux-x86_64-gcc11-tsan-static
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11-tsan-static:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-tsan-static" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc11-tsan-static" ]
 
-build-conan:linux-x86_64-gcc13-tsan-static:
+build-conan1:linux-x86_64-gcc13-tsan-static:
     extends:
         - .profile-linux-x86_64-gcc13-tsan-static
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc13-tsan-static:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-tsan-static" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc13-tsan-static" ]
 
-build-conan:linux-x86_64-gcc11-usan-static:
+build-conan1:linux-x86_64-gcc11-usan-static:
     extends:
         - .profile-linux-x86_64-gcc11-usan-static
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc11-usan-static:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc11-usan-static" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc11-usan-static" ]
 
-build-conan:linux-x86_64-gcc13-usan-static:
+build-conan1:linux-x86_64-gcc13-usan-static:
     extends:
         - .profile-linux-x86_64-gcc13-usan-static
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-x86_64-gcc13-usan-static:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-x86_64-gcc13-usan-static" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-x86_64-gcc13-usan-static" ]
 
-build-conan:linux-aarch64-gcc11:
+build-conan1:linux-aarch64-gcc11:
     extends:
         - .profile-linux-aarch64-gcc11
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-aarch64-gcc11:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc11" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-aarch64-gcc11" ]
 
-build-conan2:linux-aarch64-gcc11:
-    extends:
-        - .profile-linux-aarch64-gcc11-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-aarch64-gcc11:
-    extends:
-        - .profile-linux-aarch64-gcc11-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-aarch64-gcc11" ]
-
-build-conan:linux-aarch64-gcc13:
+build-conan1:linux-aarch64-gcc13:
     extends:
         - .profile-linux-aarch64-gcc13
         - .build-package
-        - .conan-build-common
+        - .conan1-build
         - .build-shared-and-static
     needs: ["prepare_version"]
 upload-conan:linux-aarch64-gcc13:
-    extends: .conan-upload
-    dependencies: [ "prepare_version", "build-conan:linux-aarch64-gcc13" ]
+    extends: .conan1-upload
+    dependencies: [ "prepare_version", "build-conan1:linux-aarch64-gcc13" ]
 
-build-conan2:linux-aarch64-gcc13:
-    extends:
-        - .profile-linux-aarch64-gcc13-conan2
-        - .conan2-build
-    needs: ["prepare_version"]
-upload-conan2:linux-aarch64-gcc13:
-    extends:
-        - .profile-linux-aarch64-gcc13-conan2
-        - .conan2-upload
-    dependencies: [ "prepare_version", "build-conan2:linux-aarch64-gcc13" ]
+build-conan2:windows-x86_64-vs2019:
+  extends: [.conan2-build]
+  tags:
+    - windows
+    - VS2019
+  variables:
+    PROFILE_BASE: windows-x86_64-vs2019.jinja
+
+build-conan2:macos-aarch64-appleclang-15.0:
+  extends: [.conan2-build]
+  tags:
+    - osx_arm64
+    - xcode-15.3
+  variables:
+    PROFILE_BASE: macos-aarch64-appleclang-15.0.jinja
+
+build-conan2:macos-aarch64-appleclang-16.0:
+  extends: [.conan2-build]
+  tags:
+    - osx_arm64
+    - xcode-16.1
+  variables:
+    PROFILE_BASE: macos-aarch64-appleclang-16.0.jinja
+
+build-conan2:linux-x86_64:
+  extends: [.conan2-build]
+  tags: [linux, prod, amd64, eks, small, standard]
+  image: "${CI_REGISTRY}/informatics/conan/conan-docker-images/linux-x86_64-${COMPILER}"
+  parallel:
+    matrix:
+      - CONAN_PROFILE_BUILD_TYPE: ["Debug", "Release"]
+        COMPILER: [gcc11, gcc13]
+        SANITIZER: ["", "-asan-static", "-usan-static", "-tsan-static"]
+  variables:
+      PROFILE_BASE: linux-x86_64-${COMPILER}.jinja
+
+build-conan2:linux-aarch64:
+  extends: [.conan2-build]
+  tags: [linux_aarch64]
+  image: "${CI_REGISTRY}/informatics/conan/conan-docker-images/linux-aarch64-${COMPILER}"
+  parallel:
+    matrix:
+      - CONAN_PROFILE_BUILD_TYPE: ["Debug", "Release"]
+        COMPILER: [gcc11, gcc13]
+  variables:
+      PROFILE_BASE: linux-aarch64-${COMPILER}.jinja
