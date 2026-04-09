@@ -115,6 +115,7 @@ stages:
         EXTRA_CREATE_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
 
     after_script:
+        - if ls .venv/*/activate >/dev/null 2>&1; then source .venv/*/activate; fi
         # Avoid storing things on the CI node unnecessarily
         - conan remove "*" --builds --src --force
         # CONAN_USE_ALWAYS_SHORT_PATHS links paths deep in the data dir to dirs in c:\.conan
@@ -190,7 +191,7 @@ stages:
 
 .upload-package:
     stage: upload
-    image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.8
+    image: git.oxfordnanolabs.local:4567/traque/ont-docker-base/ont-base-python:3.13
     tags:
         - linux
         - docker
@@ -202,9 +203,12 @@ stages:
         # BSD tar (on macOS) puts some extra optional information into the tarballs that GNU tar
         # complains about. --warning=no-unknown-keyword suppresses this.
         - for tarball in conan-*.tar.gz; do tar --warning=no-unknown-keyword -xf "$tarball"; done
-        - for conan_dir in ./*/.conan; do
+        - for conan_dir in */.conan; do
         - job_dir="$(dirname "$conan_dir")"
-        - echo -e "\e[0Ksection_start:`date +%s`:upload_package\r\e[0KUploading from $job_dir"
+          # where is this even coming from?!?
+          # we shouldn't have run conan with CONAN_USER_HOME set to this directory...
+        - if [[ $job_dir == $CI_JOB_ID ]]; then continue; fi
+        - echo -e "\e[0Ksection_start:`date +%s`:upload_package$job_dir\r\e[0KUploading from $job_dir"
         - export CONAN_USER_HOME="$PWD/$job_dir"
         - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
         - if [[ -n ${VERSIONS} ]]; then
@@ -251,7 +255,7 @@ stages:
         - for recipe in $recipes; do
         -   conan upload -r ont-artifactory --all --check --confirm ${EXTRA_ARGS} "$recipe"
         - done
-        - echo -e "\e[0Ksection_end:`date +%s`:upload_package\r\e[0K"
+        - echo -e "\e[0Ksection_end:`date +%s`:upload_package$job_dir\r\e[0K"
         - done # for conan_dir
 
 #
@@ -275,19 +279,6 @@ stages:
     variables:
         PROFILE_BASE: windows-x86_64-vs2019.jinja
     parallel: !reference [.parallel-cppstd,parallel]
-
-.profile-windows-x86_64-vs2019-conan2:
-    # Set up for Windows x86 using VS 2019, using conan and the profile windows-x86_64-vs2019,
-    # adapted for debug and release. To be called from individual packages by using "extends".
-    tags:
-        - windows
-        - cmake
-        - VS2019
-        - conan
-    variables:
-        CMAKE_GENERATOR: "Visual Studio 16 2019"
-        PROFILE_BASE: windows-x86_64-vs2019.jinja
-        CMAKE_PRESET: "conan2-windows-x86_64-vs2019-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 #
 # Set up for MacOS versions
@@ -315,30 +306,6 @@ stages:
     variables:
         PROFILE_BASE: macos-aarch64-appleclang-16.0.jinja
     parallel: !reference [.parallel-cppstd,parallel]
-
-.profile-macos-aarch64-appleclang-15.0-conan2:
-    # Set up for MacOS arm 64 using clang 15.0, using conan and the profile
-    # macos-aarch64-appleclang-15.0, adapted for debug and release. To be called from individual
-    # packages by using "extends".
-    tags:
-        - osx_arm64
-        - xcode-15.3
-        - conan
-    variables:
-        PROFILE_BASE: macos-aarch64-appleclang-15.0.jinja
-        CMAKE_PRESET: "conan2-macos-appleclang-15.0-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
-.profile-macos-aarch64-appleclang-16.0-conan2:
-    # Set up for MacOS arm 64 using clang 16.0, using conan and the profile
-    # macos-aarch64-appleclang-16.0, adapted for debug and release. To be called from individual
-    # packages by using "extends".
-    tags:
-        - osx_arm64
-        - xcode-16.1
-        - conan
-    variables:
-        PROFILE_BASE: macos-aarch64-appleclang-16.0.jinja
-        CMAKE_PRESET: "conan2-macos-appleclang-16.0-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 #
 # Set up for linux versions
 #
@@ -358,15 +325,6 @@ stages:
         PROFILE_BASE: linux-x86_64-gcc9.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-linux-x86_64-gcc9-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc9:latest
-    tags:
-        - linux_x86
-        - docker
-    variables:
-        PROFILE_BASE: linux-x86_64-gcc9.jinja
-        CMAKE_PRESET: "conan2-linux-gcc9-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
 
 .profile-linux-x86_64-gcc11:
     # Set up for linux x86 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
@@ -384,42 +342,6 @@ stages:
     variables:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
     parallel: !reference [.parallel-cppstd,parallel]
-
-.profile-linux-x86_64-gcc11-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
-    variables:
-        PROFILE_BASE: linux-x86_64-gcc11.jinja
-        CMAKE_PRESET: "conan2-linux-gcc11-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
-.profile-linux-x86_64-gcc11-asan-static-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
-    variables:
-        PROFILE_BASE: linux-x86_64-gcc11-asan-static.jinja
-        CMAKE_PRESET: "conan2-linux-gcc11-asan-static-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
-.profile-linux-x86_64-gcc11-usan-static-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
-    variables:
-        PROFILE_BASE: linux-x86_64-gcc11-usan-static.jinja
-        CMAKE_PRESET: "conan2-linux-gcc11-usan-static-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
-.profile-linux-x86_64-gcc11-tsan-static-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
-    variables:
-        PROFILE_BASE: linux-x86_64-gcc11-tsan-static.jinja
-        CMAKE_PRESET: "conan2-linux-gcc11-tsan-static-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
 
 .profile-linux-x86_64-gcc11-asan-static:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
@@ -466,15 +388,6 @@ stages:
         PROFILE_BASE: linux-x86_64-gcc13.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-linux-x86_64-gcc13-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc13:latest
-    tags:
-        - linux_x86
-        - docker
-    variables:
-        PROFILE_BASE: linux-x86_64-gcc13.jinja
-        CMAKE_PRESET: "conan2-linux-gcc13-x86_64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
 .profile-linux-x86_64-gcc13-asan-static:
     extends: .profile-linux-x86_64-gcc13
     variables:
@@ -507,15 +420,6 @@ stages:
         PROFILE_BASE: linux-aarch64-gcc9.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-linux-aarch64-gcc9-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc9:latest
-    tags:
-        - linux_aarch64
-        - docker
-    variables:
-        PROFILE_BASE: linux-aarch64-gcc9.jinja
-        CMAKE_PRESET: "conan2-linux-gcc9-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
 .profile-linux-aarch64-gcc11:
     # Set up for linux arm64 using gcc11, using docker and the profile linux-aarch64-gcc11, adapted
     # for debug and release. To be called from individual packages by using "extends".
@@ -533,15 +437,6 @@ stages:
         PROFILE_BASE: linux-aarch64-gcc11.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
-.profile-linux-aarch64-gcc11-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc11:latest
-    tags:
-        - linux_aarch64
-        - docker
-    variables:
-        PROFILE_BASE: linux-aarch64-gcc11.jinja
-        CMAKE_PRESET: "conan2-linux-gcc11-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
-
 .profile-linux-aarch64-gcc13:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc13:latest
     tags:
@@ -550,12 +445,3 @@ stages:
     variables:
         PROFILE_BASE: linux-aarch64-gcc13.jinja
     parallel: !reference [.parallel-cppstd,parallel]
-
-.profile-linux-aarch64-gcc13-conan2:
-    image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-aarch64-gcc13:latest
-    tags:
-        - linux_aarch64
-        - docker
-    variables:
-        PROFILE_BASE: linux-aarch64-gcc13.jinja
-        CMAKE_PRESET: "conan2-linux-gcc13-aarch64-cppstd${CONAN_PROFILE_CPPSTD}-release"
