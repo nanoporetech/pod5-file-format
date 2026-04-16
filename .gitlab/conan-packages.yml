@@ -272,7 +272,7 @@ build-conan2:linux-x86_64:
         COMPILER: [gcc11, gcc13]
         SANITIZER: ["", "-asan-static", "-usan-static", "-tsan-static"]
   variables:
-      PROFILE_BASE: linux-x86_64-${COMPILER}.jinja
+      PROFILE_BASE: linux-x86_64-${COMPILER}${SANITIZER}.jinja
 
 build-conan2:linux-aarch64:
   extends: [.conan2-build]
