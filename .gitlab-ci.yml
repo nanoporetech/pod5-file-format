@@ -9,6 +9,9 @@ stages:
 include:
   - local: '/.gitlab/conan-packages.yml'
 
+default:
+  tags: [linux, prod, amd64, eks, small, standard]
+
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
@@ -55,28 +58,28 @@ workflow:
     - docker image push ${tag}
 
 docker base aarch64:
-  tags:
-    - docker-builder-arm
   extends:
     - .build-docker-image
+  tags:
+    - docker-builder-arm
   variables:
     IMAGE_TAG: "build-arm64"
     DOCKERFILE: "ci/docker/Dockerfile.py39.arm64"
 
 docker base x86-64:
-  tags:
-    - docker-builder
   extends:
     - .build-docker-image
+  tags: [linux, prod, amd64, eks, small, docker]
+  image: external-docker.artifactory.oxfordnanolabs.local/docker:cli
   variables:
     IMAGE_TAG: "build-x64"
     DOCKERFILE: "ci/docker/Dockerfile.py39.x64"
 
 docker conda:
-  tags:
-    - docker-builder
   extends:
     - .build-docker-image
+  tags: [linux, prod, amd64, eks, small, docker]
+  image: external-docker.artifactory.oxfordnanolabs.local/docker:cli
   variables:
     IMAGE_TAG: "conda"
     DOCKERFILE: "ci/docker/Dockerfile.conda"
@@ -169,9 +172,6 @@ api_lib_version_check:
 pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
     stage: .pre
-    tags:
-        - linux_x86
-        - docker
     script:
         - pip install pre-commit
         - if ! pre-commit run --all-files; then
@@ -301,8 +301,6 @@ linux-x64-gcc9-release-build:
   extends:
     - .build-linux
     - .parallel-py-versions
-  tags:
-    - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9.jinja"
     CONAN_PROFILE_CPPSTD: 17
@@ -448,8 +446,6 @@ build-python-api:
   needs:
     - "prepare_version"
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
-  tags:
-    - linux
   script:
     - git tag -d $(git tag -l "*a*")
     - git tag -d $(git tag -l "*b*")
@@ -486,8 +482,6 @@ tools-linux-x64:
     - .parallel-py-versions
   stage: test
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
-  tags:
-    - linux
   before_script:
     - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/bin/activate
@@ -540,8 +534,6 @@ pytest-linux-x64:
     - .pytest
     - .parallel-py-versions
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
-  tags:
-    - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
@@ -592,8 +584,6 @@ conda_pytest:
     - .pytest
     - .parallel-py-versions
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
-  tags:
-    - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
@@ -641,8 +631,6 @@ conda_pytest:
 benchmark-linux-x64:
   extends: [".benchmark"]
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
-  tags:
-    - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
@@ -671,8 +659,6 @@ benchmark-linux-aarch64:
 .generic-linux-x64-gcc11-build:
   stage: build
   image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:jammy
-  tags:
-    - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc11.jinja"
     CONAN_PROFILE_CPPSTD: 20
