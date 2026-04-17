@@ -1,0 +1,4 @@
+ARG UBUNTU_VERSION="jammy"
+FROM external-docker.artifactory.oxfordnanolabs.local/ubuntu:${UBUNTU_VERSION}
+
+RUN apt-get update && apt-get install -y pip python3-venv && rm -rf /var/lib/apt/lists/*

@@ -9,6 +9,9 @@ stages:
 include:
   - local: '/.gitlab/conan-packages.yml'
 
+default:
+  tags: [linux, prod, amd64, eks, small, standard]
+
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
@@ -41,7 +44,8 @@ workflow:
 
 .build-docker-image:
   stage: .pre
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-docker:latest
+  tags: [linux, prod, amd64, eks, small, docker]
+  image: external-docker.artifactory.oxfordnanolabs.local/docker:cli
   before_script:
     - docker login --username ${CI_REGISTRY_USER} --password ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
   when: manual
@@ -55,17 +59,16 @@ workflow:
     - docker image push ${tag}
 
 docker base aarch64:
-  tags:
-    - docker-builder-arm
   extends:
     - .build-docker-image
+  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-docker:latest
+  tags:
+    - docker-builder-arm
   variables:
     IMAGE_TAG: "build-arm64"
     DOCKERFILE: "ci/docker/Dockerfile.py39.arm64"
 
 docker base x86-64:
-  tags:
-    - docker-builder
   extends:
     - .build-docker-image
   variables:
@@ -73,23 +76,32 @@ docker base x86-64:
     DOCKERFILE: "ci/docker/Dockerfile.py39.x64"
 
 docker conda:
-  tags:
-    - docker-builder
   extends:
     - .build-docker-image
   variables:
     IMAGE_TAG: "conda"
     DOCKERFILE: "ci/docker/Dockerfile.conda"
 
+docker ubuntu build 22.04 (with deps):
+  extends:
+    - .build-docker-image
+  variables:
+    IMAGE_TAG: "ubuntu-build-deps-x64-jammy"
+    DOCKERFILE: "ci/docker/Dockerfile.ubu-build-deps"
 
-.docker template:
-  stage: docker
-  image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-docker:latest
-  before_script:
-    - docker login --username ${CI_REGISTRY_USER} --password ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
-  retry:
-    max: 2
-    when: runner_system_failure
+docker ubuntu build 22.04 (no deps):
+  extends:
+    - .build-docker-image
+  variables:
+    IMAGE_TAG: "ubuntu-build-no-deps-x64-jammy"
+    DOCKERFILE: "ci/docker/Dockerfile.ubu-build-no-deps"
+
+docker fuzzer:
+  extends:
+    - .build-docker-image
+  variables:
+    IMAGE_TAG: "fuzz-x64"
+    DOCKERFILE: "ci/docker/Dockerfile.fuzz"
 
 # ======================================
 #
@@ -108,7 +120,6 @@ prepare_version:
     - git tag -d $(git tag -l "*dev*")
     - if [[ ${CI_COMMIT_TAG/#v/} && -z $( git tag -l "${CI_COMMIT_TAG/#v/}" ) ]]; then git tag ${CI_COMMIT_TAG/#v/}; fi
     - pip install --upgrade pip setuptools_scm~=7.1
-    - apt update && apt install -y git-lfs
     - git status --porcelain
     - python -m setuptools_scm
     - cat _version.py
@@ -169,9 +180,6 @@ api_lib_version_check:
 pre-commit checks:
     image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
     stage: .pre
-    tags:
-        - linux_x86
-        - docker
     script:
         - pip install pre-commit
         - if ! pre-commit run --all-files; then
@@ -206,17 +214,10 @@ pre-commit checks:
 
 build-standalone-ubu22:
   stage: build
-  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:22.04
+  image: "${CI_REGISTRY_IMAGE}/ubuntu-build-deps-x64-jammy"
   needs:
     - "prepare_version"
   script:
-    - export DEBIAN_FRONTEND=noninteractive
-    - apt-get update
-    - apt-get install -y -V ca-certificates lsb-release wget
-    - wget https://apache.jfrog.io/artifactory/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-    - apt-get install -y -V ./apache-arrow-apt-source-latest-$(lsb_release --codename --short).deb
-    - apt-get update
-    - apt-get install -y cmake build-essential libzstd-dev libzstd-dev libflatbuffers-dev libarrow-dev=18.0.0-1
     - mkdir -p build
     - cd build
     - cmake
@@ -301,8 +302,6 @@ linux-x64-gcc9-release-build:
   extends:
     - .build-linux
     - .parallel-py-versions
-  tags:
-    - linux
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc9.jinja"
     CONAN_PROFILE_CPPSTD: 17
@@ -448,8 +447,6 @@ build-python-api:
   needs:
     - "prepare_version"
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.10
-  tags:
-    - linux
   script:
     - git tag -d $(git tag -l "*a*")
     - git tag -d $(git tag -l "*b*")
@@ -486,8 +483,6 @@ tools-linux-x64:
     - .parallel-py-versions
   stage: test
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
-  tags:
-    - linux
   before_script:
     - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/bin/activate
@@ -540,8 +535,6 @@ pytest-linux-x64:
     - .pytest
     - .parallel-py-versions
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
-  tags:
-    - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
@@ -592,8 +585,6 @@ conda_pytest:
     - .pytest
     - .parallel-py-versions
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
-  tags:
-    - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
@@ -641,8 +632,6 @@ conda_pytest:
 benchmark-linux-x64:
   extends: [".benchmark"]
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
-  tags:
-    - linux
   needs:
     - linux-x64-gcc9-release-build
     - build-python-api
@@ -670,9 +659,7 @@ benchmark-linux-aarch64:
 
 .generic-linux-x64-gcc11-build:
   stage: build
-  image: external-docker.artifactory.oxfordnanolabs.local/ubuntu:jammy
-  tags:
-    - linux
+  image: "${CI_REGISTRY_IMAGE}/ubuntu-build-no-deps-x64-jammy"
   variables:
     CONAN_PROFILE: "linux-x86_64-gcc11.jinja"
     CONAN_PROFILE_CPPSTD: 20
@@ -680,9 +667,6 @@ benchmark-linux-aarch64:
   needs:
     - "prepare_version"
   script:
-    # Install requirements.
-    - apt-get update
-    - apt-get install -y pip
     - pip install -U pip 'conan<2' auditwheel build "cmake==${CMAKE_VERSION}"
     - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
     # Setup build.
@@ -711,15 +695,13 @@ benchmark-linux-aarch64:
 
 linux-x64-gcc11-fuzz:
   extends: .generic-linux-x64-gcc11-build
+  image: "${CI_REGISTRY_IMAGE}/fuzz-x64"
   allow_failure: true
   variables:
     CC: clang
     CXX: clang++
     CMAKE_EXTRA_ARGS: "-D ENABLE_FUZZERS=ON -D FUZZER_RUN_TIME=600"
   script:
-    # We need clang for libFuzzer.
-    - apt-get update
-    - apt-get install -y clang
     # Do the build.
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Remove the zipped corpora now that we've extracted it, since we
@@ -744,9 +726,6 @@ linux-x64-gcc11-coverage:
     CMAKE_BUILD_TYPE: "Debug"
     CMAKE_EXTRA_ARGS: "-D POD5_DISABLE_TESTS=OFF -D ENABLE_COVERAGE_REPORT=ON"
   script:
-    # We need a venv.
-    - apt-get update
-    - apt-get install -y python3-venv
     # Do the build.
     - !reference [".generic-linux-x64-gcc11-build", "script"]
     # Run the coverage report.
