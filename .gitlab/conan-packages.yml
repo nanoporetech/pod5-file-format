@@ -246,6 +246,14 @@ build-conan2:windows-x86_64-vs2019:
   variables:
     PROFILE_BASE: windows-x86_64-vs2019.jinja
 
+build-conan2:windows-x86_64-vs2022:
+  extends: [.conan2-build]
+  tags:
+    - windows
+    - VS2022
+  variables:
+    PROFILE_BASE: windows-x86_64-vs2022.jinja
+
 build-conan2:macos-aarch64-appleclang-15.0:
   extends: [.conan2-build]
   tags:
