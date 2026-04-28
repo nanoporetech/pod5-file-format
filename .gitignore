@@ -23,3 +23,5 @@ test_package/CMakeUserPresets.json
 __pycache__
 python/Python.framework/
 /fuzz/corpus_*
+# this is typically a symlink into the build dir:
+/compile_commands.json
