@@ -10,7 +10,7 @@ include:
   - local: '/.gitlab/conan-packages.yml'
 
 default:
-  tags: [linux, prod, amd64, eks, small, standard]
+  tags: [linux, prod, x86_64, eks, small, standard]
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -313,9 +313,7 @@ linux-aarch64-gcc9-release-build:
   extends:
     - .build-linux
     - .parallel-py-versions
-  tags:
-    - linux_aarch64
-    - high-cpu
+  tags: [linux, prod, aarch64, eks, small, standard]
   variables:
     CONAN_PROFILE: "linux-aarch64-gcc9.jinja"
     CONAN_PROFILE_CPPSTD: 17
@@ -544,9 +542,7 @@ pytest-linux-aarch64:
     - .pytest
     - .parallel-py-versions
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
-  tags:
-    - linux_aarch64
-    - high-cpu
+  tags: [linux, prod, aarch64, eks, small, standard]
   needs:
     - linux-aarch64-gcc9-release-build
     - build-python-api
@@ -641,9 +637,7 @@ benchmark-linux-x64:
 benchmark-linux-aarch64:
   extends: [".benchmark"]
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
-  tags:
-    - linux_aarch64
-    - high-cpu
+  tags: [linux, prod, aarch64, eks, small, standard]
   needs:
     - linux-aarch64-gcc9-release-build
     - build-python-api
