@@ -273,7 +273,7 @@ build-conan2:macos-aarch64-appleclang-16.0:
 build-conan2:linux-x86_64:
   extends: [.conan2-build]
   tags: [linux, prod, amd64, eks, small, standard]
-  image: "${CI_REGISTRY}/informatics/conan/conan-docker-images/linux-x86_64-${COMPILER}"
+  image: "${ONT_DOCKER_REGISTRY}/informatics/rocky8-${COMPILER}"
   parallel:
     matrix:
       - CONAN_PROFILE_BUILD_TYPE: ["Debug", "Release"]
@@ -285,7 +285,7 @@ build-conan2:linux-x86_64:
 build-conan2:linux-aarch64:
   extends: [.conan2-build]
   tags: [linux_aarch64]
-  image: "${CI_REGISTRY}/informatics/conan/conan-docker-images/linux-aarch64-${COMPILER}"
+  image: "${ONT_DOCKER_REGISTRY}/informatics/rocky8-${COMPILER}"
   parallel:
     matrix:
       - CONAN_PROFILE_BUILD_TYPE: ["Debug", "Release"]
