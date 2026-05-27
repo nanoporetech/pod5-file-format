@@ -57,6 +57,8 @@ inline constexpr bool has_sse4_1() { return true; }
 inline bool has_sse4_1() { return (cpuid_leaf1_ecx() & (1 << 19)) != 0; }
 #endif  // defined(__SSE4_1__)
 
+inline bool has_popcnt() { return cpuid_leaf1_ecx() & (1U << 23); }
+
 }  // namespace svb16
 
 #endif  // defined(SVB16_X64)

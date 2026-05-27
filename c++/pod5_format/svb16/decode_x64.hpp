@@ -26,7 +26,9 @@ namespace detail {
     );
 }
 
-[[gnu::target("ssse3")]] inline __m128i unpack(uint32_t key, uint8_t const * SVB_RESTRICT * data)
+[[gnu::target("ssse3", "popcnt")]] inline __m128i unpack(
+    uint32_t key,
+    uint8_t const * SVB_RESTRICT * data)
 {
     auto const len = static_cast<uint8_t>(8 + svb16_popcount(key));
     __m128i data_reg = _mm_loadu_si128(reinterpret_cast<__m128i const *>(*data));

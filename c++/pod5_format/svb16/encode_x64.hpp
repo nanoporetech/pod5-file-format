@@ -48,7 +48,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
 }  // namespace detail
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("ssse3")]] uint8_t * encode_sse(
+[[gnu::target("ssse3", "popcnt")]] uint8_t * encode_sse(
     Int16T const * in,
     uint8_t * SVB_RESTRICT keys_dest,
     uint8_t * SVB_RESTRICT data_dest,

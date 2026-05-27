@@ -24,6 +24,7 @@
 
 #if __has_builtin(__builtin_popcount)
 // likely to be a single instruction (POPCNT) on x86_64
+// Note: requires that the caller is marked as [[gnu::target("popcnt")]]
 #define svb16_popcount __builtin_popcount
 #else
 // optimising compilers can often convert this pattern to POPCNT on x86_64
