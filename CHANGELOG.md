@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Internal CI changes
+- Improved performance of encode and decode on x64 machines.
 
 ## [0.3.43]
 
