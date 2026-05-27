@@ -11,20 +11,25 @@
 
 #ifdef SVB16_X64
 
+// All gnu::targets must be the same otherwise GCC refuses to inline them and they become function calls.
+#define SVB16_ENCODE_X64_TARGET gnu::target("ssse3,popcnt")
+
 namespace svb16 {
 namespace detail {
-[[gnu::target("ssse3")]] inline __m128i delta(__m128i curr, __m128i prev)
+[[SVB16_ENCODE_X64_TARGET, gnu::always_inline]] inline __m128i delta(__m128i curr, __m128i prev)
 {
     return _mm_sub_epi16(curr, _mm_alignr_epi8(curr, prev, 14));
 }
 
-[[gnu::target("ssse3")]] inline __m128i zigzag_encode(__m128i val)
+[[SVB16_ENCODE_X64_TARGET, gnu::always_inline]] inline __m128i zigzag_encode(__m128i val)
 {
     return _mm_xor_si128(_mm_add_epi16(val, val), _mm_srai_epi16(val, 16));
 }
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("ssse3")]] inline __m128i load_8(Int16T const * from, __m128i * prev)
+[[SVB16_ENCODE_X64_TARGET, gnu::always_inline]] inline __m128i load_8(
+    Int16T const * from,
+    __m128i * prev)
 {
     auto const loaded = _mm_loadu_si128(reinterpret_cast<__m128i const *>(from));
     SVB16_IF_CONSTEXPR(UseDelta && UseZigzag)
@@ -48,7 +53,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
 }  // namespace detail
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("ssse3,popcnt")]] uint8_t * encode_sse(
+[[SVB16_ENCODE_X64_TARGET]] uint8_t * encode_sse(
     Int16T const * in,
     uint8_t * SVB_RESTRICT keys_dest,
     uint8_t * SVB_RESTRICT data_dest,
