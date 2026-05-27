@@ -30,8 +30,8 @@ namespace detail {
 }
 
 [[SVB16_DECODE_X64_TARGET, gnu::always_inline]] inline __m128i unpack(
-    uint32_t key,
-    uint8_t const * SVB_RESTRICT * data)
+    uint8_t key,
+    uint8_t const * SVB_RESTRICT * SVB_RESTRICT data)
 {
     auto const len = static_cast<uint8_t>(8 + svb16_popcount(key));
     __m128i data_reg = _mm_loadu_si128(reinterpret_cast<__m128i const *>(*data));
@@ -45,7 +45,7 @@ namespace detail {
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
 [[SVB16_DECODE_X64_TARGET, gnu::always_inline]] inline void
-store_8(Int16T * to, __m128i value, __m128i * prev)
+store_8(Int16T * SVB_RESTRICT to, __m128i value, __m128i * prev)
 {
     SVB16_IF_CONSTEXPR(UseZigzag) { value = zigzag_decode(value); }
 
@@ -89,10 +89,10 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
     // this code treats all input as uint16_t (except the zigzag code, which treats it as int16_t)
     // this isn't a problem, as the scalar code does the same
 
-    auto out = out_span.begin();
+    Int16T * SVB_RESTRICT out = out_span.begin();
     auto const count = out_span.size();
-    auto keys_it = keys_span.begin();
-    auto data = data_span.begin();
+    uint8_t const * keys_it = keys_span.begin();
+    uint8_t const * data = data_span.begin();
 
     // handle blocks of 32 values
     if (count >= 64) {
