@@ -26,7 +26,7 @@ namespace detail {
     );
 }
 
-[[gnu::target("ssse3", "popcnt")]] inline __m128i unpack(
+[[gnu::target("ssse3,popcnt")]] inline __m128i unpack(
     uint32_t key,
     uint8_t const * SVB_RESTRICT * data)
 {
