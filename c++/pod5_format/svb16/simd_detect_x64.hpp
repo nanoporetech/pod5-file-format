@@ -8,14 +8,7 @@
 #include <intrin.h>
 #endif
 
-// __AVX__ is documented for MSVC, but __SSE4_1__ isn't
-#if defined(__AVX__) || defined(__SSE4_1__)
-
-inline constexpr bool has_ssse3() { return true; }
-
-inline constexpr bool has_sse4_1() { return true; }
-
-#else
+namespace svb16 {
 
 struct CpuidResult {
     unsigned int eax;
@@ -57,7 +50,13 @@ inline constexpr bool has_ssse3() { return true; }
 inline bool has_ssse3() { return (cpuid_leaf1_ecx() & (1 << 9)) != 0; }
 #endif
 
+// __AVX__ is documented for MSVC, but __SSE4_1__ isn't
+#if defined(__AVX__) || defined(__SSE4_1__)
+inline constexpr bool has_sse4_1() { return true; }
+#else
 inline bool has_sse4_1() { return (cpuid_leaf1_ecx() & (1 << 19)) != 0; }
-
 #endif  // defined(__SSE4_1__)
+
+}  // namespace svb16
+
 #endif  // defined(SVB16_X64)
