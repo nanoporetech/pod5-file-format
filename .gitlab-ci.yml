@@ -690,7 +690,6 @@ benchmark-linux-aarch64:
 linux-x64-gcc11-fuzz:
   extends: .generic-linux-x64-gcc11-build
   image: "${CI_REGISTRY_IMAGE}/fuzz-x64"
-  allow_failure: true
   variables:
     CC: clang
     CXX: clang++

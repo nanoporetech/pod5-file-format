@@ -318,9 +318,6 @@ stages:
     # still-supported Linux distros). Differences between GCC 9's libstdc++ and GCC 4.8's libstdc++
     # are handled by a static library, so no special handling of libstdc++ is required.
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc9:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc9.jinja
     parallel: !reference [.parallel-cppstd,parallel]
@@ -336,54 +333,36 @@ stages:
     # backport (available in the ~ubuntu-toolchain-r/test PPA), or by otherwise shipping that
     # version of libstdc++6 in a way that the software can find it.
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-x86_64-gcc11-asan-static:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-asan-static.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-x86_64-gcc11-ausan-static:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-ausan-static.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-x86_64-gcc11-tsan-static:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-tsan-static.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-x86_64-gcc11-usan-static:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc11:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc11-usan-static.jinja
     parallel: !reference [.parallel-cppstd,parallel]
 
 .profile-linux-x86_64-gcc13:
     image: git.oxfordnanolabs.local:4567/informatics/conan-config/linux-x86_64-gcc13:latest
-    tags:
-        - linux_x86
-        - docker
     variables:
         PROFILE_BASE: linux-x86_64-gcc13.jinja
     parallel: !reference [.parallel-cppstd,parallel]

@@ -1,9 +1,13 @@
 set(FUZZER_RUN_TIME 0 CACHE STRING "How long to run each fuzzer for. 0 indicates no limit")
 
 # The fuzzer only uses nproc/2 workers, so limit the number of jobs to that.
+# We've seen a few OOM's on our CI runners, so limit it further to stop that.
 include(ProcessorCount)
 ProcessorCount(NUM_FUZZER_JOBS)
-math(EXPR NUM_FUZZER_JOBS "${NUM_FUZZER_JOBS} / 2")
+math(EXPR NUM_FUZZER_JOBS "${NUM_FUZZER_JOBS} / 4")
+if (NUM_FUZZER_JOBS EQUAL 0)
+    set(NUM_FUZZER_JOBS 1)
+endif()
 
 # Make sure that all issues get picked up
 set(FUZZ_SANITIZER_OPTIONS
