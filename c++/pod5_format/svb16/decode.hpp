@@ -32,7 +32,8 @@ size_t decode(gsl::span<Int16T> out, gsl::span<uint8_t const> in, Int16T prev = 
     auto const keys = in.subspan(0, keys_length);
     auto const data = in.subspan(keys_length);
 #ifdef SVB16_X64
-    if (has_sse4_1()) {
+    static const bool use_sse = has_ssse3() && has_sse4_1() && has_popcnt();
+    if (use_sse) {
         return decode_sse<Int16T, UseDelta, UseZigzag>(out, keys, data, prev) - in.begin();
     }
 #endif

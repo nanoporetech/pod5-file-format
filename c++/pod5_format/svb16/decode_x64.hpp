@@ -13,9 +13,12 @@
 
 #ifdef SVB16_X64
 
+// All gnu::targets must be the same otherwise GCC refuses to inline them and they become function calls.
+#define SVB16_DECODE_X64_TARGET gnu::target("ssse3,sse4.1,popcnt")
+
 namespace svb16 {
 namespace detail {
-[[gnu::target("ssse3")]] inline __m128i zigzag_decode(__m128i val)
+[[SVB16_DECODE_X64_TARGET, gnu::always_inline]] inline __m128i zigzag_decode(__m128i val)
 {
     return _mm_xor_si128(
         // N >> 1
@@ -26,7 +29,9 @@ namespace detail {
     );
 }
 
-[[gnu::target("ssse3")]] inline __m128i unpack(uint32_t key, uint8_t const * SVB_RESTRICT * data)
+[[SVB16_DECODE_X64_TARGET, gnu::always_inline]] inline __m128i unpack(
+    uint8_t key,
+    uint8_t const * SVB_RESTRICT * SVB_RESTRICT data)
 {
     auto const len = static_cast<uint8_t>(8 + svb16_popcount(key));
     __m128i data_reg = _mm_loadu_si128(reinterpret_cast<__m128i const *>(*data));
@@ -39,7 +44,8 @@ namespace detail {
 }
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("ssse3")]] inline void store_8(Int16T * to, __m128i value, __m128i * prev)
+[[SVB16_DECODE_X64_TARGET, gnu::always_inline]] inline void
+store_8(Int16T * SVB_RESTRICT to, __m128i value, __m128i * prev)
 {
     SVB16_IF_CONSTEXPR(UseZigzag) { value = zigzag_decode(value); }
 
@@ -72,22 +78,21 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
 }  // namespace detail
 
 template <typename Int16T, bool UseDelta, bool UseZigzag>
-[[gnu::target("sse4.1")]] uint8_t const * decode_sse(
+[[SVB16_DECODE_X64_TARGET]] uint8_t const * decode_sse(
     gsl::span<Int16T> out_span,
     gsl::span<uint8_t const> keys_span,
     gsl::span<uint8_t const> data_span,
     Int16T prev = 0)
 {
-    auto store_8 = [](Int16T * to, __m128i value, __m128i * prev) {
-        detail::store_8<Int16T, UseDelta, UseZigzag>(to, value, prev);
-    };
+    auto store_8 = detail::store_8<Int16T, UseDelta, UseZigzag>;
+
     // this code treats all input as uint16_t (except the zigzag code, which treats it as int16_t)
     // this isn't a problem, as the scalar code does the same
 
-    auto out = out_span.begin();
+    Int16T * SVB_RESTRICT out = out_span.begin();
     auto const count = out_span.size();
-    auto keys_it = keys_span.begin();
-    auto data = data_span.begin();
+    uint8_t const * keys_it = keys_span.begin();
+    uint8_t const * data = data_span.begin();
 
     // handle blocks of 32 values
     if (count >= 64) {
