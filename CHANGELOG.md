@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internal CI changes
 - Improved performance of encode and decode on x64 machines.
 
+### Fixed
+
+- Possibility recovery misinterpreting uninitialised buffer as useful data.
+
 ## [0.3.43]
 
 ### Changed

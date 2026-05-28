@@ -258,6 +258,13 @@ protected:
             ARROW_RETURN_NOT_OK(result_write_buffer.Resize(result_aligned_size, false));
             assert(result_write_buffer.size() % IOManager::Alignment == 0);
 
+            // Ensure the end of the buffer is zeroed, so that recovery does not encounter
+            // trailing junk bytes which could be interpreted as recoverable data.
+            std::fill(
+                result_write_buffer.mutable_data() + result_unaligned_size,
+                result_write_buffer.mutable_data() + result_aligned_size,
+                std::uint8_t{0});
+
             result_write->set_state(QueuedWrite::WriteState::ReadyForWrite);
             return result_write;
         }
