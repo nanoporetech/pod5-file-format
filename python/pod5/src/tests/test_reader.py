@@ -47,6 +47,9 @@ class TestPod5Reader:
             ("num_minknow_events", int),
             ("num_reads_since_mux_change", int),
             ("num_samples", int),
+            ("open_pore_level", float),
+            ("expected_open_pore_level", float),
+            ("selected_read_level", float),
         ],
     )
     def test_reader_reads_types(
@@ -123,7 +126,7 @@ class TestPod5Reader:
         with p5.Reader(POD5_PATH) as reader:
             assert isinstance(reader.path, Path)
             assert reader.path == POD5_PATH
-            assert reader.reads_table_version == 4
+            assert reader.reads_table_version == 5
 
             # File handles
             assert isinstance(reader.inner_file_reader, p5b.Pod5FileReader)
@@ -142,6 +145,10 @@ class TestPod5Reader:
             assert isinstance(reader.signal_batch_row_count, int)
             assert isinstance(reader.batch_count, int)
             assert isinstance(reader.num_reads, int)
+
+            first_read = next(reader.reads())
+            assert numpy.isnan(first_read.expected_open_pore_level)
+            assert numpy.isnan(first_read.selected_read_level)
 
             assert isinstance(reader.read_ids_raw, pa.ChunkedArray)
             assert isinstance(reader.read_ids, list)

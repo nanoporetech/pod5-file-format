@@ -54,6 +54,8 @@ class FileWriter:
         num_reads_since_mux_changes: npt.NDArray[np.uint32],
         time_since_mux_changes: npt.NDArray[np.float32],
         open_pore_levels: npt.NDArray[np.float32],
+        expected_open_pore_levels: npt.NDArray[np.float32],
+        selected_read_levels: npt.NDArray[np.float32],
         signals: List[npt.NDArray[np.int16]],
     ) -> None: ...
     def add_reads_pre_compressed(
@@ -79,6 +81,8 @@ class FileWriter:
         num_reads_since_mux_changes: npt.NDArray[np.uint32],
         time_since_mux_changes: npt.NDArray[np.float32],
         open_pore_levels: npt.NDArray[np.float32],
+        expected_open_pore_levels: npt.NDArray[np.float32],
+        selected_read_levels: npt.NDArray[np.float32],
         signal_chunks: List[npt.NDArray[np.uint8]],
         signal_chunk_lengths: npt.NDArray[np.uint32],
         signal_chunk_counts: npt.NDArray[np.uint32],

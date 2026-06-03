@@ -91,3 +91,11 @@ description = "The full length of the signal for this read in samples (equal to 
 [fields.open_pore_level]
 type = "float"
 description = "The open pore level for the read. A value value in pA showing the open pore level of the well prior to the read starting. If the information is not available (feature not enabled in MinKNOW, or sequencing run on an old version) this value will be NaN."
+
+[fields.expected_open_pore_level]
+type = "float"
+description = "The expected open pore level for the read. A value in pA showing the expected open pore level of the well prior to the read starting. If the information is not available (feature not enabled in MinKNOW, or sequencing run on an old version) this value will be NaN."
+
+[fields.selected_read_level]
+type = "float"
+description = "The tracked level of reads selected for writing. A value in pA showing the level of reads selected for writing, up to the moment this read started. The value written is tracked per well and channel. If the information is not available (feature not enabled in MinKNOW, or sequencing run on an old version) this value will be NaN."

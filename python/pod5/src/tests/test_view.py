@@ -54,6 +54,8 @@ ALL_FIELDS = [
     "flow_cell_id",
     "pore_type",
     "open_pore_level",
+    "expected_open_pore_level",
+    "selected_read_level",
 ]
 
 
@@ -93,6 +95,10 @@ class TestView:
         )
         pytest.approx(record.time_since_mux_change, float(row["time_since_mux_change"]))
         pytest.approx(record.open_pore_level, float(row["open_pore_level"]))
+        pytest.approx(
+            record.expected_open_pore_level, float(row["expected_open_pore_level"])
+        )
+        pytest.approx(record.selected_read_level, float(row["selected_read_level"]))
         assert record.run_info.protocol_run_id == row["run_id"]
         self.is_equal_or_not_set(record.run_info.sample_id, row["sample_id"])
         self.is_equal_or_not_set(record.run_info.experiment_name, row["experiment_id"])

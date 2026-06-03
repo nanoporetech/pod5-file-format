@@ -42,6 +42,8 @@ def do_reads_command(reader: p5.Reader, write_header: bool):
         "num_reads_since_mux_change",
         "time_since_mux_change",
         "open_pore_level",
+        "expected_open_pore_level",
+        "selected_read_level",
     ]
 
     csv_read_writer = csv.DictWriter(sys.stdout, keys)
@@ -69,6 +71,8 @@ def do_reads_command(reader: p5.Reader, write_header: bool):
             "num_reads_since_mux_change": read.num_reads_since_mux_change,
             "time_since_mux_change": read.time_since_mux_change,
             "open_pore_level": read.open_pore_level,
+            "expected_open_pore_level": read.expected_open_pore_level,
+            "selected_read_level": read.selected_read_level,
         }
 
         try:
@@ -107,6 +111,8 @@ def do_read_command(reader: p5.Reader, read_id: str, **_):
         print(f"start_sample:\t{read.start_sample}")
         print(f"median_before:\t{read.median_before}")
         print(f"open_pore_level:\t{read.open_pore_level}")
+        print(f"expected_open_pore_level:\t{read.expected_open_pore_level}")
+        print(f"selected_read_level:\t{read.selected_read_level}")
         print("channel data:")
         print(f"\tchannel: {read.pore.channel}")
         print(f"\twell: {read.pore.well}")

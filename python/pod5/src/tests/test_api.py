@@ -81,6 +81,8 @@ def gen_test_read(seed, compressed=False) -> Union[p5.Read, p5.CompressedRead]:
         num_reads_since_mux_change=123,
         time_since_mux_change=456.0,
         open_pore_level=1234.0,
+        expected_open_pore_level=2345.0,
+        selected_read_level=3456.0,
         **signal_args,
     )
 
@@ -160,6 +162,8 @@ def run_reader_test(reader: p5.Reader):
         assert data.num_reads_since_mux_change == read.num_reads_since_mux_change
         assert data.time_since_mux_change == read.time_since_mux_change
         assert data.open_pore_level == read.open_pore_level
+        assert data.expected_open_pore_level == read.expected_open_pore_level
+        assert data.selected_read_level == read.selected_read_level
 
         assert data.sample_count == read.sample_count
         # Expecting poor compression given the random input

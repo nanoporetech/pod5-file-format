@@ -162,6 +162,14 @@ FIELDS: Dict[str, Field] = {
         "The tracked open pore level for this read",
         ["open_pore_level"],
     ),
+    "expected_open_pore_level": Field(
+        "The expected open pore level for this read",
+        ["expected_open_pore_level"],
+    ),
+    "selected_read_level": Field(
+        "The selected pore level for this read",
+        ["selected_read_level"],
+    ),
 }
 
 

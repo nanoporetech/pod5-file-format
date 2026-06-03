@@ -78,6 +78,9 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
 arrow::Result<MigrationResult> migrate_v3_to_v4(
     MigrationResult && v2_input,
     arrow::MemoryPool * pool);
+arrow::Result<MigrationResult> migrate_v4_to_v5(
+    MigrationResult && v4_input,
+    arrow::MemoryPool * pool);
 
 inline arrow::Result<MigrationResult> migrate_if_required(
     Version writer_version,
@@ -104,6 +107,10 @@ inline arrow::Result<MigrationResult> migrate_if_required(
     if (writer_version < Version(0, 3, 30)) {
         // Flattening fields
         ARROW_ASSIGN_OR_RAISE(result, migrate_v3_to_v4(std::move(result), pool));
+    }
+    if (writer_version < Version(0, 3, 40)) {
+        // Added expected_open_pore_level and selected_read_level fields
+        ARROW_ASSIGN_OR_RAISE(result, migrate_v4_to_v5(std::move(result), pool));
     }
     return result;
 }

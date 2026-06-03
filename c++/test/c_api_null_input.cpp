@@ -173,6 +173,8 @@ TEST_CASE("NULL input doesn't crash")
         uint32_t const num_reads_since_mux_change{};
         float const time_since_mux_change{};
         float const open_pore_level{};
+        float const expected_open_pore_level{};
+        float const selected_read_level{};
 
         ReadBatchRowInfoArrayV3 const row_data_v3{
             &read_id,
@@ -234,6 +236,38 @@ TEST_CASE("NULL input doesn't crash")
             1,
             READ_BATCH_ROW_INFO_VERSION_4,
             &row_data_v4,
+            &signal_data_ptr,
+            &signal_size));
+
+        ReadBatchRowInfoArrayV5 const row_data_v5{
+            &read_id,
+            &read_number,
+            &start_sample,
+            &median_before,
+            &channel,
+            &well,
+            &pore_type_id,
+            &calibration_offset,
+            &calibration_scale,
+            &end_reason,
+            &end_reason_forced,
+            &run_info_id,
+            &num_minknow_events,
+            &tracked_scaling_scale,
+            &tracked_scaling_shift,
+            &predicted_scaling_scale,
+            &predicted_scaling_shift,
+            &num_reads_since_mux_change,
+            &time_since_mux_change,
+            &open_pore_level,
+            &expected_open_pore_level,
+            &selected_read_level};
+
+        REQUIRE_POD5_OK(pod5_add_reads_data(
+            writer,
+            1,
+            READ_BATCH_ROW_INFO_VERSION_5,
+            &row_data_v5,
             &signal_data_ptr,
             &signal_size));
 
@@ -381,7 +415,7 @@ TEST_CASE("NULL input doesn't crash")
         {
             INFO("pod5_get_read_batch_row_info_data")
 
-            ReadBatchRowInfoV4 row_info{};
+            ReadBatchRowInfoV5 row_info{};
             size_t row = 0;
             uint16_t struct_version = READ_BATCH_ROW_INFO_VERSION;
             uint16_t read_table_version{};

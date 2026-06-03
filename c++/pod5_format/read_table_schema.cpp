@@ -60,6 +60,12 @@ channel(this, "channel", arrow::uint16(), ReadTableSpecVersion::v3())
       arrow::dictionary(arrow::int16(), arrow::utf8()),
       ReadTableSpecVersion::v3())
 , open_pore_level(this, "open_pore_level", arrow::float32(), ReadTableSpecVersion::v4())
+, expected_open_pore_level(
+      this,
+      "expected_open_pore_level",
+      arrow::float32(),
+      ReadTableSpecVersion::v5())
+, selected_read_level(this, "selected_read_level", arrow::float32(), ReadTableSpecVersion::v5())
 {
 }
 
