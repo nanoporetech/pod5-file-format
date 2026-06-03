@@ -843,6 +843,9 @@ class Reader:
     def close(self) -> None:
         """Close files handles"""
 
+        # Explicitly clear this dictionary to close file handles used in cache
+        self._cached_signal_batches = {}
+
         safe_close(self, "_read_handle")
         self._read_handle = None
 
@@ -854,9 +857,6 @@ class Reader:
 
         safe_close(self, "_file_reader")
         self._file_reader = None
-
-        # Explicitly clear this dictionary to close file handles used in cache
-        self._cached_signal_batches = {}
 
     @property
     def path(self) -> Path:

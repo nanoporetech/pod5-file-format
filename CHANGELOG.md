@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Possibility recovery misinterpreting uninitialised buffer as useful data.
+- pod5.Reader's file handling has been adjusted to reduce the possibility of leaked file handles.
 
 ### Added
 
