@@ -46,7 +46,8 @@
   variables:
     # use an arrow package that doesn't use Boost, even on Windows
     # use patched jemalloc 5.2.1 to get around "non-positive bound in array definition" issue
-    CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/18.0.0@nanopore/noboost;jemalloc/*:jemalloc/5.2.1@nanopore/stable"
+    # note that the jemalloc override can go away once we've upgraded to 5.3
+    CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost;jemalloc/5.2.1:jemalloc/5.2.1@nanopore/stable"
     CONAN_PROFILE_CPPSTD: "20"
   parallel:
     matrix:

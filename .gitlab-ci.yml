@@ -17,6 +17,7 @@ variables:
   STABLE_BRANCH_NAME: master
   DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
   CONAN_PROFILE_BUILD_TYPE: Release
+  CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost"
   CONAN_VENV_PYTHON: "3.13"
   CMAKE_VERSION: "4.2.3"
 
@@ -243,7 +244,7 @@ build-standalone-ubu22:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
   - cd build
-  - ${conan_exe} install --profile ${CONAN_PROFILE} ${EXTRA_INSTALL_ARGS} ..
+  - ${conan_exe} install --profile:all ${CONAN_PROFILE} -o:a 'arrow/*:with_boost=False' -o:a 'arrow/*:with_thrift=False' -o:a 'arrow/*:parquet=False' -o:a 'arrow/*:with_zstd=True' ..
   - cmake ${CMAKE_ARGS}
     -D BUILD_SHARED_LIB=ON
     -D CMAKE_BUILD_TYPE=Release
@@ -281,13 +282,18 @@ build-standalone-ubu22:
   stage: build
   needs:
     - "prepare_version"
+  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux_2_28
+  tags: [linux, prod, "$ARCH", eks, small, standard]
   variables:
-    EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
+    # manylinux_2_28 actually has GCC14, but we don't have packages for that
+    CONAN_PROFILE: "linux-${ARCH}-gcc13.jinja"
+    CONAN_PROFILE_CPPSTD: 17
+    AUDITWHEEL_PLATFORM: "manylinux_2_28_${ARCH}"
   before_script:
-    - /opt/python/cp310-cp310/bin/pip install -U pip 'conan<2' auditwheel build "cmake==${CMAKE_VERSION}"
+    - /opt/python/cp310-cp310/bin/pip install -U pip conan auditwheel build "cmake==${CMAKE_VERSION}"
     - ln -n /opt/python/cp310-cp310/bin/auditwheel /usr/bin/auditwheel
     - ln -n /opt/python/cp310-cp310/bin/conan /usr/bin/conan
-    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+    - conan config install --verify-ssl=no ${CONAN2_CONFIG_URL}
     - conan_exe=$(which conan)
   script:
     - !reference [".conan-build-and-test"]
@@ -297,28 +303,22 @@ build-standalone-ubu22:
       - "lib_pod5*.tar.gz"
       - "lib_pod5*.whl"
 
-linux-x64-gcc9-release-build:
-  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux2014_x86_64
+linux-x86_64-release-build:
   extends:
     - .build-linux
     - .parallel-py-versions
   variables:
-    CONAN_PROFILE: "linux-x86_64-gcc9.jinja"
-    CONAN_PROFILE_CPPSTD: 17
+    ARCH: x86_64
     OUTPUT_SKU: "linux-x64"
-    AUDITWHEEL_PLATFORM: manylinux2014_x86_64
 
-linux-aarch64-gcc9-release-build:
-  image: external-quay.artifactory.oxfordnanolabs.local/pypa/manylinux2014_aarch64
+linux-aarch64-release-build:
   extends:
     - .build-linux
     - .parallel-py-versions
-  tags: [linux, prod, aarch64, eks, small, standard]
   variables:
-    CONAN_PROFILE: "linux-aarch64-gcc9.jinja"
+    ARCH: aarch64
     CONAN_PROFILE_CPPSTD: 17
     OUTPUT_SKU: "linux-arm64"
-    AUDITWHEEL_PLATFORM: manylinux2014_aarch64
 
 
 # ======================================
@@ -332,15 +332,13 @@ linux-aarch64-gcc9-release-build:
   stage: build
   needs:
     - "prepare_version"
-  variables:
-    EXTRA_INSTALL_ARGS: "-o arrow:with_boost=False -o arrow:with_thrift=False -o arrow:parquet=False"
   before_script:
     - uv venv .venv_conan --python ${CONAN_VENV_PYTHON} --seed
     - source .venv_conan/bin/activate
     # Note that cmake 3.31+ do not work properly on macOS 14 (and earlier)
     # Pinning to 3.30 avoid SSL issues when connecting to internal servers
-    - uv pip install -U pip 'conan<2' 'cmake==3.30.9'
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - uv pip install -U pip conan 'cmake==3.30.9'
+    - conan config install --verify-ssl=no "${CONAN2_CONFIG_URL}"
     - conan_exe=$(which conan)
     - uv python install ${PYTHON_VERSION}
     - uv venv --python "python${PYTHON_VERSION}" .venv --seed
@@ -363,10 +361,9 @@ osx-arm64-clang15-release-build:
   tags:
     - osx_arm64
     - xcode-15.3
-    - conan
   variables:
     CONAN_PROFILE: "macos-aarch64-appleclang-15.0.jinja"
-    CONAN_PROFILE_CPPSTD: 20
+    CONAN_PROFILE_CPPSTD: 17
     CMAKE_ARGS: "-DCMAKE_OSX_ARCHITECTURES=arm64"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     OUTPUT_SKU: "osx-14.0-arm64"
@@ -385,14 +382,11 @@ osx-arm64-clang15-release-build:
   needs:
     - "prepare_version"
   retry: 1
-  variables:
-    # We need to override arrow's boost 1.85.0 requirement to match the version we use internally.
-    EXTRA_INSTALL_ARGS: "-o arrow:with_thrift=False -o arrow:parquet=False --require=boost/1.86.0@ -o boost:without_locale=True"
   before_script:
     - uv venv .venv_conan --python ${CONAN_VENV_PYTHON} --seed
     - source .venv_conan/Scripts/activate
-    - uv pip install 'conan<2' "cmake==${CMAKE_VERSION}"
-    - conan config install --verify-ssl=no "${CONAN_CONFIG_URL}"
+    - uv pip install conan "cmake==${CMAKE_VERSION}"
+    - conan config install --verify-ssl=no "${CONAN2_CONFIG_URL}"
     - conan_exe=$(which conan)
     - uv python install ${PYTHON_VERSION}
     - uv venv --python "python${PYTHON_VERSION}" .venv --seed
@@ -420,7 +414,6 @@ win-x64-msvc2019-release-build:
   tags:
     - windows
     - VS2019
-    - conan
   variables:
     CONAN_PROFILE: "windows-x86_64-vs2019.jinja"
     CONAN_PROFILE_CPPSTD: 17
@@ -485,7 +478,7 @@ tools-linux-x64:
     - python${PYTHON_VERSION} -m venv .venv/
     - source .venv/bin/activate
   needs:
-    - linux-x64-gcc9-release-build
+    - linux-x86_64-release-build
     - build-python-api
   script:
     - pip install ./lib_pod5*cp${PYTHON_VERSION/./}*.whl pod5-*.whl
@@ -534,7 +527,7 @@ pytest-linux-x64:
     - .parallel-py-versions
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   needs:
-    - linux-x64-gcc9-release-build
+    - linux-x86_64-release-build
     - build-python-api
 
 pytest-linux-aarch64:
@@ -544,7 +537,7 @@ pytest-linux-aarch64:
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:${PYTHON_VERSION}
   tags: [linux, prod, aarch64, eks, small, standard]
   needs:
-    - linux-aarch64-gcc9-release-build
+    - linux-aarch64-release-build
     - build-python-api
 
 pytest-osx-arm64:
@@ -582,7 +575,7 @@ conda_pytest:
     - .parallel-py-versions
   image: ${CI_REGISTRY}/minknow/pod5-file-format/conda:latest
   needs:
-    - linux-x64-gcc9-release-build
+    - linux-x86_64-release-build
     - build-python-api
   before_script:
     - |
@@ -629,7 +622,7 @@ benchmark-linux-x64:
   extends: [".benchmark"]
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
   needs:
-    - linux-x64-gcc9-release-build
+    - linux-x86_64-release-build
     - build-python-api
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp314*.whl"
@@ -639,7 +632,7 @@ benchmark-linux-aarch64:
   image: ${CI_REGISTRY}/traque/ont-docker-base/ont-base-python:3.14
   tags: [linux, prod, aarch64, eks, small, standard]
   needs:
-    - linux-aarch64-gcc9-release-build
+    - linux-aarch64-release-build
     - build-python-api
   variables:
     LIB_WHEEL_GLOB: "lib_pod5*cp314*.whl"
@@ -661,21 +654,18 @@ benchmark-linux-aarch64:
   needs:
     - "prepare_version"
   script:
-    - pip install -U pip 'conan<2' auditwheel build "cmake==${CMAKE_VERSION}"
-    - conan config install --verify-ssl=no ${CONAN_CONFIG_URL}
+    - pip install -U pip conan auditwheel build "cmake==${CMAKE_VERSION}"
+    - conan config install --verify-ssl=no ${CONAN2_CONFIG_URL}
     # Setup build.
     - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
     - mkdir -p build
     - pushd build
-        # Tell conan that it's OK to use libstdc++ settings.
     -   conan install
-          --profile ${CONAN_PROFILE}
-          -s compiler.libcxx=libstdc++11
-          -s compiler.cppstd=${CONAN_PROFILE_CPPSTD}
-          -s build_type=${CMAKE_BUILD_TYPE}
-          -o arrow:with_boost=False
-          -o arrow:with_thrift=False
-          -o arrow:parquet=False
+          --profile:all ${CONAN_PROFILE}
+          -o:a 'arrow/*:with_boost=False'
+          -o:a 'arrow/*:with_thrift=False'
+          -o:a 'arrow/*:with_zstd=True'
+          -o:a 'arrow/*:parquet=False'
           ..
     -   cmake
           -D CMAKE_TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake
@@ -717,6 +707,7 @@ linux-x64-gcc11-coverage:
   extends: .generic-linux-x64-gcc11-build
   variables:
     CMAKE_BUILD_TYPE: "Debug"
+    CONAN_PROFILE_BUILD_TYPE: Debug
     CMAKE_EXTRA_ARGS: "-D POD5_DISABLE_TESTS=OFF -D ENABLE_COVERAGE_REPORT=ON"
   script:
     # Do the build.
@@ -744,8 +735,8 @@ linux-x64-gcc11-coverage:
 build-archive:
   stage: archive
   needs:
-    - linux-x64-gcc9-release-build
-    - linux-aarch64-gcc9-release-build
+    - linux-x86_64-release-build
+    - linux-aarch64-release-build
     - osx-arm64-clang15-release-build
     - win-x64-msvc2019-release-build
     - build-python-api

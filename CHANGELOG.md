@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added new field `expected_open_pore_level`, containing the expected open pore level for this read.
 - Added new field `selected_read_level`, containing the selected pore level for this read.
 
+### Removed
+
+- Conan 1 is no longer supported.
+
 ## [0.3.43]
 
 ### Changed
