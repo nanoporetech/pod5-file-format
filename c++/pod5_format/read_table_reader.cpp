@@ -88,6 +88,12 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
         result.open_pore_level = find_column(bat, m_field_locations->open_pore_level);
     }
 
+    if (result.table_version >= ReadTableSpecVersion::v5()) {
+        result.expected_open_pore_level =
+            find_column(bat, m_field_locations->expected_open_pore_level);
+        result.selected_read_level = find_column(bat, m_field_locations->selected_read_level);
+    }
+
     return result;
 }
 

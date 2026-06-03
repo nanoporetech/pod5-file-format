@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -49,7 +50,9 @@ public:
         float predicted_scaling_shift,
         std::uint32_t num_reads_since_mux_change,
         float time_since_mux_change,
-        float open_pore_level)
+        float open_pore_level,
+        float expected_open_pore_level,
+        float selected_read_level)
     : read_id(read_id)
     , read_number(read_number)
     , start_sample(start_sample)
@@ -70,6 +73,8 @@ public:
     , calibration_offset(calibration_offset)
     , calibration_scale(calibration_scale)
     , open_pore_level(open_pore_level)
+    , expected_open_pore_level(expected_open_pore_level)
+    , selected_read_level(selected_read_level)
     {
     }
 
@@ -100,6 +105,10 @@ public:
 
     // V4 Fields
     float open_pore_level;
+
+    // V5 Fields
+    float expected_open_pore_level;
+    float selected_read_level;
 };
 
 inline bool operator==(ReadData const & a, ReadData const & b)
@@ -116,7 +125,9 @@ inline bool operator==(ReadData const & a, ReadData const & b)
            && a.time_since_mux_change == b.time_since_mux_change && a.channel == b.channel
            && a.well == b.well && a.pore_type == b.pore_type
            && a.calibration_offset == b.calibration_offset
-           && a.calibration_scale == b.calibration_scale && a.open_pore_level == b.open_pore_level;
+           && a.calibration_scale == b.calibration_scale && a.open_pore_level == b.open_pore_level
+           && a.expected_open_pore_level == b.expected_open_pore_level
+           && a.selected_read_level == b.selected_read_level;
 }
 
 class RunInfoData {

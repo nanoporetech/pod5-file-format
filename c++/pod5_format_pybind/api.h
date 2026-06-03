@@ -339,7 +339,9 @@ inline pod5::ReadData make_read_data(
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const &
         num_reads_since_mux_change,
     py::array_t<float, py::array::c_style | py::array::forcecast> const & time_since_mux_change,
-    py::array_t<float, py::array::c_style | py::array::forcecast> const & open_pore_level)
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & open_pore_level,
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & expected_open_pore_level,
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & selected_read_level)
 {
     auto read_ids = reinterpret_cast<pod5::Uuid const *>(read_id_data.data(0));
     return pod5::ReadData{
@@ -362,7 +364,9 @@ inline pod5::ReadData make_read_data(
         *predicted_scaling_shift.data(row_id),
         *num_reads_since_mux_change.data(row_id),
         *time_since_mux_change.data(row_id),
-        *open_pore_level.data(row_id)};
+        *open_pore_level.data(row_id),
+        *expected_open_pore_level.data(row_id),
+        *selected_read_level.data(row_id)};
 }
 
 inline void FileWriter_add_reads(
@@ -390,6 +394,8 @@ inline void FileWriter_add_reads(
         num_reads_since_mux_changes,
     py::array_t<float, py::array::c_style | py::array::forcecast> const & time_since_mux_changes,
     py::array_t<float, py::array::c_style | py::array::forcecast> const & open_pore_levels,
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & expected_open_pore_levels,
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & selected_read_levels,
     py::list signal_ptrs)
 {
     if (read_id_data.shape(1) != 16) {
@@ -426,7 +432,9 @@ inline void FileWriter_add_reads(
             predicted_scaling_shifts,
             num_reads_since_mux_changes,
             time_since_mux_changes,
-            open_pore_levels);
+            open_pore_levels,
+            expected_open_pore_levels,
+            selected_read_levels);
 
         throw_on_error(w.add_complete_read(read_data, signal_span));
     }
@@ -457,6 +465,8 @@ inline void FileWriter_add_reads_pre_compressed(
         num_reads_since_mux_changes,
     py::array_t<float, py::array::c_style | py::array::forcecast> const & time_since_mux_changes,
     py::array_t<float, py::array::c_style | py::array::forcecast> const & open_pore_levels,
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & expected_open_pore_levels,
+    py::array_t<float, py::array::c_style | py::array::forcecast> const & selected_read_levels,
     py::list compressed_signal_ptrs,
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const & sample_counts,
     py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> const &
@@ -517,7 +527,9 @@ inline void FileWriter_add_reads_pre_compressed(
             predicted_scaling_shifts,
             num_reads_since_mux_changes,
             time_since_mux_changes,
-            open_pore_levels);
+            open_pore_levels,
+            expected_open_pore_levels,
+            selected_read_levels);
 
         throw_on_error(w.add_complete_read(read_data, signal_rows, signal_duration_count));
     }

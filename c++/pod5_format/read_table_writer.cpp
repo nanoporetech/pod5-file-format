@@ -87,7 +87,11 @@ Result<std::size_t> ReadTableWriter::add_read(
         read_data.run_info,
 
         // V4 Fields
-        read_data.open_pore_level));
+        read_data.open_pore_level,
+
+        // V5 Fields
+        read_data.expected_open_pore_level,
+        read_data.selected_read_level));
 
     ++m_current_batch_row_count;
 

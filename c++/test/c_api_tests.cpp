@@ -58,6 +58,8 @@ SCENARIO("C API Reads")
     std::uint32_t num_reads_since_mux_change = 1234;
     float time_since_mux_change = 2.4f;
     float open_pore_level = 123.0f;
+    float expected_open_pore_level = 456.0f;
+    float selected_read_level = 789.0f;
     std::uint64_t num_minknow_events = 104;
 
     // Write the file:
@@ -95,7 +97,7 @@ SCENARIO("C API Reads")
         auto read_id_array = (read_id_t const *)input_read_id.data();
 
         std::int16_t run_info_id = 0;
-        ReadBatchRowInfoArrayV4 row_data{
+        ReadBatchRowInfoArrayV5 row_data{
             read_id_array,
             &read_number,
             &start_sample,
@@ -115,7 +117,9 @@ SCENARIO("C API Reads")
             &predicted_shift,
             &num_reads_since_mux_change,
             &time_since_mux_change,
-            &open_pore_level};
+            &open_pore_level,
+            &expected_open_pore_level,
+            &selected_read_level};
 
         std::int16_t const * signal_arr[] = {signal_1.data()};
         std::uint32_t signal_size[] = {(std::uint32_t)signal_1.size()};
@@ -123,7 +127,7 @@ SCENARIO("C API Reads")
         // Referencing a non-existent run id should fail:
         CHECK(
             pod5_add_reads_data(
-                file, 1, READ_BATCH_ROW_INFO_VERSION_4, &row_data, signal_arr, signal_size)
+                file, 1, READ_BATCH_ROW_INFO_VERSION_5, &row_data, signal_arr, signal_size)
             == POD5_ERROR_INVALID);
 
         // Now actually add the run info:
@@ -157,7 +161,7 @@ SCENARIO("C API Reads")
         CHECK(run_info_id == 0);
 
         CHECK_POD5_OK(pod5_add_reads_data(
-            file, 1, READ_BATCH_ROW_INFO_VERSION_4, &row_data, signal_arr, signal_size));
+            file, 1, READ_BATCH_ROW_INFO_VERSION_5, &row_data, signal_arr, signal_size));
 
         {
             auto compressed_read_max_size = pod5_vbz_compressed_signal_max_size(signal_2.size());
@@ -253,11 +257,11 @@ SCENARIO("C API Reads")
 
         // Check out of bounds accesses get errors
         {
-            ReadBatchRowInfoV4 v3_struct;
+            ReadBatchRowInfoV5 v5_struct;
             uint16_t input_version = 0;
             CHECK(
                 pod5_get_read_batch_row_info_data(
-                    batch_0, row_count, READ_BATCH_ROW_INFO_VERSION, &v3_struct, &input_version)
+                    batch_0, row_count, READ_BATCH_ROW_INFO_VERSION, &v5_struct, &input_version)
                 == POD5_ERROR_INDEXERROR);
 
             std::vector<uint64_t> signal_row_indices{1};
@@ -280,22 +284,26 @@ SCENARIO("C API Reads")
             }
 
             static_assert(
-                std::is_same<ReadBatchRowInfoV4, ReadBatchRowInfo_t>::value,
+                std::is_same<ReadBatchRowInfoV5, ReadBatchRowInfo_t>::value,
                 "Update this if new structs added");
 
             ReadBatchRowInfoV3 v3_struct;
             ReadBatchRowInfoV4 v4_struct;
+            ReadBatchRowInfoV5 v5_struct;
             uint16_t input_version = 0;
             CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
                 batch_0, row, READ_BATCH_ROW_INFO_VERSION_3, &v3_struct, &input_version));
             CHECK(
                 input_version
-                == 4);  // We're reading from a v4 file, even if the input struct is v3.
+                == 5);  // We're reading from a v5 file, even if the input struct is v3.
             CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
                 batch_0, row, READ_BATCH_ROW_INFO_VERSION_4, &v4_struct, &input_version));
-            CHECK(input_version == 4);
+            CHECK(input_version == 5);
+            CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
+                batch_0, row, READ_BATCH_ROW_INFO_VERSION_5, &v5_struct, &input_version));
+            CHECK(input_version == 5);
 
-            auto check_v3_or_v4 = [&](auto name, auto const & input_struct) {
+            auto check_v3_or_above = [&](auto name, auto const & input_struct) {
                 CAPTURE(name);
                 std::string formatted_uuid(36, '\0');
                 CHECK_POD5_OK(pod5_format_read_id(input_struct.read_id, &formatted_uuid[0]));
@@ -325,12 +333,19 @@ SCENARIO("C API Reads")
                 CHECK(input_struct.num_samples == signal.size());
             };
 
-            check_v3_or_v4("v3", v3_struct);
-            check_v3_or_v4("v4", v4_struct);
+            check_v3_or_above("v3", v3_struct);
+            check_v3_or_above("v4", v4_struct);
+            check_v3_or_above("v5", v5_struct);
             if (row == 0) {
                 CHECK(v4_struct.open_pore_level == open_pore_level);
+                CHECK(v5_struct.open_pore_level == open_pore_level);
+                CHECK(v5_struct.expected_open_pore_level == expected_open_pore_level);
+                CHECK(v5_struct.selected_read_level == selected_read_level);
             } else {
                 CHECK(std::isnan(v4_struct.open_pore_level));
+                CHECK(std::isnan(v5_struct.open_pore_level));
+                CHECK(std::isnan(v5_struct.expected_open_pore_level));
+                CHECK(std::isnan(v5_struct.selected_read_level));
             }
 
             std::vector<uint64_t> signal_row_indices(v3_struct.signal_row_count);

@@ -386,6 +386,12 @@ class Writer:
         open_pore_level = np.array(
             [read.open_pore_level for read in reads], dtype=np.float32
         )
+        expected_open_pore_level = np.array(
+            [read.expected_open_pore_level for read in reads], dtype=np.float32
+        )
+        selected_read_level = np.array(
+            [read.selected_read_level for read in reads], dtype=np.float32
+        )
 
         return [
             read_id.shape[0],
@@ -409,4 +415,6 @@ class Writer:
             num_reads_since_mux_change,
             time_since_mux_change,
             open_pore_level,
+            expected_open_pore_level,
+            selected_read_level,
         ]

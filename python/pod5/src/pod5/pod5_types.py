@@ -292,6 +292,10 @@ class BaseRead:
         Time in seconds since the last mux change on this reads channel
     open_pore_level: float
         The tracked open pore level for the read.
+    expected_open_pore_level: float
+        The expected open pore level for the read.
+    selected_read_level: float
+        The selected pore level for the read.
     """
 
     #: The read_id of this read as UUID
@@ -323,6 +327,10 @@ class BaseRead:
     time_since_mux_change: float = field(default=0.0)
     #: The tracked open pore level for the read.
     open_pore_level: float = field(default=float("nan"))
+    #: The expected open pore level for the read.
+    expected_open_pore_level: float = field(default=float("nan"))
+    #: The selected pore level for the read.
+    selected_read_level: float = field(default=float("nan"))
 
 
 @dataclass()

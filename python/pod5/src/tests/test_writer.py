@@ -101,6 +101,30 @@ class TestPod5Writer:
             assert before.predicted_scaling == after.predicted_scaling
             assert before.num_reads_since_mux_change == after.num_reads_since_mux_change
             assert before.time_since_mux_change == after.time_since_mux_change
+            assert (
+                all(
+                    math.isnan(x)
+                    for x in (before.open_pore_level, after.open_pore_level)
+                )
+                or before.open_pore_level == after.open_pore_level
+            )
+            assert (
+                all(
+                    math.isnan(x)
+                    for x in (
+                        before.expected_open_pore_level,
+                        after.expected_open_pore_level,
+                    )
+                )
+                or before.expected_open_pore_level == after.expected_open_pore_level
+            )
+            assert (
+                all(
+                    math.isnan(x)
+                    for x in (before.selected_read_level, after.selected_read_level)
+                )
+                or before.selected_read_level == after.selected_read_level
+            )
             assert before.pore == after.pore
             assert before.calibration == after.calibration
             assert before.calibration_digitisation == after.calibration_digitisation

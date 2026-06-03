@@ -438,7 +438,7 @@ pod5_error_t pod5_get_read_batch_row_info_data(
     }
 
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_5,
         "New versions must be explicitly loaded");
 
     auto load_common_v3_v4_fields = [](pod5::ReadTableRecordColumns const & cols,
@@ -505,6 +505,20 @@ pod5_error_t pod5_get_read_batch_row_info_data(
 
         // This is the only difference between v3 and v4.
         typed_row_data->open_pore_level = cols.open_pore_level->Value(row);
+    } else if (struct_version == READ_BATCH_ROW_INFO_VERSION_5) {
+        auto typed_row_data = static_cast<ReadBatchRowInfoV5 *>(row_data);
+
+        POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
+        *read_table_version = cols.table_version.as_int();
+
+        auto result = load_common_v3_v4_fields(cols, row, typed_row_data);
+        if (result != POD5_OK) {
+            return result;
+        }
+
+        typed_row_data->open_pore_level = cols.open_pore_level->Value(row);
+        typed_row_data->expected_open_pore_level = cols.expected_open_pore_level->Value(row);
+        typed_row_data->selected_read_level = cols.selected_read_level->Value(row);
     } else {
         pod5_set_error(
             arrow::Status::Invalid("Invalid struct version '", struct_version, "' passed"));
@@ -1097,7 +1111,7 @@ pod5_error_t pod5_add_run_info(
 static bool check_read_data_struct(std::uint16_t struct_version, void const * row_data)
 {
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_5,
         "New versions must be explicitly loaded");
 
     if (!check_not_null(row_data)) {
@@ -1148,6 +1162,18 @@ static bool check_read_data_struct(std::uint16_t struct_version, void const * ro
         }
     }
 
+    if (struct_version == READ_BATCH_ROW_INFO_VERSION_5) {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV5 const *>(row_data);
+
+        if (!check_common_v3_v4_fields(typed_row_data)
+            || !check_not_null(typed_row_data->open_pore_level)
+            || !check_not_null(typed_row_data->expected_open_pore_level)
+            || !check_not_null(typed_row_data->selected_read_level))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -1159,7 +1185,7 @@ static bool load_struct_row_into_read_data(
     std::uint32_t row_id)
 {
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_4,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_5,
         "New versions must be explicitly loaded");
 
     auto load_common_v3_v4_fields = [](std::unique_ptr<pod5::FileWriter> const & writer,
@@ -1236,13 +1262,26 @@ static bool load_struct_row_into_read_data(
             typed_row_data->predicted_scaling_shift[row_id],
             typed_row_data->num_reads_since_mux_change[row_id],
             typed_row_data->time_since_mux_change[row_id],
-            // open_pore_level is only present in v4.
+            // open_pore_level is only present in v4 and above.
+            std::numeric_limits<float>::quiet_NaN(),
+            // expected_open_pore_level is only present in v5 and above.
+            std::numeric_limits<float>::quiet_NaN(),
+            // selected_read_level is only present in v5 and above.
             std::numeric_limits<float>::quiet_NaN()};
         return true;
     };
 
     // Version 0-2 are no longer supported for writing.
-    if (struct_version == READ_BATCH_ROW_INFO_VERSION_4) {
+    if (struct_version == READ_BATCH_ROW_INFO_VERSION_5) {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV5 const *>(row_data);
+
+        if (!load_common_v3_v4_fields(writer, typed_row_data, row_id, read_data)) {
+            return false;
+        }
+        read_data.open_pore_level = typed_row_data->open_pore_level[row_id];
+        read_data.expected_open_pore_level = typed_row_data->expected_open_pore_level[row_id];
+        read_data.selected_read_level = typed_row_data->selected_read_level[row_id];
+    } else if (struct_version == READ_BATCH_ROW_INFO_VERSION_4) {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV4 const *>(row_data);
 
         if (!load_common_v3_v4_fields(writer, typed_row_data, row_id, read_data)) {

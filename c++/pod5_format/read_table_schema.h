@@ -45,11 +45,17 @@ public:
 
     static TableSpecVersion v4()
     {
-        // Flattening of dictionaries into separate table.
+        // Addition of open_pore_level.
         return TableSpecVersion::at_version(4);
     }
 
-    static TableSpecVersion latest() { return v4(); }
+    static TableSpecVersion v5()
+    {
+        // Addition of expected_open_pore_level and selected_read_level.
+        return TableSpecVersion::at_version(5);
+    }
+
+    static TableSpecVersion latest() { return v5(); }
 };
 
 class ReadTableSchemaDescription : public SchemaDescriptionBase {
@@ -93,6 +99,10 @@ public:
     // V4 fields
     Field<21, arrow::FloatArray> open_pore_level;
 
+    // V5 fields
+    Field<22, arrow::FloatArray> expected_open_pore_level;
+    Field<23, arrow::FloatArray> selected_read_level;
+
     // Field Builders only for fields we write in newly generated files.
     // Should not include fields which are removed in the latest version:
     using FieldBuilders = FieldBuilder<
@@ -126,7 +136,11 @@ public:
         decltype(run_info),
 
         // V4 fields
-        decltype(open_pore_level)>;
+        decltype(open_pore_level),
+
+        // V5 fields
+        decltype(expected_open_pore_level),
+        decltype(selected_read_level)>;
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(

@@ -70,7 +70,9 @@ SCENARIO("Read table Tests")
                 index * 0.5f,
                 std::uint32_t(index + 10),
                 index * 50.0f,
-                index * 0.7f},
+                index * 0.7f,
+                index * 0.8f,
+                index * 0.9f},
             std::vector<std::uint64_t>{index + 2, index + 3});
     };
 
@@ -165,6 +167,9 @@ SCENARIO("Read table Tests")
                 CHECK(columns->end_reason->length() == read_count);
                 CHECK(columns->end_reason_forced->length() == read_count);
                 CHECK(columns->run_info->length() == read_count);
+                CHECK(columns->open_pore_level->length() == read_count);
+                CHECK(columns->expected_open_pore_level->length() == read_count);
+                CHECK(columns->selected_read_level->length() == read_count);
 
                 auto pore_indices =
                     std::static_pointer_cast<arrow::Int16Array>(columns->pore_type->indices());
@@ -195,6 +200,11 @@ SCENARIO("Read table Tests")
                     CHECK(columns->calibration_scale->Value(j) == read_data.calibration_scale);
                     CHECK(columns->channel->Value(j) == read_data.channel);
                     CHECK(columns->well->Value(j) == read_data.well);
+                    CHECK(columns->open_pore_level->Value(j) == read_data.open_pore_level);
+                    CHECK(
+                        columns->expected_open_pore_level->Value(j)
+                        == read_data.expected_open_pore_level);
+                    CHECK(columns->selected_read_level->Value(j) == read_data.selected_read_level);
 
                     CHECK(end_reason_indices->Value(j) == read_data.end_reason);
                     CHECK(pore_indices->Value(j) == read_data.pore_type);

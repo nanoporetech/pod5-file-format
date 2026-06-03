@@ -550,7 +550,7 @@ output_1.fast5 output_2.fast5 ... output_N.fast5
 ### Pod5 Update
 
 The ``pod5 update`` tools is used to update old pod5 files to use the latest schema.
-Currently the latest schema version is version 3.
+Currently the latest schema version is version 5.
 
 Files are written into the ``--output`` directory with the same name.
 

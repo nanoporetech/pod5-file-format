@@ -76,8 +76,8 @@ ReadRecordV3Columns = namedtuple(
     ],
 )
 
-ReadRecordV4Columns = namedtuple(
-    "ReadRecordV4Columns",
+ReadRecordV5Columns = namedtuple(
+    "ReadRecordV5Columns",
     [
         "read_id",
         "read_number",
@@ -107,6 +107,8 @@ ReadRecordV4Columns = namedtuple(
         "time_since_mux_change",
         "num_samples",
         "open_pore_level",
+        "expected_open_pore_level",
+        "selected_read_level",
     ],
 )
 
@@ -234,6 +236,20 @@ class ReadRecord:
         This is a float value representing the open pore level of the well prior to the read starting.
         """
         return self._batch.columns.open_pore_level[self._row].as_py()
+
+    @property
+    def expected_open_pore_level(self) -> float:
+        """
+        Get the expected open pore level for the read.
+        """
+        return self._batch.columns.expected_open_pore_level[self._row].as_py()
+
+    @property
+    def selected_read_level(self) -> float:
+        """
+        Get the selected pore level for the read.
+        """
+        return self._batch.columns.selected_read_level[self._row].as_py()
 
     @property
     def pore(self) -> Pore:
@@ -495,6 +511,8 @@ class ReadRecord:
             num_reads_since_mux_change=self.num_reads_since_mux_change,
             time_since_mux_change=self.time_since_mux_change,
             open_pore_level=self.open_pore_level,
+            expected_open_pore_level=self.expected_open_pore_level,
+            selected_read_level=self.selected_read_level,
             signal=self.signal,
         )
 
@@ -512,13 +530,13 @@ class ReadRecordBatch:
 
         self._signal_cache: Optional[p5b.Pod5SignalCacheBatch] = None
         self._selected_batch_rows: Optional[Iterable[int]] = None
-        self._columns: Optional[ReadRecordV4Columns] = None
+        self._columns: Optional[ReadRecordV5Columns] = None
 
     @property
-    def columns(self) -> ReadRecordV4Columns:
+    def columns(self) -> ReadRecordV5Columns:
         """Return the data from this batch as a ReadRecordColumns instance"""
         if self._columns is None:
-            self._columns = ReadRecordV4Columns(
+            self._columns = ReadRecordV5Columns(
                 *[
                     self._batch.column(name)
                     for name in self._reader._columns_type._fields
@@ -784,8 +802,8 @@ class Reader:
         writing_version_str = schema_metadata[b"MINKNOW:pod5_version"].decode("utf-8")
         writing_version = packaging.version.parse(writing_version_str)
 
-        self._columns_type = ReadRecordV4Columns
-        self._reads_table_version = 4
+        self._columns_type = ReadRecordV5Columns
+        self._reads_table_version = 5
 
         self._file_version = writing_version
         self._file_version_pre_migration = packaging.version.Version(

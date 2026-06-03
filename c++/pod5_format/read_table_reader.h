@@ -62,6 +62,8 @@ struct ReadTableRecordColumns {
     std::shared_ptr<arrow::DictionaryArray> run_info;
 
     std::shared_ptr<arrow::FloatArray> open_pore_level;
+    std::shared_ptr<arrow::FloatArray> expected_open_pore_level;
+    std::shared_ptr<arrow::FloatArray> selected_read_level;
 
     TableSpecVersion table_version;
 };

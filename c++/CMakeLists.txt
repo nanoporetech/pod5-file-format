@@ -112,6 +112,7 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/migration/v1_to_v2.cpp
     pod5_format/migration/v2_to_v3.cpp
     pod5_format/migration/v3_to_v4.cpp
+    pod5_format/migration/v4_to_v5.cpp
 
     pod5_format/internal/async_output_stream.h
     pod5_format/internal/combined_file_utils.h
