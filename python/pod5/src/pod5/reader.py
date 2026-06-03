@@ -787,12 +787,24 @@ class Reader:
         self._run_info_handle: Optional[ArrowTableHandle] = None
         self._signal_handle: Optional[ArrowTableHandle] = None
 
-        (
-            self._file_reader,
-            self._read_handle,
-            self._run_info_handle,
-            self._signal_handle,
-        ) = self._open_arrow_table_handles(self._path)
+        if not self._path.is_file():
+            raise FileNotFoundError(f"Failed to open pod5 file at: {self._path}")
+
+        self._file_reader = p5b.open_file(str(self._path))
+        if not self._file_reader:
+            raise Pod5ApiException(
+                f"Failed to open reader for {path} Reason: {p5b.get_error_string()}"
+            )
+
+        self._read_handle = ArrowTableHandle(
+            self._file_reader.get_file_read_table_location()
+        )
+        self._run_info_handle = ArrowTableHandle(
+            self._file_reader.get_file_run_info_table_location()
+        )
+        self._signal_handle = ArrowTableHandle(
+            self._file_reader.get_file_signal_table_location()
+        )
 
         schema_metadata = self.read_table.schema.metadata
         self._file_identifier = UUID(
@@ -818,29 +830,6 @@ class Reader:
         self._is_vbz_compressed: Optional[bool] = None
         self._signal_batch_row_count: Optional[int] = None
 
-    @staticmethod
-    def _open_arrow_table_handles(
-        path: Path,
-    ) -> Tuple[
-        p5b.Pod5FileReader, ArrowTableHandle, ArrowTableHandle, ArrowTableHandle
-    ]:
-        """Open handles to the underlying arrow tables within this pod5 file"""
-        if not path.is_file():
-            raise FileNotFoundError(f"Failed to open pod5 file at: {path}")
-
-        file_reader = p5b.open_file(str(path))
-        if not file_reader:
-            raise Pod5ApiException(
-                f"Failed to open reader for {path} Reason: {p5b.get_error_string()}"
-            )
-
-        read_handle = ArrowTableHandle(file_reader.get_file_read_table_location())
-        run_info_handle = ArrowTableHandle(
-            file_reader.get_file_run_info_table_location()
-        )
-        signal_handle = ArrowTableHandle(file_reader.get_file_signal_table_location())
-        return file_reader, read_handle, run_info_handle, signal_handle
-
     def __enter__(self) -> "Reader":
         return self
 
@@ -854,6 +843,9 @@ class Reader:
     def close(self) -> None:
         """Close files handles"""
 
+        # Explicitly clear this dictionary to close file handles used in cache
+        self._cached_signal_batches = {}
+
         safe_close(self, "_read_handle")
         self._read_handle = None
 
@@ -865,9 +857,6 @@ class Reader:
 
         safe_close(self, "_file_reader")
         self._file_reader = None
-
-        # Explicitly clear this dictionary to close file handles used in cache
-        self._cached_signal_batches = {}
 
     @property
     def path(self) -> Path:

@@ -3,6 +3,7 @@ Pod5 test fixtures
 """
 
 from contextlib import contextmanager
+import gc
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,6 +48,9 @@ def assert_no_leaked_handles() -> Generator[None, None, None]:
     proc = psutil.Process()
     before = set(proc.open_files())
     yield
+    # we don't have full control over lifetimes because of internal references in arrow,
+    # so try to avoid catching handles that are about to go away by GC
+    gc.collect()
     after = set(proc.open_files())
     leaked_handles = after - before
     leaked_handles = set(h for h in leaked_handles if ".log" not in str(h.path).lower())
