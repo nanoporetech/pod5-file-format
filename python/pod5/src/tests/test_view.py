@@ -125,6 +125,16 @@ class TestView:
         assert len(lines) == 11
         assert len(set(lines)) == len(lines)
 
+    def test_view_field_mappings(self) -> None:
+        """Check that all fields have valid mappings"""
+        for field in ALL_FIELDS:
+            # Grab only this field.
+            for table in get_reads_tables(POD5_PATH, select_fields(include=field)):
+                pass
+            # Grab everything but this field.
+            for table in get_reads_tables(POD5_PATH, select_fields(exclude=field)):
+                pass
+
     def test_is_loadable(self, tmp_path: Path) -> None:
         output = tmp_path / "test.tsv"
         view_pod5([POD5_PATH], output)
