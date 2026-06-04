@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Possibility recovery misinterpreting uninitialised buffer as useful data.
 - pod5.Reader's file handling has been adjusted to reduce the possibility of leaked file handles.
+- Fixed bugs in `pod5 view` field mappings for `sample_rate`, `duration`, and `filename`.
 
 ### Added
 
