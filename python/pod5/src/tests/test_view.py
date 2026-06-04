@@ -24,39 +24,10 @@ from pod5.tools.pod5_view import (
     FIELDS,
 )
 
-
 TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
 POD5_PATH = TEST_DATA_PATH / "multi_fast5_zip_v4.pod5"
 
-ALL_FIELDS = [
-    "read_id",
-    "filename",
-    "read_number",
-    "channel",
-    "mux",
-    "end_reason",
-    "start_time",
-    "start_sample",
-    "duration",
-    "num_samples",
-    "minknow_events",
-    "sample_rate",
-    "median_before",
-    "predicted_scaling_scale",
-    "predicted_scaling_shift",
-    "tracked_scaling_scale",
-    "tracked_scaling_shift",
-    "num_reads_since_mux_change",
-    "time_since_mux_change",
-    "run_id",
-    "sample_id",
-    "experiment_id",
-    "flow_cell_id",
-    "pore_type",
-    "open_pore_level",
-    "expected_open_pore_level",
-    "selected_read_level",
-]
+ALL_FIELDS = list(FIELDS.keys())
 
 
 class TestView:
@@ -127,7 +98,7 @@ class TestView:
             for idx, record in enumerate(reader):
                 items = list(map(str.strip, content[idx + 1].split("\t")))
                 row = {name: items[ALL_FIELDS.index(name)] for name in ALL_FIELDS}
-                POD5_PATH.name == row["filename"]
+                assert POD5_PATH.name == row["filename"]
 
                 self._compare(record, row)
 
@@ -154,6 +125,16 @@ class TestView:
         assert len(lines) == 11
         assert len(set(lines)) == len(lines)
 
+    def test_view_field_mappings(self) -> None:
+        """Check that all fields have valid mappings"""
+        for field in ALL_FIELDS:
+            # Grab only this field.
+            for table in get_reads_tables(POD5_PATH, select_fields(include=field)):
+                pass
+            # Grab everything but this field.
+            for table in get_reads_tables(POD5_PATH, select_fields(exclude=field)):
+                pass
+
     def test_is_loadable(self, tmp_path: Path) -> None:
         output = tmp_path / "test.tsv"
         view_pod5([POD5_PATH], output)
@@ -162,7 +143,7 @@ class TestView:
         with p5.Reader(POD5_PATH) as reader:
             for idx, record in enumerate(reader):
                 row = df.row(idx, named=True)
-                POD5_PATH.name == row["filename"]
+                assert POD5_PATH.name == row["filename"]
 
                 self._compare(record, row)
 

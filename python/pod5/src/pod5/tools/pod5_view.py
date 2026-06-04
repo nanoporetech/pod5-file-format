@@ -92,7 +92,8 @@ FIELDS: Dict[str, Field] = {
     ),
     "duration": Field(
         "Seconds of sampling for this read",
-        ["num_samples", "sample_rate"],
+        ["num_samples"],
+        ["sample_rate"],
     ),
     "num_samples": Field(
         "Number of signal samples",
@@ -104,6 +105,7 @@ FIELDS: Dict[str, Field] = {
     ),
     "sample_rate": Field(
         "Number of samples recorded each second",
+        None,
         ["sample_rate"],
     ),
     "median_before": Field(
@@ -499,7 +501,8 @@ def get_included_reads_table_fields(reader: p5.Reader, selection: Selection):
         if name in selection.reads_fields:
             included_fields.append(field_idx)
 
-    if not included_fields:
+    # "filename" isn't a field, so we expect the selected fields to be empty in that case.
+    if (not included_fields) and (list(selection.selected) != ["filename"]):
         raise KeyError(
             f"No reads fields set in {selection.selected=} {selection.reads_fields=}"
         )
