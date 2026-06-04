@@ -92,7 +92,8 @@ FIELDS: Dict[str, Field] = {
     ),
     "duration": Field(
         "Seconds of sampling for this read",
-        ["num_samples", "sample_rate"],
+        ["num_samples"],
+        ["sample_rate"],
     ),
     "num_samples": Field(
         "Number of signal samples",
@@ -104,6 +105,7 @@ FIELDS: Dict[str, Field] = {
     ),
     "sample_rate": Field(
         "Number of samples recorded each second",
+        None,
         ["sample_rate"],
     ),
     "median_before": Field(
