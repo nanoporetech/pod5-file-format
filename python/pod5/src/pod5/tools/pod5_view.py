@@ -501,7 +501,8 @@ def get_included_reads_table_fields(reader: p5.Reader, selection: Selection):
         if name in selection.reads_fields:
             included_fields.append(field_idx)
 
-    if not included_fields:
+    # "filename" isn't a field, so we expect the selected fields to be empty in that case.
+    if (not included_fields) and (list(selection.selected) != ["filename"]):
         raise KeyError(
             f"No reads fields set in {selection.selected=} {selection.reads_fields=}"
         )
