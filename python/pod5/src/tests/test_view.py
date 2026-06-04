@@ -98,7 +98,7 @@ class TestView:
             for idx, record in enumerate(reader):
                 items = list(map(str.strip, content[idx + 1].split("\t")))
                 row = {name: items[ALL_FIELDS.index(name)] for name in ALL_FIELDS}
-                POD5_PATH.name == row["filename"]
+                assert POD5_PATH.name == row["filename"]
 
                 self._compare(record, row)
 
@@ -133,7 +133,7 @@ class TestView:
         with p5.Reader(POD5_PATH) as reader:
             for idx, record in enumerate(reader):
                 row = df.row(idx, named=True)
-                POD5_PATH.name == row["filename"]
+                assert POD5_PATH.name == row["filename"]
 
                 self._compare(record, row)
 
