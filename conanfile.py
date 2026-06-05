@@ -5,6 +5,8 @@ from conan.tools.build import cross_building
 from conan.tools.cmake import cmake_layout
 import os
 
+required_conan_version = ">=2.21.0"
+
 
 class Pod5Conan(ConanFile):
     name = "pod5_file_format"
@@ -75,7 +77,7 @@ class Pod5Conan(ConanFile):
 
     def requirements(self):
         self.requires("arrow/18.0.0")
-        self.requires("flatbuffers/2.0.0")
+        self.requires("flatbuffers/2.0.8")
         self.requires("zstd/[>=1.4.8 <=2.0.0]")
         self.requires("zlib/[>=1.2.11 <=2.0.0]")
         if not (
@@ -96,11 +98,7 @@ class Pod5Conan(ConanFile):
 
     def build_requirements(self):
         if hasattr(self, "settings_build") and cross_building(self):
-            # We are using an older version of flatbuffers not available on CCI.
-            # @TODO: Update to a version that exists in CCI
-            # When this line changes a corresponding change in .gitlab-ci.yml is required where this
-            # package is uninstalled.
-            self.tool_requires("flatbuffers/2.0.0")
+            self.tool_requires("flatbuffers/2.0.8")
 
     def generate(self):
         if not self.options.shared:
