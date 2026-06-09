@@ -87,7 +87,7 @@ build-conan2:macos-aarch64-appleclang-16.0:
 
 build-conan2:linux-x86_64:
   extends: [.conan2-build]
-  tags: [linux, prod, amd64, eks, small, standard]
+  tags: [linux, prod, x86_64, eks, small, standard]
   image: "${ONT_DOCKER_REGISTRY}/informatics/rocky8-${COMPILER}"
   parallel:
     matrix:
@@ -99,7 +99,7 @@ build-conan2:linux-x86_64:
 
 build-conan2:linux-aarch64:
   extends: [.conan2-build]
-  tags: [linux_aarch64]
+  tags: [linux, prod, aarch64, eks, small, standard]
   image: "${ONT_DOCKER_REGISTRY}/informatics/rocky8-${COMPILER}"
   parallel:
     matrix:
