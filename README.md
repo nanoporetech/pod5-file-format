@@ -1,4 +1,5 @@
-[![Documentation Status](https://readthedocs.org/projects/pod5-file-format/badge/?version=latest)](https://pod5-file-format.readthedocs.io/)
+[![Documentation](https://img.shields.io/badge/documentation-grey?logo=materialformkdocs)](https://software-docs.nanoporetech.com/pod5)
+[![Source code](https://img.shields.io/badge/source_code-grey?logo=github)](https://github.com/nanoporetech/pod5-file-format)
 
 POD5 File Format
 ================
@@ -22,7 +23,7 @@ accessing this data in other languages.
 Documentation
 -------------
 
-Full documentation is found at https://pod5-file-format.readthedocs.io/
+Full documentation is found at https://software-docs.nanoporetech.com/pod5
 
 
 Usage
