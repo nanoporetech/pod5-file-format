@@ -483,8 +483,6 @@ class ReadRecord:
             return vbz_decompress_signal(
                 memoryview(signal[batch_row_index].as_buffer()), sample_count
             )
-
-            return signal.to_numpy()
         else:
             return np.array(signal[batch_row_index].values, dtype="int16")
 
