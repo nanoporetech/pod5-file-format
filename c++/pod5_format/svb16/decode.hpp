@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 #include "decode_scalar.hpp"
-#include "svb16.h"  // svb16_key_length
+#include "svb16.h"  // key_length
 
 #include <type_traits>
 
@@ -28,7 +28,7 @@ inline std::size_t decode_input_buffer_padding_byte_count()
 template <typename Int16T, bool UseDelta, bool UseZigzag>
 size_t decode(gsl::span<Int16T> out, gsl::span<uint8_t const> in, Int16T prev = 0)
 {
-    auto keys_length = ::svb16_key_length(out.size());
+    auto keys_length = key_length(out.size());
     auto const keys = in.subspan(0, keys_length);
     auto const data = in.subspan(keys_length);
 #ifdef SVB16_X64
@@ -42,7 +42,7 @@ size_t decode(gsl::span<Int16T> out, gsl::span<uint8_t const> in, Int16T prev = 
 
 inline bool validate(gsl::span<uint8_t const> compressed_input, std::size_t out_size)
 {
-    auto const keys_length = ::svb16_key_length(out_size);
+    auto const keys_length = key_length(out_size);
     if (keys_length > compressed_input.size()) {
         return false;
     }

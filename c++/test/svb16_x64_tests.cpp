@@ -26,19 +26,21 @@ void test_sse_encode_scalar_decode()
         std::numeric_limits<Int16T>::min(), std::numeric_limits<Int16T>::max()};
     std::generate(data.begin(), data.end(), [&] { return dist(rng); });
 
-    std::vector<uint8_t> encoded(svb16_max_encoded_length(data.size()));
-    auto const encoded_count =
-        svb16::encode_sse<Int16T, UseDelta, UseZigzag>(
-            data.data(), encoded.data(), encoded.data() + svb16_key_length(data.size()), DATA_COUNT)
-        - encoded.data();
+    std::vector<uint8_t> encoded(svb16::max_encoded_length(data.size()));
+    auto const encoded_count = svb16::encode_sse<Int16T, UseDelta, UseZigzag>(
+                                   data.data(),
+                                   encoded.data(),
+                                   encoded.data() + svb16::key_length(data.size()),
+                                   DATA_COUNT)
+                               - encoded.data();
 
-    CHECK(encoded_count <= svb16_max_encoded_length(data.size()));
+    CHECK(encoded_count <= svb16::max_encoded_length(data.size()));
 
-    std::vector<uint8_t> encoded_scalar(svb16_max_encoded_length(data.size()));
+    std::vector<uint8_t> encoded_scalar(svb16::max_encoded_length(data.size()));
     auto const scalar_encoded_count = svb16::encode_scalar<Int16T, UseDelta, UseZigzag>(
                                           data.data(),
                                           encoded_scalar.data(),
-                                          encoded_scalar.data() + svb16_key_length(data.size()),
+                                          encoded_scalar.data() + svb16::key_length(data.size()),
                                           DATA_COUNT)
                                       - encoded_scalar.data();
     CHECK(scalar_encoded_count == encoded_count);
@@ -46,7 +48,7 @@ void test_sse_encode_scalar_decode()
 
     std::vector<Int16T> decoded(DATA_COUNT);
     auto const encoded_span = gsl::make_span(encoded);
-    auto const key_length = svb16_key_length(data.size());
+    auto const key_length = svb16::key_length(data.size());
     auto const consumed = svb16::decode_sse<Int16T, UseDelta, UseZigzag>(
                               gsl::make_span(decoded),
                               encoded_span.subspan(0, key_length),
