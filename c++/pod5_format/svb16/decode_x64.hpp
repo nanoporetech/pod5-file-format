@@ -84,7 +84,7 @@ template <typename Int16T, bool UseDelta, bool UseZigzag>
     gsl::span<uint8_t const> data_span,
     Int16T prev = 0)
 {
-    auto store_8 = detail::store_8<Int16T, UseDelta, UseZigzag>;
+    constexpr auto store_8 = detail::store_8<Int16T, UseDelta, UseZigzag>;
 
     // this code treats all input as uint16_t (except the zigzag code, which treats it as int16_t)
     // this isn't a problem, as the scalar code does the same
