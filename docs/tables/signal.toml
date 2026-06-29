@@ -3,7 +3,7 @@ type = "minknow.uuid"
 description = "Globally-unique identifier for the read the data came from. This aids recovery and consistency checking."
 
 [fields.signal]
-type = [ "large_list(int16)", "minknow.vbz" ]
+type = [ "large_list(int16)", "minknow.vbz", "minknow.pdz" ]
 description = "The actual signal. The encoding of the data must the same for all reads in the file, and is determined by the choice of logical type. LargeList(Int16) is the uncompressed storage option. Readers that do not recognise the logical type of this column will be unable to decode the signal data."
 
 [fields.samples]

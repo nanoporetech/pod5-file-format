@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pod5_format/expandable_buffer.h"
+#include "pod5_format/pdz_compression.h"
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_utils.h"
 #include "pod5_format/types.h"
@@ -23,7 +24,15 @@ struct VbzSignalBuilder {
     ExpandableBuffer<std::uint8_t> data_values;
 };
 
-using SignalBuilderVariant = std::variant<UncompressedSignalBuilder, VbzSignalBuilder>;
+// Identical storage to VbzSignalBuilder: the PDZ codec is stateless, so the
+// builder carries no extra state (no read-context / pore-type threading).
+struct PdzSignalBuilder {
+    ExpandableBuffer<std::int64_t> offset_values;
+    ExpandableBuffer<std::uint8_t> data_values;
+};
+
+using SignalBuilderVariant =
+    std::variant<UncompressedSignalBuilder, VbzSignalBuilder, PdzSignalBuilder>;
 
 inline arrow::Result<SignalBuilderVariant> make_signal_builder(
     SignalType compression_type,
@@ -35,6 +44,11 @@ inline arrow::Result<SignalBuilderVariant> make_signal_builder(
             signal_array_builder,
             std::make_unique<arrow::LargeListBuilder>(pool, signal_array_builder),
         };
+    } else if (compression_type == SignalType::PdzSignal) {
+        PdzSignalBuilder pdz_builder;
+        ARROW_RETURN_NOT_OK(pdz_builder.offset_values.init_buffer(pool));
+        ARROW_RETURN_NOT_OK(pdz_builder.data_values.init_buffer(pool));
+        return pdz_builder;
     } else {
         VbzSignalBuilder vbz_builder;
         ARROW_RETURN_NOT_OK(vbz_builder.offset_values.init_buffer(pool));
@@ -64,6 +78,12 @@ public:
         return builder.data_values.reserve(m_row_count * m_approx_read_samples);
     }
 
+    Status operator()(PdzSignalBuilder & builder) const
+    {
+        ARROW_RETURN_NOT_OK(builder.offset_values.reserve(m_row_count + 1));
+        return builder.data_values.reserve(m_row_count * m_approx_read_samples);
+    }
+
     std::size_t m_row_count;
     std::size_t m_approx_read_samples;
 };
@@ -82,6 +102,12 @@ public:
     }
 
     Status operator()(VbzSignalBuilder & builder) const
+    {
+        ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
+        return builder.data_values.append_array(m_signal);
+    }
+
+    Status operator()(PdzSignalBuilder & builder) const
     {
         ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
         return builder.data_values.append_array(m_signal);
@@ -117,6 +143,20 @@ public:
             });
     }
 
+    Status operator()(PdzSignalBuilder & builder) const
+    {
+        ARROW_RETURN_NOT_OK(builder.offset_values.append(builder.data_values.size()));
+
+        ARROW_ASSIGN_OR_RAISE(
+            auto const max_size, pdz_compressed_signal_max_size(m_signal.size()));
+
+        // Compress the signal in place into our buffer.
+        return builder.data_values.append(
+            max_size, [&](gsl::span<std::uint8_t> buffer) -> arrow::Result<std::size_t> {
+                return compress_signal_pdz(m_signal, m_pool, buffer);
+            });
+    }
+
     gsl::span<std::int16_t const> m_signal;
     arrow::MemoryPool * m_pool;
 };
@@ -148,6 +188,28 @@ public:
 
         *m_dest = arrow::MakeArray(
             arrow::ArrayData::Make(vbz_signal(), length, {null_bitmap, offsets, value_data}, 0, 0));
+
+        return arrow::Status::OK();
+    }
+
+    Status operator()(PdzSignalBuilder & builder) const
+    {
+        auto offsets_copy = builder.offset_values;
+        ARROW_RETURN_NOT_OK(builder.offset_values.clear());
+
+        auto const value_data = builder.data_values.get_buffer();
+        ARROW_RETURN_NOT_OK(builder.data_values.clear());
+
+        auto const length = offsets_copy.size();
+
+        // Write final offset (values length)
+        ARROW_RETURN_NOT_OK(offsets_copy.append(value_data->size()));
+        auto const offsets = offsets_copy.get_buffer();
+
+        std::shared_ptr<arrow::Buffer> null_bitmap;
+
+        *m_dest = arrow::MakeArray(
+            arrow::ArrayData::Make(pdz_signal(), length, {null_bitmap, offsets, value_data}, 0, 0));
 
         return arrow::Status::OK();
     }

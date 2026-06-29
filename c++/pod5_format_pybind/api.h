@@ -5,6 +5,7 @@
 #include "pod5_format/file_reader.h"
 #include "pod5_format/file_updater.h"
 #include "pod5_format/file_writer.h"
+#include "pod5_format/pdz_compression.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/signal_table_reader.h"
@@ -551,6 +552,37 @@ inline std::size_t vbz_compressed_signal_max_size(std::size_t sample_count)
 {
     POD5_PYTHON_ASSIGN_OR_RAISE(
         std::size_t const max_size, pod5::compressed_signal_max_size(sample_count));
+    return max_size;
+}
+
+inline void decompress_signal_pdz_wrapper(
+    py::array_t<uint8_t, py::array::c_style | py::array::forcecast> const & compressed_signal,
+    py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> & signal_out)
+{
+    throw_on_error(
+        pod5::decompress_signal_pdz(
+            gsl::make_span(compressed_signal.data(0), compressed_signal.shape(0)),
+            arrow::system_memory_pool(),
+            gsl::make_span(signal_out.mutable_data(0), signal_out.shape(0))));
+}
+
+inline std::size_t compress_signal_pdz_wrapper(
+    py::array_t<std::int16_t, py::array::c_style | py::array::forcecast> const & signal,
+    py::array_t<std::uint8_t, py::array::c_style | py::array::forcecast> & compressed_signal_out)
+{
+    auto size = throw_on_error(
+        pod5::compress_signal_pdz(
+            gsl::make_span(signal.data(), signal.shape(0)),
+            arrow::system_memory_pool(),
+            gsl::make_span(compressed_signal_out.mutable_data(), compressed_signal_out.shape(0))));
+
+    return size;
+}
+
+inline std::size_t pdz_compressed_signal_max_size_wrapper(std::size_t sample_count)
+{
+    POD5_PYTHON_ASSIGN_OR_RAISE(
+        std::size_t const max_size, pod5::pdz_compressed_signal_max_size(sample_count));
     return max_size;
 }
 

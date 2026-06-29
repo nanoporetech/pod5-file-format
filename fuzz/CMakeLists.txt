@@ -55,4 +55,5 @@ function(make_fuzzer TYPE)
 endfunction()
 
 make_fuzzer(compress)
+make_fuzzer(pdz)
 make_fuzzer(file)

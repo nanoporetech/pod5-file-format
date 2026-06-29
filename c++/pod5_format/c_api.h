@@ -675,6 +675,8 @@ enum CompressionOption {
     VBZ_SIGNAL_COMPRESSION = 1,
     /// \brief Write signals uncompressed to tables.
     UNCOMPRESSED_SIGNAL = 2,
+    /// \brief Use pdz to compress read signals in tables.
+    PDZ_SIGNAL_COMPRESSION = 3,
 };
 
 // Options to control how a file is written.
@@ -683,6 +685,7 @@ struct Pod5WriterOptions {
     /// \note Use zero to use default value.
     uint32_t max_signal_chunk_size;
     /// \brief Signal type to write to the signals table.
+    /// \note One of the CompressionOption values (DEFAULT/VBZ/UNCOMPRESSED/PDZ).
     /// \note Use 'DEFAULT_SIGNAL_COMPRESSION' to use default value.
     int8_t signal_compression_type;
 

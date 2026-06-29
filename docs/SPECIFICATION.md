@@ -40,6 +40,16 @@ Storage for VBZ-encoded data:
     Name: "minknow.vbz"
     Physical storage: LargeBinary
 
+#### minknow.pdz
+
+Storage for PDZ-encoded data (Piecewise-Differential-Zstd), an alternative signal codec to VBZ:
+
+    Name: "minknow.pdz"
+    Physical storage: LargeBinary
+
+As with `minknow.vbz`, readers that do not recognise this logical type cannot decode the signal
+column; the choice of codec applies to the whole file.
+
 ### Tables
 
 The Reads, Signal and Run Info tables must all be present in a POD5 file. Note that some very early

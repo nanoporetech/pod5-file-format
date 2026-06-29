@@ -14,6 +14,7 @@ PYBIND11_MODULE(pod5_format_pybind, m)
     py::enum_<SignalType>(m, "SignalType", py::arithmetic(), "SignalType enum")
         .value("UncompressedSignal", SignalType::UncompressedSignal, "Signal is not compressed")
         .value("VbzSignal", SignalType::VbzSignal, "Signal is compressed using vbz")
+        .value("PdzSignal", SignalType::PdzSignal, "Signal is compressed using pdz")
         .export_values();
 
     py::class_<FileWriterOptions>(m, "FileWriterOptions")
@@ -129,6 +130,13 @@ PYBIND11_MODULE(pod5_format_pybind, m)
     m.def("decompress_signal", &decompress_signal_wrapper, "Decompress a numpy array of signal");
     m.def("compress_signal", &compress_signal_wrapper, "Compress a numpy array of signal");
     m.def("vbz_compressed_signal_max_size", &vbz_compressed_signal_max_size);
+    m.def(
+        "decompress_signal_pdz",
+        &decompress_signal_pdz_wrapper,
+        "Decompress a numpy array of pdz-compressed signal");
+    m.def(
+        "compress_signal_pdz", &compress_signal_pdz_wrapper, "Pdz-compress a numpy array of signal");
+    m.def("pdz_compressed_signal_max_size", &pdz_compressed_signal_max_size_wrapper);
 
     // Repacker API
     py::class_<repack::Pod5RepackerOutput, std::shared_ptr<repack::Pod5RepackerOutput>>(

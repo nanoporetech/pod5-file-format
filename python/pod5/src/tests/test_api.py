@@ -115,7 +115,7 @@ def run_writer_test(f: Writer):
     assert test_reads[0].sample_count > 0
 
 
-def run_reader_test(reader: p5.Reader):
+def run_reader_test(reader: p5.Reader, check_compression_ratio: bool = True):
     # Check top level file metadata
 
     assert reader.writing_software == "Python API"
@@ -162,8 +162,12 @@ def run_reader_test(reader: p5.Reader):
         assert data.open_pore_level == read.open_pore_level
 
         assert data.sample_count == read.sample_count
-        # Expecting poor compression given the random input
-        assert 0 < read.byte_count < (len(data.signal) * data.signal.itemsize + 24)
+        assert read.byte_count > 0
+        if check_compression_ratio:
+            # Expecting poor compression given the random input. (PDZ's per-block
+            # framing can exceed this bound on tiny incompressible reads, so the
+            # ratio check is opt-out.)
+            assert read.byte_count < (len(data.signal) * data.signal.itemsize + 24)
         assert len(read.signal_rows) >= 1
 
         assert not read.has_cached_signal
@@ -262,6 +266,39 @@ def test_pyarrow_from_pathlib_uncompressed():
 
         with p5.Reader(path) as _fh:
             run_reader_test(_fh)
+
+
+@pytest.mark.filterwarnings("ignore: pod5.")
+def test_pyarrow_from_pathlib_pdz():
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / "example.pod5"
+        with p5.Writer(
+            path, signal_compression_type=p5.SignalType.PdzSignal
+        ) as _fh:
+            assert _fh.signal_compression_type == p5.SignalType.PdzSignal
+            run_writer_test(_fh)
+
+        with p5.Reader(path) as _fh:
+            # The on-disk signal column must be recognised as PDZ (and not
+            # misdetected as VBZ, since both use large_binary storage).
+            assert _fh.is_pdz_compressed
+            assert not _fh.is_vbz_compressed
+            run_reader_test(_fh, check_compression_ratio=False)
+
+
+@pytest.mark.filterwarnings("ignore: pod5.")
+def test_inspect_reports_pdz(capsys):
+    from pod5.tools.pod5_inspect import inspect_pod5
+
+    with tempfile.TemporaryDirectory() as temp:
+        path = Path(temp) / "example.pod5"
+        with p5.Writer(
+            path, signal_compression_type=p5.SignalType.PdzSignal
+        ) as _fh:
+            _fh.add_read(gen_test_read(0))
+
+        inspect_pod5("summary", [path])
+        assert "File uses PDZ compression." in capsys.readouterr().out
 
 
 def test_read_id_packing():

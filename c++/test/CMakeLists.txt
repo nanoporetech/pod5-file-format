@@ -13,6 +13,10 @@ add_executable(pod5_unit_tests
     schema_tests.cpp
     signal_compression_tests.cpp
     signal_table_tests.cpp
+    pdz_codec_tests.cpp
+    pdz_compression_tests.cpp
+    pdz_cross_arch_tests.cpp
+    pdz_schema_tests.cpp
     svb16_scalar_tests.cpp
     svb16_x64_tests.cpp
     test_utils.h
@@ -29,6 +33,10 @@ target_link_libraries(pod5_unit_tests
     PUBLIC
         pod5_format
         ${maybe_public_libs}
+    PRIVATE
+        # The PDZ codec tests include the header-only codec directly, which
+        # calls into zstd, so the test target needs zstd's headers/lib.
+        zstd::zstd
 )
 
 set_property(TARGET pod5_unit_tests PROPERTY CXX_STANDARD 20)

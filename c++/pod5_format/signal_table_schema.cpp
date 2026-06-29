@@ -27,6 +27,9 @@ std::shared_ptr<arrow::Schema> make_signal_table_schema(
     case SignalType::VbzSignal:
         signal_schema_type = vbz_signal();
         break;
+    case SignalType::PdzSignal:
+        signal_schema_type = pdz_signal();
+        break;
     }
 
     return arrow::schema(
@@ -58,6 +61,8 @@ Result<SignalTableSchemaDescription> read_signal_table_schema(
             }
         } else if (signal_arrow_type->Equals(vbz_signal())) {
             signal_type = SignalType::VbzSignal;
+        } else if (signal_arrow_type->Equals(pdz_signal())) {
+            signal_type = SignalType::PdzSignal;
         } else {
             return Status::TypeError(
                 "Schema field 'signal' is incorrect type: '", signal_arrow_type->name(), "'");

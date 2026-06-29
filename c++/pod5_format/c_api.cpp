@@ -135,7 +135,10 @@ pod5::FileWriterOptions make_internal_writer_options(Pod5WriterOptions const * o
 
         if (options->signal_compression_type == UNCOMPRESSED_SIGNAL) {
             internal_options.set_signal_type(pod5::SignalType::UncompressedSignal);
+        } else if (options->signal_compression_type == PDZ_SIGNAL_COMPRESSION) {
+            internal_options.set_signal_type(pod5::SignalType::PdzSignal);
         }
+        // VBZ_SIGNAL_COMPRESSION / DEFAULT remain the default (VbzSignal).
 
         if (options->signal_table_batch_size != 0) {
             internal_options.set_signal_table_batch_size(options->signal_table_batch_size);

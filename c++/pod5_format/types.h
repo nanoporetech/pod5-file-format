@@ -71,9 +71,34 @@ public:
         std::string const & serialized_data) const override;
 };
 
+class POD5_FORMAT_EXPORT PdzSignalArray : public arrow::ExtensionArray {
+public:
+    using IteratorType = arrow::stl::ArrayIterator<PdzSignalArray>;
+
+    gsl::span<std::uint8_t const> Value(int64_t i) const;
+    std::shared_ptr<arrow::Buffer> ValueAsBuffer(int64_t i) const;
+
+    using ExtensionArray::ExtensionArray;
+};
+
+class POD5_FORMAT_EXPORT PdzSignalType : public arrow::ExtensionType {
+public:
+    PdzSignalType() : ExtensionType(arrow::large_binary()) {}
+
+    std::string extension_name() const override { return "minknow.pdz"; }
+
+    bool ExtensionEquals(ExtensionType const & other) const override;
+    std::shared_ptr<arrow::Array> MakeArray(std::shared_ptr<arrow::ArrayData> data) const override;
+    std::string Serialize() const override;
+    arrow::Result<std::shared_ptr<arrow::DataType>> Deserialize(
+        std::shared_ptr<arrow::DataType> storage_type,
+        std::string const & serialized_data) const override;
+};
+
 std::unique_ptr<arrow::FixedSizeBinaryBuilder> make_read_id_builder(arrow::MemoryPool * pool);
 
 std::shared_ptr<VbzSignalType> const & vbz_signal();
+std::shared_ptr<PdzSignalType> const & pdz_signal();
 std::shared_ptr<UuidType> const & uuid();
 
 /// \brief Register all required extension types.
