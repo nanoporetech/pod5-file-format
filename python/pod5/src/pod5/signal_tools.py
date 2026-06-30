@@ -106,6 +106,57 @@ def vbz_decompress_signal_into(
     return output_array
 
 
+def pdz_decompress_signal(
+    compressed_signal: Union[npt.NDArray[np.uint8], memoryview], sample_count: int
+) -> npt.NDArray[np.int16]:
+    """
+    Decompress a contiguous (not-chunked) numpy array of pdz-compressed signal data
+
+    Parameters
+    ----------
+    compressed_signal : numpy.ndarray[uint8]
+        The array of pdz-compressed signal data to decompress.
+    sample_count : int
+        The number of samples in the original signal
+
+    Returns
+    -------
+    A decompressed signal array numpy.ndarray[int16]
+    """
+    if len(compressed_signal) == 0:
+        return np.array([], dtype=np.int16)
+
+    signal = np.empty(sample_count, dtype="i2")
+    p5b.decompress_signal_pdz(compressed_signal, signal)
+    return signal
+
+
+def pdz_decompress_signal_into(
+    compressed_signal: Union[npt.NDArray[np.uint8], memoryview],
+    output_array: npt.NDArray[np.int16],
+) -> npt.NDArray[np.int16]:
+    """
+    Decompress a numpy array of pdz-compressed signal data into the destination
+    "output_array"
+
+    Parameters
+    ----------
+    compressed_signal : numpy.ndarray[uint8]
+        The array of pdz-compressed signal data to decompress.
+    output_array : numpy.ndarray[int16]
+        The destination location for signal
+
+    Returns
+    -------
+    A decompressed signal array numpy.ndarray[int16]
+    """
+    if len(compressed_signal) == 0:
+        return np.array([], dtype=np.int16)
+
+    p5b.decompress_signal_pdz(compressed_signal, output_array)
+    return output_array
+
+
 def vbz_compress_signal(signal: npt.NDArray[np.int16]) -> npt.NDArray[np.uint8]:
     """
     Compress a numpy array of signal data

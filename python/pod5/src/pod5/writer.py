@@ -42,7 +42,7 @@ from pod5.pod5_types import (
 DEFAULT_SOFTWARE_NAME = "Python API"
 
 SignalType: TypeAlias = p5b.SignalType
-"""The type of compression applied to a signal `SignalType::{UncompressedSignal, VbzSignal}`"""
+"""The type of compression applied to a signal `SignalType::{UncompressedSignal, VbzSignal, PdzSignal}`"""
 PoreType = str
 """The name of a Pore"""
 T = TypeVar("T", bound=Union[EndReason, PoreType, RunInfo])
@@ -93,7 +93,9 @@ class Writer:
         software_name : str
             The name of the application used to create this pod5 file
         signal_compression_type : SignalType
-            The type of compression to use in the file. Defaults to Vbz.
+            The type of compression to use in the file: one of
+            ``SignalType.{VbzSignal, PdzSignal, UncompressedSignal}``.
+            Defaults to Vbz.
         """
         self._path = Path(path).absolute()
         self._software_name = software_name

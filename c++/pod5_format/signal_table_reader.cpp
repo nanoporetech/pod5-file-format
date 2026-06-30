@@ -1,5 +1,6 @@
 #include "pod5_format/signal_table_reader.h"
 
+#include "pod5_format/pdz_compression.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_compression.h"
 #include "pod5_format/table_reader.h"
@@ -63,6 +64,11 @@ std::shared_ptr<VbzSignalArray> SignalTableRecordBatch::vbz_signal_column() cons
     return std::static_pointer_cast<VbzSignalArray>(batch()->column(m_field_locations.signal));
 }
 
+std::shared_ptr<PdzSignalArray> SignalTableRecordBatch::pdz_signal_column() const
+{
+    return std::static_pointer_cast<PdzSignalArray>(batch()->column(m_field_locations.signal));
+}
+
 std::shared_ptr<arrow::UInt32Array> SignalTableRecordBatch::samples_column() const
 {
     return std::static_pointer_cast<arrow::UInt32Array>(batch()->column(m_field_locations.samples));
@@ -78,6 +84,11 @@ Result<std::size_t> SignalTableRecordBatch::samples_byte_count(std::size_t row_i
     }
     case SignalType::VbzSignal: {
         auto signal_column = vbz_signal_column();
+        auto signal_compressed = signal_column->Value(row_index);
+        return signal_compressed.size();
+    }
+    case SignalType::PdzSignal: {
+        auto signal_column = pdz_signal_column();
         auto signal_compressed = signal_column->Value(row_index);
         return signal_compressed.size();
     }
@@ -119,6 +130,11 @@ Status SignalTableRecordBatch::extract_signal_row(
         auto signal_compressed = signal_column->Value(row_index);
         return pod5::decompress_signal(signal_compressed, m_pool, samples);
     }
+    case SignalType::PdzSignal: {
+        auto signal_column = pdz_signal_column();
+        auto signal_compressed = signal_column->Value(row_index);
+        return pod5::decompress_signal_pdz(signal_compressed, m_pool, samples);
+    }
     }
 
     return pod5::Status::Invalid("Unknown signal type");
@@ -152,6 +168,10 @@ Result<std::shared_ptr<arrow::Buffer>> SignalTableRecordBatch::extract_signal_ro
     }
     case SignalType::VbzSignal: {
         auto signal_column = vbz_signal_column();
+        return signal_column->ValueAsBuffer(row_index);
+    }
+    case SignalType::PdzSignal: {
+        auto signal_column = pdz_signal_column();
         return signal_column->ValueAsBuffer(row_index);
     }
     }

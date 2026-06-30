@@ -18,7 +18,14 @@ else()
     # Our non-conan ubuntu CI build has a different name for this target
     if (NOT CONAN2)
         add_library(arrow::arrow INTERFACE IMPORTED)
-        target_link_libraries(arrow::arrow INTERFACE Arrow::arrow_shared)
+        # Most Arrow CMake configs export the namespaced Arrow::arrow_shared
+        # target, but some distributions (e.g. conda-forge arrow-cpp) export only
+        # the un-namespaced arrow_shared. Prefer the namespaced target if present.
+        if (TARGET Arrow::arrow_shared)
+            target_link_libraries(arrow::arrow INTERFACE Arrow::arrow_shared)
+        else()
+            target_link_libraries(arrow::arrow INTERFACE arrow_shared)
+        endif()
     endif()
 endif()
 
@@ -76,6 +83,8 @@ add_library(pod5_format ${pod5_library_type}
 
     pod5_format/signal_compression.cpp
     pod5_format/signal_compression.h
+    pod5_format/pdz_compression.cpp
+    pod5_format/pdz_compression.h
     pod5_format/signal_table_reader.cpp
     pod5_format/signal_table_reader.h
     pod5_format/signal_table_schema.cpp
@@ -127,6 +136,25 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/svb16/intrinsics.hpp
     pod5_format/svb16/shuffle_tables.hpp
     pod5_format/svb16/simd_detect_x64.hpp
+
+    pod5_format/pdz/pdz.hpp
+    pod5_format/pdz/attributes.hpp
+    pod5_format/pdz/codecs.hpp
+    pod5_format/pdz/memory_utils.hpp
+    pod5_format/pdz/utils.hpp
+    pod5_format/pdz/simd_backend.hpp
+    pod5_format/pdz/rice_map_sse.hpp
+    pod5_format/pdz/rice_map_neon.hpp
+    pod5_format/pdz/buffered_skip_bit_output_stream.hpp
+    pod5_format/pdz/codec/pdz_codec.hpp
+    pod5_format/pdz/codec/buffer_sizes.hpp
+    pod5_format/pdz/codec/buffer_u_writer.hpp
+    pod5_format/pdz/codec/buffer_lh_writer.hpp
+    pod5_format/pdz/codec/buffer_readers.hpp
+    pod5_format/pdz/codec/buffer_reader_types.hpp
+    pod5_format/pdz/codec/piecewise_split_scalar.hpp
+    pod5_format/pdz/codec/piecewise_split_sse.hpp
+    pod5_format/pdz/codec/piecewise_split_neon.hpp
 )
 
 set(public_headers)
@@ -147,6 +175,7 @@ list(APPEND public_headers
     pod5_format/run_info_table_schema.h
 
     pod5_format/signal_compression.h
+    pod5_format/pdz_compression.h
     pod5_format/signal_table_reader.h
     pod5_format/signal_table_schema.h
     pod5_format/signal_table_writer.h
@@ -185,6 +214,30 @@ set(svb16_headers
     pod5_format/svb16/intrinsics.hpp
     pod5_format/svb16/shuffle_tables.hpp
     pod5_format/svb16/simd_detect_x64.hpp
+)
+
+set(pdz_headers
+    pod5_format/pdz/pdz.hpp
+    pod5_format/pdz/attributes.hpp
+    pod5_format/pdz/codecs.hpp
+    pod5_format/pdz/memory_utils.hpp
+    pod5_format/pdz/utils.hpp
+    pod5_format/pdz/simd_backend.hpp
+    pod5_format/pdz/rice_map_sse.hpp
+    pod5_format/pdz/rice_map_neon.hpp
+    pod5_format/pdz/buffered_skip_bit_output_stream.hpp
+)
+
+set(pdz_codec_headers
+    pod5_format/pdz/codec/pdz_codec.hpp
+    pod5_format/pdz/codec/buffer_sizes.hpp
+    pod5_format/pdz/codec/buffer_u_writer.hpp
+    pod5_format/pdz/codec/buffer_lh_writer.hpp
+    pod5_format/pdz/codec/buffer_readers.hpp
+    pod5_format/pdz/codec/buffer_reader_types.hpp
+    pod5_format/pdz/codec/piecewise_split_scalar.hpp
+    pod5_format/pdz/codec/piecewise_split_sse.hpp
+    pod5_format/pdz/codec/piecewise_split_neon.hpp
 )
 
 set_target_properties(pod5_format
@@ -247,6 +300,16 @@ install(
 install(
     FILES ${svb16_headers}
     DESTINATION "include/pod5_format/svb16"
+)
+
+install(
+    FILES ${pdz_headers}
+    DESTINATION "include/pod5_format/pdz"
+)
+
+install(
+    FILES ${pdz_codec_headers}
+    DESTINATION "include/pod5_format/pdz/codec"
 )
 
 if (POD5_BUILD_EXAMPLES)

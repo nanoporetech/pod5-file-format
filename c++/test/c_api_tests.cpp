@@ -889,3 +889,166 @@ TEST_CASE("VBZ compression")
     CHECK(max_size_error == 0);
     CHECK_POD5_NOT_OK(pod5_get_error_no());
 }
+
+SCENARIO("C API selectable signal compression")
+{
+    pod5_init();
+    auto fin = gsl::finally([] { pod5_terminate(); });
+
+    static constexpr char const * filename = "./foo_c_api_compression.pod5";
+
+    // Drive the full public-C-API write→read path for each user-selectable
+    // compression option. PDZ must round-trip just like VBZ and uncompressed,
+    // and land the expected on-disk signal type.
+    auto const compression = GENERATE(
+        CompressionOption::DEFAULT_SIGNAL_COMPRESSION,
+        CompressionOption::VBZ_SIGNAL_COMPRESSION,
+        CompressionOption::UNCOMPRESSED_SIGNAL,
+        CompressionOption::PDZ_SIGNAL_COMPRESSION);
+    CAPTURE(compression);
+
+    pod5::SignalType const expected_signal_type = [&] {
+        switch (compression) {
+        case CompressionOption::UNCOMPRESSED_SIGNAL:
+            return pod5::SignalType::UncompressedSignal;
+        case CompressionOption::PDZ_SIGNAL_COMPRESSION:
+            return pod5::SignalType::PdzSignal;
+        default:  // DEFAULT and VBZ both map to VBZ.
+            return pod5::SignalType::VbzSignal;
+        }
+    }();
+
+    std::mt19937 gen{Catch::rngSeed()};
+    auto uuid_gen = pod5::UuidRandomGenerator{gen};
+    auto input_read_id = uuid_gen();
+
+    std::vector<int16_t> signal(20);
+    std::iota(signal.begin(), signal.end(), -10);
+
+    // Write the file with the selected compression option.
+    {
+        REQUIRE(remove_file_if_exists(filename).ok());
+
+        Pod5WriterOptions_t options{};
+        options.signal_compression_type = static_cast<int8_t>(compression);
+
+        auto file = pod5_create_file(filename, "c_software", &options);
+        REQUIRE(file);
+        CHECK_POD5_OK(pod5_get_error_no());
+
+        std::int16_t pore_type_id = -1;
+        CHECK_POD5_OK(pod5_add_pore(&pore_type_id, file, "pore_type"));
+
+        std::vector<char const *> context_tags_keys{"thing"};
+        std::vector<char const *> context_tags_values{"thing_val"};
+        std::vector<char const *> tracking_id_keys{"baz"};
+        std::vector<char const *> tracking_id_values{"baz_val"};
+
+        std::int16_t run_info_id = -1;
+        CHECK_POD5_OK(pod5_add_run_info(
+            &run_info_id,
+            file,
+            "acquisition_id",
+            15400,
+            4095,
+            -4096,
+            context_tags_keys.size(),
+            context_tags_keys.data(),
+            context_tags_values.data(),
+            "experiment_name",
+            "flow_cell_id",
+            "flow_cell_product_code",
+            "protocol_name",
+            "protocol_run_id",
+            200000,
+            "sample_id",
+            4000,
+            "sequencing_kit",
+            "sequencer_position",
+            "sequencer_position_type",
+            "software",
+            "system_name",
+            "system_type",
+            tracking_id_keys.size(),
+            tracking_id_keys.data(),
+            tracking_id_values.data()));
+
+        std::uint32_t read_number = 12;
+        std::uint64_t start_sample = 10245;
+        float median_before = 200.0f;
+        std::uint16_t channel = 43;
+        std::uint8_t well = 4;
+        pod5_end_reason_t end_reason = POD5_END_REASON_MUX_CHANGE;
+        uint8_t end_reason_forced = false;
+        std::uint64_t num_minknow_events = 104;
+        float tracked_scale = 4.3f, tracked_shift = 15.0f;
+        float predicted_scale = 2.3f, predicted_shift = 10.0f;
+        std::uint32_t num_reads_since_mux_change = 1234;
+        float time_since_mux_change = 2.4f;
+        float open_pore_level = 123.0f;
+        float calibration_offset = 54.0f, calibration_scale = 100.0f;
+        auto read_id_array = (read_id_t const *)input_read_id.data();
+
+        ReadBatchRowInfoArrayV4 row_data{
+            read_id_array,
+            &read_number,
+            &start_sample,
+            &median_before,
+            &channel,
+            &well,
+            &pore_type_id,
+            &calibration_offset,
+            &calibration_scale,
+            &end_reason,
+            &end_reason_forced,
+            &run_info_id,
+            &num_minknow_events,
+            &tracked_scale,
+            &tracked_shift,
+            &predicted_scale,
+            &predicted_shift,
+            &num_reads_since_mux_change,
+            &time_since_mux_change,
+            &open_pore_level};
+
+        std::int16_t const * signal_arr[] = {signal.data()};
+        std::uint32_t signal_size[] = {(std::uint32_t)signal.size()};
+
+        CHECK_POD5_OK(pod5_add_reads_data(
+            file, 1, READ_BATCH_ROW_INFO_VERSION_4, &row_data, signal_arr, signal_size));
+        CHECK_POD5_OK(pod5_close_and_free_writer(file));
+        CHECK_POD5_OK(pod5_get_error_no());
+    }
+
+    // The on-disk signal table must carry the requested compression type.
+    {
+        auto reader = pod5::open_file_reader(filename);
+        REQUIRE(reader.ok());
+        CHECK((*reader)->signal_type() == expected_signal_type);
+    }
+
+    // Read the signal back through the public C API and check it round-trips.
+    {
+        auto file = pod5_open_file(filename);
+        REQUIRE(file);
+        CHECK_POD5_OK(pod5_get_error_no());
+
+        Pod5ReadRecordBatch * batch_0 = nullptr;
+        CHECK_POD5_OK(pod5_get_read_batch(&batch_0, file, 0));
+        REQUIRE(batch_0);
+
+        std::size_t sample_count = 0;
+        CHECK_POD5_OK(pod5_get_read_complete_sample_count(file, batch_0, 0, &sample_count));
+        REQUIRE(sample_count == signal.size());
+
+        std::vector<int16_t> read_signal(sample_count);
+        CHECK_POD5_OK(
+            pod5_get_read_complete_signal(file, batch_0, 0, sample_count, read_signal.data()));
+        CHECK(read_signal == signal);
+
+        CHECK_POD5_OK(pod5_free_read_batch(batch_0));
+        CHECK_POD5_OK(pod5_close_and_free_reader(file));
+    }
+
+    REQUIRE(remove_file_if_exists(filename).ok());
+}

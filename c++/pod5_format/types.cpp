@@ -100,6 +100,56 @@ arrow::Result<std::shared_ptr<arrow::DataType>> VbzSignalType::Deserialize(
     return std::make_shared<VbzSignalType>();
 }
 
+gsl::span<std::uint8_t const> PdzSignalArray::Value(int64_t i) const
+{
+    auto const & array = static_cast<arrow::LargeBinaryArray const &>(*storage_);
+
+    arrow::LargeBinaryArray::offset_type value_length = 0;
+    auto value_ptr = array.GetValue(i, &value_length);
+    return gsl::make_span(value_ptr, value_length);
+}
+
+std::shared_ptr<arrow::Buffer> PdzSignalArray::ValueAsBuffer(int64_t i) const
+{
+    auto const & array = static_cast<arrow::LargeBinaryArray const &>(*storage_);
+
+    auto offset = array.value_offset(i);
+    auto length = array.value_length(i);
+    auto const value_data = array.value_data();
+
+    return arrow::SliceBuffer(value_data, offset, length);
+}
+
+bool PdzSignalType::ExtensionEquals(ExtensionType const & other) const
+{
+    // no parameters to consider
+    return other.extension_name() == extension_name();
+}
+
+std::shared_ptr<arrow::Array> PdzSignalType::MakeArray(std::shared_ptr<arrow::ArrayData> data) const
+{
+    DCHECK_EQ(data->type->id(), arrow::Type::EXTENSION);
+    DCHECK_EQ(
+        static_cast<arrow::ExtensionType const &>(*data->type).extension_name(), extension_name());
+    return std::make_shared<PdzSignalArray>(data);
+}
+
+std::string PdzSignalType::Serialize() const { return ""; }
+
+arrow::Result<std::shared_ptr<arrow::DataType>> PdzSignalType::Deserialize(
+    std::shared_ptr<arrow::DataType> storage_type,
+    std::string const & serialized_data) const
+{
+    if (serialized_data != "") {
+        return arrow::Status::Invalid("Unexpected type metadata: '", serialized_data, "'");
+    }
+    if (!storage_type->Equals(*arrow::large_binary())) {
+        return arrow::Status::Invalid(
+            "Incorrect storage for PdzSignalType: '", storage_type->ToString(), "'");
+    }
+    return std::make_shared<PdzSignalType>();
+}
+
 std::unique_ptr<arrow::FixedSizeBinaryBuilder> make_read_id_builder(arrow::MemoryPool * pool)
 {
     auto const & uuid_type = uuid();
@@ -113,6 +163,12 @@ std::shared_ptr<VbzSignalType> const & vbz_signal()
 {
     static auto vbz_signal = std::make_shared<VbzSignalType>();
     return vbz_signal;
+}
+
+std::shared_ptr<PdzSignalType> const & pdz_signal()
+{
+    static auto pdz_signal = std::make_shared<PdzSignalType>();
+    return pdz_signal;
 }
 
 std::shared_ptr<UuidType> const & uuid()
@@ -141,6 +197,7 @@ pod5::Status register_extension_types()
     if (++s_pod5_register_count == 1) {
         ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(uuid()));
         ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(vbz_signal()));
+        ARROW_RETURN_NOT_OK(arrow::RegisterExtensionType(pdz_signal()));
     }
     return pod5::Status::OK();
 }
@@ -155,6 +212,9 @@ pod5::Status unregister_extension_types()
         }
         if (arrow::GetExtensionType("minknow.vbz")) {
             ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.vbz"));
+        }
+        if (arrow::GetExtensionType("minknow.pdz")) {
+            ARROW_RETURN_NOT_OK(arrow::UnregisterExtensionType("minknow.pdz"));
         }
     }
     return pod5::Status::OK();

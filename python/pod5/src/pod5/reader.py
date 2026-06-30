@@ -40,7 +40,12 @@ from pod5.pod5_types import (
 )
 
 from .api_utils import Pod5ApiException, format_read_ids, pack_read_ids, safe_close
-from .signal_tools import vbz_decompress_signal, vbz_decompress_signal_into
+from .signal_tools import (
+    pdz_decompress_signal,
+    pdz_decompress_signal_into,
+    vbz_decompress_signal,
+    vbz_decompress_signal_into,
+)
 
 
 ReadRecordV3Columns = namedtuple(
@@ -363,6 +368,10 @@ class ReadRecord:
                 vbz_decompress_signal_into(
                     memoryview(signal[batch_row_index].as_buffer()), output_slice
                 )
+            elif self._reader.is_pdz_compressed:
+                pdz_decompress_signal_into(
+                    memoryview(signal[batch_row_index].as_buffer()), output_slice
+                )
             else:
                 output_slice[:] = signal[batch_row_index].values
             current_sample_index += current_row_count
@@ -467,8 +476,11 @@ class ReadRecord:
             return vbz_decompress_signal(
                 memoryview(signal[batch_row_index].as_buffer()), sample_count
             )
-
-            return signal.to_numpy()
+        elif self._reader.is_pdz_compressed:
+            sample_count = batch.samples[batch_row_index].as_py()
+            return pdz_decompress_signal(
+                memoryview(signal[batch_row_index].as_buffer()), sample_count
+            )
         else:
             return np.array(signal[batch_row_index].values, dtype="int16")
 
@@ -798,6 +810,7 @@ class Reader:
         self._cached_run_infos: Dict[str, RunInfo] = {}
 
         self._is_vbz_compressed: Optional[bool] = None
+        self._is_pdz_compressed: Optional[bool] = None
         self._signal_batch_row_count: Optional[int] = None
 
     @staticmethod
@@ -906,14 +919,42 @@ class Reader:
     def reads_table_version(self) -> int:
         return self._reads_table_version
 
+    def _signal_extension_name(self) -> Optional[str]:
+        """The Arrow extension type name of the signal column, if any.
+
+        VBZ and PDZ both store their compressed bytes as ``large_binary``, so the
+        storage type alone cannot tell them apart. pyarrow surfaces an
+        unregistered extension type as its storage type and preserves the
+        extension name in the field metadata (``ARROW:extension:name``); newer
+        pyarrow exposes it as ``field.type.extension_name``. Handle both.
+        """
+        field = self.signal_table.schema.field("signal")
+        name = getattr(field.type, "extension_name", None)
+        if name is None and field.metadata is not None:
+            raw = field.metadata.get(b"ARROW:extension:name")
+            if raw is not None:
+                name = raw.decode("utf-8")
+        return name
+
     @property
     def is_vbz_compressed(self) -> bool:
-        """Return if this file's signal is compressed"""
+        """Return if this file's signal is compressed with VBZ"""
         if self._is_vbz_compressed is None:
-            self._is_vbz_compressed = self.signal_table.schema.field(
-                "signal"
-            ).type.equals(pa.large_binary())
+            # A large_binary signal column is VBZ unless it is explicitly the PDZ
+            # extension type. Falling back to the storage-type check keeps VBZ
+            # detection working even when the extension name is unavailable.
+            is_binary = self.signal_table.schema.field("signal").type.equals(
+                pa.large_binary()
+            )
+            self._is_vbz_compressed = is_binary and not self.is_pdz_compressed
         return self._is_vbz_compressed
+
+    @property
+    def is_pdz_compressed(self) -> bool:
+        """Return if this file's signal is compressed with PDZ"""
+        if self._is_pdz_compressed is None:
+            self._is_pdz_compressed = self._signal_extension_name() == "minknow.pdz"
+        return self._is_pdz_compressed
 
     @property
     def signal_batch_row_count(self) -> int:

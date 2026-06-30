@@ -181,6 +181,8 @@ def do_summary_command(reader: p5.Reader, **kwargs):
     print(f"File version on disk {reader.file_version_pre_migration}.")
     if reader.is_vbz_compressed:
         print("File uses VBZ compression.")
+    elif reader.is_pdz_compressed:
+        print("File uses PDZ compression.")
     else:
         print("File is uncompressed.")
 
