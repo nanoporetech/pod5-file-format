@@ -41,7 +41,7 @@ arrow::Result<std::size_t> compressed_signal_max_size(std::size_t sample_count)
             sample_count, " samples exceeds max of ", max_uncompressed_samples);
     }
 
-    auto const max_svb_size = svb16_max_encoded_length(sample_count);
+    auto const max_svb_size = svb16::max_encoded_length(sample_count);
     auto const zstd_compressed_max_size = ZSTD_compressBound(max_svb_size);
     if (ZSTD_isError(zstd_compressed_max_size)) {
         return pod5::Status::Invalid(
@@ -68,7 +68,7 @@ arrow::Result<std::size_t> compress_signal(
     }
 
     // First compress the data using svb:
-    auto const max_size = svb16_max_encoded_length(sample_count);
+    auto const max_size = svb16::max_encoded_length(sample_count);
     ARROW_ASSIGN_OR_RAISE(auto intermediate, arrow::AllocateResizableBuffer(max_size, pool));
 
     static constexpr bool UseDelta = true;
@@ -157,7 +157,7 @@ arrow::Status decompress_signal(
     //     *   note 5 : If source is untrusted, decompressed size could be wrong or intentionally modified.
     //     *            Always ensure return value fits within application's authorized limits.
     //     *            Each application can set its own limits.
-    std::size_t const max_svb16_compressed_size = svb16_max_encoded_length(destination.size());
+    std::size_t const max_svb16_compressed_size = svb16::max_encoded_length(destination.size());
     if (decompressed_zstd_size > max_svb16_compressed_size) {
         return arrow::Status::Invalid(
             "Input data corrupt: claimed size (",

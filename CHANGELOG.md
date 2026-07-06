@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.45] Unreleased
 
+### Changed
+
+- svb16 code is now in a consistent namespace.
+
 ## [0.3.44]
 
 ### Changed

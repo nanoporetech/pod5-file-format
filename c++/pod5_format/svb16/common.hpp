@@ -36,3 +36,6 @@ inline int svb16_popcount(unsigned int i)
     return (i * 0x01010101) >> 24;                   // horizontal sum of bytes
 }
 #endif
+
+#include <bit>
+static_assert(std::endian::native == std::endian::little, "Big endian hasn't been tested");

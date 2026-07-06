@@ -22,17 +22,19 @@ void test_scalar_encode_scalar_decode()
         std::numeric_limits<Int16T>::min(), std::numeric_limits<Int16T>::max()};
     std::generate(data.begin(), data.end(), [&] { return dist(rng); });
 
-    std::vector<uint8_t> encoded(svb16_max_encoded_length(data.size()));
-    auto const encoded_count =
-        svb16::encode_scalar<Int16T, UseDelta, UseZigzag>(
-            data.data(), encoded.data(), encoded.data() + svb16_key_length(data.size()), DATA_COUNT)
-        - encoded.data();
+    std::vector<uint8_t> encoded(svb16::max_encoded_length(data.size()));
+    auto const encoded_count = svb16::encode_scalar<Int16T, UseDelta, UseZigzag>(
+                                   data.data(),
+                                   encoded.data(),
+                                   encoded.data() + svb16::key_length(data.size()),
+                                   DATA_COUNT)
+                               - encoded.data();
 
-    CHECK(encoded_count <= svb16_max_encoded_length(data.size()));
+    CHECK(encoded_count <= svb16::max_encoded_length(data.size()));
 
     std::vector<Int16T> decoded(DATA_COUNT);
     auto const encoded_span = gsl::make_span(encoded);
-    auto const key_length = svb16_key_length(data.size());
+    auto const key_length = svb16::key_length(data.size());
     auto const consumed = svb16::decode_scalar<Int16T, UseDelta, UseZigzag>(
                               gsl::make_span(decoded),
                               encoded_span.subspan(0, key_length),
