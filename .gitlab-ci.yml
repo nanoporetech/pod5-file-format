@@ -22,6 +22,9 @@ variables:
   CMAKE_VERSION: "4.2.3"
   # Use the arrow packages we have built.
   POD5_CONAN_INSTALL_ARROW_ARGS: "-o:a arrow/*:with_boost=False -o:a arrow/*:with_thrift=False -o:a arrow/*:parquet=False -o:a arrow/*:with_zstd=True"
+  # skip_binaries=False is required in order to grab licences.
+  # See https://docs.conan.io/2.30/examples/extensions/deployers/sources/custom_deployer_sources.html#deploy
+  POD5_CONAN_INSTALL_LICENCE_ARGS: "-c tools.graph:skip_binaries=False"
 
 workflow:
   rules:
@@ -249,6 +252,7 @@ build-standalone-ubu22:
   - ${conan_exe} install
     --profile:all ${CONAN_PROFILE}
     ${POD5_CONAN_INSTALL_ARROW_ARGS}
+    ${POD5_CONAN_INSTALL_LICENCE_ARGS}
     ..
   - cmake ${CMAKE_ARGS}
     -D BUILD_SHARED_LIB=ON
@@ -668,6 +672,7 @@ benchmark-linux-aarch64:
     -   conan install
           --profile:all ${CONAN_PROFILE}
           ${POD5_CONAN_INSTALL_ARROW_ARGS}
+          ${POD5_CONAN_INSTALL_LICENCE_ARGS}
           ..
     -   cmake
           -D CMAKE_TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake

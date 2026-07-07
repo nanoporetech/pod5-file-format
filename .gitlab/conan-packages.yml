@@ -39,7 +39,7 @@
       # select the build profile
     - opts+=(-pr:a "${PROFILE_BASE}")
     - echo "Running conan create . ${opts[@]}"
-    - conan create . "${opts[@]}" ${POD5_CONAN_INSTALL_ARROW_ARGS}
+    - conan create . "${opts[@]}" ${POD5_CONAN_INSTALL_ARROW_ARGS} ${POD5_CONAN_INSTALL_LICENCE_ARGS}
     - conan remote enable "$CONAN_REPO"
     - conan remote auth --force "$CONAN_REPO"
     - conan upload "pod5_file_format/*:*" --check --confirm "--remote=$CONAN_REPO" ${UPLOAD_ARGS}
