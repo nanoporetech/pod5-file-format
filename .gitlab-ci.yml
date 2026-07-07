@@ -15,7 +15,6 @@ default:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
-  DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
   CONAN_PROFILE_BUILD_TYPE: Release
   CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost"
   CONAN_VENV_PYTHON: "3.13"
