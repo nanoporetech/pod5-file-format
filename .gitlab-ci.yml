@@ -15,11 +15,18 @@ default:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
-  DO_UPLOAD: "yes" # Always upload in conan upload jobs (only run on tags)
   CONAN_PROFILE_BUILD_TYPE: Release
-  CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost"
+  # use an arrow package that doesn't use Boost, even on Windows
+  # use patched jemalloc 5.2.1 to get around "non-positive bound in array definition" issue
+  # note that the jemalloc override can go away once we've upgraded to 5.3
+  CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost;jemalloc/5.2.1:jemalloc/5.2.1@nanopore/stable"
   CONAN_VENV_PYTHON: "3.13"
   CMAKE_VERSION: "4.2.3"
+  # Use the arrow packages we have built.
+  POD5_CONAN_INSTALL_ARROW_ARGS: "-o:a arrow/*:with_boost=False -o:a arrow/*:with_thrift=False -o:a arrow/*:parquet=False -o:a arrow/*:with_zstd=True"
+  # skip_binaries=False is required in order to grab licences.
+  # See https://docs.conan.io/2.30/examples/extensions/deployers/sources/custom_deployer_sources.html#deploy
+  POD5_CONAN_INSTALL_LICENCE_ARGS: "-c tools.graph:skip_binaries=False"
 
 workflow:
   rules:
@@ -244,7 +251,11 @@ build-standalone-ubu22:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
   - cd build
-  - ${conan_exe} install --profile:all ${CONAN_PROFILE} -o:a 'arrow/*:with_boost=False' -o:a 'arrow/*:with_thrift=False' -o:a 'arrow/*:parquet=False' -o:a 'arrow/*:with_zstd=True' ..
+  - ${conan_exe} install
+    --profile:all ${CONAN_PROFILE}
+    ${POD5_CONAN_INSTALL_ARROW_ARGS}
+    ${POD5_CONAN_INSTALL_LICENCE_ARGS}
+    ..
   - cmake ${CMAKE_ARGS}
     -D BUILD_SHARED_LIB=ON
     -D CMAKE_BUILD_TYPE=Release
@@ -662,10 +673,8 @@ benchmark-linux-aarch64:
     - pushd build
     -   conan install
           --profile:all ${CONAN_PROFILE}
-          -o:a 'arrow/*:with_boost=False'
-          -o:a 'arrow/*:with_thrift=False'
-          -o:a 'arrow/*:with_zstd=True'
-          -o:a 'arrow/*:parquet=False'
+          ${POD5_CONAN_INSTALL_ARROW_ARGS}
+          ${POD5_CONAN_INSTALL_LICENCE_ARGS}
           ..
     -   cmake
           -D CMAKE_TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake

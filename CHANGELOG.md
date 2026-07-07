@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - svb16 code is now in a consistent namespace.
 
+### Fixed
+
+- Added back xsimd licence file.
+
 ## [0.3.44]
 
 ### Changed
