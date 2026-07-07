@@ -38,10 +38,8 @@
     - opts+=("--build=pod5_file_format/*")
       # select the build profile
     - opts+=(-pr:a "${PROFILE_BASE}")
-      # use the arrow packages we have built
-    - opts+=('-o:a=arrow/*:with_thrift=False' '-o:a=arrow/*:parquet=False' '-o:a=arrow/*:with_zstd=True' '-o:a=arrow/*:with_boost=False')
     - echo "Running conan create . ${opts[@]}"
-    - conan create . "${opts[@]}"
+    - conan create . "${opts[@]}" ${POD5_CONAN_INSTALL_ARROW_ARGS}
     - conan remote enable "$CONAN_REPO"
     - conan remote auth --force "$CONAN_REPO"
     - conan upload "pod5_file_format/*:*" --check --confirm "--remote=$CONAN_REPO" ${UPLOAD_ARGS}

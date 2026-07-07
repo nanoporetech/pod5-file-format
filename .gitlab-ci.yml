@@ -20,6 +20,8 @@ variables:
   CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost"
   CONAN_VENV_PYTHON: "3.13"
   CMAKE_VERSION: "4.2.3"
+  # Use the arrow packages we have built.
+  POD5_CONAN_INSTALL_ARROW_ARGS: "-o:a arrow/*:with_boost=False -o:a arrow/*:with_thrift=False -o:a arrow/*:parquet=False -o:a arrow/*:with_zstd=True"
 
 workflow:
   rules:
@@ -244,7 +246,10 @@ build-standalone-ubu22:
   - pod5_version="$(cmake -P ci/get_tag_version.cmake 2>&1)"
   - mkdir -p build
   - cd build
-  - ${conan_exe} install --profile:all ${CONAN_PROFILE} -o:a 'arrow/*:with_boost=False' -o:a 'arrow/*:with_thrift=False' -o:a 'arrow/*:parquet=False' -o:a 'arrow/*:with_zstd=True' ..
+  - ${conan_exe} install
+    --profile:all ${CONAN_PROFILE}
+    ${POD5_CONAN_INSTALL_ARROW_ARGS}
+    ..
   - cmake ${CMAKE_ARGS}
     -D BUILD_SHARED_LIB=ON
     -D CMAKE_BUILD_TYPE=Release
@@ -662,10 +667,7 @@ benchmark-linux-aarch64:
     - pushd build
     -   conan install
           --profile:all ${CONAN_PROFILE}
-          -o:a 'arrow/*:with_boost=False'
-          -o:a 'arrow/*:with_thrift=False'
-          -o:a 'arrow/*:with_zstd=True'
-          -o:a 'arrow/*:parquet=False'
+          ${POD5_CONAN_INSTALL_ARROW_ARGS}
           ..
     -   cmake
           -D CMAKE_TOOLCHAIN_FILE=build/generators/conan_toolchain.cmake
