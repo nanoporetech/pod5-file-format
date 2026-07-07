@@ -16,7 +16,10 @@ variables:
   GIT_SUBMODULE_STRATEGY: recursive
   STABLE_BRANCH_NAME: master
   CONAN_PROFILE_BUILD_TYPE: Release
-  CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost"
+  # use an arrow package that doesn't use Boost, even on Windows
+  # use patched jemalloc 5.2.1 to get around "non-positive bound in array definition" issue
+  # note that the jemalloc override can go away once we've upgraded to 5.3
+  CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost;jemalloc/5.2.1:jemalloc/5.2.1@nanopore/stable"
   CONAN_VENV_PYTHON: "3.13"
   CMAKE_VERSION: "4.2.3"
   # Use the arrow packages we have built.
