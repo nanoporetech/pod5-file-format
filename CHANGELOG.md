@@ -9,9 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.45] Unreleased
 
+### Added
+
+- Virtual file (read-table) version migration from POD5 v3 which is set as the minimum physical migration version.
+- C++ `logical_schema_metadata` and `physical_schema_metadata` methods.
+- C++ `Pod5FileReaderPtr` members `get_original_file_version`, `get_logical_file_version`, `get_physical_read_table_version`, and `get_logical_read_table_version` to expose the physical/logical
+migration state of the file.
+- Python `Reader` properties `original_file_version`, `logical_file_version`, `physical_read_table_version`, and `logical_read_table_version`.
+
 ### Changed
 
 - svb16 code is now in a consistent namespace.
+- On-open file migration from v3 to v5 is now virtual.
 
 ### Fixed
 

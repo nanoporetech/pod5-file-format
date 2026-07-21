@@ -20,11 +20,17 @@ std::shared_ptr<arrow::Schema> SchemaDescriptionBase::make_writer_schema(
 
 Status SchemaDescriptionBase::read_schema(
     std::shared_ptr<SchemaDescriptionBase> dest_schema,
-    SchemaMetadataDescription const & schema_metadata,
     std::shared_ptr<arrow::Schema> const & schema)
 {
-    dest_schema->m_table_spec_version =
-        dest_schema->table_version_from_file_version(schema_metadata.writing_pod5_version);
+    // Infer the table version number from the field with the latest added version
+    dest_schema->m_table_spec_version = TableSpecVersion::first_version();
+    for (auto & field : dest_schema->fields()) {
+        if (schema->GetFieldIndex(field->name()) != -1
+            && dest_schema->m_table_spec_version < field->added_table_spec_version())
+        {
+            dest_schema->m_table_spec_version = field->added_table_spec_version();
+        }
+    }
 
     for (auto & field : dest_schema->fields()) {
         if (dest_schema->table_version() < field->added_table_spec_version()

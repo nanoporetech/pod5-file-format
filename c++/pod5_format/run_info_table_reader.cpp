@@ -260,8 +260,7 @@ Result<RunInfoTableReader> make_run_info_table_reader(
     }
     ARROW_ASSIGN_OR_RAISE(
         auto read_metadata, read_schema_key_value_metadata(read_metadata_key_values));
-    ARROW_ASSIGN_OR_RAISE(
-        auto field_locations, read_run_info_table_schema(read_metadata, reader->schema()));
+    ARROW_ASSIGN_OR_RAISE(auto field_locations, read_run_info_table_schema(reader->schema()));
 
     return RunInfoTableReader(
         {input}, std::move(reader), field_locations, std::move(read_metadata), pool);

@@ -35,6 +35,14 @@ logger = init_logging()
 
 pl.enable_string_cache()
 
+# Names of selectable read table fields which might not be available on-disk
+# These all returns default NaN (float) values.
+VIRTUAL_READ_TABLE_FIELDS = {
+    "open_pore_level",
+    "expected_open_pore_level",
+    "selected_read_level",
+}
+
 
 class Selection(NamedTuple):
     selected: Set[str]  # The set of column names selected
@@ -429,6 +437,26 @@ def parse_reads_table_batch(
     return reads_batch, num_reads
 
 
+def add_virtual_read_table_columns(
+    reader: p5.Reader, selection: Selection, reads: pl.LazyFrame
+) -> pl.LazyFrame:
+    """
+    Add requested virtual read table columns which have not been
+    materialised by a physical version migration.
+    """
+    schema_names = set(reader.read_table.schema.names)
+    missing_fields = selection.reads_fields - schema_names
+    exprs: List[pl.Expr] = []
+
+    for name in sorted(missing_fields):
+        if name in VIRTUAL_READ_TABLE_FIELDS:
+            exprs.append(pl.lit(float("nan")).cast(pl.Float32).alias(name))
+
+    if not exprs:
+        return reads
+    return reads.with_columns(exprs)
+
+
 @logged_all
 def parse_read_table_chunks(
     reader: p5.Reader, included_fields: List[int], approx_size: int = 99_999
@@ -501,8 +529,11 @@ def get_included_reads_table_fields(reader: p5.Reader, selection: Selection):
         if name in selection.reads_fields:
             included_fields.append(field_idx)
 
-    # "filename" isn't a field, so we expect the selected fields to be empty in that case.
-    if (not included_fields) and (list(selection.selected) != ["filename"]):
+    virtual_reads_fields = selection.reads_fields & VIRTUAL_READ_TABLE_FIELDS
+    # "filename" is a virtual field, so we expect the selected fields to be empty in that case.
+    not_only_filename = selection.selected != {"filename"}
+    not_only_virtual = virtual_reads_fields != selection.reads_fields
+    if not included_fields and not_only_filename and not_only_virtual:
         raise KeyError(
             f"No reads fields set in {selection.selected=} {selection.reads_fields=}"
         )
@@ -529,6 +560,7 @@ def get_reads_tables(
 
         if reader.num_reads <= threshold:
             reads_table = parse_reads_table_all(reader, included_fields)
+            reads_table = add_virtual_read_table_columns(reader, selection, reads_table)
             if run_info is not None:
                 reads_table = join_reads_to_run_info(reads_table, run_info)
 
@@ -538,6 +570,7 @@ def get_reads_tables(
         for reads_chunk in parse_read_table_chunks(
             reader, included_fields, approx_size=threshold - 1
         ):
+            reads_chunk = add_virtual_read_table_columns(reader, selection, reads_chunk)
             if run_info is not None:
                 reads_chunk = join_reads_to_run_info(reads_chunk, run_info)
             yield format_view_table_fn(reads_chunk)

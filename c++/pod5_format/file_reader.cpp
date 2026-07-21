@@ -6,6 +6,7 @@
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/run_info_table_reader.h"
 #include "pod5_format/signal_table_reader.h"
+#include "pod5_format/version_constants.h"
 
 #include <arrow/io/concurrency.h>
 #include <arrow/io/file.h>
@@ -57,6 +58,16 @@ void warn_if_stat_size_and_blocks_differ_significantly(std::string const & path)
 #else
 void warn_if_stat_size_and_blocks_differ_significantly(std::string const &) {}
 #endif
+
+SchemaMetadataDescription update_writing_pod5_version_to_latest(
+    SchemaMetadataDescription physical_metadata)
+{
+    if (physical_metadata.writing_pod5_version < kPod5VersionReadTableLatest) {
+        physical_metadata.writing_pod5_version = kPod5VersionReadTableLatest;
+    }
+    return physical_metadata;
+}
+
 }  // namespace
 
 FileReaderOptions::FileReaderOptions()
@@ -64,6 +75,10 @@ FileReaderOptions::FileReaderOptions()
 , m_max_cached_signal_table_batches(DEFAULT_MAX_CACHED_SIGNAL_TABLE_BATCHES)
 {
 }
+
+SchemaMetadataDescription FileReader::schema_metadata() const { return logical_schema_metadata(); }
+
+Version FileReader::file_version_pre_migration() const { return original_file_version(); }
 
 void FileReaderOptions::set_max_cached_signal_table_batches(
     std::size_t max_cached_signal_table_batches)
@@ -82,25 +97,32 @@ inline FileLocation make_file_locaton(combined_file_utils::ParsedFileInfo const 
 class FileReaderImpl : public FileReader {
 public:
     FileReaderImpl(
-        Version const & file_version_pre_migration,
+        Version const & original_file_version,
         MigrationResult && migration_result,
         RunInfoTableReader && run_info_table_reader,
         ReadTableReader && read_table_reader,
         SignalTableReader && signal_table_reader)
-    : m_file_version_pre_migration(file_version_pre_migration)
+    : m_original_file_version(original_file_version)
     , m_migration_result(std::move(migration_result))
     , m_run_info_table_location(make_file_locaton(m_migration_result.footer().run_info_table))
     , m_read_table_location(make_file_locaton(m_migration_result.footer().reads_table))
     , m_signal_table_location(make_file_locaton(m_migration_result.footer().signal_table))
+    , m_physical_schema_metadata(read_table_reader.schema_metadata())
+    , m_logical_schema_metadata(update_writing_pod5_version_to_latest(m_physical_schema_metadata))
     , m_run_info_table_reader(std::move(run_info_table_reader))
     , m_read_table_reader(std::move(read_table_reader))
     , m_signal_table_reader(std::move(signal_table_reader))
     {
     }
 
-    SchemaMetadataDescription schema_metadata() const override
+    SchemaMetadataDescription logical_schema_metadata() const override
     {
-        return m_read_table_reader.schema_metadata();
+        return m_logical_schema_metadata;
+    }
+
+    SchemaMetadataDescription physical_schema_metadata() const override
+    {
+        return m_physical_schema_metadata;
     }
 
     Result<std::size_t> run_info_count() const override
@@ -184,7 +206,24 @@ public:
 
     FileLocation const & signal_table_location() const override { return m_signal_table_location; }
 
-    Version file_version_pre_migration() const override { return m_file_version_pre_migration; }
+    combined_file_utils::ParsedFooter const & parsed_footer() const override
+    {
+        return m_migration_result.footer();
+    }
+
+    Version logical_file_version() const override
+    {
+        return m_logical_schema_metadata.writing_pod5_version;
+    }
+
+    Version original_file_version() const override { return m_original_file_version; }
+
+    int physical_read_table_version() const override { return m_read_table_reader.table_version(); }
+
+    int logical_read_table_version() const override
+    {
+        return ReadTableSpecVersion::latest().as_int();
+    }
 
     SignalType signal_type() const override { return m_signal_table_reader.signal_type(); }
 
@@ -205,11 +244,13 @@ public:
     }
 
 private:
-    Version m_file_version_pre_migration;
+    Version m_original_file_version;
     MigrationResult m_migration_result;
     FileLocation m_run_info_table_location;
     FileLocation m_read_table_location;
     FileLocation m_signal_table_location;
+    SchemaMetadataDescription m_physical_schema_metadata;
+    SchemaMetadataDescription m_logical_schema_metadata;
     RunInfoTableReader m_run_info_table_reader;
     ReadTableReader m_read_table_reader;
     SignalTableReader m_signal_table_reader;
@@ -251,7 +292,7 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
         parse_version_number(original_footer_metadata.writer_pod5_version));
     ARROW_ASSIGN_OR_RAISE(
         auto migration_result,
-        migrate_if_required(original_writer_version, original_footer_metadata, file, pool));
+        migrate_to_minimum(original_writer_version, original_footer_metadata, pool));
 
     // Files are written standalone, and so needs to be treated with a file offset - it wants to seek around as if the reads file is standalone:
 

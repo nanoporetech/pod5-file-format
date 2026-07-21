@@ -1,6 +1,7 @@
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/migration/migration_utils.h"
 #include "pod5_format/table_reader.h"
+#include "pod5_format/version_constants.h"
 
 #include <arrow/array/builder_primitive.h>
 #include <arrow/status.h>
@@ -34,7 +35,7 @@ arrow::Result<MigrationResult> migrate_v0_to_v1(
             auto v1_schema, arrow::UnifySchemas({v0_reader.schema, v1_new_schama}));
 
         ARROW_ASSIGN_OR_RAISE(
-            auto new_metadata, update_metadata(v0_reader.metadata, Version(0, 0, 24)));
+            auto new_metadata, update_metadata(v0_reader.metadata, kPod5VersionReadTableV1));
         ARROW_ASSIGN_OR_RAISE(
             auto v1_writer,
             make_record_batch_writer(

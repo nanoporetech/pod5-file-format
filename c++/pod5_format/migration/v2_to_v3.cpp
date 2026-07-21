@@ -1,6 +1,7 @@
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/migration/migration_utils.h"
 #include "pod5_format/types.h"
+#include "pod5_format/version_constants.h"
 
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_primitive.h>
@@ -126,7 +127,7 @@ arrow::Result<MigrationResult> migrate_v2_to_v3(
         ARROW_ASSIGN_OR_RAISE(
             auto v2_reader, open_record_batch_reader(pool, v2_input.footer().reads_table));
         ARROW_ASSIGN_OR_RAISE(
-            auto new_metadata, update_metadata(v2_reader.metadata, Version(0, 0, 35)));
+            auto new_metadata, update_metadata(v2_reader.metadata, kPod5VersionReadTableV3Written));
 
         auto const num_record_batches = v2_reader.reader->num_record_batches();
 

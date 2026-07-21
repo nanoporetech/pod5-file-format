@@ -11,6 +11,7 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/array/builder_binary.h>
 
+#include <limits>
 #include <numeric>
 #include <unordered_set>
 
@@ -81,9 +82,13 @@ arrow::Result<ReadReadData> read_read_data(
         auto const & num_reads_since_mux_change =
             columns.num_reads_since_mux_change->Value(batch_row);
         auto const & time_since_mux_change = columns.time_since_mux_change->Value(batch_row);
-        auto const & open_pore_level = columns.open_pore_level->Value(batch_row);
-        auto const & expected_open_pore_level = columns.expected_open_pore_level->Value(batch_row);
-        auto const & selected_read_level = columns.selected_read_level->Value(batch_row);
+        auto const open_pore_level = columns.open_pore_level->Value(batch_row);
+        auto const expected_open_pore_level =
+            columns.expected_open_pore_level ? columns.expected_open_pore_level->Value(batch_row)
+                                             : std::numeric_limits<float>::quiet_NaN();
+        auto const selected_read_level = columns.selected_read_level
+                                             ? columns.selected_read_level->Value(batch_row)
+                                             : std::numeric_limits<float>::quiet_NaN();
         auto const & num_samples = columns.num_samples->Value(batch_row);
 
         auto const & pore_type_index = source_reads_pore_type_column.Value(batch_row);

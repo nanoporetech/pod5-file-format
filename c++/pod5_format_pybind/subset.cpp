@@ -365,13 +365,12 @@ void subset_pod5s_with_mapping(
                 }
                 auto const & input_reader = *input_reader_opt;
                 if (!issued_migration_warning && out_st == 0) {
-                    auto const pre_migration_version = input_reader->file_version_pre_migration();
-                    auto const post_migration_version =
-                        input_reader->schema_metadata().writing_pod5_version;
-                    if (pre_migration_version != post_migration_version) {
+                    auto const original_file_version = input_reader->original_file_version();
+                    auto const logical_file_version = input_reader->logical_file_version();
+                    if (original_file_version != logical_file_version) {
                         std::cerr << "Warning: Migrated an input from POD5 version "
-                                  << pre_migration_version.to_string() << " to "
-                                  << post_migration_version.to_string()
+                                  << original_file_version.to_string() << " to "
+                                  << logical_file_version.to_string()
                                   << " while subsetting. This can affect performance "
                                      "significantly. Consider updating input files."
                                   << std::endl;

@@ -196,10 +196,21 @@ struct Pod5FileReaderPtr {
         return reader->signal_table_location();
     }
 
-    std::string get_file_version_pre_migration() const
+    std::string get_file_version_pre_migration() const { return get_original_file_version(); }
+
+    std::string get_original_file_version() const
     {
-        return reader->file_version_pre_migration().to_string();
+        return reader->original_file_version().to_string();
     }
+
+    std::string get_logical_file_version() const
+    {
+        return reader->logical_file_version().to_string();
+    }
+
+    int get_physical_read_table_version() const { return reader->physical_read_table_version(); }
+
+    int get_logical_read_table_version() const { return reader->logical_read_table_version(); }
 
     void close() { reader = nullptr; }
 

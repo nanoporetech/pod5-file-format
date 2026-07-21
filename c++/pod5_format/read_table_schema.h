@@ -65,7 +65,7 @@ public:
     ReadTableSchemaDescription(ReadTableSchemaDescription const &) = delete;
     ReadTableSchemaDescription & operator=(ReadTableSchemaDescription const &) = delete;
 
-    TableSpecVersion table_version_from_file_version(Version file_version) const override;
+    TableSpecVersion latest_table_version() const override;
 
     // V0 fields
     Field<0, UuidArray> read_id;
@@ -144,7 +144,6 @@ public:
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(
-    SchemaMetadataDescription const & schema_metadata,
     std::shared_ptr<arrow::Schema> const &);
 
 }  // namespace pod5

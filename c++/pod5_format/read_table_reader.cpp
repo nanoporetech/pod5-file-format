@@ -8,11 +8,33 @@
 #include <arrow/array/array_dict.h>
 #include <arrow/array/array_nested.h>
 #include <arrow/array/array_primitive.h>
+#include <arrow/array/builder_primitive.h>
 #include <arrow/ipc/reader.h>
 
 #include <algorithm>
+#include <limits>
 
 namespace pod5 {
+
+namespace {
+
+Result<std::shared_ptr<arrow::FloatArray>> make_nan_float_column(std::int64_t row_count)
+{
+    if (row_count < 0) {
+        return arrow::Status::Invalid("Invalid number of rows");
+    }
+
+    arrow::FloatBuilder builder;
+    ARROW_RETURN_NOT_OK(builder.Reserve(row_count));
+    for (std::int64_t row = 0; row < row_count; ++row) {
+        builder.UnsafeAppend(std::numeric_limits<float>::quiet_NaN());
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+    return std::static_pointer_cast<arrow::FloatArray>(array);
+}
+
+}  // namespace
 
 ReadTableRecordBatch::ReadTableRecordBatch(
     std::shared_ptr<arrow::RecordBatch> && batch,
@@ -41,7 +63,8 @@ std::shared_ptr<arrow::ListArray> ReadTableRecordBatch::signal_column() const
 Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
 {
     ReadTableRecordColumns result;
-    result.table_version = m_field_locations->table_version();
+    auto const physical_table_version = m_field_locations->table_version();
+    result.table_version = physical_table_version;
 
     auto const & bat = batch();
 
@@ -53,7 +76,7 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
     result.median_before = find_column(bat, m_field_locations->median_before);
 
     // V1 fields:
-    if (result.table_version >= ReadTableSpecVersion::v1()) {
+    if (physical_table_version >= ReadTableSpecVersion::v1()) {
         result.num_minknow_events = find_column(bat, m_field_locations->num_minknow_events);
 
         result.tracked_scaling_scale = find_column(bat, m_field_locations->tracked_scaling_scale);
@@ -68,12 +91,12 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
     }
 
     // V2 fields:
-    if (result.table_version >= ReadTableSpecVersion::v2()) {
+    if (physical_table_version >= ReadTableSpecVersion::v2()) {
         result.num_samples = find_column(bat, m_field_locations->num_samples);
     }
 
     // V3 fields:
-    if (result.table_version >= ReadTableSpecVersion::v3()) {
+    if (physical_table_version >= ReadTableSpecVersion::v3()) {
         result.channel = find_column(bat, m_field_locations->channel);
         result.well = find_column(bat, m_field_locations->well);
         result.pore_type = find_column(bat, m_field_locations->pore_type);
@@ -84,14 +107,24 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
         result.run_info = find_column(bat, m_field_locations->run_info);
     }
 
-    if (result.table_version >= ReadTableSpecVersion::v4()) {
+    if (physical_table_version >= ReadTableSpecVersion::v4()) {
         result.open_pore_level = find_column(bat, m_field_locations->open_pore_level);
+    } else if (physical_table_version >= ReadTableSpecVersion::v3()) {
+        // Virtual column avoids v3 to v4 physical migration
+        ARROW_ASSIGN_OR_RAISE(result.open_pore_level, make_nan_float_column(bat->num_rows()));
+        result.table_version = ReadTableSpecVersion::v4();
     }
 
-    if (result.table_version >= ReadTableSpecVersion::v5()) {
+    if (physical_table_version >= ReadTableSpecVersion::v5()) {
         result.expected_open_pore_level =
             find_column(bat, m_field_locations->expected_open_pore_level);
         result.selected_read_level = find_column(bat, m_field_locations->selected_read_level);
+    } else if (result.table_version >= ReadTableSpecVersion::v4()) {
+        // Virtual column avoids v4 to v5 physical migration
+        ARROW_ASSIGN_OR_RAISE(
+            result.expected_open_pore_level, make_nan_float_column(bat->num_rows()));
+        ARROW_ASSIGN_OR_RAISE(result.selected_read_level, make_nan_float_column(bat->num_rows()));
+        result.table_version = ReadTableSpecVersion::v5();
     }
 
     return result;
@@ -230,6 +263,8 @@ Result<ReadTableRecordBatch> ReadTableReader::read_record_batch(std::size_t i) c
     return ReadTableRecordBatch{std::move(record_batch), m_field_locations};
 }
 
+int ReadTableReader::table_version() const { return m_field_locations->table_version().as_int(); }
+
 Status ReadTableReader::build_read_id_lookup() const
 {
     std::lock_guard lock(m_sorted_file_read_ids_mutex);
@@ -349,8 +384,7 @@ Result<ReadTableReader> make_read_table_reader(
     }
     ARROW_ASSIGN_OR_RAISE(
         auto read_metadata, read_schema_key_value_metadata(read_metadata_key_values));
-    ARROW_ASSIGN_OR_RAISE(
-        auto field_locations, read_read_table_schema(read_metadata, reader->schema()));
+    ARROW_ASSIGN_OR_RAISE(auto field_locations, read_read_table_schema(reader->schema()));
 
     return ReadTableReader(
         {input}, std::move(reader), field_locations, std::move(read_metadata), pool);

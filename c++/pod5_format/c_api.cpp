@@ -219,7 +219,7 @@ pod5_error_t pod5_get_file_info(Pod5FileReader_t const * reader, FileInfo * file
         return g_pod5_error_no;
     }
 
-    auto const metadata = reader->reader->schema_metadata();
+    auto const metadata = reader->reader->logical_schema_metadata();
     metadata.file_identifier.to_c_array(file_info->file_identifier);
 
     file_info->version.major = metadata.writing_pod5_version.major_version();

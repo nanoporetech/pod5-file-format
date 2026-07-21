@@ -55,19 +55,16 @@ RunInfoTableSchemaDescription::RunInfoTableSchemaDescription()
 {
 }
 
-TableSpecVersion RunInfoTableSchemaDescription::table_version_from_file_version(
-    Version file_version) const
+TableSpecVersion RunInfoTableSchemaDescription::latest_table_version() const
 {
     return RunInfoTableSpecVersion::latest();
 }
 
 Result<std::shared_ptr<RunInfoTableSchemaDescription const>> read_run_info_table_schema(
-    SchemaMetadataDescription const & schema_metadata,
     std::shared_ptr<arrow::Schema> const & schema)
 {
     auto result = std::make_shared<RunInfoTableSchemaDescription>();
-    ARROW_RETURN_NOT_OK(
-        RunInfoTableSchemaDescription::read_schema(result, schema_metadata, schema));
+    ARROW_RETURN_NOT_OK(RunInfoTableSchemaDescription::read_schema(result, schema));
 
     return result;
 }

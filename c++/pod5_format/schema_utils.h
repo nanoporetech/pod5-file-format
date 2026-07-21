@@ -123,12 +123,7 @@ public:
         return reinterpret_cast<std::vector<FieldBase const *> const &>(m_fields);
     }
 
-    TableSpecVersion latest_table_version() const
-    {
-        return table_version_from_file_version(current_build_version_number());
-    }
-
-    virtual TableSpecVersion table_version_from_file_version(Version file_version) const = 0;
+    virtual TableSpecVersion latest_table_version() const = 0;
 
     TableSpecVersion table_version() const { return m_table_spec_version; }
 
@@ -140,7 +135,6 @@ public:
 
     static Status read_schema(
         std::shared_ptr<SchemaDescriptionBase> dest_schema,
-        SchemaMetadataDescription const & schema_metadata,
         std::shared_ptr<arrow::Schema> const & schema);
 
 private:
