@@ -14,6 +14,10 @@ class Buffer;
 class MemoryPool;
 }  // namespace arrow
 
+namespace pod5::combined_file_utils {
+struct ParsedFooter;
+}
+
 namespace pod5 {
 
 class Version;
@@ -72,8 +76,14 @@ class POD5_FORMAT_EXPORT FileReader {
 public:
     virtual ~FileReader() = default;
 
-    /// \brief Find the read schema metadata for this file.
-    virtual SchemaMetadataDescription schema_metadata() const = 0;
+    /// \brief Find the read schema metadata exposed by the reader after logical migration.
+    virtual SchemaMetadataDescription logical_schema_metadata() const = 0;
+
+    /// \brief Find the read schema metadata from the physical reads table used by the reader.
+    virtual SchemaMetadataDescription physical_schema_metadata() const = 0;
+
+    /// \brief Compatibility alias for logical_schema_metadata().
+    SchemaMetadataDescription schema_metadata() const;
 
     virtual Result<std::size_t> run_info_count() const = 0;
     virtual Result<std::size_t> read_count() const = 0;
@@ -113,8 +123,22 @@ public:
     virtual FileLocation const & run_info_table_location() const = 0;
     virtual FileLocation const & read_table_location() const = 0;
     virtual FileLocation const & signal_table_location() const = 0;
+    virtual combined_file_utils::ParsedFooter const & parsed_footer() const = 0;
 
-    virtual Version file_version_pre_migration() const = 0;
+    /// \brief The logical POD5 file version exposed by the reader after virtual migration.
+    virtual Version logical_file_version() const = 0;
+
+    /// \brief The POD5 version stored in the original file footer on disk.
+    virtual Version original_file_version() const = 0;
+
+    /// \brief Compatibility alias for original_file_version().
+    Version file_version_pre_migration() const;
+
+    /// \brief The physical reads table version backing this reader after minimum migration.
+    virtual int physical_read_table_version() const = 0;
+
+    /// \brief The logical reads table version exposed by the reader after virtual migration.
+    virtual int logical_read_table_version() const = 0;
 
     virtual SignalType signal_type() const = 0;
 

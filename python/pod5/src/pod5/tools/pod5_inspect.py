@@ -182,9 +182,13 @@ def do_summary_command(reader: p5.Reader, **kwargs):
     total_read_count = 0
 
     print(
-        f"Originating file version {reader.file_version}, in memory read table version {reader.reads_table_version}."
+        f"Logical file version {reader.logical_file_version}, "
+        f"logical read table version {reader.logical_read_table_version}."
     )
-    print(f"File version on disk {reader.file_version_pre_migration}.")
+    print(f"Original file version on disk {reader.original_file_version}.")
+    print(
+        f"Physical read table version backing reader {reader.physical_read_table_version}."
+    )
     if reader.is_vbz_compressed:
         print("File uses VBZ compression.")
     else:

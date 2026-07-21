@@ -119,6 +119,13 @@ SignalRowInfo = namedtuple(
     ["batch_index", "batch_row_index", "sample_count", "byte_count"],
 )
 
+_VIRTUAL_FLOAT_FIELDS = {
+    "open_pore_level",
+    "expected_open_pore_level",
+    "selected_read_level",
+}
+_VIRTUAL_FLOAT_DEFAULT_VALUE = pa.scalar(float("nan"), type=pa.float32())
+
 
 class ReadRecord:
     """
@@ -536,11 +543,25 @@ class ReadRecordBatch:
         if self._columns is None:
             self._columns = ReadRecordV5Columns(
                 *[
-                    self._batch.column(name)
+                    self._column_or_default(name)
                     for name in self._reader._columns_type._fields
                 ]
             )
         return self._columns
+
+    def _column_or_default(self, name: str) -> pa.Array:
+        """
+        Return a physical column or create an array in place of a missing
+        virtual column
+        """
+        field_index = self._batch.schema.get_field_index(name)
+        if field_index != -1:
+            return self._batch.column(field_index)
+
+        if name in _VIRTUAL_FLOAT_FIELDS:
+            return pa.repeat(_VIRTUAL_FLOAT_DEFAULT_VALUE, self.num_reads)
+
+        raise KeyError(name)
 
     def set_cached_signal(self, signal_cache: p5b.Pod5SignalCacheBatch) -> None:
         """Set the signal cache"""
@@ -809,15 +830,18 @@ class Reader:
             schema_metadata[b"MINKNOW:file_identifier"].decode("utf-8")
         )
         self._writing_software = schema_metadata[b"MINKNOW:software"].decode("utf-8")
-        writing_version_str = schema_metadata[b"MINKNOW:pod5_version"].decode("utf-8")
-        writing_version = packaging.version.parse(writing_version_str)
-
         self._columns_type = ReadRecordV5Columns
-        self._reads_table_version = 5
-
-        self._file_version = writing_version
-        self._file_version_pre_migration = packaging.version.Version(
-            self._file_reader.get_file_version_pre_migration()
+        self._physical_read_table_version = (
+            self._file_reader.get_physical_read_table_version()
+        )
+        self._logical_read_table_version = (
+            self._file_reader.get_logical_read_table_version()
+        )
+        self._logical_file_version = packaging.version.Version(
+            self._file_reader.get_logical_file_version()
+        )
+        self._original_file_version = packaging.version.Version(
+            self._file_reader.get_original_file_version()
         )
 
         # Warning: The cached signal maintains an open file handle. So ensure that
@@ -891,13 +915,23 @@ class Reader:
 
     @property
     def file_version(self) -> packaging.version.Version:
-        """The version of pod5 that originally generated this file, this is not updated when updating the file."""
-        return self._file_version
+        """Compatibility alias for logical_file_version."""
+        return self.logical_file_version
+
+    @property
+    def logical_file_version(self) -> packaging.version.Version:
+        """The POD5 version exposed by the reader after virtual migration."""
+        return self._logical_file_version
 
     @property
     def file_version_pre_migration(self) -> packaging.version.Version:
-        """The version of pod5 that is stored with the file on disk."""
-        return self._file_version_pre_migration
+        """Compatibility alias for original_file_version."""
+        return self.original_file_version
+
+    @property
+    def original_file_version(self) -> packaging.version.Version:
+        """The POD5 version stored in the original file footer on disk."""
+        return self._original_file_version
 
     @property
     def writing_software(self) -> str:
@@ -909,7 +943,18 @@ class Reader:
 
     @property
     def reads_table_version(self) -> int:
-        return self._reads_table_version
+        """Compatibility alias for logical_read_table_version."""
+        return self.logical_read_table_version
+
+    @property
+    def physical_read_table_version(self) -> int:
+        """The physical reads table version backing this reader after minimum migration."""
+        return self._physical_read_table_version
+
+    @property
+    def logical_read_table_version(self) -> int:
+        """The reads table version exposed by the reader after virtual migration."""
+        return self._logical_read_table_version
 
     @property
     def is_vbz_compressed(self) -> bool:

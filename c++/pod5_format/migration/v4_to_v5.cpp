@@ -1,6 +1,7 @@
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/migration/migration_utils.h"
 #include "pod5_format/table_reader.h"
+#include "pod5_format/version_constants.h"
 
 #include <arrow/array/builder_primitive.h>
 #include <arrow/status.h>
@@ -21,6 +22,11 @@ arrow::Result<MigrationResult> migrate_v4_to_v5(
         v4_reader.schema->GetFieldIndex("expected_open_pore_level") != -1;
     auto const has_selected_read_level =
         v4_reader.schema->GetFieldIndex("selected_read_level") != -1;
+    if (has_expected_open_pore_level != has_selected_read_level) {
+        return arrow::Status::Invalid(
+            "Invalid reads table schema: expected_open_pore_level and selected_read_level must "
+            "either both be present or both be absent");
+    }
     if (has_expected_open_pore_level && has_selected_read_level) {
         return std::move(v4_input);
     }
@@ -37,7 +43,7 @@ arrow::Result<MigrationResult> migrate_v4_to_v5(
             auto v5_schema, arrow::UnifySchemas({v4_reader.schema, v5_new_schema}));
 
         ARROW_ASSIGN_OR_RAISE(
-            auto new_metadata, update_metadata(v4_reader.metadata, Version(0, 3, 40)));
+            auto new_metadata, update_metadata(v4_reader.metadata, kPod5VersionReadTableV5));
         ARROW_ASSIGN_OR_RAISE(
             auto v5_writer,
             make_record_batch_writer(

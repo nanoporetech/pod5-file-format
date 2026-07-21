@@ -32,8 +32,7 @@ public:
 
     RunInfoTableSchemaDescription(RunInfoTableSchemaDescription const &) = delete;
     RunInfoTableSchemaDescription & operator=(RunInfoTableSchemaDescription const &) = delete;
-
-    TableSpecVersion table_version_from_file_version(Version file_version) const override;
+    TableSpecVersion latest_table_version() const override;
 
     Field<0, arrow::StringArray> acquisition_id;
     Field<1, arrow::TimestampArray> acquisition_start_time;
@@ -83,8 +82,6 @@ public:
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<RunInfoTableSchemaDescription const>>
-read_run_info_table_schema(
-    SchemaMetadataDescription const & schema_metadata,
-    std::shared_ptr<arrow::Schema> const &);
+read_run_info_table_schema(std::shared_ptr<arrow::Schema> const &);
 
 }  // namespace pod5

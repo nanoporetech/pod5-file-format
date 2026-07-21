@@ -2,6 +2,7 @@
 #include "pod5_format/file_reader.h"
 #include "pod5_format/file_writer.h"
 #include "pod5_format/internal/combined_file_utils.h"
+#include "pod5_format/migration/migration.h"
 #include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_table_reader.h"
 #include "pod5_format/thread_pool.h"
@@ -14,10 +15,13 @@
 #include <arrow/array/array_dict.h>
 #include <arrow/array/array_primitive.h>
 #include <arrow/io/file.h>
+#include <arrow/ipc/writer.h>
 #include <arrow/memory_pool.h>
+#include <arrow/util/key_value_metadata.h>
 #include <catch2/catch.hpp>
 
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <numeric>
 #include <string>
@@ -347,6 +351,13 @@ SCENARIO("Opening older files")
 
         auto columns = batch->columns();
         REQUIRE_ARROW_STATUS_OK(columns);
+        auto const has_logical_v5_columns =
+            columns->table_version >= pod5::ReadTableSpecVersion::v5();
+        if (has_logical_v5_columns) {
+            auto const batch_row_count = static_cast<std::int64_t>(batch->num_rows());
+            CHECK(columns->expected_open_pore_level->length() == batch_row_count);
+            CHECK(columns->selected_read_level->length() == batch_row_count);
+        }
 
         for (std::size_t row = 0; row < batch->num_rows(); ++row) {
             CAPTURE(abs_row);
@@ -362,6 +373,10 @@ SCENARIO("Opening older files")
             CHECK(*pore_type == read_data.pore_type);
             auto run_info_id = batch->get_run_info(columns->run_info->GetValueIndex(row));
             CHECK(*run_info_id == read_data.run_info_id);
+            if (has_logical_v5_columns) {
+                CHECK(std::isnan(columns->expected_open_pore_level->Value(row)));
+                CHECK(std::isnan(columns->selected_read_level->Value(row)));
+            }
 
             ++abs_row;
         }
@@ -407,6 +422,49 @@ SCENARIO("Opening older files")
             {"usb_config", "MinION_fx3_1.1.1_ONT#MinION_fpga_1.1.0#ctrl#Auto"},
             {"version", "3.4.0-rc3"},
         });
+}
+
+TEST_CASE("V4 to V5 migration rejects partial V5 fields")
+{
+    auto make_read_table_with_fields = [](std::filesystem::path const & path,
+                                          std::vector<std::string> const & field_names) {
+        std::vector<std::shared_ptr<arrow::Field>> fields;
+        for (auto const & name : field_names) {
+            fields.emplace_back(arrow::field(name, arrow::float32()));
+        }
+
+        auto metadata = std::make_shared<arrow::KeyValueMetadata>();
+        REQUIRE_ARROW_STATUS_OK(metadata->Set("MINKNOW:pod5_version", "0.3.30"));
+        auto schema = arrow::schema(std::move(fields), metadata);
+
+        auto output = arrow::io::FileOutputStream::Open(path.string(), false);
+        REQUIRE_ARROW_STATUS_OK(output);
+        auto writer = arrow::ipc::MakeFileWriter(*output, schema);
+        REQUIRE_ARROW_STATUS_OK(writer);
+        REQUIRE_ARROW_STATUS_OK((*writer)->Close());
+        REQUIRE_ARROW_STATUS_OK((*output)->Close());
+    };
+
+    auto check_partial_v5_fields_fail = [&](std::vector<std::string> const & field_names) {
+        ont::testutils::TemporaryDirectory temp_dir;
+        auto const reads_table_path = temp_dir.path() / "reads_table.arrow";
+        make_read_table_with_fields(reads_table_path, field_names);
+
+        pod5::combined_file_utils::ParsedFooter footer;
+        REQUIRE_ARROW_STATUS_OK(footer.reads_table.from_full_file(reads_table_path.string()));
+
+        auto result =
+            pod5::migrate_v4_to_v5(pod5::MigrationResult{footer}, arrow::default_memory_pool());
+        REQUIRE_ARROW_STATUS_NOT_OK(result);
+        CHECK(result.status().IsInvalid());
+        CHECK_THAT(
+            result.status().message(),
+            Catch::Matchers::Contains(
+                "expected_open_pore_level and selected_read_level must either both be present"));
+    };
+
+    check_partial_v5_fields_fail({"expected_open_pore_level"});
+    check_partial_v5_fields_fail({"selected_read_level"});
 }
 
 /// Create empty file at \p path.

@@ -1,6 +1,7 @@
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/migration/migration_utils.h"
 #include "pod5_format/table_reader.h"
+#include "pod5_format/version_constants.h"
 
 #include <arrow/array/builder_primitive.h>
 #include <arrow/status.h>
@@ -14,20 +15,25 @@ arrow::Result<MigrationResult> migrate_v3_to_v4(
     MigrationResult && v3_input,
     arrow::MemoryPool * pool)
 {
+    ARROW_ASSIGN_OR_RAISE(
+        auto v3_reader, open_record_batch_reader(pool, v3_input.footer().reads_table));
+
+    auto const has_open_pore_level = v3_reader.schema->GetFieldIndex("open_pore_level") != -1;
+    if (has_open_pore_level) {
+        return std::move(v3_input);
+    }
+
     ARROW_ASSIGN_OR_RAISE(auto temp_dir, MakeTmpDir("pod5_v3_v4_migration"));
     ARROW_ASSIGN_OR_RAISE(auto v4_reads_table_path, temp_dir->path().Join("reads_table.arrow"));
 
     {
-        ARROW_ASSIGN_OR_RAISE(
-            auto v3_reader, open_record_batch_reader(pool, v3_input.footer().reads_table));
-
-        auto v4_new_schama = arrow::schema({arrow::field("open_pore_level", arrow::float32())});
+        auto v4_new_schema = arrow::schema({arrow::field("open_pore_level", arrow::float32())});
 
         ARROW_ASSIGN_OR_RAISE(
-            auto v4_schema, arrow::UnifySchemas({v3_reader.schema, v4_new_schama}));
+            auto v4_schema, arrow::UnifySchemas({v3_reader.schema, v4_new_schema}));
 
         ARROW_ASSIGN_OR_RAISE(
-            auto new_metadata, update_metadata(v3_reader.metadata, Version(0, 3, 30)));
+            auto new_metadata, update_metadata(v3_reader.metadata, kPod5VersionReadTableV4));
         ARROW_ASSIGN_OR_RAISE(
             auto v4_writer,
             make_record_batch_writer(

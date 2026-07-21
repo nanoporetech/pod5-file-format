@@ -112,6 +112,8 @@ public:
 
     Result<ReadTableRecordBatch> read_record_batch(std::size_t i) const;
 
+    int table_version() const;
+
     Result<std::size_t> search_for_read_ids(
         ReadIdSearchInput const & search_input,
         gsl::span<uint32_t> const & batch_counts,

@@ -59,7 +59,9 @@ channel(this, "channel", arrow::uint16(), ReadTableSpecVersion::v3())
       "run_info",
       arrow::dictionary(arrow::int16(), arrow::utf8()),
       ReadTableSpecVersion::v3())
+// V4 Fields
 , open_pore_level(this, "open_pore_level", arrow::float32(), ReadTableSpecVersion::v4())
+// V5 Fields
 , expected_open_pore_level(
       this,
       "expected_open_pore_level",
@@ -69,18 +71,16 @@ channel(this, "channel", arrow::uint16(), ReadTableSpecVersion::v3())
 {
 }
 
-TableSpecVersion ReadTableSchemaDescription::table_version_from_file_version(
-    Version file_version) const
+TableSpecVersion ReadTableSchemaDescription::latest_table_version() const
 {
     return ReadTableSpecVersion::latest();
 }
 
 Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(
-    SchemaMetadataDescription const & schema_metadata,
     std::shared_ptr<arrow::Schema> const & schema)
 {
     auto result = std::make_shared<ReadTableSchemaDescription>();
-    ARROW_RETURN_NOT_OK(ReadTableSchemaDescription::read_schema(result, schema_metadata, schema));
+    ARROW_RETURN_NOT_OK(ReadTableSchemaDescription::read_schema(result, schema));
 
     return result;
 }

@@ -1,6 +1,7 @@
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/migration/migration_utils.h"
 #include "pod5_format/table_reader.h"
+#include "pod5_format/version_constants.h"
 
 #include <arrow/array/builder_primitive.h>
 #include <arrow/ipc/reader.h>
@@ -88,7 +89,7 @@ arrow::Result<MigrationResult> migrate_v1_to_v2(
 
         auto v2_new_schama = arrow::schema({arrow::field("num_samples", arrow::uint64())});
         ARROW_ASSIGN_OR_RAISE(
-            auto new_metadata, update_metadata(v1_reader.metadata, Version(0, 0, 32)));
+            auto new_metadata, update_metadata(v1_reader.metadata, kPod5VersionReadTableV2));
         ARROW_ASSIGN_OR_RAISE(
             auto v2_schema, arrow::UnifySchemas({v1_reader.schema, v2_new_schama}));
         ARROW_ASSIGN_OR_RAISE(

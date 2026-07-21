@@ -21,6 +21,10 @@ from pod5.pod5_types import Calibration, EndReason, RunInfo
 from pod5.reader import ArrowTableHandle, ReadRecordBatch, SignalRowInfo
 from tests.conftest import POD5_PATH
 
+TEST_DATA_PATH = Path(__file__).parent.parent.parent.parent.parent / "test_data"
+POD5_V2_PATH = TEST_DATA_PATH / "multi_fast5_zip_v2.pod5"
+POD5_V3_PATH = TEST_DATA_PATH / "multi_fast5_zip_v3.pod5"
+
 
 class TestPod5Reader:
     """Test the Pod5Reader from a pod5 file"""
@@ -127,6 +131,15 @@ class TestPod5Reader:
             assert isinstance(reader.path, Path)
             assert reader.path == POD5_PATH
             assert reader.reads_table_version == 5
+            # Physical test file is v4 - which doesn't have v5 columns.
+            # These columns are created virtually to avoid costly physical
+            # file migration
+            assert reader.original_file_version < packaging.version.Version("0.3.40")
+            assert reader.physical_read_table_version == 4
+            assert reader.logical_read_table_version == 5
+            assert reader.reads_table_version == reader.logical_read_table_version
+            assert "expected_open_pore_level" not in reader.read_table.schema.names
+            assert "selected_read_level" not in reader.read_table.schema.names
 
             # File handles
             assert isinstance(reader.inner_file_reader, p5b.Pod5FileReader)
@@ -135,9 +148,15 @@ class TestPod5Reader:
             assert isinstance(reader.signal_table, pa.ipc.RecordBatchFileReader)
 
             assert isinstance(reader.file_version, packaging.version.Version)
+            assert isinstance(reader.logical_file_version, packaging.version.Version)
+            assert reader.file_version == reader.logical_file_version
             assert isinstance(
                 reader.file_version_pre_migration, packaging.version.Version
             )
+            assert isinstance(reader.original_file_version, packaging.version.Version)
+            assert reader.file_version_pre_migration == reader.original_file_version
+            assert isinstance(reader.physical_read_table_version, int)
+            assert isinstance(reader.logical_read_table_version, int)
             assert isinstance(reader.writing_software, str)
             assert isinstance(reader.file_identifier, UUID)
             assert isinstance(reader.reads_table_version, int)
@@ -155,6 +174,58 @@ class TestPod5Reader:
             assert all(isinstance(r, str) for r in reader.read_ids)
 
             assert isinstance(reader.get_batch(0), ReadRecordBatch)
+
+    def test_v3_read_table_v4_and_v5_fields_are_virtual(self) -> None:
+        with p5.Reader(POD5_V3_PATH) as reader:
+            assert reader.reads_table_version == 5
+            assert reader.original_file_version < packaging.version.Version("0.3.30")
+            assert reader.physical_read_table_version == 3
+            assert reader.logical_read_table_version == 5
+            assert "open_pore_level" not in reader.read_table.schema.names
+            assert "expected_open_pore_level" not in reader.read_table.schema.names
+            assert "selected_read_level" not in reader.read_table.schema.names
+
+            first_read = next(reader.reads())
+            assert numpy.isnan(first_read.open_pore_level)
+            assert numpy.isnan(first_read.expected_open_pore_level)
+            assert numpy.isnan(first_read.selected_read_level)
+
+    def test_v2_file_version_progression(self) -> None:
+        with p5.Reader(POD5_V2_PATH) as reader:
+            assert reader.original_file_version < packaging.version.Version("0.0.38")
+            assert reader.physical_read_table_version == 3
+            assert reader.logical_read_table_version == 5
+
+    @pytest.mark.parametrize("random_read", [1], indirect=True)
+    def test_v5_read_table_fields_are_physical(
+        self, tmp_path: Path, random_read: p5.Read
+    ) -> None:
+        expected_open_pore_level = 2345.0
+        selected_read_level = 3456.0
+        random_read.expected_open_pore_level = expected_open_pore_level
+        random_read.selected_read_level = selected_read_level
+
+        path = tmp_path / "physical_v5.pod5"
+        with p5.Writer(path) as writer:
+            writer.add_read(random_read)
+
+        with p5.Reader(path) as reader:
+            assert "expected_open_pore_level" in reader.read_table.schema.names
+            assert "selected_read_level" in reader.read_table.schema.names
+
+            batch = reader.get_batch(0)
+            assert batch.columns.expected_open_pore_level[0].as_py() == pytest.approx(
+                expected_open_pore_level
+            )
+            assert batch.columns.selected_read_level[0].as_py() == pytest.approx(
+                selected_read_level
+            )
+
+            first_read = next(reader.reads())
+            assert first_read.expected_open_pore_level == pytest.approx(
+                expected_open_pore_level
+            )
+            assert first_read.selected_read_level == pytest.approx(selected_read_level)
 
     def test_without_mmap(self) -> None:
         """Test the file load without mmap for low-memory devices"""
