@@ -7,6 +7,8 @@ namespace pod5 {
 static bool registered_delete_at_exit_called = false;
 std::vector<arrow::internal::PlatformFilename> registered_delete_at_exit_paths;
 
+// Add a "on-exit" task to remove the directories created for migration
+// file-version conversions.
 void register_delete_at_exit(arrow::internal::PlatformFilename const & path)
 {
     registered_delete_at_exit_paths.push_back(path);

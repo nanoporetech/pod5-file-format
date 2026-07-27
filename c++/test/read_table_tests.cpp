@@ -54,7 +54,7 @@ SCENARIO("Read table Tests")
                 read_id,
                 std::uint32_t(index * 2),
                 std::uint64_t(index * 10),
-                std::uint16_t(index + 1),
+                std::uint32_t(index + 100'000),
                 std::uint8_t(index + 2),
                 0,
                 index * 0.1f,
@@ -155,7 +155,7 @@ SCENARIO("Read table Tests")
 
                 CHECK(columns->read_id->length() == read_count);
                 CHECK(columns->signal->length() == read_count);
-                CHECK(columns->channel->length() == read_count);
+                CHECK(columns->channel_32bit->length() == read_count);
                 CHECK(columns->well->length() == read_count);
                 CHECK(columns->pore_type->length() == read_count);
                 CHECK(columns->calibration_offset->length() == read_count);
@@ -198,7 +198,7 @@ SCENARIO("Read table Tests")
                     CHECK(columns->num_samples->Value(j) == expected_signal.size());
                     CHECK(columns->calibration_offset->Value(j) == read_data.calibration_offset);
                     CHECK(columns->calibration_scale->Value(j) == read_data.calibration_scale);
-                    CHECK(columns->channel->Value(j) == read_data.channel);
+                    CHECK(columns->channel_32bit->Value(j) == read_data.channel);
                     CHECK(columns->well->Value(j) == read_data.well);
                     CHECK(columns->open_pore_level->Value(j) == read_data.open_pore_level);
                     CHECK(

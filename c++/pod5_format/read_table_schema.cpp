@@ -37,9 +37,16 @@ num_minknow_events(this, "num_minknow_events", arrow::uint64(), ReadTableSpecVer
 ,
 // V2 Fields
 num_samples(this, "num_samples", arrow::uint64(), ReadTableSpecVersion::v2())
-,
+
 // V3 Fields
-channel(this, "channel", arrow::uint16(), ReadTableSpecVersion::v3())
+, channel_16bit(
+      this,
+      "channel",
+      arrow::uint16(),
+      ReadTableSpecVersion::v3(),
+      ReadTableSpecVersion::v6())
+// In V6 this field replaces the 16-bit channel.
+, channel_32bit(this, "channel", arrow::uint32(), ReadTableSpecVersion::v6())
 , well(this, "well", arrow::uint8(), ReadTableSpecVersion::v3())
 , pore_type(
       this,
@@ -76,6 +83,9 @@ TableSpecVersion ReadTableSchemaDescription::latest_table_version() const
     return ReadTableSpecVersion::latest();
 }
 
+// From the writer version in the schema meta-data establish the version of the schema used
+// and then define which fields should be present based on that version.
+// return a ReadTableSchemaDescription with field indices for present fields.
 Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(
     std::shared_ptr<arrow::Schema> const & schema)
 {

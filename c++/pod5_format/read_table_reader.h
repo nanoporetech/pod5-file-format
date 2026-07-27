@@ -52,7 +52,11 @@ struct ReadTableRecordColumns {
 
     std::shared_ptr<arrow::UInt64Array> num_samples;
 
-    std::shared_ptr<arrow::UInt16Array> channel;
+    // Depending on file version, only one of these may be populated. For writing V6 and later
+    // format data use channel_32bit.
+    [[deprecated]] std::shared_ptr<arrow::UInt16Array> channel_16bit;
+    std::shared_ptr<arrow::UInt32Array> channel_32bit;
+
     std::shared_ptr<arrow::UInt8Array> well;
     std::shared_ptr<arrow::DictionaryArray> pore_type;
     std::shared_ptr<arrow::FloatArray> calibration_offset;

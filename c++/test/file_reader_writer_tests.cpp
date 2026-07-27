@@ -41,7 +41,7 @@ void run_file_reader_writer_tests(
     auto uuid_gen = pod5::UuidRandomGenerator{gen};
     auto read_id_1 = uuid_gen();
 
-    std::uint16_t channel = 25;
+    std::uint32_t channel = 10025;
     std::uint8_t well = 3;
     std::uint32_t read_number = 1234;
     std::uint64_t start_sample = 12340;
@@ -69,16 +69,17 @@ void run_file_reader_writer_tests(
         options.set_read_table_batch_size(1);
         options.set_signal_table_batch_size(5);
 
-        auto writer = pod5::create_file_writer(file, "test_software", options);
-        REQUIRE_ARROW_STATUS_OK(writer);
+        auto maybe_writer = pod5::create_file_writer(file, "test_software", options);
+        REQUIRE_ARROW_STATUS_OK(maybe_writer);
+        auto writer = std::move(maybe_writer.ValueOrDie());
 
-        auto run_info = (*writer)->add_run_info(run_info_data);
-        auto end_reason = (*writer)->lookup_end_reason(pod5::ReadEndReason::signal_negative);
+        auto run_info = writer->add_run_info(run_info_data);
+        auto end_reason = writer->lookup_end_reason(pod5::ReadEndReason::signal_negative);
         bool end_reason_forced = true;
-        auto pore_type = (*writer)->add_pore_type("Pore_type");
+        auto pore_type = writer->add_pore_type("Pore_type");
 
         for (std::size_t i = 0; i < 10; ++i) {
-            CHECK_ARROW_STATUS_OK((*writer)->add_complete_read(
+            CHECK_ARROW_STATUS_OK(writer->add_complete_read(
                 {read_id_1,
                  read_number,
                  start_sample,
@@ -106,7 +107,6 @@ void run_file_reader_writer_tests(
     }
 
     // Open the file for reading:
-    // Write a file:
     {
         auto reader = pod5::open_file_reader(file, {});
         REQUIRE_ARROW_STATUS_OK(reader);
@@ -121,6 +121,8 @@ void run_file_reader_writer_tests(
             CHECK(read_id_array->Value(0) == read_id_1);
 
             auto columns = *read_batch->columns();
+            REQUIRE(columns.channel_32bit);
+            CHECK(columns.channel_32bit->Value(0) == channel);
             CHECK(columns.open_pore_level->Value(0) == open_pore_level);
             CHECK(columns.expected_open_pore_level->Value(0) == expected_open_pore_level);
             CHECK(columns.selected_read_level->Value(0) == selected_read_level);
@@ -337,17 +339,22 @@ SCENARIO("Opening older files")
         *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
         *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
         *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"));
-    auto reader = pod5::open_file_reader(path.ToString(), {});
-    CHECK_ARROW_STATUS_OK(reader);
+        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"));
+    INFO(path.ToString());
 
-    auto metadata = (*reader)->schema_metadata();
+    // Try to open the file. Amongst other things, the schema must match the file contents.
+    auto maybe_reader = pod5::open_file_reader(path.ToString(), {});
+    REQUIRE_ARROW_STATUS_OK(maybe_reader);
+    auto reader = maybe_reader.ValueOrDie();
+
+    auto metadata = reader->schema_metadata();
     CHECK(metadata.writing_software == "Python API");
 
     std::size_t abs_row = 0;
 
-    for (std::size_t i = 0; i < (*reader)->num_read_record_batches(); ++i) {
-        auto batch = (*reader)->read_read_record_batch(i);
+    for (std::size_t i = 0; i < reader->num_read_record_batches(); ++i) {
+        auto batch = reader->read_read_record_batch(i);
 
         auto columns = batch->columns();
         REQUIRE_ARROW_STATUS_OK(columns);
@@ -383,7 +390,7 @@ SCENARIO("Opening older files")
     }
     CHECK(abs_row == test_read_data.size());
 
-    auto run_info = (*reader)->find_run_info(test_read_data[0].run_info_id);
+    auto run_info = reader->find_run_info(test_read_data[0].run_info_id);
     REQUIRE_ARROW_STATUS_OK(run_info);
     CHECK((*run_info)->acquisition_id == test_read_data[0].run_info_id);
     CHECK((*run_info)->adc_min == -4096);

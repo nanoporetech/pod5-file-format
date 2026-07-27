@@ -31,7 +31,13 @@ inline arrow::Result<int> find_field(
 
     if (!type->Equals(expected_data_type)) {
         return Status::TypeError(
-            "Schema field '", name, "' is incorrect type: '", type->name(), "'");
+            "Schema field '",
+            name,
+            "' is incorrect type: '",
+            type->name(),
+            "', expected '",
+            expected_data_type->name(),
+            "'");
     }
 
     return field_idx;
@@ -65,6 +71,8 @@ inline arrow::Result<int> find_dict_field(
     return field_idx;
 }
 
+// Look-up the column using the field then downcast the column contents to an array of the
+// FieldType as determined by the shared-pointer this function's returned data is assigned-to.
 template <typename FieldType>
 std::shared_ptr<typename FieldType::ArrayType> find_column(
     std::shared_ptr<arrow::RecordBatch> const & batch,

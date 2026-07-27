@@ -55,7 +55,13 @@ public:
         return TableSpecVersion::at_version(5);
     }
 
-    static TableSpecVersion latest() { return v5(); }
+    static TableSpecVersion v6()
+    {
+        // Addition of expected_open_pore_level and selected_read_level.
+        return TableSpecVersion::at_version(6);
+    }
+
+    static TableSpecVersion latest() { return v6(); }
 };
 
 class ReadTableSchemaDescription : public SchemaDescriptionBase {
@@ -87,7 +93,8 @@ public:
     Field<12, arrow::UInt64Array> num_samples;
 
     // V3 fields
-    Field<13, arrow::UInt16Array> channel;
+    Field<13, arrow::UInt16Array> channel_16bit;  // Before V6
+    Field<13, arrow::UInt32Array> channel_32bit;  // After V6
     Field<14, arrow::UInt8Array> well;
     Field<15, arrow::DictionaryArray> pore_type;
     Field<16, arrow::FloatArray> calibration_offset;
@@ -125,8 +132,8 @@ public:
         // V2 fields
         decltype(num_samples),
 
-        // V3 fields
-        decltype(channel),
+        // V3 fields and the 32-bit channel name introduced in V6
+        decltype(channel_32bit),
         decltype(well),
         decltype(pore_type),
         decltype(calibration_offset),

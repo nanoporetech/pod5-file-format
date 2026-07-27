@@ -34,7 +34,7 @@ public:
         Uuid const & read_id,
         std::uint32_t read_number,
         std::uint64_t start_sample,
-        std::uint16_t channel,
+        std::uint32_t channel,
         std::uint8_t well,
         PoreDictionaryIndex pore_type,
         float calibration_offset,
@@ -97,7 +97,7 @@ public:
     [[deprecated]] float time_since_mux_change;
 
     // V3 Fields
-    std::uint16_t channel;
+    std::uint32_t channel;  // Extended to 32-bit in V6
     std::uint8_t well;
     PoreDictionaryIndex pore_type;
     float calibration_offset;
