@@ -7,6 +7,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.46] Unreleased
+
+### Added
+
+- Introduced POD5 v6 changing the channel field in read-table to 32-bits.
+
 ## [0.3.45]
 
 ### Added
@@ -20,7 +26,7 @@ migration state of the file.
 ### Changed
 
 - svb16 code is now in a consistent namespace.
-- On-open file migration from v3 to v5 is now virtual.
+- On-open file migration from v3 onwards is now virtual.
 
 ### Fixed
 

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "pod5_format/internal/tracing/tracing.h"
-#include "pod5_format/read_table_reader.h"
 #include "pod5_format/signal_builder.h"
 #include "pod5_format/signal_table_schema.h"
 #include "pod5_format/uuid.h"
+#include "repack_states.h"
 #include "repack_utils.h"
 
 #include <arrow/array/array_nested.h>
@@ -68,7 +68,10 @@ arrow::Result<ReadReadData> read_read_data(
         auto const & read_id = columns.read_id->Value(batch_row);
         auto const & read_number = columns.read_number->Value(batch_row);
         auto const & start_sample = columns.start_sample->Value(batch_row);
-        auto const & channel = columns.channel->Value(batch_row);
+
+        // Prefer 32-bit, but fall back to 16-bit if not available.
+        auto const & channel = columns.channel_32bit ? columns.channel_32bit->Value(batch_row)
+                                                     : columns.channel_16bit->Value(batch_row);
         auto const & well = columns.well->Value(batch_row);
         auto const & calibration_offset = columns.calibration_offset->Value(batch_row);
         auto const & calibration_scale = columns.calibration_scale->Value(batch_row);

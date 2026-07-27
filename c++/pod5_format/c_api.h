@@ -266,8 +266,71 @@ struct ReadBatchRowInfoV5 {
     float selected_read_level;
 };
 
+// Single entry of read data:
+struct ReadBatchRowInfoV6 {
+    // The read id data, in binary form.
+    read_id_t read_id;
+
+    // Read number for the read.
+    uint32_t read_number;
+    // Start sample for the read.
+    uint64_t start_sample;
+    // Median before level.
+    float median_before;
+
+    // Channel for the read.
+    uint32_t channel;
+    // Well for the read.
+    uint8_t well;
+    // Dictionary index for the pore type.
+    int16_t pore_type;
+    // Calibration offset type for the read.
+    float calibration_offset;
+    // Palibration type for the read.
+    float calibration_scale;
+    // End reason index for the read.
+    int16_t end_reason;
+    // Was the end reason for the read forced (0 for false, 1 for true).
+    uint8_t end_reason_forced;
+    // Dictionary index for run id for the read, can be used to look up run info.
+    int16_t run_info;
+
+    // Number of minknow events that the read contains
+    uint64_t num_minknow_events;
+
+    // Scale/Shift for tracked read scaling values (based on previous reads)
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float tracked_scaling_scale;
+    POD5_DEPRECATED float tracked_scaling_shift;
+
+    // Scale/Shift for predicted read scaling values (based on this read's raw signal)
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float predicted_scaling_scale;
+    POD5_DEPRECATED float predicted_scaling_shift;
+
+    // How many reads have been selected prior to this read on the channel-well since it was made active.
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED uint32_t num_reads_since_mux_change;
+    // How many seconds have passed since the channel-well was made active
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float time_since_mux_change;
+
+    // Number of signal row entries for the read.
+    int64_t signal_row_count;
+
+    // The length of the read in samples.
+    uint64_t num_samples;
+
+    // The level of the pore.
+    float open_pore_level;
+    // The expected level of the pore.
+    float expected_open_pore_level;
+    // The selected level of the pore.
+    float selected_read_level;
+};
+
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoV5 ReadBatchRowInfo_t;
+typedef struct ReadBatchRowInfoV6 ReadBatchRowInfo_t;
 
 struct POD5_DEPRECATED ReadBatchRowInfoArrayV3 {
     // The read id data, in binary form.
@@ -428,8 +491,65 @@ struct ReadBatchRowInfoArrayV5 {
     float const * selected_read_level;
 };
 
+// Array of read data:
+struct ReadBatchRowInfoArrayV6 {
+    // The read id data, in binary form.
+    read_id_t const * read_id;
+
+    // Read number for the read.
+    uint32_t const * read_number;
+    // Start sample for the read.
+    uint64_t const * start_sample;
+    // Median before level.
+    float const * median_before;
+
+    // Channel for the read.
+    uint32_t const * channel;
+    // Well for the read.
+    uint8_t const * well;
+    // Pore type for the read.
+    int16_t const * pore_type;
+    // Calibration offset type for the read.
+    float const * calibration_offset;
+    // Palibration type for the read.
+    float const * calibration_scale;
+    // End reason type for the read.
+    pod5_end_reason_t const * end_reason;
+    // Was the end reason for the read forced (0 for false, 1 for true).
+    uint8_t const * end_reason_forced;
+    // Run info type for the read.
+    int16_t const * run_info_id;
+
+    // Number of minknow events that the read contains
+    uint64_t const * num_minknow_events;
+
+    // Scale/Shift for tracked read scaling values (based on previous reads)
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float const * tracked_scaling_scale;
+    POD5_DEPRECATED float const * tracked_scaling_shift;
+
+    // Scale/Shift for predicted read scaling values (based on this read's raw signal)
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float const * predicted_scaling_scale;
+    POD5_DEPRECATED float const * predicted_scaling_shift;
+
+    // How many reads have been selected prior to this read on the channel-well since it was made active.
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED uint32_t const * num_reads_since_mux_change;
+    // How many seconds have passed since the channel-well was made active
+    // DEPRECATED: will be removed in 0.4.0
+    POD5_DEPRECATED float const * time_since_mux_change;
+
+    // The level of the pore.
+    float const * open_pore_level;
+    // The expected level of the pore.
+    float const * expected_open_pore_level;
+    // The selected level of the pore.
+    float const * selected_read_level;
+};
+
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoArrayV5 ReadBatchRowInfoArray_t;
+typedef struct ReadBatchRowInfoArrayV6 ReadBatchRowInfoArray_t;
 
 #define READ_BATCH_ROW_INFO_VERSION_0 0
 // Addition of num_minknow_events fields, scaling fields.
@@ -442,8 +562,10 @@ typedef struct ReadBatchRowInfoArrayV5 ReadBatchRowInfoArray_t;
 #define READ_BATCH_ROW_INFO_VERSION_4 4
 // Introduction of new expected_open_pore_level and selected_read_level fields.
 #define READ_BATCH_ROW_INFO_VERSION_5 5
+// Change the "channel" field from 16 to 32-bit.
+#define READ_BATCH_ROW_INFO_VERSION_6 6
 // Latest available version.
-#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_5
+#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_6
 
 //---------------------------------------------------------------------------------------------------------------------
 // Reading files

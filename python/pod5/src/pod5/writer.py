@@ -341,7 +341,7 @@ class Writer:
         )
         read_number = np.array([read.read_number for read in reads], dtype=np.uint32)
         start_sample = np.array([read.start_sample for read in reads], dtype=np.uint64)
-        channel = np.array([read.pore.channel for read in reads], dtype=np.uint16)
+        channel = np.array([read.pore.channel for read in reads], dtype=np.uint32)
         well = np.array([read.pore.well for read in reads], dtype=np.uint8)
         pore_type = np.array(
             [self.add(PoreType(read.pore.pore_type)) for read in reads], dtype=np.int16

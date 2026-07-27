@@ -96,8 +96,12 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
     }
 
     // V3 fields:
+    if (physical_table_version >= ReadTableSpecVersion::v3()
+        && physical_table_version < ReadTableSpecVersion::v6())
+    {
+        result.channel_16bit = find_column(bat, m_field_locations->channel_16bit);
+    }
     if (physical_table_version >= ReadTableSpecVersion::v3()) {
-        result.channel = find_column(bat, m_field_locations->channel);
         result.well = find_column(bat, m_field_locations->well);
         result.pore_type = find_column(bat, m_field_locations->pore_type);
         result.calibration_offset = find_column(bat, m_field_locations->calibration_offset);
@@ -125,6 +129,10 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
             result.expected_open_pore_level, make_nan_float_column(bat->num_rows()));
         ARROW_ASSIGN_OR_RAISE(result.selected_read_level, make_nan_float_column(bat->num_rows()));
         result.table_version = ReadTableSpecVersion::v5();
+    }
+
+    if (physical_table_version >= ReadTableSpecVersion::v6()) {
+        result.channel_32bit = find_column(bat, m_field_locations->channel_32bit);
     }
 
     return result;

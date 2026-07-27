@@ -90,14 +90,14 @@ SCENARIO("C API Reads")
         std::uint32_t read_number = 12;
         std::uint64_t start_sample = 10245;
         float median_before = 200.0f;
-        std::uint16_t channel = 43;
+        std::uint32_t channel = 43;
         std::uint8_t well = 4;
         pod5_end_reason_t end_reason = POD5_END_REASON_MUX_CHANGE;
         uint8_t end_reason_forced = false;
         auto read_id_array = (read_id_t const *)input_read_id.data();
 
         std::int16_t run_info_id = 0;
-        ReadBatchRowInfoArrayV5 row_data{
+        ReadBatchRowInfoArrayV6 row_data{
             read_id_array,
             &read_number,
             &start_sample,
@@ -178,12 +178,13 @@ SCENARIO("C API Reads")
             std::size_t signal_counts = 1;
 
             auto read_id_array = (read_id_t const *)input_read_id_2.data();
+            std::uint16_t channel_16bit = channel;
             ReadBatchRowInfoArrayV3 row_data_v3{
                 read_id_array,
                 &read_number,
                 &start_sample,
                 &median_before,
-                &channel,
+                &channel_16bit,
                 &well,
                 &pore_type_id,
                 &calibration_offset,
@@ -284,24 +285,26 @@ SCENARIO("C API Reads")
             }
 
             static_assert(
-                std::is_same<ReadBatchRowInfoV5, ReadBatchRowInfo_t>::value,
+                std::is_same<ReadBatchRowInfoV6, ReadBatchRowInfo_t>::value,
                 "Update this if new structs added");
 
             ReadBatchRowInfoV3 v3_struct;
             ReadBatchRowInfoV4 v4_struct;
             ReadBatchRowInfoV5 v5_struct;
+            ReadBatchRowInfoV6 v6_struct;
             uint16_t input_version = 0;
             CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
                 batch_0, row, READ_BATCH_ROW_INFO_VERSION_3, &v3_struct, &input_version));
-            CHECK(
-                input_version
-                == 5);  // We're reading from a v5 file, even if the input struct is v3.
+
+            // We're reading from a v5 file, even if the input struct is v3.
+            CHECK(input_version == 6);
             CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
                 batch_0, row, READ_BATCH_ROW_INFO_VERSION_4, &v4_struct, &input_version));
-            CHECK(input_version == 5);
+            CHECK(input_version == 6);
             CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
                 batch_0, row, READ_BATCH_ROW_INFO_VERSION_5, &v5_struct, &input_version));
-            CHECK(input_version == 5);
+            CHECK_POD5_OK(pod5_get_read_batch_row_info_data(
+                batch_0, row, READ_BATCH_ROW_INFO_VERSION_6, &v6_struct, &input_version));
 
             auto check_v3_or_above = [&](auto name, auto const & input_struct) {
                 CAPTURE(name);
@@ -336,11 +339,15 @@ SCENARIO("C API Reads")
             check_v3_or_above("v3", v3_struct);
             check_v3_or_above("v4", v4_struct);
             check_v3_or_above("v5", v5_struct);
+            check_v3_or_above("v6", v6_struct);
             if (row == 0) {
                 CHECK(v4_struct.open_pore_level == open_pore_level);
                 CHECK(v5_struct.open_pore_level == open_pore_level);
                 CHECK(v5_struct.expected_open_pore_level == expected_open_pore_level);
                 CHECK(v5_struct.selected_read_level == selected_read_level);
+                CHECK(v6_struct.open_pore_level == open_pore_level);
+                CHECK(v6_struct.expected_open_pore_level == expected_open_pore_level);
+                CHECK(v6_struct.selected_read_level == selected_read_level);
             } else {
                 CHECK(std::isnan(v4_struct.open_pore_level));
                 CHECK(std::isnan(v5_struct.open_pore_level));
@@ -603,6 +610,8 @@ SCENARIO("C API Many Reads")
         std::vector<std::uint32_t> read_number(read_count, 12);
         std::vector<std::uint64_t> start_sample(read_count, 10245);
         std::vector<float> median_before(read_count, 200.0f);
+
+        /// @todo need 16-bit and 32-bit checks
         std::vector<std::uint16_t> channel(read_count, 43);
         std::vector<std::uint8_t> well(read_count, 4);
         std::vector<pod5_end_reason_t> end_reason(read_count, POD5_END_REASON_MUX_CHANGE);

@@ -18,15 +18,22 @@ std::shared_ptr<arrow::Schema> SchemaDescriptionBase::make_writer_schema(
     return arrow::schema(writer_fields, metadata);
 }
 
+// From the writer version in the schema meta-data establish the version of the schema used
+// and then define which fields should be present based on that version. Update dest_schema
+// by setting field indices for present fields.
 Status SchemaDescriptionBase::read_schema(
     std::shared_ptr<SchemaDescriptionBase> dest_schema,
     std::shared_ptr<arrow::Schema> const & schema)
 {
-    // Infer the table version number from the field with the latest added version
+    // Infer the table version number from the field with the latest added
+    // version by advancing the version every time there is a field from a newer
+    // schema with matching type.
     dest_schema->m_table_spec_version = TableSpecVersion::first_version();
     for (auto & field : dest_schema->fields()) {
-        if (schema->GetFieldIndex(field->name()) != -1
-            && dest_schema->m_table_spec_version < field->added_table_spec_version())
+        if (auto field_index = schema->GetFieldIndex(field->name());
+            field_index != -1
+            && dest_schema->m_table_spec_version < field->added_table_spec_version()
+            && schema->field(field_index)->type() == field->datatype())
         {
             dest_schema->m_table_spec_version = field->added_table_spec_version();
         }

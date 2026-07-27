@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pod5_format/file_reader.h"
+#include "pod5_format/file_writer.h"
 #include "pod5_format/read_table_reader.h"
 
 #include <arrow/array/array_dict.h>

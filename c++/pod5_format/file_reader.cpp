@@ -287,6 +287,7 @@ pod5::Result<std::shared_ptr<FileReader>> open_file_reader(
         }
     }
 
+    // Migrate the file to a minimum version
     ARROW_ASSIGN_OR_RAISE(
         auto const original_writer_version,
         parse_version_number(original_footer_metadata.writer_pod5_version));
