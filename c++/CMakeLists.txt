@@ -104,6 +104,8 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/types.cpp
     pod5_format/types.h
     pod5_format/uuid.h
+    pod5_format/env_vars.h
+    pod5_format/env_vars.cpp
 
     pod5_format/migration/migration.cpp
     pod5_format/migration/migration.h

@@ -1,5 +1,7 @@
 #include "pod5_format/migration/migration.h"
 
+#include "pod5_format/env_vars.h"
+
 #include <random>
 
 namespace pod5 {
@@ -41,6 +43,11 @@ Result<std::unique_ptr<TemporaryDir>> MakeTmpDir(char const * suffix)
         std::string tmp_path = std::string{".tmp_"} + suffix;
 
         tmp_path += "_" + std::to_string(gen());
+
+        auto tmp_dir = get_migration_tmp_dir();
+        if (tmp_dir) {
+            tmp_path = ((*tmp_dir) / tmp_path).string();
+        }
 
         ARROW_ASSIGN_OR_RAISE(
             auto filename, arrow::internal::PlatformFilename::FromString(tmp_path));
