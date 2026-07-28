@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Introduced POD5 v6 changing the channel field in read-table to 32-bits.
+- Introduced `POD5_MIGRATION_TMP_DIR` environment variable to allow users to configure temporary directory location during physical migration.
 
 ## [0.3.45]
 
