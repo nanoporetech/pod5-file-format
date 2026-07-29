@@ -25,7 +25,7 @@ arrow::Result<std::size_t> get_num_samples(
     std::size_t num_samples = 0;
 
     auto values = std::dynamic_pointer_cast<arrow::UInt64Array>(signal_col->values());
-    if (!values) {
+    if (!values || signal_batch_size == 0) {
         return arrow::Status::Invalid("Invalid signal column, potentially corrupt file.");
     }
 
