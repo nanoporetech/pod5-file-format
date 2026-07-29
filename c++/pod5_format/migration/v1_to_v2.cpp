@@ -12,6 +12,8 @@
 
 namespace pod5 {
 
+namespace {
+
 arrow::Result<std::size_t> get_num_samples(
     std::shared_ptr<arrow::ListArray> const & signal_col,
     std::size_t row_idx,
@@ -21,16 +23,17 @@ arrow::Result<std::size_t> get_num_samples(
         return 0;
     }
 
-    std::size_t signal_batch_size = signal_batches[0]->num_rows();
+    std::size_t const signal_batch_size = signal_batches[0]->num_rows();
     std::size_t num_samples = 0;
 
-    auto values = std::dynamic_pointer_cast<arrow::UInt64Array>(signal_col->values());
+    auto const values = std::dynamic_pointer_cast<arrow::UInt64Array>(signal_col->values());
     if (!values || signal_batch_size == 0) {
         return arrow::Status::Invalid("Invalid signal column, potentially corrupt file.");
     }
 
-    auto offset = signal_col->value_offset(row_idx);
-    for (std::int64_t index = 0; index < signal_col->value_length(row_idx); ++index) {
+    auto const offset = signal_col->value_offset(row_idx);
+    auto const length = signal_col->value_length(row_idx);
+    for (std::int64_t index = 0; index < length; ++index) {
         auto const abs_index = offset + index;
         if (abs_index < 0 || abs_index >= values->length()) {
             return arrow::Status::Invalid("Invalid signal column, potentially corrupt file.");
@@ -39,14 +42,14 @@ arrow::Result<std::size_t> get_num_samples(
         auto const abs_row = values->Value(abs_index);
 
         auto const batch_idx = abs_row / signal_batch_size;
-        auto const batch_row = abs_row - (batch_idx * signal_batch_size);
+        auto const batch_row = abs_row % signal_batch_size;
 
         if (batch_idx >= signal_batches.size()) {
             return arrow::Status::Invalid(
                 "Invalid signal row ", abs_row, ", cannot find signal batch ", batch_idx);
         }
 
-        auto batch = signal_batches[batch_idx];
+        auto const & batch = signal_batches[batch_idx];
 
         auto samples_column =
             std::dynamic_pointer_cast<arrow::UInt32Array>(batch->GetColumnByName("samples"));
@@ -62,6 +65,8 @@ arrow::Result<std::size_t> get_num_samples(
 
     return num_samples;
 }
+
+}  // namespace
 
 arrow::Result<MigrationResult> migrate_v1_to_v2(
     MigrationResult && v1_input,
