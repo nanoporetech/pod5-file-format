@@ -27,7 +27,7 @@ cd "${project_root}"
 gcovr_args=(
     # work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=68080
     --gcov-ignore-parse-errors=negative_hits.warn
-    --filter "${project_root}/c\+\+"
+    --filter "${project_root}/c\+\+/pod5_format"
 )
 
 function generate_coverage {
