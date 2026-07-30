@@ -1,9 +1,11 @@
 #include "pod5_format/async_signal_loader.h"
 #include "pod5_format/file_reader.h"
+#include "pod5_format/file_updater.h"
 #include "pod5_format/file_writer.h"
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/read_table_reader.h"
+#include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_table_reader.h"
 #include "pod5_format/thread_pool.h"
 #include "pod5_format/uuid.h"
@@ -438,6 +440,42 @@ SCENARIO("Opening older files")
             {"usb_config", "MinION_fx3_1.1.1_ONT#MinION_fpga_1.1.0#ctrl#Auto"},
             {"version", "3.4.0-rc3"},
         });
+}
+
+TEST_CASE("update_file() updates the file")
+{
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
+    auto repo_root =
+        ::arrow::internal::PlatformFilename::FromString(__FILE__)->Parent().Parent().Parent();
+    auto path = GENERATE_COPY(
+        *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),
+        *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"));
+    INFO(path.ToString());
+
+    // Temp dir to dump the updated file to.
+    ont::testutils::TemporaryDirectory temp_dir;
+    auto const dest_file = (temp_dir.path() / "updated.pod5").generic_string();
+
+    // Open existing file.
+    auto const old_reader = pod5::open_file_reader(path.ToString(), {});
+    REQUIRE_ARROW_STATUS_OK(old_reader);
+
+    // Update it.
+    REQUIRE_ARROW_STATUS_OK(
+        pod5::update_file(arrow::default_memory_pool(), *old_reader, dest_file));
+
+    // Open updated file.
+    auto const new_reader = pod5::open_file_reader(dest_file, {});
+    REQUIRE_ARROW_STATUS_OK(new_reader);
+
+    // Check it was updated.
+    CHECK((*old_reader)->original_file_version() != (*new_reader)->original_file_version());
+    CHECK((*new_reader)->original_file_version() == pod5::current_build_version_number());
 }
 
 TEST_CASE("V4 to V5 migration rejects partial V5 fields")
