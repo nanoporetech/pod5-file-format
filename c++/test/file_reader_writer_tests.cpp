@@ -27,13 +27,23 @@
 #include <string>
 #include <thread>
 
+// Register/unregister extensions in a scope.
+#define SCOPED_REGISTER_EXTENSIONS_FOR_TEST()                  \
+    REQUIRE_ARROW_STATUS_OK(pod5::register_extension_types()); \
+    auto const finally_unregister_ =                           \
+        gsl::finally([] { CHECK_ARROW_STATUS_OK(pod5::unregister_extension_types()); })
+#define SCOPED_UNREGISTER_EXTENSIONS_FOR_TEST()                  \
+    REQUIRE_ARROW_STATUS_OK(pod5::unregister_extension_types()); \
+    auto const finally_register_ =                               \
+        gsl::finally([] { CHECK_ARROW_STATUS_OK(pod5::register_extension_types()); })
+
 void run_file_reader_writer_tests(
     char const * file,
     pod5::FileWriterOptions const & extra_options = {})
 {
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
     REQUIRE_ARROW_STATUS_OK(remove_file_if_exists(file));
-    (void)pod5::register_extension_types();
-    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
     auto const run_info_data = get_test_run_info_data("_run_info");
 
@@ -240,8 +250,7 @@ TEST_CASE("Additional make_file_stream() tests")
 
 SCENARIO("Opening older files")
 {
-    (void)pod5::register_extension_types();
-    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
 
     auto uuid_from_string = [](char const * val) -> pod5::Uuid {
         auto result = pod5::Uuid::from_string(val);
@@ -670,12 +679,11 @@ static std::string escape_for_regex(std::string const & input)
 
 TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 {
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
     std::string const file_name = "foo.pod5.tmp";
     ont::testutils::TemporaryDirectory recovery_directory;
-    auto const registration_status = pod5::register_extension_types();
-    REQUIRE(registration_status.ok());
-    auto const unregister = [] { (void)pod5::unregister_extension_types(); };
-    auto fin = std::make_unique<gsl::final_action<decltype(unregister)>>(unregister);
+
     std::mt19937 gen{Catch::rngSeed()};
     auto uuid_gen = pod5::UuidRandomGenerator{gen};
     std::filesystem::path const path_to_recover =
@@ -738,7 +746,8 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
     SECTION("Recovering whilst extensions are not registered.")
     {
-        fin = {};
+        SCOPED_UNREGISTER_EXTENSIONS_FOR_TEST();
+
         auto recover_result2 = pod5::recover_file(to_recover, recovered, options);
         REQUIRE_FALSE(recover_result2.ok());
         REQUIRE(
