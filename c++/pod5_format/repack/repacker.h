@@ -1,5 +1,8 @@
 #pragma once
 
+#include "pod5_format/file_reader.h"
+#include "pod5_format/file_writer.h"
+
 #include <memory>
 #include <set>
 #include <vector>

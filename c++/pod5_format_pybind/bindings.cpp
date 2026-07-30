@@ -1,14 +1,14 @@
 #include "api.h"
 #include "pod5_format/c_api.h"
-#include "repack/repack_output.h"
-#include "repack/repacker.h"
+#include "pod5_format/repack/repack_output.h"
+#include "pod5_format/repack/repacker.h"
 #include "subset.h"
 
 namespace {
 
 void repacker_add_reads_preconditions(
-    std::shared_ptr<Pod5Repacker> const & repacker,
-    std::shared_ptr<Pod5RepackerOutput> const & output,
+    std::shared_ptr<repack::Pod5Repacker> const & repacker,
+    std::shared_ptr<repack::Pod5RepackerOutput> const & output,
     Pod5FileReaderPtr const & input)
 {
     if (output->repacker() != repacker) {
