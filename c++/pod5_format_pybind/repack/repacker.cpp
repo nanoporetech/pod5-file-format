@@ -6,24 +6,6 @@
 
 namespace repack {
 
-namespace {
-
-void repacker_add_reads_preconditions(
-    std::shared_ptr<Pod5Repacker> const & repacker,
-    std::shared_ptr<Pod5RepackerOutput> const & output,
-    Pod5FileReaderPtr const & input)
-{
-    if (output->repacker() != repacker) {
-        throw std::runtime_error("Invalid repacker output passed, created by another repacker");
-    }
-
-    if (!input.reader) {
-        throw std::runtime_error("Invalid input passed to repacker, no reader");
-    }
-}
-
-}  // namespace
-
 Pod5Repacker::Pod5Repacker() : m_thread_pool{pod5::make_thread_pool(10)} {}
 
 Pod5Repacker::~Pod5Repacker() { finish(); }
@@ -67,30 +49,15 @@ void Pod5Repacker::set_output_finished(std::shared_ptr<Pod5RepackerOutput> const
 
 void Pod5Repacker::add_all_reads_to_output(
     std::shared_ptr<Pod5RepackerOutput> const & output,
-    Pod5FileReaderPtr const & input)
+    std::shared_ptr<pod5::FileReader> const & input)
 {
     POD5_TRACE_FUNCTION();
-    repacker_add_reads_preconditions(shared_from_this(), output, input);
 
-    for (std::size_t i = 0; i < input.reader->num_read_record_batches(); ++i) {
-        output->register_new_reads(input.reader, i);
+    for (std::size_t i = 0; i < input->num_read_record_batches(); ++i) {
+        output->register_new_reads(input, i);
     }
 
-    register_submitted_reader(input.reader);
-}
-
-void Pod5Repacker::py_add_selected_reads_to_output(
-    std::shared_ptr<Pod5RepackerOutput> const & output,
-    Pod5FileReaderPtr const & input,
-    py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
-    py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && all_batch_rows)
-{
-    repacker_add_reads_preconditions(shared_from_this(), output, input);
-
-    auto batch_counts_span = gsl::make_span(batch_counts.data(), batch_counts.size());
-    auto all_batch_rows_span = gsl::make_span(all_batch_rows.data(), all_batch_rows.size());
-
-    add_selected_reads_to_output(output, input.reader, batch_counts_span, all_batch_rows_span);
+    register_submitted_reader(input);
 }
 
 void Pod5Repacker::add_selected_reads_to_output(

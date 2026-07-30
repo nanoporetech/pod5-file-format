@@ -1,9 +1,5 @@
 #pragma once
 
-#include "pod5_format_pybind/api.h"
-
-#include <pybind11/pybind11.h>
-
 #include <memory>
 #include <set>
 #include <vector>
@@ -26,13 +22,7 @@ public:
 
     void add_all_reads_to_output(
         std::shared_ptr<Pod5RepackerOutput> const & output,
-        Pod5FileReaderPtr const & input);
-
-    void py_add_selected_reads_to_output(
-        std::shared_ptr<Pod5RepackerOutput> const & output,
-        Pod5FileReaderPtr const & input,
-        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
-        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && all_batch_rows);
+        std::shared_ptr<pod5::FileReader> const & input);
 
     void add_selected_reads_to_output(
         std::shared_ptr<Pod5RepackerOutput> const & output,
