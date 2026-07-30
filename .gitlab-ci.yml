@@ -22,6 +22,9 @@ variables:
   CONAN_MANUAL_OVERRIDES: "arrow/*:arrow/*@nanopore/noboost;jemalloc/5.2.1:jemalloc/5.2.1@nanopore/stable"
   CONAN_VENV_PYTHON: "3.13"
   CMAKE_VERSION: "4.2.3"
+  # When not specifying a default to --parallel, |make| will spin up a thread per file by which we've seen
+  # cause OOM issues on CI machines, so instead limit the builds to this many threads.
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
   # Use the arrow packages we have built.
   POD5_CONAN_INSTALL_ARROW_ARGS: "-o:a arrow/*:with_boost=False -o:a arrow/*:with_thrift=False -o:a arrow/*:parquet=False -o:a arrow/*:with_zstd=True"
   # skip_binaries=False is required in order to grab licences.
@@ -233,7 +236,7 @@ build-standalone-ubu22:
       -D POD5_BUILD_EXAMPLES=ON
       -D BUILD_PYTHON_WHEEL=OFF
       ..
-    - cmake --build . --parallel
+    - cmake --build .
     - ctest -C Release -VV
 
 
@@ -264,7 +267,7 @@ build-standalone-ubu22:
     -D BUILD_PYTHON_WHEEL=OFF
     -D CMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}
     ..
-  - cmake --build . --config Release --parallel
+  - cmake --build . --config Release
   - ctest -C Release -VV
   - ../ci/install.sh
   - cmake ${CMAKE_ARGS}
@@ -276,7 +279,7 @@ build-standalone-ubu22:
     -D PYTHON_VERSION=${PYTHON_VERSION}
     -D CMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}
     ..
-  - cmake --build . --config Release --parallel
+  - cmake --build . --config Release
   - ctest -C Release -VV
   - ../ci/install.sh STATIC_BUILD
   - ../ci/package.sh ${OUTPUT_SKU} ${AUDITWHEEL_PLATFORM}
@@ -683,7 +686,7 @@ benchmark-linux-aarch64:
           ${CMAKE_EXTRA_ARGS}
           ..
         # Do the build
-    -   cmake --build . --config ${CMAKE_BUILD_TYPE} --parallel
+    -   cmake --build . --config ${CMAKE_BUILD_TYPE}
     - popd
 
 linux-x64-gcc11-fuzz:
