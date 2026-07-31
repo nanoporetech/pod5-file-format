@@ -239,9 +239,8 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
 
         if (read_count > 0) {
             // Query all the reads IDs.
-            std::vector<uint8_t> read_ids(read_count * sizeof(read_id_t));
-            CHECK_POD5_MAY_FAIL(pod5_get_read_ids(
-                file.get(), read_count, reinterpret_cast<read_id_t *>(read_ids.data())));
+            std::vector<read_id_t> read_ids(read_count);
+            CHECK_POD5_MAY_FAIL(pod5_get_read_ids(file.get(), read_count, read_ids.data()));
 
             // Randomise the order of the read IDs and then try and plan a path through them.
             std::shuffle(read_ids.begin(), read_ids.end(), rng);
