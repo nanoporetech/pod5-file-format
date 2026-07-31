@@ -183,7 +183,7 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         m, "Pod5RepackerOutput");
 
     py::class_<repack::Pod5Repacker, std::shared_ptr<repack::Pod5Repacker>>(m, "Repacker")
-        .def(py::init<>())
+        .def(py::init<>(&repack::Pod5Repacker::create))
         .def("add_output", &repack::Pod5Repacker::add_output)
         .def("set_output_finished", &repack::Pod5Repacker::set_output_finished)
         .def("add_all_reads_to_output", &repacker_add_all_reads_to_output)

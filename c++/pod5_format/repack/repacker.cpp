@@ -6,7 +6,12 @@
 
 namespace repack {
 
-Pod5Repacker::Pod5Repacker() : m_thread_pool{pod5::make_thread_pool(10)} {}
+std::shared_ptr<Pod5Repacker> Pod5Repacker::create()
+{
+    return std::make_shared<Pod5Repacker>(MustBeSharedPtr{});
+}
+
+Pod5Repacker::Pod5Repacker(MustBeSharedPtr) : m_thread_pool{pod5::make_thread_pool(10)} {}
 
 Pod5Repacker::~Pod5Repacker() { finish(); }
 

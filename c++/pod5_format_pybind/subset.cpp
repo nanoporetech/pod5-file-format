@@ -260,7 +260,7 @@ void subset_pod5s_with_mapping(
         std::string const batch_prefix = "Batch [" + std::to_string(output_batch_index) + "/"
                                          + std::to_string(total_output_batches) + "]: ";
 
-        auto repacker = std::make_shared<repack::Pod5Repacker>();
+        auto repacker = repack::Pod5Repacker::create();
         std::unordered_multimap<pod5::Uuid, std::uint32_t> read_id_lookup;
         std::vector<OutputInfo> dest_to_output;
         dest_to_output.reserve(out_end - out_st);

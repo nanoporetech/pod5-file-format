@@ -11,9 +11,14 @@ namespace repack {
 
 class Pod5RepackerOutput;
 
-class Pod5Repacker : public std::enable_shared_from_this<Pod5Repacker> {
+class Pod5Repacker final : public std::enable_shared_from_this<Pod5Repacker> {
+    // Private since we must be inside a shared_ptr.
+    struct MustBeSharedPtr {};
+
 public:
-    Pod5Repacker();
+    static std::shared_ptr<Pod5Repacker> create();
+
+    Pod5Repacker(MustBeSharedPtr);
     ~Pod5Repacker();
 
     void finish();
