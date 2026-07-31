@@ -5,6 +5,7 @@
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/read_table_reader.h"
+#include "pod5_format/repack/repacker.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_table_reader.h"
 #include "pod5_format/thread_pool.h"
@@ -473,6 +474,36 @@ TEST_CASE("update_file() updates the file")
     // Check it was updated.
     CHECK((*old_reader)->original_file_version() != (*new_reader)->original_file_version());
     CHECK((*new_reader)->original_file_version() == pod5::current_build_version_number());
+}
+
+// More thorough testing is done in python.
+TEST_CASE("Repacker smoke test")
+{
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
+    // Temp dir to dump the updated file to.
+    ont::testutils::TemporaryDirectory temp_dir;
+    auto const dest_file = (temp_dir.path() / "output.pod5").generic_string();
+
+    // Setup the repacker.
+    auto repacker = repack::Pod5Repacker::create();
+    auto maybe_writer = pod5::create_file_writer(dest_file, "test_software", {});
+    REQUIRE_ARROW_STATUS_OK(maybe_writer);
+
+    // Repacker wants a shared_ptr.
+    std::shared_ptr<pod5::FileWriter> writer = std::move(*maybe_writer);
+    auto repacker_output = repacker->add_output(std::move(writer), false);
+
+    // Add all the reads to it.
+    auto const input_file = GENERATE(from_range(test_data_files));
+    INFO(input_file.ToString());
+    auto maybe_reader = pod5::open_file_reader(input_file.ToString(), {});
+    REQUIRE_ARROW_STATUS_OK(maybe_reader);
+    repacker->add_all_reads_to_output(repacker_output, std::move(*maybe_reader));
+
+    // Finalise it.
+    repacker->set_output_finished(repacker_output);
+    CHECK_NOTHROW(repacker->finish());
 }
 
 TEST_CASE("V4 to V5 migration rejects partial V5 fields")
