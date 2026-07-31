@@ -22,6 +22,7 @@
 #include <arrow/util/key_value_metadata.h>
 #include <catch2/catch.hpp>
 
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <fstream>
@@ -38,6 +39,18 @@
     REQUIRE_ARROW_STATUS_OK(pod5::unregister_extension_types()); \
     auto const finally_register_ =                               \
         gsl::finally([] { CHECK_ARROW_STATUS_OK(pod5::register_extension_types()); })
+
+// Input files from different POD5 versions.
+auto const repo_root =
+    ::arrow::internal::PlatformFilename::FromString(__FILE__)->Parent().Parent().Parent();
+std::array const test_data_files = {
+    *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),  // 0.0.16
+    *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),  // 0.0.29
+    *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),  // 0.0.32
+    *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),  // 0.0.40
+    *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),  // 0.3.30
+    *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"),  // 0.3.45
+};
 
 void run_file_reader_writer_tests(
     char const * file,
@@ -343,15 +356,7 @@ SCENARIO("Opening older files")
          "a08e850aaa44c8b56765eee10b386fc3e516a62b"},
     };
 
-    auto repo_root =
-        ::arrow::internal::PlatformFilename::FromString(__FILE__)->Parent().Parent().Parent();
-    auto path = GENERATE_COPY(
-        *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"));
+    auto const path = GENERATE(from_range(test_data_files));
     INFO(path.ToString());
 
     // Try to open the file. Amongst other things, the schema must match the file contents.
@@ -446,15 +451,7 @@ TEST_CASE("update_file() updates the file")
 {
     SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
 
-    auto repo_root =
-        ::arrow::internal::PlatformFilename::FromString(__FILE__)->Parent().Parent().Parent();
-    auto path = GENERATE_COPY(
-        *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"));
+    auto const path = GENERATE(from_range(test_data_files));
     INFO(path.ToString());
 
     // Temp dir to dump the updated file to.
