@@ -2,6 +2,7 @@
 
 #include "pod5_format/file_reader.h"
 #include "pod5_format/file_writer.h"
+#include "pod5_format/pod5_format_export.h"
 
 #include <memory>
 #include <set>
@@ -11,7 +12,7 @@ namespace repack {
 
 class Pod5RepackerOutput;
 
-class Pod5Repacker final : public std::enable_shared_from_this<Pod5Repacker> {
+class POD5_FORMAT_EXPORT Pod5Repacker final : public std::enable_shared_from_this<Pod5Repacker> {
     // Private since we must be inside a shared_ptr.
     struct MustBeSharedPtr {};
 
