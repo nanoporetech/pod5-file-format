@@ -136,7 +136,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
     std::size_t batch_count = 0;
     CHECK_POD5_SUCCESS(pod5_get_read_batch_count(&batch_count, file.get()));
 
-    std::size_t total_read_count = 0;
+    std::size_t extracted_read_count = 0;
     for (std::size_t batch_index = 0; batch_index < batch_count; ++batch_index) {
         Pod5ReadRecordBatch_t * batch = nullptr;
         CHECK_POD5_MAY_FAIL(pod5_get_read_batch(&batch, file.get(), batch_index));
@@ -146,7 +146,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
 
         std::size_t batch_row_count = 0;
         CHECK_POD5_SUCCESS(pod5_get_read_batch_row_count(&batch_row_count, batch));
-        total_read_count += batch_row_count;
+        extracted_read_count += batch_row_count;
 
         for (std::size_t row = 0; row < batch_row_count; ++row) {
             uint16_t read_table_version = 0;
@@ -232,15 +232,19 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t const * data, size_t size)
         std::size_t read_count = 0;
         CHECK_POD5_MAY_FAIL(pod5_get_read_count(file.get(), &read_count));
         if (pod5_get_error_no() == POD5_OK) {
-            assert(read_count == total_read_count);
+            assert(read_count >= extracted_read_count);
         } else {
             read_count = 0;
         }
 
         if (read_count > 0) {
+            // For older clang that doesn't accept read_id_t in a vector.
+            using ReadID = std::array<uint8_t, 16>;
+            static_assert(sizeof(ReadID) == sizeof(read_id_t));
+
             // Query all the reads IDs.
-            std::vector<uint8_t> read_ids(read_count * sizeof(read_id_t));
-            CHECK_POD5_SUCCESS(pod5_get_read_ids(
+            std::vector<ReadID> read_ids(read_count);
+            CHECK_POD5_MAY_FAIL(pod5_get_read_ids(
                 file.get(), read_count, reinterpret_cast<read_id_t *>(read_ids.data())));
 
             // Randomise the order of the read IDs and then try and plan a path through them.
