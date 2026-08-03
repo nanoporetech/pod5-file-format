@@ -1,9 +1,12 @@
 #include "pod5_format/async_signal_loader.h"
 #include "pod5_format/file_reader.h"
+#include "pod5_format/file_updater.h"
 #include "pod5_format/file_writer.h"
 #include "pod5_format/internal/combined_file_utils.h"
 #include "pod5_format/migration/migration.h"
 #include "pod5_format/read_table_reader.h"
+#include "pod5_format/repack/repacker.h"
+#include "pod5_format/schema_metadata.h"
 #include "pod5_format/signal_table_reader.h"
 #include "pod5_format/thread_pool.h"
 #include "pod5_format/uuid.h"
@@ -20,6 +23,7 @@
 #include <arrow/util/key_value_metadata.h>
 #include <catch2/catch.hpp>
 
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <fstream>
@@ -27,13 +31,35 @@
 #include <string>
 #include <thread>
 
+// Register/unregister extensions in a scope.
+#define SCOPED_REGISTER_EXTENSIONS_FOR_TEST()                  \
+    REQUIRE_ARROW_STATUS_OK(pod5::register_extension_types()); \
+    auto const finally_unregister_ =                           \
+        gsl::finally([] { CHECK_ARROW_STATUS_OK(pod5::unregister_extension_types()); })
+#define SCOPED_UNREGISTER_EXTENSIONS_FOR_TEST()                  \
+    REQUIRE_ARROW_STATUS_OK(pod5::unregister_extension_types()); \
+    auto const finally_register_ =                               \
+        gsl::finally([] { CHECK_ARROW_STATUS_OK(pod5::register_extension_types()); })
+
+// Input files from different POD5 versions.
+auto const repo_root =
+    ::arrow::internal::PlatformFilename::FromString(__FILE__)->Parent().Parent().Parent();
+std::array const test_data_files = {
+    *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),  // 0.0.16
+    *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),  // 0.0.29
+    *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),  // 0.0.32
+    *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),  // 0.0.40
+    *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),  // 0.3.30
+    *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"),  // 0.3.45
+};
+
 void run_file_reader_writer_tests(
     char const * file,
     pod5::FileWriterOptions const & extra_options = {})
 {
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
     REQUIRE_ARROW_STATUS_OK(remove_file_if_exists(file));
-    (void)pod5::register_extension_types();
-    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
 
     auto const run_info_data = get_test_run_info_data("_run_info");
 
@@ -240,8 +266,7 @@ TEST_CASE("Additional make_file_stream() tests")
 
 SCENARIO("Opening older files")
 {
-    (void)pod5::register_extension_types();
-    auto fin = gsl::finally([] { (void)pod5::unregister_extension_types(); });
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
 
     auto uuid_from_string = [](char const * val) -> pod5::Uuid {
         auto result = pod5::Uuid::from_string(val);
@@ -332,15 +357,7 @@ SCENARIO("Opening older files")
          "a08e850aaa44c8b56765eee10b386fc3e516a62b"},
     };
 
-    auto repo_root =
-        ::arrow::internal::PlatformFilename::FromString(__FILE__)->Parent().Parent().Parent();
-    auto path = GENERATE_COPY(
-        *repo_root.Join("test_data/multi_fast5_zip_v0.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v1.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v2.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),
-        *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"));
+    auto const path = GENERATE(from_range(test_data_files));
     INFO(path.ToString());
 
     // Try to open the file. Amongst other things, the schema must match the file contents.
@@ -429,6 +446,64 @@ SCENARIO("Opening older files")
             {"usb_config", "MinION_fx3_1.1.1_ONT#MinION_fpga_1.1.0#ctrl#Auto"},
             {"version", "3.4.0-rc3"},
         });
+}
+
+TEST_CASE("update_file() updates the file")
+{
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
+    auto const path = GENERATE(from_range(test_data_files));
+    INFO(path.ToString());
+
+    // Temp dir to dump the updated file to.
+    ont::testutils::TemporaryDirectory temp_dir;
+    auto const dest_file = (temp_dir.path() / "updated.pod5").generic_string();
+
+    // Open existing file.
+    auto const old_reader = pod5::open_file_reader(path.ToString(), {});
+    REQUIRE_ARROW_STATUS_OK(old_reader);
+
+    // Update it.
+    REQUIRE_ARROW_STATUS_OK(
+        pod5::update_file(arrow::default_memory_pool(), *old_reader, dest_file));
+
+    // Open updated file.
+    auto const new_reader = pod5::open_file_reader(dest_file, {});
+    REQUIRE_ARROW_STATUS_OK(new_reader);
+
+    // Check it was updated.
+    CHECK((*old_reader)->original_file_version() != (*new_reader)->original_file_version());
+    CHECK((*new_reader)->original_file_version() == pod5::current_build_version_number());
+}
+
+// More thorough testing is done in python.
+TEST_CASE("Repacker smoke test")
+{
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
+    // Temp dir to dump the updated file to.
+    ont::testutils::TemporaryDirectory temp_dir;
+    auto const dest_file = (temp_dir.path() / "output.pod5").generic_string();
+
+    // Setup the repacker.
+    auto repacker = repack::Pod5Repacker::create();
+    auto maybe_writer = pod5::create_file_writer(dest_file, "test_software", {});
+    REQUIRE_ARROW_STATUS_OK(maybe_writer);
+
+    // Repacker wants a shared_ptr.
+    std::shared_ptr<pod5::FileWriter> writer = std::move(*maybe_writer);
+    auto repacker_output = repacker->add_output(std::move(writer), false);
+
+    // Add all the reads to it.
+    auto const input_file = GENERATE(from_range(test_data_files));
+    INFO(input_file.ToString());
+    auto maybe_reader = pod5::open_file_reader(input_file.ToString(), {});
+    REQUIRE_ARROW_STATUS_OK(maybe_reader);
+    repacker->add_all_reads_to_output(repacker_output, std::move(*maybe_reader));
+
+    // Finalise it.
+    repacker->set_output_finished(repacker_output);
+    CHECK_NOTHROW(repacker->finish());
 }
 
 TEST_CASE("V4 to V5 migration rejects partial V5 fields")
@@ -670,12 +745,11 @@ static std::string escape_for_regex(std::string const & input)
 
 TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 {
+    SCOPED_REGISTER_EXTENSIONS_FOR_TEST();
+
     std::string const file_name = "foo.pod5.tmp";
     ont::testutils::TemporaryDirectory recovery_directory;
-    auto const registration_status = pod5::register_extension_types();
-    REQUIRE(registration_status.ok());
-    auto const unregister = [] { (void)pod5::unregister_extension_types(); };
-    auto fin = std::make_unique<gsl::final_action<decltype(unregister)>>(unregister);
+
     std::mt19937 gen{Catch::rngSeed()};
     auto uuid_gen = pod5::UuidRandomGenerator{gen};
     std::filesystem::path const path_to_recover =
@@ -738,7 +812,8 @@ TEST_CASE("Recovering .pod5.tmp files", "[recovery]")
 
     SECTION("Recovering whilst extensions are not registered.")
     {
-        fin = {};
+        SCOPED_UNREGISTER_EXTENSIONS_FOR_TEST();
+
         auto recover_result2 = pod5::recover_file(to_recover, recovered, options);
         REQUIRE_FALSE(recover_result2.ok());
         REQUIRE(

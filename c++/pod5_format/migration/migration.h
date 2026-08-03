@@ -132,16 +132,4 @@ inline arrow::Result<MigrationResult> migrate_to_latest(
     return migrate_v5_to_v6(std::move(v5_result), pool);
 }
 
-/*
-Perform physical file migration to the latest read table schema version
-*/
-inline arrow::Result<MigrationResult> migrate_to_latest(
-    Version writer_version,
-    combined_file_utils::ParsedFooter const & read_footer,
-    arrow::MemoryPool * pool)
-{
-    ARROW_ASSIGN_OR_RAISE(auto result, migrate_to_minimum(writer_version, read_footer, pool));
-    return migrate_to_latest(std::move(result), pool);
-}
-
 }  // namespace pod5

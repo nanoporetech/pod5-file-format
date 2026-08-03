@@ -27,7 +27,7 @@ struct ReadReadData {
     std::vector<std::uint64_t> signal_rows;
 };
 
-arrow::Result<ReadReadData> read_read_data(
+inline arrow::Result<ReadReadData> read_read_data(
     ReadsTableDictionaryThreadCache & reads_table_cache,
     states::unread_read_table_rows && in_batch)
 {
@@ -147,7 +147,7 @@ arrow::Result<ReadReadData> read_read_data(
     return result;
 }
 
-arrow::Status read_signal(
+inline arrow::Status read_signal(
     std::shared_ptr<pod5::FileReader> const & source_file,
     pod5::SignalType input_compression_type,
     std::uint64_t abs_signal_row,
@@ -200,7 +200,7 @@ struct RequestedSignalReads {
     std::shared_ptr<states::read_split_signal_table_batch_rows> partial_request;
 };
 
-arrow::Result<RequestedSignalReads> request_signal_reads(
+inline arrow::Result<RequestedSignalReads> request_signal_reads(
     std::shared_ptr<pod5::FileReader> const & source_file,
     pod5::SignalType output_compression_type,
     std::size_t signal_batch_size,
@@ -272,7 +272,8 @@ struct ReadSignal {
     std::vector<std::shared_ptr<arrow::Array>> columns;
 };
 
-arrow::Result<ReadSignal> read_signal_data(states::read_split_signal_table_batch_rows & signal_rows)
+inline arrow::Result<ReadSignal> read_signal_data(
+    states::read_split_signal_table_batch_rows & signal_rows)
 {
     POD5_TRACE_FUNCTION();
 
@@ -293,7 +294,7 @@ arrow::Result<ReadSignal> read_signal_data(states::read_split_signal_table_batch
     return result;
 }
 
-arrow::Status write_reads(
+inline arrow::Status write_reads(
     std::shared_ptr<pod5::FileWriter> const & output,
     std::vector<pod5::ReadData> const & reads,
     std::vector<std::size_t> const & signal_durations,
@@ -313,7 +314,7 @@ arrow::Status write_reads(
     return arrow::Status::OK();
 }
 
-arrow::Status check_duplicate_read_ids(
+inline arrow::Status check_duplicate_read_ids(
     std::unordered_set<pod5::Uuid> & output_read_ids,
     std::vector<pod5::ReadData> const & new_reads)
 {

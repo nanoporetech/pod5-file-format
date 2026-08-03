@@ -1,8 +1,52 @@
 #include "api.h"
 #include "pod5_format/c_api.h"
-#include "repack/repack_output.h"
-#include "repack/repacker.h"
+#include "pod5_format/repack/repack_output.h"
+#include "pod5_format/repack/repacker.h"
 #include "subset.h"
+
+namespace {
+
+void repacker_add_reads_preconditions(
+    std::shared_ptr<repack::Pod5Repacker> const & repacker,
+    std::shared_ptr<repack::Pod5RepackerOutput> const & output,
+    Pod5FileReaderPtr const & input)
+{
+    if (output->repacker() != repacker) {
+        throw std::runtime_error("Invalid repacker output passed, created by another repacker");
+    }
+
+    if (!input.reader) {
+        throw std::runtime_error("Invalid input passed to repacker, no reader");
+    }
+}
+
+void repacker_add_all_reads_to_output(
+    std::shared_ptr<repack::Pod5Repacker> const & repacker,
+    std::shared_ptr<repack::Pod5RepackerOutput> const & output,
+    Pod5FileReaderPtr const & input)
+{
+    repacker_add_reads_preconditions(repacker, output, input);
+
+    repacker->add_all_reads_to_output(output, input.reader);
+}
+
+void repacker_add_selected_reads_to_output(
+    std::shared_ptr<repack::Pod5Repacker> const & repacker,
+    std::shared_ptr<repack::Pod5RepackerOutput> const & output,
+    Pod5FileReaderPtr const & input,
+    py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> & batch_counts,
+    py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> & all_batch_rows)
+{
+    repacker_add_reads_preconditions(repacker, output, input);
+
+    auto batch_counts_span = gsl::make_span(batch_counts.data(), batch_counts.size());
+    auto all_batch_rows_span = gsl::make_span(all_batch_rows.data(), all_batch_rows.size());
+
+    repacker->add_selected_reads_to_output(
+        output, input.reader, batch_counts_span, all_batch_rows_span);
+}
+
+}  // namespace
 
 PYBIND11_MODULE(pod5_format_pybind, m)
 {
@@ -139,11 +183,11 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         m, "Pod5RepackerOutput");
 
     py::class_<repack::Pod5Repacker, std::shared_ptr<repack::Pod5Repacker>>(m, "Repacker")
-        .def(py::init<>())
+        .def(py::init<>(&repack::Pod5Repacker::create))
         .def("add_output", &repack::Pod5Repacker::add_output)
         .def("set_output_finished", &repack::Pod5Repacker::set_output_finished)
-        .def("add_all_reads_to_output", &repack::Pod5Repacker::add_all_reads_to_output)
-        .def("add_selected_reads_to_output", &repack::Pod5Repacker::py_add_selected_reads_to_output)
+        .def("add_all_reads_to_output", &repacker_add_all_reads_to_output)
+        .def("add_selected_reads_to_output", &repacker_add_selected_reads_to_output)
         .def("finish", &repack::Pod5Repacker::finish)
         .def_property_readonly("is_complete", &repack::Pod5Repacker::is_complete)
         .def_property_readonly(

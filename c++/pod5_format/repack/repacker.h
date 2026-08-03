@@ -1,8 +1,8 @@
 #pragma once
 
-#include "pod5_format_pybind/api.h"
-
-#include <pybind11/pybind11.h>
+#include "pod5_format/file_reader.h"
+#include "pod5_format/file_writer.h"
+#include "pod5_format/pod5_format_export.h"
 
 #include <memory>
 #include <set>
@@ -12,9 +12,14 @@ namespace repack {
 
 class Pod5RepackerOutput;
 
-class Pod5Repacker : public std::enable_shared_from_this<Pod5Repacker> {
+class POD5_FORMAT_EXPORT Pod5Repacker final : public std::enable_shared_from_this<Pod5Repacker> {
+    // Private since we must be inside a shared_ptr.
+    struct MustBeSharedPtr {};
+
 public:
-    Pod5Repacker();
+    static std::shared_ptr<Pod5Repacker> create();
+
+    Pod5Repacker(MustBeSharedPtr);
     ~Pod5Repacker();
 
     void finish();
@@ -26,13 +31,7 @@ public:
 
     void add_all_reads_to_output(
         std::shared_ptr<Pod5RepackerOutput> const & output,
-        Pod5FileReaderPtr const & input);
-
-    void py_add_selected_reads_to_output(
-        std::shared_ptr<Pod5RepackerOutput> const & output,
-        Pod5FileReaderPtr const & input,
-        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
-        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && all_batch_rows);
+        std::shared_ptr<pod5::FileReader> const & input);
 
     void add_selected_reads_to_output(
         std::shared_ptr<Pod5RepackerOutput> const & output,

@@ -121,6 +121,14 @@ add_library(pod5_format ${pod5_library_type}
     pod5_format/internal/combined_file_utils.h
     pod5_format/internal/linux_output_stream.h
 
+    pod5_format/repack/repack_functions.h
+    pod5_format/repack/repack_states.h
+    pod5_format/repack/repack_utils.h
+    pod5_format/repack/repack_output.cpp
+    pod5_format/repack/repack_output.h
+    pod5_format/repack/repacker.cpp
+    pod5_format/repack/repacker.h
+
     pod5_format/svb16/common.hpp
     pod5_format/svb16/decode.hpp
     pod5_format/svb16/decode_scalar.hpp
