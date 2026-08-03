@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.47]
 
+### Fixed
+
+- Fixed crash on invalid input file
+
 ## [0.3.46]
 
 ### Added
