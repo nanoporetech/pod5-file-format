@@ -49,14 +49,6 @@
     matrix:
       - CONAN_PROFILE_BUILD_TYPE: ["Debug", "Release"]
 
-build-conan2:windows-x86_64-vs2019:
-  extends: [.conan2-build]
-  tags:
-    - windows
-    - VS2019
-  variables:
-    PROFILE_BASE: windows-x86_64-vs2019.jinja
-
 build-conan2:windows-x86_64-vs2022:
   extends: [.conan2-build]
   tags:
