@@ -412,38 +412,38 @@
             ]
         },
         {
-            "name": "conan2-windows-x86_64-vs2019-cppstd17-debug",
+            "name": "conan2-windows-x86_64-vs2022-cppstd17-debug",
             "inherits": [
                 "conan2-provider",
                 "conan2-debug",
-                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-windows-x86_64-vs2022-profile",
                 "conan2-cppstd17"
             ]
         },
         {
-            "name": "conan2-windows-x86_64-vs2019-cppstd17-release",
+            "name": "conan2-windows-x86_64-vs2022-cppstd17-release",
             "inherits": [
                 "conan2-provider",
                 "conan2-release",
-                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-windows-x86_64-vs2022-profile",
                 "conan2-cppstd17"
             ]
         },
         {
-            "name": "conan2-windows-x86_64-vs2019-cppstd20-debug",
+            "name": "conan2-windows-x86_64-vs2022-cppstd20-debug",
             "inherits": [
                 "conan2-provider",
                 "conan2-debug",
-                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-windows-x86_64-vs2022-profile",
                 "conan2-cppstd20"
             ]
         },
         {
-            "name": "conan2-windows-x86_64-vs2019-cppstd20-release",
+            "name": "conan2-windows-x86_64-vs2022-cppstd20-release",
             "inherits": [
                 "conan2-provider",
                 "conan2-release",
-                "conan2-windows-x86_64-vs2019-profile",
+                "conan2-windows-x86_64-vs2022-profile",
                 "conan2-cppstd20"
             ]
         }
