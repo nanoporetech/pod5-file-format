@@ -7,21 +7,16 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.48] (Unreleased)
+## [0.3.47]
 
 ### Changed
 
 - Building with VS2019 is no longer supported, and all builds are now done on VS2022.
 
-### Fix
+### Fixed
 
 - `kPod5VersionReadTableV5` changed to `0.3.44` (from `0.3.40`) as `0.3.44` added
     both `expected_open_pore_level` and `selected_read_level` fields.
-
-## [0.3.47]
-
-### Fixed
-
 - Fixed crash on invalid input file
 
 ## [0.3.46]
