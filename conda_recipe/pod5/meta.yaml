@@ -1,0 +1,103 @@
+{% set version = "0.2.4" %} # UPDATE for each version
+{% set name = "pod5" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/pod5-{{ version }}.tar.gz
+  sha256: f20ae5238e60c4c91f0143b3971fa688ef81e7857c5fb5ffbc65111296a38bb1 # UPDATE for each version
+
+build:
+  skip: true  # [py<37]
+  entry_points:
+    - pod5 = pod5.tools.main:main
+  script: {{ PYTHON }} -m pip install . -vv
+  number: 0
+
+requirements:
+  host:
+    - python
+    - setuptools >=61.0
+    - wheel
+    - pip
+  run:
+    - python
+    - lib-pod5 =={{ version }} # same repository -> same version
+    - iso8601
+    - importlib-metadata  # [py<38]
+    - more-itertools
+    - numpy >=1.21.0
+    - typing-extensions  # [py<38]
+    - pyarrow >=11.0.0,<11.1.dev0
+    - pytz
+    - packaging
+    - polars >=0.17.12,<0.18.dev0
+    - h5py >=3.8.0,<3.9.dev0
+    - ont_vbz_hdf_plugin
+    - tqdm
+
+test:
+  imports:
+    - pod5
+  commands:
+    - pod5 --help
+    - pod5 convert --help
+    - pod5 convert fast5 --help 
+    - pod5 convert from_fast5 --help 
+    - pod5 convert to_fast5 --help 
+    - pod5 inspect --help
+    - pod5 inspect summary --help
+    - pod5 inspect reads --help
+    - pod5 inspect read --help
+    - pod5 inspect debug --help
+    - pod5 merge --help
+    - pod5 repack --help
+    - pod5 subset --help
+    - pod5 filter --help
+    - pod5 recover --help
+    - pod5 update --help
+    - pod5 view --help
+  ## TODO add your test command here
+  ## e.g.
+  #   - pytest -vv
+  # 
+  ## TODO add test-files used by your tests here
+  # source_files: 
+  #   - test_data
+
+about:
+  home: https://github.com/nanoporetech/pod5-file-format
+  license: Mozilla Public License Version 2.0
+  summary: 'Oxford Nanopore Technologies Pod5 File Format Python API and Tools'
+  description: |
+    [![Documentation Status](https://readthedocs.org/projects/pod5-file-format/badge/?version=latest)](https://pod5-file-format.readthedocs.io/)
+
+    POD5 File Format
+    ================
+
+    POD5 is a file format for storing nanopore dna data in an easily accessible way.
+    The format is able to be written in a streaming manner which allows a sequencing
+    instrument to directly write the format.
+
+    Data in POD5 is stored using [Apache Arrow](https://github.com/apache/arrow), allowing
+    users to consume data in many languages using standard tools.
+
+    What does this project contain
+    ------------------------------
+
+    This project contains a core library for reading and writing POD5 data, and a toolkit for
+    accessing this data in other languages.
+
+    Documentation
+    -------------
+
+    Full documentation is found at https://pod5-file-format.readthedocs.io/
+  dev_url: https://github.com/nanoporetech/pod5-file-format
+  doc_url: https://pod5-file-format.readthedocs.io/
+
+extra:
+  recipe-maintainers:
+    - 38325576 # github id
+    - JannesSP # github name
