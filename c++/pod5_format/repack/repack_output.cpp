@@ -4,8 +4,9 @@
 #include "repack_functions.h"
 
 #include <iostream>
+#include <map>
 #include <thread>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace repack {
 
@@ -56,9 +57,11 @@ struct Pod5RepackerOutputState {
     Pod5RepackerOutputState(
         std::shared_ptr<pod5::FileWriter> const & _output_file,
         bool _check_duplicate_read_ids,
-        arrow::MemoryPool * _memory_pool)
+        arrow::MemoryPool * _memory_pool,
+        bool _merge_duplicate_reads)
     : output_file(_output_file)
     , check_duplicate_read_ids(_check_duplicate_read_ids)
+    , merge_duplicate_reads_enabled(_merge_duplicate_reads)
     , memory_pool(_memory_pool)
     , dict_manager(
           std::make_shared<ReadsTableDictionaryManager>(_output_file, read_table_writer_mutex))
@@ -77,6 +80,7 @@ struct Pod5RepackerOutputState {
 
     std::shared_ptr<pod5::FileWriter> output_file;
     bool check_duplicate_read_ids;
+    bool merge_duplicate_reads_enabled;
     arrow::MemoryPool * memory_pool;
     std::mutex read_table_writer_mutex;
     std::mutex signal_table_writer_mutex;
@@ -89,7 +93,7 @@ struct Pod5RepackerOutputState {
     std::unordered_map<std::thread::id, Pod5RepackerOutputThreadState> thread_states;
 
     std::mutex output_read_ids_mutex;
-    std::unordered_set<pod5::Uuid> output_read_ids;
+    std::unordered_map<pod5::Uuid, OutputReadSignalRows> output_read_ids;
 };
 
 namespace {
@@ -119,13 +123,27 @@ struct StateOperator {
             read_read_data(progress_state->get_thread_state()->dict_cache, std::move(*batch)));
         batch.reset();
 
+        // Merge reads before creating read table
+        if (progress_state->merge_duplicate_reads_enabled) {
+            std::lock_guard<std::mutex> l{progress_state->output_read_ids_mutex};
+            ARROW_RETURN_NOT_OK(
+                merge_duplicate_reads(read_result, progress_state->output_read_ids));
+        }
+
+        // If we filter out all reads, then nothing further to do
+        if (read_result.reads.empty()) {
+            return StateProgressResult{{}};
+        }
+
         auto read_table_rows = std::make_shared<states::read_read_table_rows_no_signal>();
         read_table_rows->reads = std::move(read_result.reads);
         read_table_rows->signal_durations = std::move(read_result.signal_durations);
         read_table_rows->signal_row_sizes = std::move(read_result.signal_row_sizes);
         read_table_rows->signal_row_indices.resize(read_result.signal_rows.size());
 
-        if (progress_state->check_duplicate_read_ids) {
+        if (!progress_state->merge_duplicate_reads_enabled
+            && progress_state->check_duplicate_read_ids)
+        {
             std::lock_guard<std::mutex> l{progress_state->output_read_ids_mutex};
             ARROW_RETURN_NOT_OK(
                 check_duplicate_read_ids(progress_state->output_read_ids, read_table_rows->reads));
@@ -238,7 +256,8 @@ Pod5RepackerOutput::Pod5RepackerOutput(
     std::shared_ptr<Pod5Repacker> const & repacker,
     std::shared_ptr<pod5::ThreadPool> thread_pool,
     std::shared_ptr<pod5::FileWriter> const & output,
-    bool check_duplicate_read_ids)
+    bool check_duplicate_read_ids,
+    bool merge_duplicate_reads)
 : m_repacker(repacker)
 , m_thread_pool(thread_pool)
 , m_output(output)
@@ -246,7 +265,8 @@ Pod5RepackerOutput::Pod5RepackerOutput(
       std::make_unique<Pod5RepackerOutputState>(
           output,
           check_duplicate_read_ids,
-          arrow::default_memory_pool()))
+          arrow::default_memory_pool(),
+          merge_duplicate_reads))
 {
 }
 

@@ -281,7 +281,8 @@ void subset_pod5s_with_mapping(
 
             // Add the output file writer to the repacker
             created_output_files.push_back(output_path);
-            auto repacker_output_file = repacker->add_output(std::move(*writer), !duplicate_ok);
+            auto repacker_output_file =
+                repacker->add_output(std::move(*writer), !duplicate_ok, false);
             std::size_t const repacker_output_idx = dest_to_output.size();
             dest_to_output.emplace_back(std::move(repacker_output_file));
 

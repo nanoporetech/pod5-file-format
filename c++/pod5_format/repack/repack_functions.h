@@ -314,17 +314,124 @@ inline arrow::Status write_reads(
     return arrow::Status::OK();
 }
 
+struct OutputReadSignalRows {
+    std::shared_ptr<pod5::FileReader> source_file;
+    std::vector<std::uint64_t> signal_rows;
+};
+
 inline arrow::Status check_duplicate_read_ids(
-    std::unordered_set<pod5::Uuid> & output_read_ids,
+    std::unordered_map<pod5::Uuid, OutputReadSignalRows> & output_read_ids,
     std::vector<pod5::ReadData> const & new_reads)
 {
     for (auto const & read : new_reads) {
-        auto result = output_read_ids.insert(read.read_id);
+        auto result = output_read_ids.insert({read.read_id, {}});
         if (!result.second) {
             return arrow::Status::Invalid(
                 "Duplicate read id ", to_string(read.read_id), " found in file");
         }
     }
+
+    return arrow::Status::OK();
+}
+
+arrow::Result<bool> are_same_signal(
+    std::shared_ptr<pod5::FileReader> const & lhs_source_file,
+    std::vector<std::uint64_t> const & lhs_signal_rows,
+    std::shared_ptr<pod5::FileReader> const & rhs_source_file,
+    std::vector<std::uint64_t> const & rhs_signal_rows)
+{
+    ARROW_ASSIGN_OR_RAISE(
+        auto lhs_sample_count, lhs_source_file->extract_sample_count(lhs_signal_rows));
+    ARROW_ASSIGN_OR_RAISE(
+        auto rhs_sample_count, rhs_source_file->extract_sample_count(rhs_signal_rows));
+
+    if (lhs_sample_count != rhs_sample_count) {
+        return false;
+    }
+
+    std::vector<std::int16_t> lhs_signal(lhs_sample_count);
+    std::vector<std::int16_t> rhs_signal(rhs_sample_count);
+
+    ARROW_RETURN_NOT_OK(lhs_source_file->extract_samples(lhs_signal_rows, lhs_signal));
+    ARROW_RETURN_NOT_OK(rhs_source_file->extract_samples(rhs_signal_rows, rhs_signal));
+
+    // This might be an inefficient comparison, but it is simple and correct.
+    // We do not expect to have many duplicate read_ids, so this should be fine for now.
+    return lhs_signal == rhs_signal;
+}
+
+arrow::Status merge_duplicate_reads(
+    ReadReadData & read_result,
+    std::unordered_map<pod5::Uuid, OutputReadSignalRows> & output_read_ids)
+{
+    std::vector<pod5::ReadData> filtered_reads;
+    std::vector<std::size_t> filtered_signal_durations;
+    std::vector<std::size_t> filtered_signal_row_sizes;
+    std::vector<pod5::Uuid> filtered_signal_rows_read_ids;
+    std::vector<std::uint64_t> filtered_signal_rows;
+
+    filtered_reads.reserve(read_result.reads.size());
+    filtered_signal_durations.reserve(read_result.signal_durations.size());
+    filtered_signal_row_sizes.reserve(read_result.signal_row_sizes.size());
+    filtered_signal_rows_read_ids.reserve(read_result.signal_rows_read_ids.size());
+    filtered_signal_rows.reserve(read_result.signal_rows.size());
+
+    std::size_t signal_offset = 0;
+    for (std::size_t i = 0; i < read_result.reads.size(); ++i) {
+        auto const & read = read_result.reads[i];
+        auto const signal_row_count = read_result.signal_row_sizes[i];
+        auto const signal_begin = signal_offset;
+        signal_offset += signal_row_count;
+
+        std::vector<std::uint64_t> read_signal_rows(
+            read_result.signal_rows.begin() + signal_begin,
+            read_result.signal_rows.begin() + signal_offset);
+
+        std::shared_ptr<pod5::FileReader> existing_source_file;
+        std::vector<std::uint64_t> existing_signal_rows;
+
+        auto it = output_read_ids.find(read.read_id);
+        if (it == output_read_ids.end()) {
+            output_read_ids.emplace(
+                read.read_id, OutputReadSignalRows{read_result.input, read_signal_rows});
+
+            filtered_reads.emplace_back(read);
+            filtered_signal_durations.emplace_back(read_result.signal_durations[i]);
+            filtered_signal_row_sizes.emplace_back(signal_row_count);
+
+            filtered_signal_rows.insert(
+                filtered_signal_rows.end(), read_signal_rows.begin(), read_signal_rows.end());
+            filtered_signal_rows_read_ids.insert(
+                filtered_signal_rows_read_ids.end(),
+                read_result.signal_rows_read_ids.begin() + signal_begin,
+                read_result.signal_rows_read_ids.begin() + signal_offset);
+        } else {
+            existing_source_file = it->second.source_file;
+            existing_signal_rows = it->second.signal_rows;
+
+            ARROW_ASSIGN_OR_RAISE(
+                auto const same_signal,
+                are_same_signal(
+                    existing_source_file,
+                    existing_signal_rows,
+                    read_result.input,
+                    read_signal_rows));
+
+            if (!same_signal) {
+                return arrow::Status::Invalid(
+                    "Duplicate read id ",
+                    to_string(read.read_id),
+                    " found in file with differing signal data");
+            }
+        }
+    }
+
+    // Update the read result with the filtered reads and signal rows
+    read_result.reads = std::move(filtered_reads);
+    read_result.signal_durations = std::move(filtered_signal_durations);
+    read_result.signal_row_sizes = std::move(filtered_signal_row_sizes);
+    read_result.signal_rows_read_ids = std::move(filtered_signal_rows_read_ids);
+    read_result.signal_rows = std::move(filtered_signal_rows);
 
     return arrow::Status::OK();
 }

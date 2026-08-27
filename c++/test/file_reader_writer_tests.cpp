@@ -492,7 +492,7 @@ TEST_CASE("Repacker smoke test")
 
     // Repacker wants a shared_ptr.
     std::shared_ptr<pod5::FileWriter> writer = std::move(*maybe_writer);
-    auto repacker_output = repacker->add_output(std::move(writer), false);
+    auto repacker_output = repacker->add_output(std::move(writer), false, false);
 
     // Add all the reads to it.
     auto const input_file = GENERATE(from_range(test_data_files));

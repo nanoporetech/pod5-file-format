@@ -27,6 +27,7 @@ def merge_pod5(
     output: Path,
     force_overwrite: bool = False,
     recursive: bool = False,
+    merge_duplicate_reads: bool = False,
     threads: int = DEFAULT_THREADS,
     readers: int = 5,
 ) -> None:
@@ -57,7 +58,11 @@ def merge_pod5(
     with p5.Writer(output.absolute()) as writer:
         # Attach the writer to the repacker
         repacker = p5_repack.Repacker()
-        repacker_output = repacker.add_output(writer, True)
+        repacker_output = repacker.add_output(
+            writer,
+            check_duplicate_read_ids=True,
+            merge_duplicate_reads=merge_duplicate_reads,
+        )
 
         pbar = tqdm(
             total=len(_inputs),
