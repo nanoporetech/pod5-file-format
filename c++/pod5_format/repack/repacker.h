@@ -26,7 +26,8 @@ public:
 
     std::shared_ptr<Pod5RepackerOutput> add_output(
         std::shared_ptr<pod5::FileWriter> const & output,
-        bool check_duplicate_read_ids);
+        bool check_duplicate_read_ids,
+        bool merge_duplicate_reads);
     void set_output_finished(std::shared_ptr<Pod5RepackerOutput> const & output);
 
     void add_all_reads_to_output(

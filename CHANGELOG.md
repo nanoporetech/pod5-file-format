@@ -7,6 +7,12 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.48] (Unreleased)
+
+### Added
+
+- Introduced a `--merge-duplicate-reads` argument for `pod5 merge`. Allows reads with identical `read_ids` and signal data to be merged as a single read.
+
 ## [0.3.47]
 
 ### Changed

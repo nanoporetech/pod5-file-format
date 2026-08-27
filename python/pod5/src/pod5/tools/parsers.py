@@ -399,6 +399,11 @@ def prepare_pod5_merge_argparser(
         default=20,
         help="number of merge readers TESTING ONLY",
     )
+    parser.add_argument(
+        "--merge-duplicate-reads",
+        action="store_true",
+        help="Merge duplicate read_ids when signal data is identical; error if signal differs",
+    )
 
     def run(**kwargs):
         from pod5.tools.pod5_merge import merge_pod5

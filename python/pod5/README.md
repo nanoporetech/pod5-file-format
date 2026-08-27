@@ -244,8 +244,8 @@ Inspect the pod5 file, find a specific read and print its details.
 ``pod5 merge`` is a tool for merging multiple  ``.pod5`` files into one monolithic pod5 file.
 
 The contents of the input files are checked for duplicate read_ids to avoid
-accidentally merging identical reads. To override this check set the argument
-``-D / --duplicate-ok``
+accidentally merging identical reads. To merge duplicate reads set the argument
+``--merge-duplicate-reads``
 
 ``` bash
 # View help
@@ -257,8 +257,8 @@ accidentally merging identical reads. To override this check set the argument
 # Merge a glob of pod5 files
 > pod5 merge *.pod5 -o merged.pod5
 
-# Merge a glob of pod5 files ignoring duplicate read ids
-> pod5 merge *.pod5 -o merged.pod5 --duplicate-ok
+# Merge a glob of pod5 files by merging duplicate read ids when signal matches
+> pod5 merge *.pod5 -o merged.pod5 --merge-duplicate-reads
 ```
 
 ### Pod5 filter

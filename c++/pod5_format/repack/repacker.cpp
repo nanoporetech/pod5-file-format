@@ -34,11 +34,12 @@ void Pod5Repacker::finish()
 
 std::shared_ptr<Pod5RepackerOutput> Pod5Repacker::add_output(
     std::shared_ptr<pod5::FileWriter> const & output,
-    bool check_duplicate_read_ids)
+    bool check_duplicate_read_ids,
+    bool merge_duplicate_reads)
 {
     POD5_TRACE_FUNCTION();
     auto repacker_output = std::make_shared<Pod5RepackerOutput>(
-        shared_from_this(), m_thread_pool, output, check_duplicate_read_ids);
+        shared_from_this(), m_thread_pool, output, check_duplicate_read_ids, merge_duplicate_reads);
     m_outputs.push_back(repacker_output);
     return repacker_output;
 }

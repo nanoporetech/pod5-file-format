@@ -36,7 +36,10 @@ class Repacker:
         return self._reads_requested
 
     def add_output(
-        self, output_file: p5.Writer, check_duplicate_read_ids: bool = True
+        self,
+        output_file: p5.Writer,
+        check_duplicate_read_ids: bool = True,
+        merge_duplicate_reads: bool = False,
     ) -> p5b.Pod5RepackerOutput:
         """
         Add an output file writer to the repacker, so it can have read data repacked
@@ -51,7 +54,9 @@ class Repacker:
             The output file writer to use
         check_duplicate_read_ids: bool
             Check the output for duplicate read ids, and raise an error if found.
-
+        merge_duplicate_reads: bool
+            Merge duplicate reads with the same read id, if they have identical signal data.
+            If they have different signal data, raise an error.
         Returns
         -------
         repacker_object: p5b.Pod5RepackerOutput
@@ -59,7 +64,9 @@ class Repacker:
             or `add_reads_to_output`
         """
         assert output_file._writer is not None
-        return self._repacker.add_output(output_file._writer, check_duplicate_read_ids)
+        return self._repacker.add_output(
+            output_file._writer, check_duplicate_read_ids, merge_duplicate_reads
+        )
 
     def add_selected_reads_to_output(
         self,

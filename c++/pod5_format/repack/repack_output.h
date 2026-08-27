@@ -22,7 +22,8 @@ public:
         std::shared_ptr<Pod5Repacker> const & repacker,
         std::shared_ptr<pod5::ThreadPool> thread_pool,
         std::shared_ptr<pod5::FileWriter> const & output,
-        bool check_duplicate_read_ids);
+        bool check_duplicate_read_ids,
+        bool merge_duplicate_reads);
     ~Pod5RepackerOutput();
 
     std::string path() const { return m_output->path(); }
