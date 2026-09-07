@@ -438,7 +438,7 @@ pod5_error_t pod5_get_read_batch_row_info_data(
     }
 
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_6,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_7,
         "New versions must be explicitly loaded");
 
     auto load_common_v3_v4_fields = [](pod5::ReadTableRecordColumns const & cols,
@@ -457,9 +457,8 @@ pod5_error_t pod5_get_read_batch_row_info_data(
         typed_row_data->start_sample = cols.start_sample->Value(row);
         typed_row_data->median_before = cols.median_before->Value(row);
 
-        // In V6 this will be overwritten with 32-bit data.
-        typed_row_data->channel =
-            cols.channel_32bit ? cols.channel_32bit->Value(row) : cols.channel_16bit->Value(row);
+        // In V6+ this will be overwritten with 32-bit data.
+        typed_row_data->channel = cols.channel_16bit->Value(row);
         typed_row_data->well = cols.well->Value(row);
         auto const & pore_type_col = cols.pore_type->indices();
         typed_row_data->pore_type =
@@ -496,9 +495,21 @@ pod5_error_t pod5_get_read_batch_row_info_data(
             typed_row_data->open_pore_level = cols.open_pore_level->Value(row);
             typed_row_data->expected_open_pore_level = cols.expected_open_pore_level->Value(row);
             typed_row_data->selected_read_level = cols.selected_read_level->Value(row);
-
             return POD5_OK;
         };
+
+    auto load_common_v6_v7_fields = [&load_common_v5_v6_fields](
+                                        pod5::ReadTableRecordColumns const & cols,
+                                        std::size_t row,
+                                        auto * typed_row_data) {
+        if (auto result = load_common_v5_v6_fields(cols, row, typed_row_data); result != POD5_OK) {
+            return result;
+        }
+        typed_row_data->channel = cols.channel_32bit   ? cols.channel_32bit->Value(row)
+                                  : cols.channel_16bit ? cols.channel_16bit->Value(row)
+                                                       : 0;
+        return POD5_OK;
+    };
 
     switch (struct_version) {
     case READ_BATCH_ROW_INFO_VERSION_3: {
@@ -541,12 +552,20 @@ pod5_error_t pod5_get_read_batch_row_info_data(
         POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
         *read_table_version = cols.table_version.as_int();
 
-        if (auto result = load_common_v5_v6_fields(cols, row, typed_row_data); result != POD5_OK) {
+        if (auto result = load_common_v6_v7_fields(cols, row, typed_row_data); result != POD5_OK) {
             return result;
         }
-        typed_row_data->channel = cols.channel_32bit   ? cols.channel_32bit->Value(row)
-                                  : cols.channel_16bit ? cols.channel_16bit->Value(row)
-                                                       : 0;
+        break;
+    }
+    case READ_BATCH_ROW_INFO_VERSION_7: {
+        auto typed_row_data = static_cast<ReadBatchRowInfoV7 *>(row_data);
+
+        POD5_C_ASSIGN_OR_RAISE(auto cols, batch->batch.columns());
+        *read_table_version = cols.table_version.as_int();
+
+        if (auto result = load_common_v6_v7_fields(cols, row, typed_row_data); result != POD5_OK) {
+            return result;
+        }
         break;
     }
     default:
@@ -1141,7 +1160,7 @@ pod5_error_t pod5_add_run_info(
 static bool check_read_data_struct(std::uint16_t struct_version, void const * row_data)
 {
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_6,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_7,
         "New versions must be explicitly loaded");
 
     if (!check_not_null(row_data)) {
@@ -1174,7 +1193,7 @@ static bool check_read_data_struct(std::uint16_t struct_version, void const * ro
                && check_not_null(typed_row_data->time_since_mux_change);
     };
 
-    auto const check_v5_v6_fields = [&](auto typed_row_data) -> bool {
+    auto const check_v5_v6_v7_fields = [&](auto typed_row_data) -> bool {
         return check_common_v3_v4_fields(typed_row_data)
                && check_not_null(typed_row_data->open_pore_level)
                && check_not_null(typed_row_data->expected_open_pore_level)
@@ -1193,11 +1212,15 @@ static bool check_read_data_struct(std::uint16_t struct_version, void const * ro
     }
     case READ_BATCH_ROW_INFO_VERSION_5: {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV5 const *>(row_data);
-        return check_v5_v6_fields(typed_row_data);
+        return check_v5_v6_v7_fields(typed_row_data);
     }
     case READ_BATCH_ROW_INFO_VERSION_6: {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV6 const *>(row_data);
-        return check_v5_v6_fields(typed_row_data);
+        return check_v5_v6_v7_fields(typed_row_data);
+    }
+    case READ_BATCH_ROW_INFO_VERSION_7: {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV7 const *>(row_data);
+        return check_v5_v6_v7_fields(typed_row_data);
     }
     default:
         assert(false && "Unknown READ_BATCH_ROW_INFO_VERSION!");
@@ -1214,7 +1237,7 @@ static bool load_struct_row_into_read_data(
     std::uint32_t row_id)
 {
     static_assert(
-        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_6,
+        READ_BATCH_ROW_INFO_VERSION == READ_BATCH_ROW_INFO_VERSION_7,
         "New versions must be explicitly loaded");
 
     auto const load_common_v3_v4_fields = [](std::unique_ptr<pod5::FileWriter> const & writer,
@@ -1300,11 +1323,11 @@ static bool load_struct_row_into_read_data(
         return true;
     };
 
-    auto const load_v5_v6_fields = [&load_common_v3_v4_fields](
-                                       std::unique_ptr<pod5::FileWriter> const & writer,
-                                       auto const * typed_row_data,
-                                       std::uint32_t row_id,
-                                       pod5::ReadData & read_data) -> bool {
+    auto const load_v5_v6_v7_fields = [&load_common_v3_v4_fields](
+                                          std::unique_ptr<pod5::FileWriter> const & writer,
+                                          auto const * typed_row_data,
+                                          std::uint32_t row_id,
+                                          pod5::ReadData & read_data) -> bool {
         if (!load_common_v3_v4_fields(writer, typed_row_data, row_id, read_data)) {
             return false;
         }
@@ -1333,7 +1356,7 @@ static bool load_struct_row_into_read_data(
     case READ_BATCH_ROW_INFO_VERSION_5: {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV5 const *>(row_data);
 
-        if (!load_v5_v6_fields(writer, typed_row_data, row_id, read_data)) {
+        if (!load_v5_v6_v7_fields(writer, typed_row_data, row_id, read_data)) {
             return false;
         }
         break;
@@ -1341,7 +1364,15 @@ static bool load_struct_row_into_read_data(
     case READ_BATCH_ROW_INFO_VERSION_6: {
         auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV6 const *>(row_data);
 
-        if (!load_v5_v6_fields(writer, typed_row_data, row_id, read_data)) {
+        if (!load_v5_v6_v7_fields(writer, typed_row_data, row_id, read_data)) {
+            return false;
+        }
+        break;
+    }
+    case READ_BATCH_ROW_INFO_VERSION_7: {
+        auto const * typed_row_data = static_cast<ReadBatchRowInfoArrayV7 const *>(row_data);
+
+        if (!load_v5_v6_v7_fields(writer, typed_row_data, row_id, read_data)) {
             return false;
         }
         break;

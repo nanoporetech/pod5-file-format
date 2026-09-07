@@ -6,9 +6,10 @@ description = "Globally-unique identifier for the read, can be converted to a st
 type = "list(uint64)"
 description = "A list of zero-indexed row numbers in the Signal table. This must be all the rows in the Signal table that have a matching read_id, in order. It functions as an index for the Signal table."
 
+# Deprecated: This remains for compatibility with older tools. Favour the information in channel_32bit
 [fields.channel]
 type = "uint16"
-description = "1-indexed channel"
+description = "1-indexed channel. Only valid for channel-name 1..65535. Will contain 0 for channel-names outside this range. Favour the information in channel_32bit"
 
 [fields.well]
 type = "uint8"
@@ -99,3 +100,7 @@ description = "The expected open pore level for the read. A value in pA showing 
 [fields.selected_read_level]
 type = "float"
 description = "The tracked level of reads selected for writing. A value in pA showing the level of reads selected for writing, up to the moment this read started. The value written is tracked per well and channel. If the information is not available (feature not enabled in MinKNOW, or sequencing run on an old version) this value will be NaN."
+
+[fields.channel_32bit]
+type = "uint32"
+description = "1-indexed channel."

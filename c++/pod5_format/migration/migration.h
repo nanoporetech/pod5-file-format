@@ -86,6 +86,9 @@ POD5_FORMAT_EXPORT arrow::Result<MigrationResult> migrate_v4_to_v5(
 POD5_FORMAT_EXPORT arrow::Result<MigrationResult> migrate_v5_to_v6(
     MigrationResult && v5_input,
     arrow::MemoryPool * pool);
+POD5_FORMAT_EXPORT arrow::Result<MigrationResult> migrate_v6_to_v7(
+    MigrationResult && v6_input,
+    arrow::MemoryPool * pool);
 
 /*
 Perform physical file version migration to the minimum required on-disk version (schema)
@@ -129,7 +132,8 @@ inline arrow::Result<MigrationResult> migrate_to_latest(
     // convert them.
     ARROW_ASSIGN_OR_RAISE(auto v4_result, migrate_v3_to_v4(std::move(input), pool));
     ARROW_ASSIGN_OR_RAISE(auto v5_result, migrate_v4_to_v5(std::move(v4_result), pool));
-    return migrate_v5_to_v6(std::move(v5_result), pool);
+    ARROW_ASSIGN_OR_RAISE(auto v6_result, migrate_v5_to_v6(std::move(v5_result), pool));
+    return migrate_v6_to_v7(std::move(v6_result), pool);
 }
 
 }  // namespace pod5

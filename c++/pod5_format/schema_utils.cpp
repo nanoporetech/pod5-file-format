@@ -11,7 +11,7 @@ std::shared_ptr<arrow::Schema> SchemaDescriptionBase::make_writer_schema(
     auto const latest_version = latest_table_version();
     arrow::FieldVector writer_fields;
     for (auto & field : fields()) {
-        if (field->removed_table_spec_version() > latest_version) {
+        if (field->in_spec_version(latest_version)) {
             writer_fields.emplace_back(arrow::field(field->name(), field->datatype()));
         }
     }
@@ -32,17 +32,16 @@ Status SchemaDescriptionBase::read_schema(
     for (auto & field : dest_schema->fields()) {
         if (auto field_index = schema->GetFieldIndex(field->name());
             field_index != -1
-            && dest_schema->m_table_spec_version < field->added_table_spec_version()
+            && dest_schema->m_table_spec_version < field->first_added_table_spec_version()
             && schema->field(field_index)->type() == field->datatype())
         {
-            dest_schema->m_table_spec_version = field->added_table_spec_version();
+            dest_schema->m_table_spec_version = field->first_added_table_spec_version();
         }
     }
 
     for (auto & field : dest_schema->fields()) {
-        if (dest_schema->table_version() < field->added_table_spec_version()
-            || dest_schema->table_version() >= field->removed_table_spec_version())
-        {
+        // If this field in not this version of the schema, ignore it.
+        if (!field->in_spec_version(dest_schema->table_version())) {
             continue;
         }
 

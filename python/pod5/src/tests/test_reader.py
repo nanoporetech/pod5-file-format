@@ -130,13 +130,13 @@ class TestPod5Reader:
         with p5.Reader(POD5_PATH) as reader:
             assert isinstance(reader.path, Path)
             assert reader.path == POD5_PATH
-            assert reader.reads_table_version == 6
-            # Physical test file is v4 - which doesn't have v5 columns.
+            assert reader.reads_table_version == 7
+            # Physical test file is v4 - which doesn't have v7 columns.
             # These columns are created virtually to avoid costly physical
             # file migration
             assert reader.original_file_version < packaging.version.Version("0.3.40")
             assert reader.physical_read_table_version == 4
-            assert reader.logical_read_table_version == 6
+            assert reader.logical_read_table_version == 7
             assert reader.reads_table_version == reader.logical_read_table_version
             assert "expected_open_pore_level" not in reader.read_table.schema.names
             assert "selected_read_level" not in reader.read_table.schema.names
@@ -177,10 +177,10 @@ class TestPod5Reader:
 
     def test_v3_read_table_later_version_fields_are_virtual(self) -> None:
         with p5.Reader(POD5_V3_PATH) as reader:
-            assert reader.reads_table_version == 6
+            assert reader.reads_table_version == 7
             assert reader.original_file_version < packaging.version.Version("0.3.30")
             assert reader.physical_read_table_version == 3
-            assert reader.logical_read_table_version == 6
+            assert reader.logical_read_table_version == 7
             assert "open_pore_level" not in reader.read_table.schema.names
             assert "expected_open_pore_level" not in reader.read_table.schema.names
             assert "selected_read_level" not in reader.read_table.schema.names
@@ -196,7 +196,7 @@ class TestPod5Reader:
         with p5.Reader(POD5_V2_PATH) as reader:
             assert reader.original_file_version < packaging.version.Version("0.0.38")
             assert reader.physical_read_table_version == 3
-            assert reader.logical_read_table_version == 6
+            assert reader.logical_read_table_version == 7
 
     @pytest.mark.parametrize("random_read", [1], indirect=True)
     def test_latest_version_read_table_fields_are_physical(
@@ -214,7 +214,7 @@ class TestPod5Reader:
 
         # Now read it back.
         with p5.Reader(path) as reader:
-            assert reader.reads_table_version == 6
+            assert reader.reads_table_version == 7
             assert "expected_open_pore_level" in reader.read_table.schema.names
             assert "selected_read_level" in reader.read_table.schema.names
 

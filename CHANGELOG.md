@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Introduced a `--merge-duplicate-reads` argument for `pod5 merge`. Allows reads with identical `read_ids` and signal data to be merged as a single read.
 
+### Fixed
+
+- Fixed incompatibilities where software using older versions of POD5 libraries couldn't read files with the read-table v6 schema.
+  Added the v7 schema changing the channel field in read-table to back to 16-bits and adding a "channel_32bit" field.
+
 ## [0.3.47]
 
 ### Changed
