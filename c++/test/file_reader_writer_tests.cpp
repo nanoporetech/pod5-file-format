@@ -51,6 +51,7 @@ std::array const test_data_files = {
     *repo_root.Join("test_data/multi_fast5_zip_v3.pod5"),  // 0.0.40
     *repo_root.Join("test_data/multi_fast5_zip_v4.pod5"),  // 0.3.30
     *repo_root.Join("test_data/multi_fast5_zip_v5.pod5"),  // 0.3.45
+    *repo_root.Join("test_data/multi_fast5_zip_v6.pod5"),  // 0.3.46
 };
 
 void run_file_reader_writer_tests(

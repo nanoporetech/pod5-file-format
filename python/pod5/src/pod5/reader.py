@@ -76,8 +76,83 @@ ReadRecordV3Columns = namedtuple(
     ],
 )
 
+# Versions 5 to 7 contain the same fields, but the data is stored in different ways. Unfortunately
+# there is no way to deduplicate these namedtuple definitions without causing problems with mypy.
+
 ReadRecordV5Columns = namedtuple(
     "ReadRecordV5Columns",
+    [
+        "read_id",
+        "read_number",
+        "start",
+        "channel",
+        "well",
+        "median_before",
+        "pore_type",
+        "calibration_offset",
+        "calibration_scale",
+        "end_reason",
+        "end_reason_forced",
+        "run_info",
+        "signal",
+        "num_minknow_events",
+        # Deprecated: will be removed in 0.4.0
+        "tracked_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
+        "tracked_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
+        "predicted_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
+        "predicted_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
+        "num_reads_since_mux_change",
+        # Deprecated: will be removed in 0.4.0
+        "time_since_mux_change",
+        "num_samples",
+        "open_pore_level",
+        "expected_open_pore_level",
+        "selected_read_level",
+    ],
+)
+
+ReadRecordV6Columns = namedtuple(
+    "ReadRecordV6Columns",
+    [
+        "read_id",
+        "read_number",
+        "start",
+        "channel",
+        "well",
+        "median_before",
+        "pore_type",
+        "calibration_offset",
+        "calibration_scale",
+        "end_reason",
+        "end_reason_forced",
+        "run_info",
+        "signal",
+        "num_minknow_events",
+        # Deprecated: will be removed in 0.4.0
+        "tracked_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
+        "tracked_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
+        "predicted_scaling_scale",
+        # Deprecated: will be removed in 0.4.0
+        "predicted_scaling_shift",
+        # Deprecated: will be removed in 0.4.0
+        "num_reads_since_mux_change",
+        # Deprecated: will be removed in 0.4.0
+        "time_since_mux_change",
+        "num_samples",
+        "open_pore_level",
+        "expected_open_pore_level",
+        "selected_read_level",
+    ],
+)
+
+ReadRecordV7Columns = namedtuple(
+    "ReadRecordV7Columns",
     [
         "read_id",
         "read_number",
@@ -535,13 +610,13 @@ class ReadRecordBatch:
 
         self._signal_cache: Optional[p5b.Pod5SignalCacheBatch] = None
         self._selected_batch_rows: Optional[Iterable[int]] = None
-        self._columns: Optional[ReadRecordV5Columns] = None
+        self._columns: Optional[ReadRecordV7Columns] = None
 
     @property
-    def columns(self) -> ReadRecordV5Columns:
+    def columns(self) -> ReadRecordV7Columns:
         """Return the data from this batch as a ReadRecordColumns instance"""
         if self._columns is None:
-            self._columns = ReadRecordV5Columns(
+            self._columns = ReadRecordV7Columns(
                 *[
                     self._column_or_default(name)
                     for name in self._reader._columns_type._fields
@@ -830,7 +905,7 @@ class Reader:
             schema_metadata[b"MINKNOW:file_identifier"].decode("utf-8")
         )
         self._writing_software = schema_metadata[b"MINKNOW:software"].decode("utf-8")
-        self._columns_type = ReadRecordV5Columns
+        self._columns_type = ReadRecordV7Columns
         self._physical_read_table_version = (
             self._file_reader.get_physical_read_table_version()
         )

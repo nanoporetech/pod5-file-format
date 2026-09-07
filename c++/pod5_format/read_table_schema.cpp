@@ -43,10 +43,8 @@ num_samples(this, "num_samples", arrow::uint64(), ReadTableSpecVersion::v2())
       this,
       "channel",
       arrow::uint16(),
-      ReadTableSpecVersion::v3(),
-      ReadTableSpecVersion::v6())
-// In V6 this field replaces the 16-bit channel.
-, channel_32bit(this, "channel", arrow::uint32(), ReadTableSpecVersion::v6())
+      {{ReadTableSpecVersion::v3(), ReadTableSpecVersion::v6()},
+       {ReadTableSpecVersion::v7(), TableSpecVersion::unknown_version()}})
 , well(this, "well", arrow::uint8(), ReadTableSpecVersion::v3())
 , pore_type(
       this,
@@ -75,6 +73,15 @@ num_samples(this, "num_samples", arrow::uint64(), ReadTableSpecVersion::v2())
       arrow::float32(),
       ReadTableSpecVersion::v5())
 , selected_read_level(this, "selected_read_level", arrow::float32(), ReadTableSpecVersion::v5())
+// V6 fields
+, channel_mistake(
+      this,
+      "channel",
+      arrow::uint32(),
+      ReadTableSpecVersion::v6(),
+      ReadTableSpecVersion::v7())
+// V7 fields
+, channel_32bit(this, "channel_32bit", arrow::uint32(), ReadTableSpecVersion::v7())
 {
 }
 

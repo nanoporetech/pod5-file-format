@@ -329,8 +329,11 @@ struct ReadBatchRowInfoV6 {
     float selected_read_level;
 };
 
+// Single entry of read data
+typedef struct ReadBatchRowInfoV6 ReadBatchRowInfoV7;
+
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoV6 ReadBatchRowInfo_t;
+typedef ReadBatchRowInfoV7 ReadBatchRowInfo_t;
 
 struct POD5_DEPRECATED ReadBatchRowInfoArrayV3 {
     // The read id data, in binary form.
@@ -548,8 +551,11 @@ struct ReadBatchRowInfoArrayV6 {
     float const * selected_read_level;
 };
 
+// Array of read data:
+typedef struct ReadBatchRowInfoArrayV6 ReadBatchRowInfoArrayV7;
+
 // Typedef for latest batch row info structure.
-typedef struct ReadBatchRowInfoArrayV6 ReadBatchRowInfoArray_t;
+typedef ReadBatchRowInfoArrayV7 ReadBatchRowInfoArray_t;
 
 #define READ_BATCH_ROW_INFO_VERSION_0 0
 // Addition of num_minknow_events fields, scaling fields.
@@ -564,8 +570,10 @@ typedef struct ReadBatchRowInfoArrayV6 ReadBatchRowInfoArray_t;
 #define READ_BATCH_ROW_INFO_VERSION_5 5
 // Change the "channel" field from 16 to 32-bit.
 #define READ_BATCH_ROW_INFO_VERSION_6 6
+// Change the "channel" field back to 16-bit and introduce the "channel_32bit" field.
+#define READ_BATCH_ROW_INFO_VERSION_7 7
 // Latest available version.
-#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_6
+#define READ_BATCH_ROW_INFO_VERSION READ_BATCH_ROW_INFO_VERSION_7
 
 //---------------------------------------------------------------------------------------------------------------------
 // Reading files

@@ -17,7 +17,8 @@ inline Version const kPod5VersionReadTableV3MigrationThreshold{0, 0, 38};
 inline Version const kPod5VersionReadTableV4{0, 3, 30};
 inline Version const kPod5VersionReadTableV5{0, 3, 44};
 inline Version const kPod5VersionReadTableV6{0, 3, 46};
+inline Version const kPod5VersionReadTableV7{0, 3, 48};
 
-inline Version const kPod5VersionReadTableLatest = kPod5VersionReadTableV6;
+inline Version const kPod5VersionReadTableLatest = kPod5VersionReadTableV7;
 
 }  // namespace pod5

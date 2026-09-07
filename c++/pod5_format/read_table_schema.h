@@ -57,13 +57,24 @@ public:
 
     static TableSpecVersion v6()
     {
-        // Addition of expected_open_pore_level and selected_read_level.
+        // Change "channel" field to 32-bit.
         return TableSpecVersion::at_version(6);
     }
 
-    static TableSpecVersion latest() { return v6(); }
+    static TableSpecVersion v7()
+    {
+        // Fix incompatibilities caused by last table read-table schema by
+        // changing "channel" field back to 16-bit and adding a 32-bit
+        // "channel_32bit" field.
+        return TableSpecVersion::at_version(7);
+    }
+
+    static TableSpecVersion latest() { return v7(); }
 };
 
+// There is a requirement that old tools can read new files by only accessing
+// the fields they know about. Don't remove or change the type of existing
+// fields.
 class ReadTableSchemaDescription : public SchemaDescriptionBase {
 public:
     ReadTableSchemaDescription();
@@ -93,8 +104,7 @@ public:
     Field<12, arrow::UInt64Array> num_samples;
 
     // V3 fields
-    Field<13, arrow::UInt16Array> channel_16bit;  // Before V6
-    Field<13, arrow::UInt32Array> channel_32bit;  // After V6
+    Field<13, arrow::UInt16Array> channel_16bit;
     Field<14, arrow::UInt8Array> well;
     Field<15, arrow::DictionaryArray> pore_type;
     Field<16, arrow::FloatArray> calibration_offset;
@@ -109,6 +119,13 @@ public:
     // V5 fields
     Field<22, arrow::FloatArray> expected_open_pore_level;
     Field<23, arrow::FloatArray> selected_read_level;
+
+    // V6 only field
+    // This replaced channel_16bit and caused incompatibilities. Note the write-index.
+    Field<13, arrow::UInt32Array> channel_mistake;
+
+    // V7 field
+    Field<24, arrow::UInt32Array> channel_32bit;
 
     // Field Builders only for fields we write in newly generated files.
     // Should not include fields which are removed in the latest version:
@@ -132,8 +149,8 @@ public:
         // V2 fields
         decltype(num_samples),
 
-        // V3 fields and the 32-bit channel name introduced in V6
-        decltype(channel_32bit),
+        // V3 fields
+        decltype(channel_16bit),
         decltype(well),
         decltype(pore_type),
         decltype(calibration_offset),
@@ -147,7 +164,10 @@ public:
 
         // V5 fields
         decltype(expected_open_pore_level),
-        decltype(selected_read_level)>;
+        decltype(selected_read_level),
+
+        // V7 fields
+        decltype(channel_32bit)>;
 };
 
 POD5_FORMAT_EXPORT Result<std::shared_ptr<ReadTableSchemaDescription const>> read_read_table_schema(

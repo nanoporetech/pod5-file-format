@@ -56,6 +56,14 @@ Result<std::size_t> ReadTableWriter::add_read(
     ARROW_RETURN_NOT_OK(reserve_rows());
 
     auto row_id = m_written_batched_row_count + m_current_batch_row_count;
+
+    // When writing channel numbers into a 16-bit field that can't hold them
+    // don't want to wrap/slice, etc as this could cause confusion with other
+    // samples so map to channel zero. Channels should be 1-biased and there
+    // shouldn't be a real channel zero.
+    auto const channel_16bit =
+        static_cast<uint16_t>(read_data.channel < 65536 ? read_data.channel : 0);
+
     ARROW_RETURN_NOT_OK(m_field_builders.append(
         // V0 Fields
         read_data.read_id,
@@ -77,7 +85,7 @@ Result<std::size_t> ReadTableWriter::add_read(
         signal_duration,
 
         // V3 Fields
-        read_data.channel,
+        channel_16bit,
         read_data.well,
         read_data.pore_type,
         read_data.calibration_offset,
@@ -91,7 +99,10 @@ Result<std::size_t> ReadTableWriter::add_read(
 
         // V5 Fields
         read_data.expected_open_pore_level,
-        read_data.selected_read_level));
+        read_data.selected_read_level,
+
+        // V7 Field
+        read_data.channel));
 
     ++m_current_batch_row_count;
 

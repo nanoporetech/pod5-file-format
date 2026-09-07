@@ -116,6 +116,35 @@ private:
     UnderlyingType m_version;
 };
 
+class TableSpecVersionRange {
+public:
+    TableSpecVersionRange(TableSpecVersion added)
+    : m_added{added}
+    , m_removed{TableSpecVersion::unknown_version()}
+    {
+    }
+
+    TableSpecVersionRange(TableSpecVersion added, TableSpecVersion removed)
+    : m_added{added}
+    , m_removed{removed}
+    {
+    }
+
+    TableSpecVersion const & added() const { return m_added; }
+
+    TableSpecVersion const & removed() const { return m_removed; }
+
+    bool in_range(TableSpecVersion version) const
+    {
+        return m_added <= version && version < m_removed;
+    }
+
+private:
+    // Range is [added, removed)
+    TableSpecVersion m_added;
+    TableSpecVersion m_removed;
+};
+
 class SchemaDescriptionBase {
 public:
     SchemaDescriptionBase(TableSpecVersion version) : m_table_spec_version(version) {}
@@ -169,8 +198,23 @@ public:
     : m_name(name)
     , m_datatype(datatype)
     , m_field_index(field_index)
-    , m_added_table_spec_version(added_table_spec_version)
-    , m_removed_table_spec_version(removed_table_spec_version)
+    , m_in_spec({TableSpecVersionRange{added_table_spec_version, removed_table_spec_version}})
+    , m_first_added_table_spec_version(added_table_spec_version)
+    {
+        owner->add_field(this);
+    }
+
+    FieldBase(
+        SchemaDescriptionBase * owner,
+        int field_index,
+        std::string name,
+        std::shared_ptr<arrow::DataType> const & datatype,
+        std::initializer_list<TableSpecVersionRange> version_ranges)
+    : m_name(name)
+    , m_datatype(datatype)
+    , m_field_index(field_index)
+    , m_in_spec(version_ranges)
+    , m_first_added_table_spec_version(first_added(m_in_spec))
     {
         owner->add_field(this);
     }
@@ -181,20 +225,42 @@ public:
 
     int field_index() const { return m_field_index; }
 
-    TableSpecVersion added_table_spec_version() const { return m_added_table_spec_version; }
+    // Return true if the Field is valid for the version passed
+    bool in_spec_version(TableSpecVersion version) const
+    {
+        return std::any_of(
+            m_in_spec.begin(),
+            m_in_spec.end(),
+            [version](TableSpecVersionRange const & range) -> bool {
+                return range.in_range(version);
+            });
+    }
 
-    TableSpecVersion removed_table_spec_version() const { return m_removed_table_spec_version; }
+    // When this field was first added to the schema.
+    TableSpecVersion first_added_table_spec_version() const
+    {
+        return m_first_added_table_spec_version;
+    }
 
     void set_field_index(int index) { m_field_index = index; }
 
     bool found_field() const { return m_field_index != (int)SpecialFieldValues::InvalidField; }
 
 private:
+    static TableSpecVersion first_added(std::vector<TableSpecVersionRange> const & version_ranges)
+    {
+        auto ret = TableSpecVersion::unknown_version();
+        for (auto const range : version_ranges) {
+            ret = std::min(ret, range.added());
+        }
+        return ret;
+    }
+
     std::string m_name;
     std::shared_ptr<arrow::DataType> m_datatype;
     int m_field_index = (int)SpecialFieldValues::InvalidField;
-    TableSpecVersion m_added_table_spec_version;
-    TableSpecVersion m_removed_table_spec_version;
+    std::vector<TableSpecVersionRange> m_in_spec;
+    TableSpecVersion m_first_added_table_spec_version;
 };
 
 template <int WriteIndex_, typename ArrayType_>
@@ -216,6 +282,15 @@ struct Field : public FieldBase {
           datatype,
           added_table_spec_version,
           removed_table_spec_version)
+    {
+    }
+
+    Field(
+        SchemaDescriptionBase * owner,
+        std::string name,
+        std::shared_ptr<arrow::DataType> const & datatype,
+        std::initializer_list<TableSpecVersionRange> version_ranges)
+    : FieldBase(owner, WriteIndex::value, name, datatype, version_ranges)
     {
     }
 };

@@ -172,10 +172,6 @@ TEST_CASE("NULL input doesn't crash")
         float const predicted_scaling_shift{};
         uint32_t const num_reads_since_mux_change{};
         float const time_since_mux_change{};
-        float const open_pore_level{};
-        float const expected_open_pore_level{};
-        float const selected_read_level{};
-
         ReadBatchRowInfoArrayV3 const row_data_v3{
             &read_id,
             &read_number,
@@ -196,7 +192,6 @@ TEST_CASE("NULL input doesn't crash")
             &predicted_scaling_shift,
             &num_reads_since_mux_change,
             &time_since_mux_change};
-
         int16_t const signal_data[]{1, 2, 3, 4, 5};
         uint32_t const signal_size = std::size(signal_data);
         auto * signal_data_ptr = signal_data;
@@ -209,6 +204,9 @@ TEST_CASE("NULL input doesn't crash")
             &signal_data_ptr,
             &signal_size));
 
+        float const open_pore_level{};
+        float const expected_open_pore_level{};
+        float const selected_read_level{};
         ReadBatchRowInfoArrayV4 const row_data_v4{
             &read_id,
             &read_number,
@@ -271,6 +269,70 @@ TEST_CASE("NULL input doesn't crash")
             &signal_data_ptr,
             &signal_size));
 
+        std::uint32_t channel_32{};
+        ReadBatchRowInfoArrayV6 const row_data_v6{
+            &read_id,
+            &read_number,
+            &start_sample,
+            &median_before,
+            &channel_32,
+            &well,
+            &pore_type_id,
+            &calibration_offset,
+            &calibration_scale,
+            &end_reason,
+            &end_reason_forced,
+            &run_info_id,
+            &num_minknow_events,
+            &tracked_scaling_scale,
+            &tracked_scaling_shift,
+            &predicted_scaling_scale,
+            &predicted_scaling_shift,
+            &num_reads_since_mux_change,
+            &time_since_mux_change,
+            &open_pore_level,
+            &expected_open_pore_level,
+            &selected_read_level};
+
+        REQUIRE_POD5_OK(pod5_add_reads_data(
+            writer,
+            1,
+            READ_BATCH_ROW_INFO_VERSION_6,
+            &row_data_v6,
+            &signal_data_ptr,
+            &signal_size));
+
+        ReadBatchRowInfoArrayV7 const row_data_v7{
+            &read_id,
+            &read_number,
+            &start_sample,
+            &median_before,
+            &channel_32,
+            &well,
+            &pore_type_id,
+            &calibration_offset,
+            &calibration_scale,
+            &end_reason,
+            &end_reason_forced,
+            &run_info_id,
+            &num_minknow_events,
+            &tracked_scaling_scale,
+            &tracked_scaling_shift,
+            &predicted_scaling_scale,
+            &predicted_scaling_shift,
+            &num_reads_since_mux_change,
+            &time_since_mux_change,
+            &open_pore_level,
+            &expected_open_pore_level,
+            &selected_read_level};
+
+        REQUIRE_POD5_OK(pod5_add_reads_data(
+            writer,
+            1,
+            READ_BATCH_ROW_INFO_VERSION_7,
+            &row_data_v7,
+            &signal_data_ptr,
+            &signal_size));
         REQUIRE_POD5_OK(pod5_close_and_free_writer(writer));
     }
 
@@ -311,6 +373,7 @@ TEST_CASE("NULL input doesn't crash")
 
         // The rest of these functions require a reader.
         Pod5FileReader_t * mutable_reader = pod5_open_file(temporary_filename);
+        INFO(pod5_get_error_string());
         REQUIRE(mutable_reader);
         auto close_reader =
             gsl::finally([&mutable_reader] { pod5_close_and_free_reader(mutable_reader); });

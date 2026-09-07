@@ -96,8 +96,9 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
     }
 
     // V3 fields:
-    if (physical_table_version >= ReadTableSpecVersion::v3()
-        && physical_table_version < ReadTableSpecVersion::v6())
+    if ((physical_table_version >= ReadTableSpecVersion::v3()
+         && physical_table_version < ReadTableSpecVersion::v6())
+        || physical_table_version >= ReadTableSpecVersion::v7())
     {
         result.channel_16bit = find_column(bat, m_field_locations->channel_16bit);
     }
@@ -131,7 +132,13 @@ Result<ReadTableRecordColumns> ReadTableRecordBatch::columns() const
         result.table_version = ReadTableSpecVersion::v5();
     }
 
-    if (physical_table_version >= ReadTableSpecVersion::v6()) {
+    if (physical_table_version >= ReadTableSpecVersion::v6()
+        && physical_table_version < ReadTableSpecVersion::v7())
+    {
+        result.channel_32bit = find_column(bat, m_field_locations->channel_mistake);
+    }
+
+    if (physical_table_version >= ReadTableSpecVersion::v7()) {
         result.channel_32bit = find_column(bat, m_field_locations->channel_32bit);
     }
 
