@@ -208,7 +208,7 @@ class TestPod5Reader:
         random_read.selected_read_level = selected_read_level
 
         # Create the file.
-        path = tmp_path / "physical_v6.pod5"
+        path = tmp_path / "physical_v7.pod5"
         with p5.Writer(path) as writer:
             writer.add_read(random_read)
 
@@ -261,7 +261,7 @@ class TestPod5Reader:
         if not hasattr(sparse_stats, "st_blocks"):
             pytest.skip("filesystem does not expose st_blocks")
 
-        allocated_bytes = sparse_stats.st_blocks * 512
+        allocated_bytes = getattr(sparse_stats, "st_blocks", 0) * 512
         missing_fraction = 1.0 - (allocated_bytes / sparse_stats.st_size)
         if missing_fraction < 0.8:
             pytest.skip("test file is not sparse enough on this filesystem")

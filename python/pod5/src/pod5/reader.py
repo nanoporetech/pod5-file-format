@@ -184,6 +184,7 @@ ReadRecordV7Columns = namedtuple(
         "open_pore_level",
         "expected_open_pore_level",
         "selected_read_level",
+        "channel_32bit",
     ],
 )
 
@@ -338,8 +339,14 @@ class ReadRecord:
         """
         Get the pore data associated with the read.
         """
+
+        # if the "channel_32bit" field isn't present, fall back to the legacy "channel" field.
+        channels = getattr(
+            self._batch.columns, "channel_32bit", self._batch.columns.channel
+        )
+
         return Pore(
-            self._batch.columns.channel[self._row].as_py(),
+            channels[self._row].as_py(),
             self._batch.columns.well[self._row].as_py(),
             self._batch.columns.pore_type[self._row].as_py(),
         )
@@ -632,6 +639,10 @@ class ReadRecordBatch:
         field_index = self._batch.schema.get_field_index(name)
         if field_index != -1:
             return self._batch.column(field_index)
+
+        # If channel_32bit isn't present then fall-back to the 16-bit "legacy" channel field.
+        if name == "channel_32bit":
+            return self._column_or_default("channel")
 
         if name in _VIRTUAL_FLOAT_FIELDS:
             return pa.repeat(_VIRTUAL_FLOAT_DEFAULT_VALUE, self.num_reads)
