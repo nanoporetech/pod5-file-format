@@ -34,9 +34,17 @@ class TestPod5Writer:
     def test_read_edit_write(self, reader: p5.Reader, writer: p5.Writer) -> None:
         """Read some records, edit the reads and write an edited read"""
 
+        # A list of expected channel values in the order that they should be seen when reading the reads
+        expected_channel = [109, 463, 489, 147, 126, 2, 474, 199, 53, 452]
+
+        # Add this number (that should be bigger than 65536) to the channel when editing it to test both 16-bit
+        # and 32-bit channel-numbers.
+        CHANNEL_MODIFICATION = 70000
+
         records = 0
         for record in reader:
             records += 1
+
             read = record.to_read()
 
             # Edit some attributes
@@ -44,6 +52,8 @@ class TestPod5Writer:
             read.end_reason = p5.EndReason.from_reason_with_default_forced(
                 p5.EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE
             )
+            assert read.pore.channel == expected_channel[records - 1]
+            read.pore.channel = read.pore.channel + CHANNEL_MODIFICATION
             # Edit the signal
             read.signal = np.arange(0, 100, dtype=np.int16)
 
@@ -63,11 +73,16 @@ class TestPod5Writer:
                     p5.EndReasonEnum.DATA_SERVICE_UNBLOCK_MUX_CHANGE
                 )
             )
+            assert (
+                edited_record.pore.channel
+                == expected_channel[edited - 1] + CHANNEL_MODIFICATION
+            )
             assert len(edited_record.signal) == 100
             assert min(edited_record.signal) == 0
             assert max(edited_record.signal) == 99
 
         assert edited == records
+        assert records == len(expected_channel)
 
     def test_read_copy(self, reader: p5.Reader, writer: p5.Writer) -> None:
         """Read some records, edit the reads and write an edited read"""
