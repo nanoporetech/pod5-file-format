@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Introduced a `--merge-duplicate-reads` argument for `pod5 merge`. Allows reads with identical `read_ids` and signal data to be merged as a single read.
+- Add missing lib_pod5 python function stubs
 
 ### Fixed
 
