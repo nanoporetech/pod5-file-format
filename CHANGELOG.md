@@ -7,7 +7,7 @@ All notable changes, updates, and fixes to pod5 will be documented here
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.48] (Unreleased)
+## [0.3.48]
 
 ### Added
 
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed incompatibilities where software using older versions of POD5 libraries couldn't read files with the read-table v6 schema.
-  Added the v7 schema changing the channel field in read-table to back to 16-bits and adding a "channel_32bit" field.
+  Added the v7 schema changing the channel field in read-table back to 16-bits and adding a "channel_32bit" field.
 
 ## [0.3.47]
 
