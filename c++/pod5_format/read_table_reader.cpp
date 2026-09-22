@@ -25,15 +25,27 @@ Result<std::shared_ptr<arrow::FloatArray>> make_nan_float_column(std::int64_t ro
         return arrow::Status::Invalid("Invalid number of rows");
     }
 
-    float const default_value = std::numeric_limits<float>::quiet_NaN();
-    utils::RepeatIter<float> iter_begin(0, default_value);
-    utils::RepeatIter<float> iter_end(row_count, default_value);
+    // Columns are almost always the same length, so use an LRU of size 1 to avoid rebuilding
+    // the array every time.
+    // This saves ~1.5s of startup time in the basecall client on a 35GB dataset.
+    static std::mutex mutex;
+    static std::shared_ptr<arrow::FloatArray> cached_array;
 
-    arrow::FloatBuilder builder;
-    ARROW_RETURN_NOT_OK(builder.AppendValues(iter_begin, iter_end));
+    std::lock_guard guard(mutex);
 
-    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-    return std::static_pointer_cast<arrow::FloatArray>(array);
+    if (!cached_array || row_count != cached_array->length()) {
+        float const default_value = std::numeric_limits<float>::quiet_NaN();
+        utils::RepeatIter<float> iter_begin(0, default_value);
+        utils::RepeatIter<float> iter_end(row_count, default_value);
+
+        arrow::FloatBuilder builder;
+        ARROW_RETURN_NOT_OK(builder.AppendValues(iter_begin, iter_end));
+
+        ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+        cached_array = std::static_pointer_cast<arrow::FloatArray>(array);
+    }
+
+    return cached_array;
 }
 
 }  // namespace
