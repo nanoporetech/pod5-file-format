@@ -3,6 +3,7 @@
 #include "pod5_format/read_table_utils.h"
 #include "pod5_format/schema_metadata.h"
 #include "pod5_format/schema_utils.h"
+#include "pod5_format/utils/repeat_iter.h"
 
 #include <arrow/array/array_binary.h>
 #include <arrow/array/array_dict.h>
@@ -24,11 +25,12 @@ Result<std::shared_ptr<arrow::FloatArray>> make_nan_float_column(std::int64_t ro
         return arrow::Status::Invalid("Invalid number of rows");
     }
 
+    float const default_value = std::numeric_limits<float>::quiet_NaN();
+    utils::RepeatIter<float> iter_begin(0, default_value);
+    utils::RepeatIter<float> iter_end(row_count, default_value);
+
     arrow::FloatBuilder builder;
-    ARROW_RETURN_NOT_OK(builder.Reserve(row_count));
-    for (std::int64_t row = 0; row < row_count; ++row) {
-        builder.UnsafeAppend(std::numeric_limits<float>::quiet_NaN());
-    }
+    ARROW_RETURN_NOT_OK(builder.AppendValues(iter_begin, iter_end));
 
     ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
     return std::static_pointer_cast<arrow::FloatArray>(array);
