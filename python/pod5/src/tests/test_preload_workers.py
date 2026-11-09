@@ -194,7 +194,8 @@ def test_preload_workers_legacy_subclass(
     calls = []
 
     class LegacyReader(p5.Reader):
-        def read_batches(
+        # Deliberately retain a pre-existing override without the new keyword.
+        def read_batches(  # type: ignore[override]
             self, selection=None, batch_selection=None, missing_ok=False, preload=None
         ):
             calls.append(preload)
@@ -206,8 +207,10 @@ def test_preload_workers_legacy_subclass(
             )
 
     with LegacyReader(path) as reader:
-        options = {"preload_workers": None} if explicit_none else {}
-        reads = list(reader.reads(preload=preload, **options))
+        if explicit_none:
+            reads = list(reader.reads(preload=preload, preload_workers=None))
+        else:
+            reads = list(reader.reads(preload=preload))
         assert calls == [preload]
         assert [str(read.read_id) for read in reads] == list(signals)
         for read in reads:
@@ -220,14 +223,29 @@ def test_preload_workers_subclass_forwarding(synthetic_preload_file, workers):
     calls = []
 
     class TrackingReader(p5.Reader):
-        def read_batches(self, **kwargs):
-            calls.append(kwargs)
-            return super().read_batches(**kwargs)
+        def read_batches(
+            self,
+            selection=None,
+            batch_selection=None,
+            missing_ok=False,
+            preload=None,
+            preload_workers=None,
+        ):
+            calls.append(
+                (selection, batch_selection, missing_ok, preload, preload_workers)
+            )
+            return super().read_batches(
+                selection=selection,
+                batch_selection=batch_selection,
+                missing_ok=missing_ok,
+                preload=preload,
+                preload_workers=preload_workers,
+            )
 
     with TrackingReader(path) as reader:
         # Without preloading this also exercises the public call on old native modules.
         reads = list(reader.reads(preload_workers=workers))
-        assert calls == [{"preload": None, "preload_workers": workers}]
+        assert calls == [(None, None, False, None, workers)]
         assert [str(read.read_id) for read in reads] == list(signals)
         for read in reads:
             np.testing.assert_array_equal(read.signal, signals[str(read.read_id)])
