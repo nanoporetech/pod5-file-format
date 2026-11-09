@@ -21,7 +21,7 @@ AsyncSignalLoader::AsyncSignalLoader(
 , m_worker_job_size(
       std::max<std::size_t>(
           MINIMUM_JOB_SIZE,
-          m_batch_rows.size() / (m_reads_batch_count * worker_count * 2)))
+          m_batch_rows.size() / m_reads_batch_count / worker_count / 2))
 , m_current_batch(0)
 , m_finished(false)
 , m_has_error(false)
@@ -37,12 +37,19 @@ AsyncSignalLoader::AsyncSignalLoader(
     }
 
     // Kick off workers on jobs:
-    for (std::size_t i = 0; i < worker_count; ++i) {
-        m_workers.emplace_back([&] { run_worker(); });
+    try {
+        for (std::size_t i = 0; i < worker_count; ++i) {
+            m_workers.emplace_back([&] { run_worker(); });
+        }
+    } catch (...) {
+        stop_workers();
+        throw;
     }
 }
 
-AsyncSignalLoader::~AsyncSignalLoader()
+AsyncSignalLoader::~AsyncSignalLoader() { stop_workers(); }
+
+void AsyncSignalLoader::stop_workers()
 {
     m_finished = true;
     // Wait for all workers to complete:

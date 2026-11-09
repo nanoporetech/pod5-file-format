@@ -28,6 +28,20 @@ with p5.Reader("example.pod5") as reader:
         print(read_record.read_id)
 ```
 
+When preloading signal data, set `preload_workers` to limit native worker threads:
+
+```python
+with p5.Reader("example.pod5") as reader:
+    for read_record in reader.reads(preload={"samples"}, preload_workers=2):
+        print(read_record.signal)
+```
+
+`Reader.read_batches()` accepts the same option, including selected batches or
+read IDs. The count must be a positive integer; `None` keeps the existing hardware
+concurrency default. This default may describe the whole compute node rather than
+a scheduler's CPU allocation. The option is only used when preloading columns.
+It controls this signal loader, not other POD5 or Arrow thread pools.
+
 To iterate over a selection of read_ids supply `Reader.reads()` with a collection
 of read_ids which must be `UUID` compatible:
 

@@ -122,17 +122,23 @@ class FileWriterOptions:
 class Pod5AsyncSignalLoader:
     def __init__(self, *args, **kwargs) -> None: ...
     def release_next_batch(self) -> Pod5SignalCacheBatch: ...
+    @property
+    def worker_count(self) -> int: ...
 
 class Pod5FileReader:
     def __init__(self, *args, **kwargs) -> None: ...
     def batch_get_signal(
-        self, get_samples: bool, get_sample_count: bool
+        self,
+        get_samples: bool,
+        get_sample_count: bool,
+        worker_count: Optional[int] = None,
     ) -> Pod5AsyncSignalLoader: ...
     def batch_get_signal_batches(
         self,
         get_samples: bool,
-        get_samples_count: bool,
+        get_sample_count: bool,
         batches: npt.NDArray[np.uint32],
+        worker_count: Optional[int] = None,
     ) -> Pod5AsyncSignalLoader: ...
     def batch_get_signal_selection(
         self,
@@ -140,6 +146,7 @@ class Pod5FileReader:
         get_sample_count: bool,
         batch_counts: npt.NDArray[np.uint32],
         batch_rows: npt.NDArray[np.uint32],
+        worker_count: Optional[int] = None,
     ) -> Pod5AsyncSignalLoader: ...
     def close(self) -> None: ...
     def get_file_read_table_location(self) -> EmbeddedFileData: ...

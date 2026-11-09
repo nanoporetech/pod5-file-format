@@ -102,7 +102,8 @@ PYBIND11_MODULE(pod5_format_pybind, m)
 
     py::class_<Pod5AsyncSignalLoader, std::shared_ptr<Pod5AsyncSignalLoader>>(
         m, "Pod5AsyncSignalLoader")
-        .def("release_next_batch", &Pod5AsyncSignalLoader::release_next_batch);
+        .def("release_next_batch", &Pod5AsyncSignalLoader::release_next_batch)
+        .def_property_readonly("worker_count", &Pod5AsyncSignalLoader::worker_count);
 
     py::class_<Pod5SignalCacheBatch, std::shared_ptr<Pod5SignalCacheBatch>>(
         m, "Pod5SignalCacheBatch")
@@ -122,9 +123,27 @@ PYBIND11_MODULE(pod5_format_pybind, m)
         .def("get_physical_read_table_version", &Pod5FileReaderPtr::get_physical_read_table_version)
         .def("get_logical_read_table_version", &Pod5FileReaderPtr::get_logical_read_table_version)
         .def("plan_traversal", &Pod5FileReaderPtr::plan_traversal)
-        .def("batch_get_signal", &Pod5FileReaderPtr::batch_get_signal)
-        .def("batch_get_signal_selection", &Pod5FileReaderPtr::batch_get_signal_selection)
-        .def("batch_get_signal_batches", &Pod5FileReaderPtr::batch_get_signal_batches)
+        .def(
+            "batch_get_signal",
+            &Pod5FileReaderPtr::batch_get_signal,
+            py::arg("get_samples"),
+            py::arg("get_sample_count"),
+            py::arg("worker_count") = py::none())
+        .def(
+            "batch_get_signal_selection",
+            &Pod5FileReaderPtr::batch_get_signal_selection,
+            py::arg("get_samples"),
+            py::arg("get_sample_count"),
+            py::arg("batch_counts"),
+            py::arg("batch_rows"),
+            py::arg("worker_count") = py::none())
+        .def(
+            "batch_get_signal_batches",
+            &Pod5FileReaderPtr::batch_get_signal_batches,
+            py::arg("get_samples"),
+            py::arg("get_sample_count"),
+            py::arg("batches"),
+            py::arg("worker_count") = py::none())
         .def("close", &Pod5FileReaderPtr::close);
 
     // Errors API
