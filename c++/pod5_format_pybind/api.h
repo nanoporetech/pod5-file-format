@@ -19,6 +19,32 @@
 
 namespace py = pybind11;
 
+inline std::size_t preload_worker_count(py::object const & value)
+{
+    if (value.is_none()) {
+        return pod5::AsyncSignalLoader::default_worker_count();
+    }
+    if (PyBool_Check(value.ptr()) || !PyIndex_Check(value.ptr())) {
+        throw py::type_error("worker_count must be an integer or None");
+    }
+    auto index = py::reinterpret_steal<py::object>(PyNumber_Index(value.ptr()));
+    if (!index) {
+        throw py::error_already_set();
+    }
+    auto const below_one = PyObject_RichCompareBool(index.ptr(), py::int_(1).ptr(), Py_LT);
+    if (below_one < 0) {
+        throw py::error_already_set();
+    }
+    if (below_one) {
+        throw py::value_error("worker_count must be at least 1");
+    }
+    auto const result = PyLong_AsSize_t(index.ptr());
+    if (PyErr_Occurred()) {
+        throw py::error_already_set();
+    }
+    return result;
+}
+
 inline std::shared_ptr<pod5::FileWriter> create_file(
     char const * path,
     std::string const & writer_name,
@@ -88,7 +114,7 @@ public:
     Pod5AsyncSignalLoader(
         std::shared_ptr<pod5::FileReader> const & reader,
         pod5::AsyncSignalLoader::SamplesMode samples_mode,
-        std::size_t worker_count = std::thread::hardware_concurrency(),
+        std::size_t worker_count = pod5::AsyncSignalLoader::default_worker_count(),
         std::size_t max_pending_batches = 10)
     : m_samples_mode(samples_mode)
     , m_batch_counts_ref({})
@@ -102,7 +128,7 @@ public:
         std::shared_ptr<pod5::FileReader> const & reader,
         pod5::AsyncSignalLoader::SamplesMode samples_mode,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batches,
-        std::size_t worker_count = std::thread::hardware_concurrency(),
+        std::size_t worker_count = pod5::AsyncSignalLoader::default_worker_count(),
         std::size_t max_pending_batches = 10)
     : m_samples_mode(samples_mode)
     , m_batch_sizes(make_batch_counts(reader, batches))
@@ -122,7 +148,7 @@ public:
         pod5::AsyncSignalLoader::SamplesMode samples_mode,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_rows,
-        std::size_t worker_count = std::thread::hardware_concurrency(),
+        std::size_t worker_count = pod5::AsyncSignalLoader::default_worker_count(),
         std::size_t max_pending_batches = 10)
     : m_samples_mode(samples_mode)
     , m_batch_counts_ref(std::move(batch_counts))
@@ -151,6 +177,8 @@ public:
 
         return std::make_shared<Pod5SignalCacheBatch>(m_samples_mode, std::move(**batch));
     }
+
+    std::size_t worker_count() const { return m_async_loader.worker_count(); }
 
     std::vector<std::uint32_t> make_batch_counts(
         std::shared_ptr<pod5::FileReader> const & reader,
@@ -234,38 +262,46 @@ struct Pod5FileReaderPtr {
         return find_success_count;
     }
 
-    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal(bool get_samples, bool get_sample_count)
-    {
-        return std::make_shared<Pod5AsyncSignalLoader>(
-            reader,
-            get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
-                        : pod5::AsyncSignalLoader::SamplesMode::NoSamples);
-    }
-
-    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal_batches(
+    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal(
         bool get_samples,
         bool get_sample_count,
-        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batches)
+        py::object const & worker_count = py::none())
     {
         return std::make_shared<Pod5AsyncSignalLoader>(
             reader,
             get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
                         : pod5::AsyncSignalLoader::SamplesMode::NoSamples,
-            std::move(batches));
+            preload_worker_count(worker_count));
+    }
+
+    std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal_batches(
+        bool get_samples,
+        bool get_sample_count,
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batches,
+        py::object const & worker_count = py::none())
+    {
+        return std::make_shared<Pod5AsyncSignalLoader>(
+            reader,
+            get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
+                        : pod5::AsyncSignalLoader::SamplesMode::NoSamples,
+            std::move(batches),
+            preload_worker_count(worker_count));
     }
 
     std::shared_ptr<Pod5AsyncSignalLoader> batch_get_signal_selection(
         bool get_samples,
         bool get_sample_count,
         py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_counts,
-        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_rows)
+        py::array_t<std::uint32_t, py::array::c_style | py::array::forcecast> && batch_rows,
+        py::object const & worker_count = py::none())
     {
         return std::make_shared<Pod5AsyncSignalLoader>(
             reader,
             get_samples ? pod5::AsyncSignalLoader::SamplesMode::Samples
                         : pod5::AsyncSignalLoader::SamplesMode::NoSamples,
             std::move(batch_counts),
-            std::move(batch_rows));
+            std::move(batch_rows),
+            preload_worker_count(worker_count));
     }
 };
 

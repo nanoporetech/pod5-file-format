@@ -8,6 +8,7 @@ from dataclasses import fields
 from deprecated import deprecated
 from io import BufferedReader, IOBase
 import os
+import operator
 from pathlib import Path
 from typing import (
     Collection,
@@ -41,6 +42,22 @@ from pod5.pod5_types import (
 
 from .api_utils import Pod5ApiException, format_read_ids, pack_read_ids, safe_close
 from .signal_tools import vbz_decompress_signal, vbz_decompress_signal_into
+
+
+def _validate_preload_workers(preload_workers: Optional[int]) -> Optional[int]:
+    if preload_workers is None:
+        return None
+    if isinstance(preload_workers, bool):
+        raise TypeError("preload_workers must be an integer or None")
+    try:
+        workers = operator.index(preload_workers)
+    except TypeError as exc:
+        raise TypeError("preload_workers must be an integer or None") from exc
+    if workers < 1:
+        raise ValueError("preload_workers must be at least 1")
+    if workers > np.iinfo(np.uintp).max:
+        raise OverflowError("preload_workers must fit in size_t")
+    return workers
 
 
 ReadRecordV3Columns = namedtuple(
@@ -1128,6 +1145,7 @@ class Reader:
         batch_selection: Optional[Iterable[int]] = None,
         missing_ok: bool = False,
         preload: Optional[Set[str]] = None,
+        preload_workers: Optional[int] = None,
     ) -> Generator[ReadRecordBatch, None, None]:
         """
         Iterate batches in the file, optionally selecting certain rows.
@@ -1142,29 +1160,42 @@ class Reader:
             If selection contains entries not found in the file, an error will be raised.
         preload : set[str]
             Columns to preload - "samples" and "sample_count" are valid values
+        preload_workers : int, optional
+            Positive number of native signal-preloading workers. The default uses
+            hardware concurrency, which may exceed a scheduler CPU allocation.
+            This option has no effect when no columns are preloaded.
 
         Returns
         -------
         Generator[ReadRecordBatch, None, None]
             A generator yielding `ReadRecordBatch`s
         """
+        preload_workers = _validate_preload_workers(preload_workers)
         if selection is not None:
             if batch_selection is not None:
                 raise ValueError("selection and batch_selection are mutually exclusive")
             yield from self._select_read_batches(
-                selection, missing_ok=missing_ok, preload=preload
+                selection,
+                missing_ok=missing_ok,
+                preload=preload,
+                preload_workers=preload_workers,
             )
         elif batch_selection is not None:
             assert not selection
-            yield from self._read_some_batches(batch_selection, preload=preload)
+            yield from self._read_some_batches(
+                batch_selection, preload=preload, preload_workers=preload_workers
+            )
         else:
-            yield from self._reads_batches(preload=preload)
+            yield from self._reads_batches(
+                preload=preload, preload_workers=preload_workers
+            )
 
     def reads(
         self,
         selection: Optional[Iterable[str]] = None,
         missing_ok: bool = False,
         preload: Optional[Set[str]] = None,
+        preload_workers: Optional[int] = None,
     ) -> Generator[ReadRecord, None, None]:
         """
         Iterate reads in the file, optionally filtering for certain read ids.
@@ -1177,24 +1208,38 @@ class Reader:
             If selection contains entries not found in the file, an error will be raised.
         preload : set[str]
             Columns to preload - "samples" and "sample_count" are valid values
+        preload_workers : int, optional
+            Positive number of native signal-preloading workers. The default uses
+            hardware concurrency, which may exceed a scheduler CPU allocation.
+            This option has no effect when no columns are preloaded.
 
         Returns
         -------
         Generator[ReadRecord, None, None]
             A generator yielding `ReadRecord`s
         """
+        preload_workers = _validate_preload_workers(preload_workers)
         if selection is None:
-            yield from self._reads(preload=preload)
+            yield from self._reads(preload=preload, preload_workers=preload_workers)
         else:
             yield from self._select_reads(
-                list(selection), missing_ok=missing_ok, preload=preload
+                list(selection),
+                missing_ok=missing_ok,
+                preload=preload,
+                preload_workers=preload_workers,
             )
 
     def _reads(
-        self, preload: Optional[Set[str]] = None
+        self, preload: Optional[Set[str]] = None, preload_workers: Optional[int] = None
     ) -> Generator[ReadRecord, None, None]:
         """Generate all reads"""
-        for batch in self.read_batches(preload=preload):
+        if preload_workers is None:
+            batches = self.read_batches(preload=preload)
+        else:
+            batches = self.read_batches(
+                preload=preload, preload_workers=preload_workers
+            )
+        for batch in batches:
             for read in batch.reads():
                 yield read
 
@@ -1203,22 +1248,29 @@ class Reader:
         selection: List[str],
         missing_ok: bool = False,
         preload: Optional[Set[str]] = None,
+        preload_workers: Optional[int] = None,
     ) -> Generator[ReadRecord, None, None]:
         """Generate selected reads"""
-        for batch in self._select_read_batches(selection, missing_ok, preload=preload):
+        for batch in self._select_read_batches(
+            selection, missing_ok, preload=preload, preload_workers=preload_workers
+        ):
             for read in batch.reads():
                 yield read
 
     def _reads_batches(
-        self, preload: Optional[Set[str]] = None
+        self, preload: Optional[Set[str]] = None, preload_workers: Optional[int] = None
     ) -> Generator[ReadRecordBatch, None, None]:
         """Generate the record batches"""
         signal_cache = None
         if preload:
-            signal_cache = self.inner_file_reader.batch_get_signal(
-                "samples" in preload,
-                "sample_count" in preload,
-            )
+            if preload_workers is None:
+                signal_cache = self.inner_file_reader.batch_get_signal(
+                    "samples" in preload, "sample_count" in preload
+                )
+            else:
+                signal_cache = self.inner_file_reader.batch_get_signal(
+                    "samples" in preload, "sample_count" in preload, preload_workers
+                )
 
         for idx in range(self.read_table.num_record_batches):
             batch = self.get_batch(idx)
@@ -1230,15 +1282,23 @@ class Reader:
         self,
         batch_selection: Iterable[int],
         preload: Optional[Set[str]] = None,
+        preload_workers: Optional[int] = None,
     ) -> Generator[ReadRecordBatch, None, None]:
         """Generate the selected record batches"""
         signal_cache = None
         if preload:
-            signal_cache = self.inner_file_reader.batch_get_signal_batches(
-                "samples" in preload,
-                "sample_count" in preload,
-                np.array(batch_selection, dtype=np.uint32),
-            )
+            batches = np.array(batch_selection, dtype=np.uint32)
+            if preload_workers is None:
+                signal_cache = self.inner_file_reader.batch_get_signal_batches(
+                    "samples" in preload, "sample_count" in preload, batches
+                )
+            else:
+                signal_cache = self.inner_file_reader.batch_get_signal_batches(
+                    "samples" in preload,
+                    "sample_count" in preload,
+                    batches,
+                    preload_workers,
+                )
 
         for i in batch_selection:
             batch = self.get_batch(i)
@@ -1251,6 +1311,7 @@ class Reader:
         selection: List[str],
         missing_ok: bool = False,
         preload: Optional[Set[str]] = None,
+        preload_workers: Optional[int] = None,
     ) -> Generator[ReadRecordBatch, None, None]:
         """Generate the selected record batches"""
         successful_finds, per_batch_counts, batch_rows = self._plan_traversal(
@@ -1264,12 +1325,21 @@ class Reader:
 
         signal_cache: Optional[p5b.Pod5AsyncSignalLoader] = None
         if preload:
-            signal_cache = self.inner_file_reader.batch_get_signal_selection(
-                "samples" in preload,
-                "sample_count" in preload,
-                per_batch_counts,
-                batch_rows,
-            )
+            if preload_workers is None:
+                signal_cache = self.inner_file_reader.batch_get_signal_selection(
+                    "samples" in preload,
+                    "sample_count" in preload,
+                    per_batch_counts,
+                    batch_rows,
+                )
+            else:
+                signal_cache = self.inner_file_reader.batch_get_signal_selection(
+                    "samples" in preload,
+                    "sample_count" in preload,
+                    per_batch_counts,
+                    batch_rows,
+                    preload_workers,
+                )
 
         current_offset = 0
         for batch_idx, batch_count in enumerate(per_batch_counts):

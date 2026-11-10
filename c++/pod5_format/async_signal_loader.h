@@ -119,12 +119,18 @@ public:
         Samples,
     };
 
+    static std::size_t default_worker_count()
+    {
+        auto const hint = std::thread::hardware_concurrency();
+        return hint ? hint : 1;
+    }
+
     AsyncSignalLoader(
         std::shared_ptr<pod5::FileReader> const & reader,
         SamplesMode samples_mode,
         gsl::span<std::uint32_t const> const & batch_counts,
         gsl::span<std::uint32_t const> const & batch_rows,
-        std::size_t worker_count = std::thread::hardware_concurrency(),
+        std::size_t worker_count = default_worker_count(),
         std::size_t max_pending_batches = 10);
 
     ~AsyncSignalLoader();
@@ -132,12 +138,18 @@ public:
     /// Find if all work is complete in the loader.
     bool is_finished() const { return m_finished; }
 
+    /// The number of worker threads created for this loader.
+    std::size_t worker_count() const { return m_workers.size(); }
+
     /// Get the next batch of loaded signal, always returns the consecutive next signal batch
     /// \note Returns nullptr when timeoout occurs, or if all data is exhausted.
     Result<std::unique_ptr<CachedBatchSignalData>> release_next_batch(
         std::optional<std::chrono::steady_clock::time_point> timeout = std::nullopt);
 
 private:
+    /// Stop and join workers, including after a partially completed startup.
+    void stop_workers();
+
     /// Set an error code that will stop all async loading and return an error to the caller.
     void set_error(pod5::Status status);
     pod5::Status error() const;
